@@ -1,31 +1,39 @@
-require "easy_ml/support/utc"
 module EasyML::Data::Dataset::Splitters
   class DateSplitter
     include GlueGun::DSL
 
-    attribute :today, :date, default: -> { UTC.now.to_date }
+    attribute :today, :datetime
     def today=(value)
-      super(value.in_time_zone(UTC))
+      super(value.in_time_zone(UTC).to_datetime)
     end
     attribute :date_col, :string
     attribute :months_test, :integer, default: 2
     attribute :months_valid, :integer, default: 2
 
+    def initialize(options)
+      options[:today] ||= UTC.now
+      super(options)
+    end
+
     def split(df)
-      test_date_start, validation_date_start = splits
+      validation_date_start, test_date_start = splits
 
-      valid_df = df.filter(Polars.col(date_col) >= validation_date_start)
-      remaining_df = df.filter(Polars.col(date_col) < validation_date_start)
-      test_df = remaining_df.filter(Polars.col(date_col) >= test_date_start)
-      train_df = remaining_df.filter(Polars.col(date_col) < test_date_start)
+      test_df = df.filter(Polars.col(date_col) >= test_date_start)
+      remaining_df = df.filter(Polars.col(date_col) < test_date_start)
+      valid_df = remaining_df.filter(Polars.col(date_col) >= validation_date_start)
+      train_df = remaining_df.filter(Polars.col(date_col) < validation_date_start)
 
-      [train_df, test_df, valid_df]
+      [train_df, valid_df, test_df]
+    end
+
+    def months(n)
+      ActiveSupport::Duration.months(n)
     end
 
     def splits
-      validation_date_start = (today - months_valid.months).beginning_of_day
-      test_date_start = (today - (months_test + months_valid).months).beginning_of_day
-      [test_date_start, validation_date_start]
+      test_date_start = today.advance(months: -months_test).beginning_of_day
+      validation_date_start = today.advance(months: -(months_test + months_valid)).beginning_of_day
+      [validation_date_start, test_date_start]
     end
   end
 end

@@ -16,6 +16,9 @@ module EasyML::Data
 
       attribute :s3_prefix, :string
       validates :s3_prefix, presence: true
+      def s3_prefix=(arg)
+        super(arg.to_s.gsub(%r{^/|/$}, ""))
+      end
 
       attribute :s3_access_key_id, :string
       validates :s3_access_key_id, presence: true

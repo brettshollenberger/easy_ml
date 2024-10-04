@@ -1,9 +1,7 @@
-require "easy_ml/hyperparameters"
-
 module EasyML
   module Models
     module Hyperparameters
-      class XGBoost < EasyML::Hyperparameters
+      class XGBoost < Base
         include GlueGun::DSL
 
         attribute :learning_rate, :float, default: 0.1

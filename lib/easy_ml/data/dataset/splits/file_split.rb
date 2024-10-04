@@ -82,9 +82,8 @@ module EasyML
           end
 
           def cleanup
-            binding.pry
-            # FileUtils.rm_rf(dir)
-            # FileUtils.mkdir_p(dir)
+            FileUtils.rm_rf(dir)
+            FileUtils.mkdir_p(dir)
           end
 
           def split_at

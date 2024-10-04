@@ -1,7 +1,5 @@
 require "spec_helper"
 
-PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
-
 RSpec.describe EasyML::Data::Dataset do
   let(:synced_directory) do
     EasyML::Support::SyncedDirectory
@@ -24,6 +22,25 @@ RSpec.describe EasyML::Data::Dataset do
     end
 
     let(:dataset) do
+      EasyML::Data::Dataset.new(
+        target: "rev",
+        datasource: df,
+        preprocessing_steps: {
+          training: {
+            annual_revenue: {
+              median: true
+            }
+          }
+        },
+        splitter: {
+          date: {
+            today: EST.parse("2024-10-01"),
+            date_col: "created_date",
+            months_test: 2,
+            months_valid: 2
+          }
+        }
+      )
       EasyML::Data::Dataset.new(
         target: "rev",
         datasource: df,
@@ -66,8 +83,8 @@ RSpec.describe EasyML::Data::Dataset do
   end
 
   describe "File Datasource" do
-    let(:root_dir) { PROJECT_ROOT.join("spec/lib/ml/data/dataset/files/raw") }
-    let(:raw_files) { %w[1 2 3].map { |n| PROJECT_ROOT.join(root_dir, "dataset/files/raw/#{n}.csv") }.map(&:to_s) }
+    let(:root_dir) { Pathname.new(__dir__).join("dataset") }
+    let(:raw_files) { %w[1 2 3].map { |n| root_dir.join("dataset/files/raw/#{n}.csv") }.map(&:to_s) }
     let(:today) { EST.parse("2024-07-01") }
 
     let(:polars_args) do
@@ -77,7 +94,7 @@ RSpec.describe EasyML::Data::Dataset do
           'business_name': "str",
           'annual_revenue': "f64",
           'rev': "f64",
-          'date': "datetime"
+          'created_date': "datetime"
         }
       }
     end
@@ -97,7 +114,7 @@ RSpec.describe EasyML::Data::Dataset do
         splitter: {
           date: {
             today: today,
-            date_col: "date",
+            date_col: "created_date",
             months_test: 2,
             months_valid: 2
           }
@@ -106,22 +123,29 @@ RSpec.describe EasyML::Data::Dataset do
     end
 
     describe "#initialize" do
-      it "sets up the dataset with correct attributes", :focus do
+      it "sets up the dataset with correct attributes" do
+        Polars::DataFrame.new({
+                                id: [1, 2, 3, 4, 5, 6, 7, 8],
+                                rev: [0, 0, 100, 200, 0, 300, 400, 500],
+                                annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
+                                created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
+                                                 2024-08-01 2024-09-01]
+                              })
         dataset.cleanup
         dataset.refresh!
         x_train, = dataset.train(split_ys: true)
-        x_test, = dataset.test(split_ys: true)
         x_valid, = dataset.valid(split_ys: true)
+        x_test, = dataset.test(split_ys: true)
 
-        expect(x_train.count).to eq 7
-        expect(x_test.count).to eq 1
+        expect(x_train.count).to eq 4
         expect(x_valid.count).to eq 2
+        expect(x_test.count).to eq 2
 
         expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::FileSplit)
         expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::FileSplit)
 
         # Median applied
-        expect(x_valid["annual_revenue"].to_a).to all(eq(4_000))
+        expect(x_test["annual_revenue"].to_a).to all(eq(2_700))
         dataset.cleanup
       end
     end

@@ -3,7 +3,7 @@ PATH
   specs:
     easy_ml (0.1.0)
       activesupport
-      glue_gun_dsl
+      glue_gun_dsl (~> 0.1.8)
       numo-narray
       polars-df
       xgb
@@ -43,7 +43,7 @@ GEM
     ffi (1.17.0-x86_64-linux-gnu)
     ffi (1.17.0-x86_64-linux-musl)
     formatador (1.1.0)
-    glue_gun_dsl (0.1.7)
+    glue_gun_dsl (0.1.8)
       activemodel (>= 6, < 8)
       activesupport (>= 6, < 8)
     guard (2.18.1)

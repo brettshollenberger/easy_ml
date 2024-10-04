@@ -1,5 +1,3 @@
-require "easy_ml/models/hyperparameters"
-require "easy_ml/model"
 module EasyML
   module Models
     class XGBoost < EasyML::Model

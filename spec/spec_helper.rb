@@ -7,6 +7,9 @@ require "polars-df"
 require "active_support"
 require "pry"
 
+PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
+SPEC_ROOT = PROJECT_ROOT.join("spec")
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"

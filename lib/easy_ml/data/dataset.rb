@@ -1,10 +1,10 @@
 require "polars"
-require "easy_ml/support/age"
-require "easy_ml/support/git_ignorable"
-require "core_ext/pathname"
-require "easy_ml/data/datasource"
-require "easy_ml/data/dataset/splitters"
-require "easy_ml/data/dataset/splits"
+# require "easy_ml/support/age"
+# require "easy_ml/support/git_ignorable"
+# require "core_ext/pathname"
+require_relative "datasource"
+require_relative "dataset/splitters"
+require_relative "dataset/splits"
 
 # Dataset is responsible for:
 #
@@ -58,7 +58,7 @@ module EasyML
       attribute :root_dir, :string
       validates :root_dir, presence: true
       def root_dir=(value)
-        super(Pathname.new(value).append("dataset/files"))
+        super(Pathname.new(value).append("data"))
       end
 
       attribute :sample, :float, default: 1.0
@@ -100,16 +100,12 @@ module EasyML
         dependency.option :s3 do |option|
           option.default
           option.set_class EasyML::Data::Datasource::S3Datasource
-          option.attribute :root_dir
-          # do |root_dir|
-          #   File.join(root_dir, "files")
-          # end
+          option.attribute :root_dir do |value|
+            Pathname.new(value).append("files")
+          end
           option.attribute :polars_args, default: {}
           option.attribute :s3_bucket, required: true
           option.attribute :s3_prefix
-          # do |arg|
-          #   arg.to_s.gsub(%r{^/|/$}, "")
-          # end
           option.attribute :s3_access_key_id, required: true
           option.attribute :s3_secret_access_key, required: true
         end
@@ -179,10 +175,9 @@ module EasyML
       attribute :preprocessing_steps, :hash, default: {}
       dependency :preprocessor do |dependency|
         dependency.set_class EasyML::Data::Preprocessor
-        dependency.attribute :directory, source: :root_dir
-        # do |root_dir|
-        #   File.join(root_dir, "preprocessing_steps")
-        # end
+        dependency.attribute :directory, source: :root_dir do |value|
+          Pathname.new(value).append("preprocessor")
+        end
         dependency.attribute :preprocessing_steps
       end
 
@@ -194,10 +189,9 @@ module EasyML
         dependency.option :file do |option|
           option.default
           option.set_class EasyML::Data::Dataset::Splits::FileSplit
-          option.attribute :dir, source: :root_dir
-          # do |root_dir|
-          #   File.join(root_dir, "files/splits/raw")
-          # end
+          option.attribute :dir, source: :root_dir do |value|
+            Pathname.new(value).append("files/splits/raw")
+          end
           option.attribute :polars_args
           option.attribute :max_rows_per_file, source: :batch_size
           option.attribute :batch_size
@@ -223,10 +217,9 @@ module EasyML
         dependency.option :file do |option|
           option.default
           option.set_class EasyML::Data::Dataset::Splits::FileSplit
-          option.attribute :dir, source: :root_dir
-          # do |root_dir|
-          #   File.join(root_dir, "files/splits/processed")
-          # end
+          option.attribute :dir, source: :root_dir do |value|
+            Pathname.new(value).append("files/splits/processed")
+          end
           option.attribute :polars_args
           option.attribute :max_rows_per_file, source: :batch_size
           option.attribute :batch_size
@@ -273,12 +266,12 @@ module EasyML
         load_data(:train, split_ys: split_ys, all_columns: all_columns, &block)
       end
 
-      def test(split_ys: false, all_columns: false, &block)
-        load_data(:test, split_ys: split_ys, all_columns: all_columns, &block)
-      end
-
       def valid(split_ys: false, all_columns: false, &block)
         load_data(:valid, split_ys: split_ys, all_columns: all_columns, &block)
+      end
+
+      def test(split_ys: false, all_columns: false, &block)
+        load_data(:test, split_ys: split_ys, all_columns: all_columns, &block)
       end
 
       def cleanup
@@ -381,10 +374,10 @@ module EasyML
 
         cleanup
         datasource.in_batches do |df|
-          train_df, test_df, valid_df = splitter.split(df)
+          train_df, valid_df, test_df = splitter.split(df)
           raw.save(:train, train_df)
-          raw.save(:test, test_df)
           raw.save(:valid, valid_df)
+          raw.save(:test, test_df)
         end
 
         # Update the persisted sample size after splitting

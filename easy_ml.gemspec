@@ -34,7 +34,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_dependency "activesupport"
-  spec.add_dependency "glue_gun_dsl", "~> 0.1.8"
+  spec.add_dependency "glue_gun_dsl", "~> 0.1.9"
   spec.add_dependency "numo-narray"
   spec.add_dependency "polars-df"
   spec.add_dependency "xgb"

@@ -7,9 +7,6 @@ module EasyML::Data
       attribute :polars_args, :hash, default: {}
 
       validates :root_dir, presence: true
-      def root_dir=(dir)
-        super(Pathname.new(dir).append("files/raw"))
-      end
 
       def in_batches(of: 10_000)
         files.each do |file|

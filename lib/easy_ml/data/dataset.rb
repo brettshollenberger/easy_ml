@@ -58,7 +58,7 @@ module EasyML
       attribute :root_dir, :string
       validates :root_dir, presence: true
       def root_dir=(value)
-        super(Pathname.new(value).append("data"))
+        super(Pathname.new(value).append("data").to_s)
       end
 
       attribute :sample, :float, default: 1.0
@@ -112,7 +112,9 @@ module EasyML
 
         dependency.option :file do |option|
           option.set_class EasyML::Data::Datasource::FileDatasource
-          option.attribute :root_dir
+          option.attribute :root_dir do |value|
+            Pathname.new(value).append("files/raw")
+          end
           option.attribute :polars_args
         end
 

@@ -102,7 +102,7 @@ RSpec.describe EasyML::Data::Dataset do
     let(:dataset) do
       EasyML::Data::Dataset.new(
         target: "rev",
-        datasource: root_dir,
+        datasource: root_dir.join("data"),
         polars_args: polars_args,
         preprocessing_steps: {
           training: {
@@ -172,7 +172,7 @@ RSpec.describe EasyML::Data::Dataset do
       end
 
       let(:s3_bucket) { "test-bucket" }
-      let(:root_dir) { PROJECT_ROOT.join("spec/lib/ml/data") }
+      let(:root_dir) { Pathname.new(__dir__).join("dataset") }
       let(:raw_files) { %w[1 2 3].map { |n| PROJECT_ROOT.join(root_dir, "dataset/files/raw/#{n}.csv") }.map(&:to_s) }
       let(:s3_prefix) { "raw" }
       let(:polars_args) do
@@ -259,7 +259,7 @@ RSpec.describe EasyML::Data::Dataset do
         it "sets up the dataset with correct attributes" do
           expect(dataset.datasource).to be_a(EasyML::Data::Datasource::S3Datasource)
           expect(dataset.target).to eq(target)
-          expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::Splits::DateSplitter)
+          expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
           expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::Split)
           expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::Split)
         end
@@ -267,7 +267,7 @@ RSpec.describe EasyML::Data::Dataset do
 
       describe "Splitting raw data into files" do
         describe "#refresh!" do
-          it "splits the data into train, test, and valid chunks" do
+          it "splits the data into train, valid, and test chunks" do
             expect(dataset).to receive(:split_data).and_call_original
             dataset.refresh!
             expect(dataset.datasource.files).to eq(raw_files)
@@ -285,8 +285,8 @@ RSpec.describe EasyML::Data::Dataset do
             dataset.refresh!
 
             train_df = dataset.train
-            test_df = dataset.test
             valid_df = dataset.valid
+            test_df = dataset.test
 
             expect(train_df.shape[0]).to eq 7 # 7 rows
             expect(test_df.shape[0]).to eq 1 # 1 row

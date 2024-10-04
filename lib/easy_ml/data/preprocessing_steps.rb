@@ -12,14 +12,14 @@ require_relative "preprocessing_steps/utils"
 #
 module EasyML::Data
   class PreprocessingSteps
+    include GlueGun::DSL
     include EasyML::Data::PreprocessingSteps::Utils
 
-    attr_accessor :directory, :preprocessing_steps, :verbose
-
-    def initialize(directory: nil, preprocessing_steps: {}, verbose: false)
-      @directory = directory
-      @preprocessing_steps = standardize_config(preprocessing_steps).with_indifferent_access
-      @verbose = verbose
+    attribute :directory, :string
+    attribute :verbose, :boolean, default: false
+    attribute :preprocessing_steps, :hash, default: {}
+    def preprocessing_steps=(_value)
+      super(standardize_config(preprocessing_steps).with_indifferent_access)
     end
 
     def fit(df)

@@ -1,13 +1,15 @@
+require "easy_ml/support/utc"
 module EasyML::Data::Dataset::Splitters
   class DateSplitter
-    attr_reader :today, :date_col, :months_test, :months_valid
+    include GlueGun::DSL
 
-    def initialize(today: UTC.now.to_date, date_col: nil, months_test: 2, months_valid: 2)
-      @today = today.in_time_zone(UTC)
-      @date_col = date_col
-      @months_test = months_test
-      @months_valid = months_valid
+    attribute :today, :date, default: -> { UTC.now.to_date }
+    def today=(value)
+      super(value.in_time_zone(UTC))
     end
+    attribute :date_col, :string
+    attribute :months_test, :integer, default: 2
+    attribute :months_valid, :integer, default: 2
 
     def split(df)
       test_date_start, validation_date_start = splits

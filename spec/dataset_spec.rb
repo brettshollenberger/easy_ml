@@ -1,6 +1,8 @@
 require "spec_helper"
 
-RSpec.describe ML::Data::Dataset do
+PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
+
+RSpec.describe EasyML::Data::Dataset do
   describe "Polars Dataset" do
     let(:df) do
       df = Polars::DataFrame.new({
@@ -18,7 +20,7 @@ RSpec.describe ML::Data::Dataset do
     end
 
     let(:dataset) do
-      ML::Data::Dataset.new(
+      EasyML::Data::Dataset.new(
         target: "rev",
         datasource: df,
         preprocessing_steps: {
@@ -50,8 +52,8 @@ RSpec.describe ML::Data::Dataset do
         expect(x_test.count).to eq 2
         expect(x_valid.count).to eq 2
 
-        expect(dataset.raw).to be_a(ML::Data::Dataset::InMemorySplit)
-        expect(dataset.processed).to be_a(ML::Data::Dataset::InMemorySplit)
+        expect(dataset.raw).to be_a(EasyML::Data::Dataset::InMemorySplit)
+        expect(dataset.processed).to be_a(EasyML::Data::Dataset::InMemorySplit)
 
         # Median applied
         expect(x_valid["annual_revenue"].to_a).to all(eq(2_700))
@@ -60,8 +62,8 @@ RSpec.describe ML::Data::Dataset do
   end
 
   describe "File Datasource" do
-    let(:root_dir) { Rails.root.join("spec/lib/ml/data/dataset/files/raw") }
-    let(:raw_files) { %w[1 2 3].map { |n| Rails.root.join(root_dir, "dataset/files/raw/#{n}.csv") }.map(&:to_s) }
+    let(:root_dir) { PROJECT_ROOT.join("spec/lib/ml/data/dataset/files/raw") }
+    let(:raw_files) { %w[1 2 3].map { |n| PROJECT_ROOT.join(root_dir, "dataset/files/raw/#{n}.csv") }.map(&:to_s) }
     let(:today) { EST.parse("2024-07-01") }
 
     let(:polars_args) do
@@ -77,7 +79,7 @@ RSpec.describe ML::Data::Dataset do
     end
 
     let(:dataset) do
-      ML::Data::Dataset.new(
+      EasyML::Data::Dataset.new(
         target: "rev",
         datasource: root_dir,
         polars_args: polars_args,
@@ -111,8 +113,8 @@ RSpec.describe ML::Data::Dataset do
         expect(x_test.count).to eq 1
         expect(x_valid.count).to eq 2
 
-        expect(dataset.raw).to be_a(ML::Data::Dataset::FileSplit)
-        expect(dataset.processed).to be_a(ML::Data::Dataset::FileSplit)
+        expect(dataset.raw).to be_a(EasyML::Data::Dataset::FileSplit)
+        expect(dataset.processed).to be_a(EasyML::Data::Dataset::FileSplit)
 
         # Median applied
         expect(x_valid["annual_revenue"].to_a).to all(eq(4_000))
@@ -123,7 +125,7 @@ RSpec.describe ML::Data::Dataset do
 
   describe "S3 Dataset" do
     let(:dataset) do
-      ML::Data::Dataset.new(**config)
+      EasyML::Data::Dataset.new(**config)
     end
 
     def prepare_test(dataset)
@@ -133,17 +135,17 @@ RSpec.describe ML::Data::Dataset do
       allow_any_instance_of(SyncedDirectory).to receive(:sync).and_return(true)
       allow_any_instance_of(SyncedDirectory).to receive(:clean_dir!).and_return(true)
       allow_any_instance_of(s3_datasource).to receive(:refresh!).and_return(true)
-      allow_any_instance_of(ML::Data::Dataset).to receive(:should_split?).and_return(true)
+      allow_any_instance_of(EasyML::Data::Dataset).to receive(:should_split?).and_return(true)
     end
 
     describe "When passing in args" do
       let(:s3_datasource) do
-        ML::Data::Datasource::S3Datasource
+        EasyML::Data::Datasource::S3Datasource
       end
 
       let(:s3_bucket) { "test-bucket" }
-      let(:root_dir) { Rails.root.join("spec/lib/ml/data") }
-      let(:raw_files) { %w[1 2 3].map { |n| Rails.root.join(root_dir, "dataset/files/raw/#{n}.csv") }.map(&:to_s) }
+      let(:root_dir) { PROJECT_ROOT.join("spec/lib/ml/data") }
+      let(:raw_files) { %w[1 2 3].map { |n| PROJECT_ROOT.join(root_dir, "dataset/files/raw/#{n}.csv") }.map(&:to_s) }
       let(:s3_prefix) { "raw" }
       let(:polars_args) do
         {
@@ -175,9 +177,11 @@ RSpec.describe ML::Data::Dataset do
       let(:today) { EST.parse("2024-07-01") }
 
       class Transforms
-        include ML::Transforms
+        include EasyML::Transforms
 
-        include Bart::Dataset::Transforms::State
+        def transform_state(df)
+          binding.pry
+        end
         transform :transform_state
       end
 
@@ -225,11 +229,11 @@ RSpec.describe ML::Data::Dataset do
 
       describe "#initialize" do
         it "sets up the dataset with correct attributes", :focus do
-          expect(dataset.datasource).to be_a(ML::Data::Datasource::S3Datasource)
+          expect(dataset.datasource).to be_a(EasyML::Data::Datasource::S3Datasource)
           expect(dataset.target).to eq(target)
-          expect(dataset.splitter).to be_a(ML::Data::Dataset::Splitters::DateSplitter)
-          expect(dataset.raw).to be_a(ML::Data::Dataset::Split)
-          expect(dataset.processed).to be_a(ML::Data::Dataset::Split)
+          expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
+          expect(dataset.raw).to be_a(EasyML::Data::Dataset::Split)
+          expect(dataset.processed).to be_a(EasyML::Data::Dataset::Split)
         end
       end
 
@@ -431,7 +435,7 @@ RSpec.describe ML::Data::Dataset do
       describe "private methods" do
         describe "#should_split?" do
           before do
-            allow_any_instance_of(ML::Data::Dataset).to receive(:should_split?).and_call_original
+            allow_any_instance_of(EasyML::Data::Dataset).to receive(:should_split?).and_call_original
           end
 
           context "when split is outdated" do
@@ -523,10 +527,10 @@ RSpec.describe ML::Data::Dataset do
     # describe "When configuring subclass" do
     #   it "configures via class" do
     #     dataset = Bart::Dataset.new
-    #     expect(dataset.datasource).to be_a(ML::Data::Datasource::S3Datasource)
+    #     expect(dataset.datasource).to be_a(EasyML::Data::Datasource::S3Datasource)
     #     expect(dataset.target).to eq("REV")
-    #     expect(dataset.splitter).to be_a(ML::Data::Dataset::Splitters::DateSplitter)
-    #     expect(dataset.raw).to be_a(ML::Data::Dataset::Split)
+    #     expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
+    #     expect(dataset.raw).to be_a(EasyML::Data::Dataset::Split)
     #   end
     # end
   end

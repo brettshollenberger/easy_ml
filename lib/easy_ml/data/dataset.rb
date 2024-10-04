@@ -1,7 +1,10 @@
 require "polars"
 require "easy_ml/support/age"
 require "easy_ml/support/git_ignorable"
+require "core_ext/pathname"
 require "easy_ml/data/datasource"
+require "easy_ml/data/dataset/splitters"
+require "easy_ml/data/dataset/splits"
 
 # Dataset is responsible for:
 #
@@ -111,13 +114,13 @@ module EasyML
           option.attribute :s3_secret_access_key, required: true
         end
 
-        dependency.define_option :file do |option|
+        dependency.option :file do |option|
           option.set_class EasyML::Data::Datasource::FileDatasource
           option.attribute :root_dir
           option.attribute :polars_args
         end
 
-        dependency.define_option :polars do |option|
+        dependency.option :polars do |option|
           option.set_class EasyML::Data::Datasource::PolarsDatasource
           option.attribute :df
         end
@@ -144,14 +147,14 @@ module EasyML
       # 4. Group-based splitter (similar to GroupKFold from sklearn)
       # 5. Sliding window splitter (similar to TimeSeriesSplit with a sliding window)
       #
-      define_dependency :splitter do |dependency|
-        dependency.define_option :date do |option|
+      dependency :splitter do |dependency|
+        dependency.option :date do |option|
           option.default
           option.set_class EasyML::Data::Dataset::Splitters::DateSplitter
-          option.define_attr :today, required: true
-          option.define_attr :date_col, required: true
-          option.define_attr :months_test, required: true
-          option.define_attr :months_valid, required: true
+          option.attribute :today, required: true
+          option.attribute :date_col, required: true
+          option.attribute :months_test, required: true
+          option.attribute :months_valid, required: true
         end
       end
 
@@ -173,36 +176,38 @@ module EasyML
       #   }
       # end
       #
-      define_attr :preprocessing_steps, default: {}
-      define_dependency :preprocessor do |dependency|
+      attribute :preprocessing_steps, :hash, default: {}
+      dependency :preprocessor do |dependency|
         dependency.set_class EasyML::Data::PreprocessingSteps
-        dependency.define_attr :directory, source: :root_dir do |root_dir|
-          File.join(root_dir, "preprocessing_steps")
-        end
-        dependency.define_attr :preprocessing_steps
+        dependency.attribute :directory, source: :root_dir
+        # do |root_dir|
+        #   File.join(root_dir, "preprocessing_steps")
+        # end
+        dependency.attribute :preprocessing_steps
       end
 
       # Here we define the raw dataset (uses the Split class)
       # We use this to learn dataset statistics (e.g. median annual revenue)
       # But we NEVER overwrite it
       #
-      define_dependency :raw do |dependency|
-        dependency.define_option :file do |option|
+      dependency :raw do |dependency|
+        dependency.option :file do |option|
           option.default
-          option.set_class EasyML::Data::Dataset::FileSplit
-          option.define_attr :dir, source: :root_dir do |root_dir|
-            File.join(root_dir, "files/splits/raw")
-          end
-          option.define_attr :polars_args
-          option.define_attr :max_rows_per_file, source: :batch_size
-          option.define_attr :batch_size
-          option.define_attr :sample
-          option.define_attr :verbose
+          option.set_class EasyML::Data::Dataset::Splits::FileSplit
+          option.attribute :dir, source: :root_dir
+          # do |root_dir|
+          #   File.join(root_dir, "files/splits/raw")
+          # end
+          option.attribute :polars_args
+          option.attribute :max_rows_per_file, source: :batch_size
+          option.attribute :batch_size
+          option.attribute :sample
+          option.attribute :verbose
         end
 
-        dependency.define_option :memory do |option|
-          option.set_class EasyML::Data::Dataset::InMemorySplit
-          option.define_attr :sample
+        dependency.option :memory do |option|
+          option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
+          option.attribute :sample
         end
 
         dependency.when do |_dep|
@@ -214,23 +219,24 @@ module EasyML
       # After we learn the dataset statistics, we fill null values
       # using the learned statistics (e.g. fill annual_revenue with median annual_revenue)
       #
-      define_dependency :processed do |dependency|
-        dependency.define_option :file do |option|
+      dependency :processed do |dependency|
+        dependency.option :file do |option|
           option.default
-          option.set_class EasyML::Data::Dataset::FileSplit
-          option.define_attr :dir, source: :root_dir do |root_dir|
-            File.join(root_dir, "files/splits/processed")
-          end
-          option.define_attr :polars_args
-          option.define_attr :max_rows_per_file, source: :batch_size
-          option.define_attr :batch_size
-          option.define_attr :sample
-          option.define_attr :verbose
+          option.set_class EasyML::Data::Dataset::Splits::FileSplit
+          option.attribute :dir, source: :root_dir
+          # do |root_dir|
+          #   File.join(root_dir, "files/splits/processed")
+          # end
+          option.attribute :polars_args
+          option.attribute :max_rows_per_file, source: :batch_size
+          option.attribute :batch_size
+          option.attribute :sample
+          option.attribute :verbose
         end
 
-        dependency.define_option :memory do |option|
-          option.set_class EasyML::Data::Dataset::InMemorySplit
-          option.define_attr :sample
+        dependency.option :memory do |option|
+          option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
+          option.attribute :sample
         end
 
         dependency.when do |_dep|

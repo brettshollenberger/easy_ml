@@ -3,10 +3,14 @@ module EasyML
     include GlueGun::DSL
     include EasyML::Logging
 
-    define_attr :verbose, default: false
-    define_attr :task, required: true, default: :regression,
-                       options: %w[regression classification]
-    define_attr :metrics, required: true, options: lambda {
+    attribute :verbose, :boolean, default: false
+    attribute :task, :array, default: :regression
+    validates :task, inclusion: { in: %w[regression classification] }
+
+    attribute :metrics, required: true
+    validate :validate_metrics_for_task
+    def validate_metrics_for_task
+      binding.pry
       case task.to_sym
       when :regression
 
@@ -14,10 +18,11 @@ module EasyML
       else
         []
       end
-    }
+    end
 
-    define_attr :root_dir do |root_dir|
-      File.join(root_dir, "models")
+    attribute :root_dir
+    def root_dir=(value)
+      super(Pathname.new(value).append("models"))
     end
 
     def fit(xs, ys)

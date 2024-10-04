@@ -2,14 +2,10 @@ module EasyML
   class Hyperparameters
     include GlueGun::DSL
 
-    define_attr :learning_rate, default: 0.01
-    define_attr :max_iterations, default: 100
-    define_attr :batch_size, default: 32
-    define_attr :regularization, default: 0.0001
-
-    def initialize(**kwargs)
-      super
-    end
+    attribute :learning_rate, :float, default: 0.01
+    attribute :max_iterations, :integer, default: 100
+    attribute :batch_size, :integer, default: 32
+    attribute :regularization, :float, default: 0.0001
 
     def to_h
       self.class.send(:attrs).each_with_object({}) do |attr, hash|

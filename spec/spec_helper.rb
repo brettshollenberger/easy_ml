@@ -4,6 +4,8 @@ require "easy_ml"
 require "glue_gun"
 require "ostruct"
 require "polars-df"
+require "active_support"
+require "pry"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

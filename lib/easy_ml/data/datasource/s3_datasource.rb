@@ -5,20 +5,31 @@ module EasyML::Data
     class S3Datasource
       include GlueGun::DSL
 
-      define_attr :root_dir, required: true
-      define_attr :polars_args, default: {}, required: true
-      define_attr :s3_bucket, required: true
-      define_attr :s3_prefix
-      define_attr :s3_access_key_id, required: true
-      define_attr :s3_secret_access_key, required: true
+      attribute :root_dir, :string
+      validates :root_dir, presence: true
 
-      define_dependency :synced_directory do |dependency|
-        dependency.set_class SyncedDirectory
-        dependency.define_attr :root_dir, required: true
-        dependency.define_attr :s3_bucket, required: true
-        dependency.define_attr :s3_prefix
-        dependency.define_attr :s3_access_key_id, required: true
-        dependency.define_attr :s3_secret_access_key, required: true
+      attribute :polars_args, :hash, default: {}
+      validates :polars_args, presence: true
+
+      attribute :s3_bucket, :string
+      validates :s3_bucket, presence: true
+
+      attribute :s3_prefix, :string
+      validates :s3_prefix, presence: true
+
+      attribute :s3_access_key_id, :string
+      validates :s3_access_key_id, presence: true
+
+      attribute :s3_secret_access_key, :string
+      validates :s3_secret_access_key, presence: true
+
+      dependency :synced_directory do |dependency|
+        dependency.set_class EasyML::Support::SyncedDirectory
+        dependency.attribute :root_dir, required: true
+        dependency.attribute :s3_bucket, required: true
+        dependency.attribute :s3_prefix
+        dependency.attribute :s3_access_key_id, required: true
+        dependency.attribute :s3_secret_access_key, required: true
       end
 
       delegate :files, :last_updated_at, to: :synced_directory

@@ -1,4 +1,4 @@
-module ML
+module EasyML
   module Data
     module Utils
       def append_to_csv(df, path)
@@ -28,16 +28,14 @@ module ML
       end
 
       def expand_dir(dir)
-        if dir.to_s[0] == "/"
-          return dir
-        else
-          Rails.root.join(dir)
-        end
+        return dir if dir.to_s[0] == "/"
+
+        Rails.root.join(dir)
       end
 
       def null_check(df)
         result = {}
-        null_counts = df.null_count()
+        null_counts = df.null_count
         total_count = df.height
         df.columns.each do |column|
           null_count = null_counts[column][0]

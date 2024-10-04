@@ -79,8 +79,9 @@ module ML
         end
 
         def cleanup
-          FileUtils.rm_rf(dir)
-          FileUtils.mkdir_p(dir)
+          binding.pry
+          # FileUtils.rm_rf(dir)
+          # FileUtils.mkdir_p(dir)
         end
 
         def split_at

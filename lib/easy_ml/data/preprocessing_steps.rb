@@ -2,6 +2,7 @@ require "fileutils"
 require "polars"
 require "date"
 require "json"
+require_relative "preprocessing_steps/utils"
 
 # One of the more involved aspects of managing the ML lifecycle is supporting both a
 # live production model and training of a new model.

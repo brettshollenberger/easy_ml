@@ -1,6 +1,7 @@
 require "polars"
-require "age"
-require "concerns/git_ignorable"
+require "easy_ml/support/age"
+require "easy_ml/support/git_ignorable"
+require "easy_ml/data/datasource"
 
 # Dataset is responsible for:
 #
@@ -16,14 +17,14 @@ module EasyML
       include EasyML::Logging
       include EasyML::Data::Utils
 
-      include GitIgnorable
-      gitignore :root_dir do |dir|
-        if Rails.env.test? # Don't gitignore our test files
-          nil
-        else
-          File.join(dir, "files/**/*")
-        end
-      end
+      # include GitIgnorable
+      # gitignore :root_dir do |dir|
+      #   if Rails.env.test? # Don't gitignore our test files
+      #     nil
+      #   else
+      #     File.join(dir, "files/**/*")
+      #   end
+      # end
 
       # These helpers are defined in GlueGun::DSL.
       #
@@ -41,33 +42,47 @@ module EasyML
       #
       # Dataset.new(target: "REV")
       #
-      define_attr :verbose, default: false
-      define_attr :today, default: -> { UTC.now } do |today|
-        today.in_time_zone(UTC).to_date
+      attribute :verbose, :boolean, default: false
+      attribute :today, :date, default: -> { UTC.now }
+      def today=(value)
+        super(value.in_time_zone(UTC).to_date)
       end
-      define_attr :target, required: true
-      define_attr :batch_size, default: 50_000
-      define_attr :root_dir do |root_dir|
-        File.join(root_dir, "dataset")
+      attribute :target, :string
+      validates :target, presence: true
+
+      attribute :batch_size, :integer, default: 50_000
+
+      attribute :root_dir, :string
+      validates :root_dir, presence: true
+      def root_dir=(value)
+        super(Pathname.new(value).append("dataset"))
       end
 
-      define_attr :sample, default: 1.0
-      define_attr :drop_if_null, default: []
+      attribute :sample, :float, default: 1.0
+      attribute :drop_if_null, :array, default: []
 
       # define_attr can also define default values, as well as argument helpers
-      define_attr :polars_args, default: {} do |args|
-        args.deep_symbolize_keys.inject({}) do |hash, (k, v)|
+      attribute :polars_args, :hash, default: {}
+      def polars_args=(args)
+        super(args.deep_symbolize_keys.inject({}) do |hash, (k, v)|
           hash.tap do
             hash[k] = v
             hash[k] = v.stringify_keys if k == :dtypes
           end
-        end
+        end)
       end
 
-      define_attr :transforms, default: nil
-      define_attr :drop_cols, default: []
+      attribute :transforms, default: nil
+      validate :transforms_are_transforms
+      def transforms_are_transforms
+        return if transforms.nil? || transforms.respond_to?(:transform)
 
-      # define_dependency defines a configurable dependency, with optional args,
+        errors.add(:transforms, "Must respond to transform, try including EasyML::Data::Transforms")
+      end
+
+      attribute :drop_cols, :array, default: []
+
+      # dependency defines a configurable dependency, with optional args,
       # for example, here we define a datasource:
       #
       # class YourDataset
@@ -78,31 +93,33 @@ module EasyML
       # If we define any models based on other data sources (e.g. postgres),
       # you would just define a new PostgresDatasource
       #
-      define_dependency :datasource do |dependency|
-        dependency.define_option :s3 do |option|
+      dependency :datasource do |dependency|
+        dependency.option :s3 do |option|
           option.default
           option.set_class EasyML::Data::Datasource::S3Datasource
-          option.define_attr :root_dir do |root_dir|
-            File.join(root_dir, "files")
-          end
-          option.define_attr :polars_args, default: {}
-          option.define_attr :s3_bucket, required: true
-          option.define_attr :s3_prefix do |arg|
-            arg.to_s.gsub(%r{^/|/$}, "")
-          end
-          option.define_attr :s3_access_key_id, required: true
-          option.define_attr :s3_secret_access_key, required: true
+          option.attribute :root_dir
+          # do |root_dir|
+          #   File.join(root_dir, "files")
+          # end
+          option.attribute :polars_args, default: {}
+          option.attribute :s3_bucket, required: true
+          option.attribute :s3_prefix
+          # do |arg|
+          #   arg.to_s.gsub(%r{^/|/$}, "")
+          # end
+          option.attribute :s3_access_key_id, required: true
+          option.attribute :s3_secret_access_key, required: true
         end
 
         dependency.define_option :file do |option|
           option.set_class EasyML::Data::Datasource::FileDatasource
-          option.define_attr :root_dir
-          option.define_attr :polars_args
+          option.attribute :root_dir
+          option.attribute :polars_args
         end
 
         dependency.define_option :polars do |option|
           option.set_class EasyML::Data::Datasource::PolarsDatasource
-          option.define_attr :df
+          option.attribute :df
         end
 
         # Passing in datasource: Polars::DataFrame will wrap properly

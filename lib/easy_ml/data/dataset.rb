@@ -1,0 +1,431 @@
+require "polars"
+require "age"
+require "concerns/git_ignorable"
+
+# Dataset is responsible for:
+#
+# 1) Ensuring data is synced from its source (e.g. S3 — delegates to datasource)
+# 2) Ensuring the data is properly split into train, test, and validation data (delegates to splitter)
+# 3) Knowing where data is stored on disk, and pulling batches of data into memory
+# 4) Knowing where to save updated data (after preprocessing steps)
+#
+module EasyML
+  module Data
+    class Dataset
+      include GlueGun::DSL
+      include EasyML::Logging
+      include EasyML::Data::Utils
+
+      include GitIgnorable
+      gitignore :root_dir do |dir|
+        if Rails.env.test? # Don't gitignore our test files
+          nil
+        else
+          File.join(dir, "files/**/*")
+        end
+      end
+
+      # These helpers are defined in GlueGun::DSL.
+      #
+      # define_attr defines configurable attributes for subclasses,
+      # for example, a class sub-classing Dataset will want to define its
+      # target (e.g. the column we are trying to predict)
+      #
+      # These can either be defined on a class-level like this:
+      #
+      # class Dataset < EasyML::Data::Dataset
+      #   target "REVENUE"
+      # end
+      #
+      # Or passed in during initialization:
+      #
+      # Dataset.new(target: "REV")
+      #
+      define_attr :verbose, default: false
+      define_attr :today, default: -> { UTC.now } do |today|
+        today.in_time_zone(UTC).to_date
+      end
+      define_attr :target, required: true
+      define_attr :batch_size, default: 50_000
+      define_attr :root_dir do |root_dir|
+        File.join(root_dir, "dataset")
+      end
+
+      define_attr :sample, default: 1.0
+      define_attr :drop_if_null, default: []
+
+      # define_attr can also define default values, as well as argument helpers
+      define_attr :polars_args, default: {} do |args|
+        args.deep_symbolize_keys.inject({}) do |hash, (k, v)|
+          hash.tap do
+            hash[k] = v
+            hash[k] = v.stringify_keys if k == :dtypes
+          end
+        end
+      end
+
+      define_attr :transforms, default: nil
+      define_attr :drop_cols, default: []
+
+      # define_dependency defines a configurable dependency, with optional args,
+      # for example, here we define a datasource:
+      #
+      # class YourDataset
+      #   datasource :s3, s3_bucket: "fundera-bart", s3_prefix: "xyz"
+      #   # This automatically uses the S3Datasource class to pull data
+      # end
+      #
+      # If we define any models based on other data sources (e.g. postgres),
+      # you would just define a new PostgresDatasource
+      #
+      define_dependency :datasource do |dependency|
+        dependency.define_option :s3 do |option|
+          option.default
+          option.set_class EasyML::Data::Datasource::S3Datasource
+          option.define_attr :root_dir do |root_dir|
+            File.join(root_dir, "files")
+          end
+          option.define_attr :polars_args, default: {}
+          option.define_attr :s3_bucket, required: true
+          option.define_attr :s3_prefix do |arg|
+            arg.to_s.gsub(%r{^/|/$}, "")
+          end
+          option.define_attr :s3_access_key_id, required: true
+          option.define_attr :s3_secret_access_key, required: true
+        end
+
+        dependency.define_option :file do |option|
+          option.set_class EasyML::Data::Datasource::FileDatasource
+          option.define_attr :root_dir
+          option.define_attr :polars_args
+        end
+
+        dependency.define_option :polars do |option|
+          option.set_class EasyML::Data::Datasource::PolarsDatasource
+          option.define_attr :df
+        end
+
+        # Passing in datasource: Polars::DataFrame will wrap properly
+        # So will passing in datasource /path/to/dir
+        dependency.when do |dep|
+          case dep
+          when Polars::DataFrame
+            { option: :polars, as: :df }
+          when String, Pathname
+            { option: :file, as: :root_dir }
+          end
+        end
+      end
+
+      # Here we define splitter options, inspired by common Python data splitting techniques:
+      #
+      # 1. Date-based splitter (similar to TimeSeriesSplit from sklearn)
+      #
+      # NOT IMPLEMENTED (but you could implement as necessary):
+      # 2. Random splitter (similar to train_test_split from sklearn)
+      # 3. Stratified splitter (similar to StratifiedKFold from sklearn)
+      # 4. Group-based splitter (similar to GroupKFold from sklearn)
+      # 5. Sliding window splitter (similar to TimeSeriesSplit with a sliding window)
+      #
+      define_dependency :splitter do |dependency|
+        dependency.define_option :date do |option|
+          option.default
+          option.set_class EasyML::Data::Dataset::Splitters::DateSplitter
+          option.define_attr :today, required: true
+          option.define_attr :date_col, required: true
+          option.define_attr :months_test, required: true
+          option.define_attr :months_valid, required: true
+        end
+      end
+
+      # Here we define the preprocessing logic.
+      # Aka what to do with null values. For instance:
+      #
+      # class YourDataset
+      #   preprocessing_steps: {
+      #     training: {
+      #       annual_revenue: {
+      #         clip: {min: 0, max: 1_000_000} # Clip values between these
+      #         median: true, # Then learn the median based on clipped values
+      #       },
+      #       created_date: { ffill: true } # During training, use the latest value in the dataset
+      #     },
+      #     inference: {
+      #       created_date: { today: true } # During inference, use the current date
+      #     }
+      #   }
+      # end
+      #
+      define_attr :preprocessing_steps, default: {}
+      define_dependency :preprocessor do |dependency|
+        dependency.set_class EasyML::Data::PreprocessingSteps
+        dependency.define_attr :directory, source: :root_dir do |root_dir|
+          File.join(root_dir, "preprocessing_steps")
+        end
+        dependency.define_attr :preprocessing_steps
+      end
+
+      # Here we define the raw dataset (uses the Split class)
+      # We use this to learn dataset statistics (e.g. median annual revenue)
+      # But we NEVER overwrite it
+      #
+      define_dependency :raw do |dependency|
+        dependency.define_option :file do |option|
+          option.default
+          option.set_class EasyML::Data::Dataset::FileSplit
+          option.define_attr :dir, source: :root_dir do |root_dir|
+            File.join(root_dir, "files/splits/raw")
+          end
+          option.define_attr :polars_args
+          option.define_attr :max_rows_per_file, source: :batch_size
+          option.define_attr :batch_size
+          option.define_attr :sample
+          option.define_attr :verbose
+        end
+
+        dependency.define_option :memory do |option|
+          option.set_class EasyML::Data::Dataset::InMemorySplit
+          option.define_attr :sample
+        end
+
+        dependency.when do |_dep|
+          { option: :memory } if datasource.is_a?(EasyML::Data::Datasource::PolarsDatasource)
+        end
+      end
+
+      # Here we define the processed dataset (uses the Split class)
+      # After we learn the dataset statistics, we fill null values
+      # using the learned statistics (e.g. fill annual_revenue with median annual_revenue)
+      #
+      define_dependency :processed do |dependency|
+        dependency.define_option :file do |option|
+          option.default
+          option.set_class EasyML::Data::Dataset::FileSplit
+          option.define_attr :dir, source: :root_dir do |root_dir|
+            File.join(root_dir, "files/splits/processed")
+          end
+          option.define_attr :polars_args
+          option.define_attr :max_rows_per_file, source: :batch_size
+          option.define_attr :batch_size
+          option.define_attr :sample
+          option.define_attr :verbose
+        end
+
+        dependency.define_option :memory do |option|
+          option.set_class EasyML::Data::Dataset::InMemorySplit
+          option.define_attr :sample
+        end
+
+        dependency.when do |_dep|
+          { option: :memory } if datasource.is_a?(EasyML::Data::Datasource::PolarsDatasource)
+        end
+      end
+
+      delegate :new_data_available?, :synced?, :stale?, to: :datasource
+      delegate :train, :test, :valid, to: :split
+      delegate :splits, to: :splitter
+
+      def refresh!
+        refresh_datasource
+        split_data
+        fit
+        normalize_all
+        alert_nulls
+      end
+
+      def normalize(df = nil, environment: "production")
+        df = drop_nulls(df)
+        df = apply_transforms(df)
+        preprocessor.postprocess(df, environment: environment)
+      end
+
+      # A "production" preprocessor is predicting live values (e.g. used on live webservers)
+      # A "development" preprocessor is used during training (e.g. we're learning new values for the dataset)
+      #
+      def statistics(environment = "production")
+        preprocessor.statistics(environment)
+      end
+
+      def train(split_ys: false, all_columns: false, &block)
+        load_data(:train, split_ys: split_ys, all_columns: all_columns, &block)
+      end
+
+      def test(split_ys: false, all_columns: false, &block)
+        load_data(:test, split_ys: split_ys, all_columns: all_columns, &block)
+      end
+
+      def valid(split_ys: false, all_columns: false, &block)
+        load_data(:valid, split_ys: split_ys, all_columns: all_columns, &block)
+      end
+
+      def cleanup
+        raw.cleanup
+        processed.cleanup
+      end
+
+      def check_nulls(data_type = :processed)
+        result = %i[train test valid].each_with_object({}) do |segment, acc|
+          segment_result = { nulls: {}, total: 0 }
+
+          data_source = data_type == :raw ? raw : processed
+          data_source.read(segment) do |df|
+            df_nulls = null_check(df)
+            df.columns.each do |column|
+              segment_result[:nulls][column] ||= { null_count: 0, total_count: 0 }
+              if df_nulls && df_nulls[column]
+                segment_result[:nulls][column][:null_count] += df_nulls[column][:null_count]
+              end
+              segment_result[:nulls][column][:total_count] += df.height
+            end
+          end
+
+          segment_result[:nulls].each do |column, counts|
+            percentage = (counts[:null_count].to_f / counts[:total_count] * 100).round(1)
+            acc[column] ||= {}
+            acc[column][segment] = percentage
+          end
+        end
+
+        # Remove columns that have no nulls across all segments
+        result.reject! { |_, v| v.values.all?(&:zero?) }
+
+        result.empty? ? nil : result
+      end
+
+      def processed?
+        processed.split_at && processed.split_at >= raw.split_at
+      end
+
+      private
+
+      def refresh_datasource
+        datasource.refresh!
+      end
+      log_method :refresh!, "Refreshing datasource", verbose: true
+
+      def normalize_all
+        processed.cleanup
+
+        %i[train test valid].each do |segment|
+          raw.read(segment) do |df|
+            processed_df = normalize(df, environment: "development")
+            processed.save(segment, processed_df)
+          end
+        end
+      end
+      log_method :normalize_all, "Normalizing dataset", verbose: true
+
+      def drop_nulls(df)
+        return df if drop_if_null.nil? || drop_if_null.empty?
+
+        df.drop_nulls(subset: drop_if_null)
+      end
+
+      def drop_columns(all_columns: false)
+        if all_columns
+          []
+        else
+          drop_cols
+        end
+      end
+
+      def load_data(segment, split_ys: false, all_columns: false, &block)
+        drop_cols = drop_columns(all_columns: all_columns)
+        if processed?
+          processed.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, &block)
+        else
+          raw.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, &block)
+        end
+      end
+
+      def fit(xs = nil)
+        xs = raw.train if xs.nil?
+
+        preprocessor.fit(xs)
+      end
+      log_method :fit, "Learning statistics", verbose: true
+
+      def in_batches(segment, processed: true, &block)
+        if processed
+          processed.read(segment, &block)
+        else
+          raw.read(segment, &block)
+        end
+      end
+
+      def split_data
+        return unless should_split?
+
+        cleanup
+        datasource.in_batches do |df|
+          train_df, test_df, valid_df = splitter.split(df)
+          raw.save(:train, train_df)
+          raw.save(:test, test_df)
+          raw.save(:valid, valid_df)
+        end
+
+        # Update the persisted sample size after splitting
+        save_previous_sample(sample)
+      end
+      log_method :split_data, "Splitting data", verbose: true
+
+      def should_split?
+        split_timestamp = raw.split_at
+        previous_sample = load_previous_sample
+        sample_increased = previous_sample && sample > previous_sample
+        previous_sample.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at || sample_increased
+      end
+
+      def sample_info_file
+        File.join(root_dir, "sample_info.json")
+      end
+
+      def save_previous_sample(sample_size)
+        File.write(sample_info_file, JSON.generate({ previous_sample: sample_size }))
+      end
+
+      def load_previous_sample
+        return nil unless File.exist?(sample_info_file)
+
+        JSON.parse(File.read(sample_info_file))["previous_sample"]
+      end
+
+      def apply_transforms(df)
+        if transforms.nil?
+          df
+        else
+          transforms.apply_transforms(df)
+        end
+      end
+
+      def alert_nulls
+        processed_nulls = check_nulls(:processed)
+        raw_nulls = check_nulls(:raw)
+
+        if processed_nulls
+          log_warning("Nulls found in the processed dataset:")
+          processed_nulls.each do |column, segments|
+            segments.each do |segment, percentage|
+              log_warning("  #{column} - #{segment}: #{percentage}% nulls")
+            end
+          end
+        else
+          log_info("No nulls found in the processed dataset.")
+        end
+
+        if raw_nulls
+          raw_nulls.each do |column, segments|
+            segments.each do |segment, percentage|
+              if percentage > 50
+                log_warning("Data processing issue detected: #{column} - #{segment} has #{percentage}% nulls in the raw dataset")
+              end
+            end
+          end
+        end
+
+        nil
+      end
+      log_method :alert_nulls, "Checking for nulls", verbose: true
+    end
+  end
+end

@@ -3,9 +3,14 @@ module EasyML
     class Dataset
       module Splits
         class Split
+          include GlueGun::DSL
           include EasyML::Data::Utils
 
-          attr_reader :polars_args, :max_rows_per_file, :batch_size, :sample, :verbose
+          attribute :polars_args, :hash, default: {}
+          attribute :max_rows_per_file, :integer, default: 1_000_000
+          attribute :batch_size, :integer, default: 10_000
+          attribute :sample, :float, default: 1.0
+          attribute :verbose, :boolean, default: false
 
           def save(segment, df)
             raise NotImplementedError, "Subclasses must implement #save"

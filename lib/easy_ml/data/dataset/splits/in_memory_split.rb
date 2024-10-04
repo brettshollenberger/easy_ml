@@ -3,10 +3,11 @@ module EasyML
     class Dataset
       module Splits
         class InMemorySplit < Split
-          attr_accessor :sample
+          include GlueGun::DSL
 
-          def initialize(sample: 1.0)
-            @sample = sample
+          attribute :sample, :float, default: 1.0
+          def initialize(options)
+            super
             @data = {}
           end
 

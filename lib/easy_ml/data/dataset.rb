@@ -178,7 +178,7 @@ module EasyML
       #
       attribute :preprocessing_steps, :hash, default: {}
       dependency :preprocessor do |dependency|
-        dependency.set_class EasyML::Data::PreprocessingSteps
+        dependency.set_class EasyML::Data::Preprocessor
         dependency.attribute :directory, source: :root_dir
         # do |root_dir|
         #   File.join(root_dir, "preprocessing_steps")
@@ -256,17 +256,17 @@ module EasyML
         alert_nulls
       end
 
-      def normalize(df = nil, environment: "production")
+      def normalize(df = nil)
         df = drop_nulls(df)
         df = apply_transforms(df)
-        preprocessor.postprocess(df, environment: environment)
+        preprocessor.postprocess(df)
       end
 
       # A "production" preprocessor is predicting live values (e.g. used on live webservers)
       # A "development" preprocessor is used during training (e.g. we're learning new values for the dataset)
       #
-      def statistics(environment = "production")
-        preprocessor.statistics(environment)
+      def statistics
+        preprocessor.statistics
       end
 
       def train(split_ys: false, all_columns: false, &block)
@@ -331,7 +331,7 @@ module EasyML
 
         %i[train test valid].each do |segment|
           raw.read(segment) do |df|
-            processed_df = normalize(df, environment: "development")
+            processed_df = normalize(df)
             processed.save(segment, processed_df)
           end
         end

@@ -3,6 +3,10 @@ require "spec_helper"
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 
 RSpec.describe EasyML::Data::Dataset do
+  let(:synced_directory) do
+    EasyML::Support::SyncedDirectory
+  end
+
   describe "Polars Dataset" do
     let(:df) do
       df = Polars::DataFrame.new({
@@ -52,8 +56,8 @@ RSpec.describe EasyML::Data::Dataset do
         expect(x_test.count).to eq 2
         expect(x_valid.count).to eq 2
 
-        expect(dataset.raw).to be_a(EasyML::Data::Dataset::InMemorySplit)
-        expect(dataset.processed).to be_a(EasyML::Data::Dataset::InMemorySplit)
+        expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::InMemorySplit)
+        expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::InMemorySplit)
 
         # Median applied
         expect(x_valid["annual_revenue"].to_a).to all(eq(2_700))
@@ -102,7 +106,7 @@ RSpec.describe EasyML::Data::Dataset do
     end
 
     describe "#initialize" do
-      it "sets up the dataset with correct attributes" do
+      it "sets up the dataset with correct attributes", :focus do
         dataset.cleanup
         dataset.refresh!
         x_train, = dataset.train(split_ys: true)
@@ -113,8 +117,8 @@ RSpec.describe EasyML::Data::Dataset do
         expect(x_test.count).to eq 1
         expect(x_valid.count).to eq 2
 
-        expect(dataset.raw).to be_a(EasyML::Data::Dataset::FileSplit)
-        expect(dataset.processed).to be_a(EasyML::Data::Dataset::FileSplit)
+        expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::FileSplit)
+        expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::FileSplit)
 
         # Median applied
         expect(x_valid["annual_revenue"].to_a).to all(eq(4_000))
@@ -131,9 +135,9 @@ RSpec.describe EasyML::Data::Dataset do
     def prepare_test(dataset)
       dataset.cleanup
 
-      allow_any_instance_of(SyncedDirectory).to receive(:synced?).and_return(false)
-      allow_any_instance_of(SyncedDirectory).to receive(:sync).and_return(true)
-      allow_any_instance_of(SyncedDirectory).to receive(:clean_dir!).and_return(true)
+      allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
+      allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
+      allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
       allow_any_instance_of(s3_datasource).to receive(:refresh!).and_return(true)
       allow_any_instance_of(EasyML::Data::Dataset).to receive(:should_split?).and_return(true)
     end
@@ -228,12 +232,12 @@ RSpec.describe EasyML::Data::Dataset do
       end
 
       describe "#initialize" do
-        it "sets up the dataset with correct attributes", :focus do
+        it "sets up the dataset with correct attributes" do
           expect(dataset.datasource).to be_a(EasyML::Data::Datasource::S3Datasource)
           expect(dataset.target).to eq(target)
-          expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
-          expect(dataset.raw).to be_a(EasyML::Data::Dataset::Split)
-          expect(dataset.processed).to be_a(EasyML::Data::Dataset::Split)
+          expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::Splits::DateSplitter)
+          expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::Split)
+          expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::Split)
         end
       end
 

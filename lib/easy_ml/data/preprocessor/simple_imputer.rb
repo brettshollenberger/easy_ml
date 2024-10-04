@@ -1,13 +1,15 @@
-require 'numo/narray'
-require 'json'
+require "active_support/core_ext/hash/deep_transform_values"
+require "numo/narray"
+require "json"
 
-module ML
+module EasyML
   module Data
-    class PreprocessingSteps
+    class Preprocessor
       class SimpleImputer
         attr_reader :statistics
         attr_accessor :path, :attribute, :strategy, :options
-        def initialize(strategy: 'mean', path: nil, attribute: nil, options: {}, &block)
+
+        def initialize(strategy: "mean", path: nil, attribute: nil, options: {}, &block)
           @strategy = strategy.to_sym
           @path = path
           @attribute = attribute
@@ -16,9 +18,9 @@ module ML
           load
           @statistics ||= {}
           deep_symbolize_keys!
-          if block_given?
-            instance_eval(&block)
-          end
+          return unless block_given?
+
+          instance_eval(&block)
         end
 
         def deep_symbolize_keys!
@@ -31,13 +33,13 @@ module ML
           if strategy == :categorical
             @options[:categorical_min] ||= 25
           elsif strategy == :custom
-            itself = lambda { |col| col }
+            itself = ->(col) { col }
             @options[:fit] ||= itself
             @options[:transform] ||= itself
           end
         end
 
-        def fit(x, df=nil)
+        def fit(x, df = nil)
           x = validate_input(x)
 
           fit_values = case @strategy
@@ -63,7 +65,7 @@ module ML
                          fit_custom(x)
                        else
                          raise ArgumentError, "Invalid strategy: #{@strategy}"
-          end || {}
+                       end || {}
 
           @statistics[attribute] ||= {}
           @statistics[attribute][@strategy] = fit_values.merge!(original_dtype: x.dtype)
@@ -88,13 +90,13 @@ module ML
                    when :clip
                      min = options["min"] || 0
                      max = options["max"] || 1_000_000_000_000
-                     if x.null_count() != x.len()
+                     if x.null_count != x.len
                        x.clip(min, max)
                      else
                        x
                      end
                    when :categorical
-                     allowed_values = @statistics.dig(:categorical, :value).select do |k,v|
+                     allowed_values = @statistics.dig(:categorical, :value).select do |_k, v|
                        v >= options[:categorical_min]
                      end.keys.map(&:to_s)
                      if x.null_count == x.len
@@ -114,7 +116,7 @@ module ML
                      end
                    else
                      raise ArgumentError, "Unsupported strategy for Polars::Series: #{@strategy}"
-          end
+                   end
 
           # Cast the result back to the original dtype
           original_dtype = @statistics.dig(@strategy, :original_dtype)
@@ -124,12 +126,12 @@ module ML
         def file_path
           raise "Need both attribute and path to save/load statistics" unless attribute.present? && path.to_s.present?
 
-          return File.join(path, "statistics.json")
+          File.join(path, "statistics.json")
         end
 
         def cleanup
           @statistics = {}
-          FileUtils.rm(file_path) if File.exists?(file_path)
+          FileUtils.rm(file_path) if File.exist?(file_path)
         end
 
         def save
@@ -140,12 +142,10 @@ module ML
           deep_symbolize_keys!
 
           serialized = serialize_statistics(@statistics)
-          unless all_statistics.key?(attribute)
-            all_statistics[attribute] = {}
-          end
+          all_statistics[attribute] = {} unless all_statistics.key?(attribute)
           all_statistics[attribute][@strategy] = serialized[attribute.to_sym][@strategy.to_sym]
 
-          File.open(file_path, 'w') do |file|
+          File.open(file_path, "w") do |file|
             file.write(JSON.pretty_generate(all_statistics))
           end
         end
@@ -164,8 +164,8 @@ module ML
 
         def should_transform_categorical?(val)
           values = @statistics.dig(:categorical, :value) || {}
-          min_ct = self.options[:categorical_min] || 25
-          allowed_values = values.select { |v,c| c >= min_ct }
+          min_ct = options[:categorical_min] || 25
+          allowed_values = values.select { |_v, c| c >= min_ct }
 
           allowed_values.keys.map(&:to_s).exclude?(val)
         end
@@ -174,13 +174,13 @@ module ML
           return "other" if val.nil?
 
           values = @statistics.dig(:categorical, :value) || {}
-          min_ct = self.options[:categorical_min] || 25
-          allowed_values = values.select { |v,c| c >= min_ct }.keys.map(&:to_s)
+          min_ct = options[:categorical_min] || 25
+          allowed_values = values.select { |_v, c| c >= min_ct }.keys.map(&:to_s)
 
           allowed_values.include?(val.to_s) ? val.to_s : "other"
         end
 
-        def transform_today(val)
+        def transform_today(_val)
           EST.now.beginning_of_day
         end
 
@@ -205,7 +205,7 @@ module ML
         private
 
         def validate_input(x)
-          raise ArgumentError, 'Input must be a Polars::Series' unless x.is_a?(Polars::Series)
+          raise ArgumentError, "Input must be a Polars::Series" unless x.is_a?(Polars::Series)
 
           x
         end
@@ -240,9 +240,9 @@ module ML
         end
 
         def fit_most_frequent(x)
-          value_counts = x.filter(x.is_not_null).value_counts()
+          value_counts = x.filter(x.is_not_null).value_counts
           column_names = value_counts.columns
-          value_column = column_names[0]
+          column_names[0]
           count_column = column_names[1]
 
           most_frequent_value = value_counts.sort(count_column, descending: true).row(0)[0]
@@ -250,29 +250,29 @@ module ML
         end
 
         def fit_categorical(x)
-          value_counts = x.value_counts()
+          value_counts = x.value_counts
           column_names = value_counts.columns
           value_column = column_names[0]
           count_column = column_names[1]
 
           {
             value: value_counts.select([value_column, count_column])
-                       .rows()
-                       .to_a
-                       .to_h
-                       .transform_keys(&:to_s)
+                               .rows
+                               .to_a
+                               .to_h
+                               .transform_keys(&:to_s)
           }
         end
 
-        def fit_no_op(x)
+        def fit_no_op(_x)
           {}
         end
 
-        def fit_constant(x)
+        def fit_constant(_x)
           { value: @options[:fill_value] }
         end
 
-        def transform_default(val)
+        def transform_default(_val)
           @statistics[strategy][:value]
         end
 
@@ -283,8 +283,8 @@ module ML
 
         def transform_dense(x)
           result = x.map do |val|
-            strategy_method = self.respond_to?("transform_#{self.strategy}") ? "transform_#{self.strategy}" : "transform_default"
-            checker_method = self.respond_to?("should_transform_#{self.strategy}?") ? "should_transform_#{self.strategy}?" : "should_transform_default?"
+            strategy_method = respond_to?("transform_#{strategy}") ? "transform_#{strategy}" : "transform_default"
+            checker_method = respond_to?("should_transform_#{strategy}?") ? "should_transform_#{strategy}?" : "should_transform_default?"
             send(checker_method, val) ? send(strategy_method, val) : val
           end
 
@@ -298,26 +298,24 @@ module ML
         end
 
         def check_is_fitted
-          return if %i(clip today custom).include?(strategy)
+          return if %i[clip today custom].include?(strategy)
 
           raise "SimpleImputer has not been fitted yet for #{attribute}##{strategy}" unless @statistics[strategy]
         end
-
-        private
 
         def serialize_statistics(stats)
           stats.deep_transform_values do |value|
             case value
             when Time, DateTime
-              { '__type__' => 'datetime', 'value' => value.iso8601 }
+              { "__type__" => "datetime", "value" => value.iso8601 }
             when Date
-              { '__type__' => 'date', 'value' => value.iso8601 }
+              { "__type__" => "date", "value" => value.iso8601 }
             when BigDecimal
-              { '__type__' => 'bigdecimal', 'value' => value.to_s }
+              { "__type__" => "bigdecimal", "value" => value.to_s }
             when Polars::DataType
-              { '__type__' => 'polars_dtype', 'value' => value.to_s }
+              { "__type__" => "polars_dtype", "value" => value.to_s }
             when Symbol
-              { '__type__' => 'symbol', 'value' => value.to_s }
+              { "__type__" => "symbol", "value" => value.to_s }
             else
               value
             end
@@ -333,7 +331,7 @@ module ML
         def recursive_deserialize(value)
           case value
           when Hash
-            if value['__type__']
+            if value["__type__"]
               deserialize_special_type(value)
             else
               value.transform_values { |v| recursive_deserialize(v) }
@@ -346,19 +344,19 @@ module ML
         end
 
         def deserialize_special_type(value)
-          case value['__type__']
-          when 'datetime'
-            DateTime.parse(value['value'])
-          when 'date'
-            Date.parse(value['value'])
-          when 'bigdecimal'
-            BigDecimal(value['value'])
-          when 'polars_dtype'
-            parse_polars_dtype(value['value'])
-          when 'symbol'
-            value['value'].to_sym
+          case value["__type__"]
+          when "datetime"
+            DateTime.parse(value["value"])
+          when "date"
+            Date.parse(value["value"])
+          when "bigdecimal"
+            BigDecimal(value["value"])
+          when "polars_dtype"
+            parse_polars_dtype(value["value"])
+          when "symbol"
+            value["value"].to_sym
           else
-            value['value']
+            value["value"]
           end
         end
 
@@ -367,10 +365,10 @@ module ML
           when /^Polars::Datetime/
             time_unit = dtype_string[/time_unit: "(.*?)"/, 1]
             time_zone = dtype_string[/time_zone: (.*)?\)/, 1]
-            time_zone = time_zone == "nil" ? nil : time_zone&.gsub('"', '')
+            time_zone = time_zone == "nil" ? nil : time_zone&.gsub('"', "")
             Polars::Datetime.new(time_unit: time_unit, time_zone: time_zone).class
           when /^Polars::/
-            Polars.const_get(dtype_string.split('::').last)
+            Polars.const_get(dtype_string.split("::").last)
           else
             raise ArgumentError, "Unknown Polars data type: #{dtype_string}"
           end

@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "easy_ml/version"
+require "active_support"
+require "numo/narray"
 require "glue_gun"
 
 module EasyML

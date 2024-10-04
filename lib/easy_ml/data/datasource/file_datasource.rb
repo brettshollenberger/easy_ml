@@ -1,12 +1,10 @@
 module EasyML::Data
   class Datasource
     class FileDatasource < Datasource
-      attr_reader :root_dir, :polars_args
+      include GlueGun::DSL
 
-      def initialize(root_dir:, polars_args: {})
-        @root_dir = root_dir
-        @polars_args = polars_args
-      end
+      attribute :root_dir, :string
+      attribute :polars_args, :hash, default: {}
 
       def in_batches(of: 10_000)
         files.each do |file|

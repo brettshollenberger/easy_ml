@@ -35,6 +35,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "activesupport"
   spec.add_dependency "glue_gun_dsl"
+  spec.add_dependency "numo-narray"
   spec.add_dependency "polars-df"
   spec.add_dependency "xgb"
 

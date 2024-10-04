@@ -1,10 +1,14 @@
 module EasyML::Data
   class Datasource
     class PolarsDatasource < Datasource
-      attr_reader :df
+      include GlueGun::DSL
 
-      def initialize(df:, root_dir: nil)
-        @df = df
+      attribute :df
+      validate :df_is_dataframe
+      def df_is_dataframe
+        return if df.nil? || df.is_a?(Polars::DataFrame)
+
+        errors.add(:df, "Must be an instance of Polars::DataFrame")
       end
 
       def in_batches(of: 10_000)

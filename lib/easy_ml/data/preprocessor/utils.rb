@@ -1,5 +1,5 @@
 module EasyML::Data
-  class PreprocessingSteps
+  class Preprocessor
     module Utils
       def standardize_config(config)
         config.each do |column, strategies|

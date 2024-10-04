@@ -58,7 +58,7 @@ module EasyML
       attribute :root_dir, :string
       validates :root_dir, presence: true
       def root_dir=(value)
-        super(Pathname.new(value).append("dataset"))
+        super(Pathname.new(value).append("dataset/files"))
       end
 
       attribute :sample, :float, default: 1.0

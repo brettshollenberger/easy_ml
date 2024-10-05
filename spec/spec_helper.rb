@@ -6,6 +6,7 @@ require "ostruct"
 require "polars-df"
 require "active_support"
 require "pry"
+require "rails"
 
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")

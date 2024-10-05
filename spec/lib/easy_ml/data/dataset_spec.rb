@@ -1,4 +1,5 @@
 require "spec_helper"
+require "active_support/core_ext/integer/time"
 
 RSpec.describe EasyML::Data::Dataset do
   let(:synced_directory) do
@@ -70,21 +71,21 @@ RSpec.describe EasyML::Data::Dataset do
         x_valid, = dataset.valid(split_ys: true)
 
         expect(x_train.count).to eq 4
-        expect(x_test.count).to eq 2
         expect(x_valid.count).to eq 2
+        expect(x_test.count).to eq 2
 
         expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::InMemorySplit)
         expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::InMemorySplit)
 
         # Median applied
-        expect(x_valid["annual_revenue"].to_a).to all(eq(2_700))
+        expect(x_test["annual_revenue"].to_a).to all(eq(2_700))
       end
     end
   end
 
   describe "File Datasource" do
     let(:root_dir) { Pathname.new(__dir__).join("dataset") }
-    let(:raw_files) { %w[1 2 3].map { |n| root_dir.join("dataset/files/raw/#{n}.csv") }.map(&:to_s) }
+    let(:raw_files) { [root_dir.join("dataset/files/raw/file.csv").to_s] }
     let(:today) { EST.parse("2024-07-01") }
 
     let(:polars_args) do
@@ -124,15 +125,10 @@ RSpec.describe EasyML::Data::Dataset do
 
     describe "#initialize" do
       it "sets up the dataset with correct attributes" do
-        Polars::DataFrame.new({
-                                id: [1, 2, 3, 4, 5, 6, 7, 8],
-                                rev: [0, 0, 100, 200, 0, 300, 400, 500],
-                                annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
-                                created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
-                                                 2024-08-01 2024-09-01]
-                              })
         dataset.cleanup
         dataset.refresh!
+
+        expect(dataset.datasource.root_dir).to eq root_dir.join("data").to_s
         x_train, = dataset.train(split_ys: true)
         x_valid, = dataset.valid(split_ys: true)
         x_test, = dataset.test(split_ys: true)
@@ -172,8 +168,8 @@ RSpec.describe EasyML::Data::Dataset do
       end
 
       let(:s3_bucket) { "test-bucket" }
-      let(:root_dir) { Pathname.new(__dir__).join("dataset") }
-      let(:raw_files) { %w[1 2 3].map { |n| PROJECT_ROOT.join(root_dir, "dataset/files/raw/#{n}.csv") }.map(&:to_s) }
+      let(:root_dir) { Pathname.new(__dir__).join("dataset").to_s }
+      let(:raw_files) { [File.join(root_dir, "data/files/raw/file.csv").to_s] }
       let(:s3_prefix) { "raw" }
       let(:polars_args) do
         {
@@ -182,7 +178,7 @@ RSpec.describe EasyML::Data::Dataset do
             'business_name': "str",
             'annual_revenue': "f64",
             'rev': "f64",
-            'date': "datetime"
+            'created_date': "datetime"
           }
         }
       end
@@ -199,16 +195,87 @@ RSpec.describe EasyML::Data::Dataset do
       end
 
       let(:target) { "rev" }
-      let(:date_col) { "date" }
+      let(:date_col) { "created_date" }
       let(:months_test) { 2 }
       let(:months_valid) { 2 }
       let(:today) { EST.parse("2024-07-01") }
 
       class Transforms
         include EasyML::Transforms
+        US_STATES = {
+          "ALABAMA" => "AL",
+          "KENTUCKY" => "KY",
+          "OHIO" => "OH",
+          "ALASKA" => "AK",
+          "LOUISIANA" => "LA",
+          "OKLAHOMA" => "OK",
+          "ARIZONA" => "AZ",
+          "MAINE" => "ME",
+          "OREGON" => "OR",
+          "ARKANSAS" => "AR",
+          "MARYLAND" => "MD",
+          "PENNSYLVANIA" => "PA",
+          "AMERICAN SAMOA" => "AS",
+          "MASSACHUSETTS" => "MA",
+          "PUERTO RICO" => "PR",
+          "CALIFORNIA" => "CA",
+          "MICHIGAN" => "MI",
+          "RHODE ISLAND" => "RI",
+          "COLORADO" => "CO",
+          "MINNESOTA" => "MN",
+          "SOUTH CAROLINA" => "SC",
+          "CONNECTICUT" => "CT",
+          "MISSISSIPPI" => "MS",
+          "SOUTH DAKOTA" => "SD",
+          "DELAWARE" => "DE",
+          "MISSOURI" => "MO",
+          "TENNESSEE" => "TN",
+          "DISTRICT OF COLUMBIA" => "DC",
+          "MONTANA" => "MT",
+          "TEXAS" => "TX",
+          "FLORIDA" => "FL",
+          "NEBRASKA" => "NE",
+          "TRUST TERRITORIES" => "TT",
+          "GEORGIA" => "GA",
+          "NEVADA" => "NV",
+          "UTAH" => "UT",
+          "GUAM" => "GU",
+          "NEW HAMPSHIRE" => "NH",
+          "VERMONT" => "VT",
+          "HAWAII" => "HI",
+          "NEW JERSEY" => "NJ",
+          "VIRGINIA" => "VA",
+          "IDAHO" => "ID",
+          "NEW MEXICO" => "NM",
+          "VIRGIN ISLANDS" => "VI",
+          "ILLINOIS" => "IL",
+          "NEW YORK" => "NY",
+          "WASHINGTON" => "WA",
+          "INDIANA" => "IN",
+          "NORTH CAROLINA" => "NC",
+          "WEST VIRGINIA" => "WV",
+          "IOWA" => "IA",
+          "NORTH DAKOTA" => "ND",
+          "WISCONSIN" => "WI",
+          "KANSAS" => "KS",
+          "NORTHERN MARIANA ISLANDS" => "MP",
+          "WYOMING" => "WY",
+          "OTHER" => "OTHER"
+        }
+
+        ALLOWED_US_STATES = US_STATES.values
 
         def transform_state(df)
-          binding.pry
+          if df.columns.include?("state")
+            df["state"] = df["state"].map_elements do |state|
+              if ALLOWED_US_STATES.include?(state)
+                state
+              else
+                US_STATES[state] || "OTHER"
+              end
+            end
+          end
+          df
         end
         transform :transform_state
       end
@@ -223,9 +290,7 @@ RSpec.describe EasyML::Data::Dataset do
             "loan_purpose"
           ],
           transforms: Transforms,
-          drop_cols: [
-            "CHEATING"
-          ],
+          drop_cols: %w[drop_me],
           datasource: {
             s3: {
               s3_bucket: s3_bucket,
@@ -273,12 +338,12 @@ RSpec.describe EasyML::Data::Dataset do
             expect(dataset.datasource.files).to eq(raw_files)
 
             train_df = dataset.raw.train
-            test_df = dataset.raw.test
             valid_df = dataset.raw.valid
+            test_df = dataset.raw.test
 
-            expect(train_df.shape[0]).to eq 7 # 7 rows
-            expect(test_df.shape[0]).to eq 1 # 1 row
-            expect(valid_df.shape[0]).to eq 2 # 2 rows
+            expect(train_df.shape[0]).to eq 4
+            expect(valid_df.shape[0]).to eq 2
+            expect(test_df.shape[0]).to eq 2
           end
 
           it "normalizes the final dataset (including removing rows w/ columns that can't be null)" do
@@ -288,9 +353,9 @@ RSpec.describe EasyML::Data::Dataset do
             valid_df = dataset.valid
             test_df = dataset.test
 
-            expect(train_df.shape[0]).to eq 7 # 7 rows
-            expect(test_df.shape[0]).to eq 1 # 1 row
-            expect(valid_df.shape[0]).to eq 1 # Dropped 1 null
+            expect(train_df.shape[0]).to eq 4
+            expect(valid_df.shape[0]).to eq 2
+            expect(test_df.shape[0]).to eq 2
           end
         end
 
@@ -360,11 +425,13 @@ RSpec.describe EasyML::Data::Dataset do
           test_df = dataset.test
           valid_df = dataset.valid
 
-          allowed_states = Bart::Dataset::Transforms::ALLOWED_US_STATES
+          allowed_states = Transforms::ALLOWED_US_STATES
 
-          expect(train_df["STATE"].to_a).to all(be_in(allowed_states))
-          expect(test_df["STATE"].to_a).to all(be_in(allowed_states))
-          expect(valid_df["STATE"].to_a).to all(be_in(allowed_states))
+          [train_df, test_df, valid_df].each do |df|
+            df["state"].each do |state|
+              expect(allowed_states).to include state
+            end
+          end
         end
       end
 

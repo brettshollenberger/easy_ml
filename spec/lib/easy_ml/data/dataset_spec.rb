@@ -394,8 +394,8 @@ RSpec.describe EasyML::Data::Dataset do
           dataset.valid
 
           expect(test_df["annual_revenue"][-1]).to_not be_nil
-          expect(test_df["annual_revenue"][-1]).to eq dataset.statistics("development").dig("annual_revenue", "median",
-                                                                                            :median, :value)
+          expect(test_df["annual_revenue"][-1]).to eq dataset.statistics.dig("annual_revenue", "median",
+                                                                             :median, :value)
 
           # It maintains a separate copy of the RAW dataset, which is not overridden
           raw_test_df = dataset.raw.test
@@ -406,14 +406,14 @@ RSpec.describe EasyML::Data::Dataset do
           dataset.refresh!
 
           train_df = dataset.train
-          expect(train_df.columns).to_not include "CHEATING"
+          expect(train_df.columns).to_not include "drop_me"
         end
 
         it "keeps drop_cols if requested" do
           dataset.refresh!
 
           train_df = dataset.train(all_columns: true)
-          expect(train_df.columns).to include "CHEATING"
+          expect(train_df.columns).to include "drop_me"
         end
       end
 
@@ -580,7 +580,7 @@ RSpec.describe EasyML::Data::Dataset do
           before do
             allow(dataset).to receive(:should_split?).and_return(true)
             allow(dataset.datasource).to receive(:in_batches).and_yield(mock_df)
-            allow(dataset.splitter).to receive(:split).and_return([mock_train_df, mock_test_df, mock_valid_df])
+            allow(dataset.splitter).to receive(:split).and_return([mock_train_df, mock_valid_df, mock_test_df])
             allow(dataset.raw).to receive(:save)
             allow(dataset).to receive(:save_previous_sample)
           end

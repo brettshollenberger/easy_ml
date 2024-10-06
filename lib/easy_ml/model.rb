@@ -4,17 +4,18 @@ module EasyML
     include EasyML::Logging
 
     attribute :verbose, :boolean, default: false
-    attribute :task, :array, default: :regression
+    attribute :root_dir, :string
+    attribute :task, :string, default: :regression
     validates :task, inclusion: { in: %w[regression classification] }
 
     attribute :metrics, required: true
     validate :validate_metrics_for_task
     def validate_metrics_for_task
-      binding.pry
       case task.to_sym
       when :regression
-
+        %w[mean_absolute_error mean_squared_error root_mean_squared_error r2_score]
       when :classification
+        %w[accuracy_score precision_score recall_score f1_score auc roc_auc]
       else
         []
       end

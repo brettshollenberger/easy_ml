@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-require "bundler"
+require "bundler/setup"
 require "combustion"
-require "pry"
-require "rails"
+Bundler.require(:default)
 
 Bundler.require :default, :development
 

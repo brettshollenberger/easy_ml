@@ -6,7 +6,12 @@ module EasyML
     attribute :verbose, :boolean, default: false
     attribute :root_dir, :string
     attribute :task, :string, default: :regression
+    attribute :version, :string
     validates :task, inclusion: { in: %w[regression classification] }
+
+    def initialize(options = {})
+      super(options.reverse_merge!(version: generate_version_string))
+    end
 
     attribute :metrics, required: true
     validate :validate_metrics_for_task
@@ -26,6 +31,10 @@ module EasyML
       super(Pathname.new(value).append("models"))
     end
 
+    def model_path
+      File.join(root_dir, "#{version}.bin")
+    end
+
     def fit(xs, ys)
       raise NotImplementedError, "Subclasses must implement fit method"
     end
@@ -34,7 +43,7 @@ module EasyML
       raise NotImplementedError, "Subclasses must implement predict method"
     end
 
-    def save
+    def save(path = nil)
       raise NotImplementedError, "Subclasses must implement save method"
     end
 
@@ -48,8 +57,10 @@ module EasyML
 
     private
 
-    def model_path
-      File.join(root_dir, "#{name}.model")
+    def generate_version_string
+      timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
+      model_name = self.class.name.split("::").last.underscore
+      "#{model_name}_#{timestamp}"
     end
   end
 end

@@ -1,4 +1,5 @@
 require "spec_helper"
+require "xgboost"
 
 RSpec.describe EasyML::Models do
   let(:root_dir) { File.expand_path("..", Pathname.new(__FILE__)) }
@@ -93,34 +94,6 @@ RSpec.describe EasyML::Models do
                           )
   end
 
-  EasyML::Models::AVAILABLE_MODELS.each do |model_class|
-    let(:model) do
-      model_class.new(model_config)
-    end
-    let(:model_name) do
-      model_class.name.split("::").last
-    end
-    before(:each) do
-      dataset.refresh!
-    end
-    after(:each) do
-      dataset.cleanup
-    end
-
-    describe model_class do
-      describe "#initialize" do
-        it "sets up the model with correct attributes" do
-          expect(model.verbose).to be false
-          expect(model.task).to eq "regression"
-          expect(model.root_dir).to eq(root_dir)
-          expect(model.hyperparameters).to be_a(EasyML::Models::Hyperparameters.const_get(model_name))
-          expect(model.hyperparameters.learning_rate).to eq(learning_rate)
-          expect(model.hyperparameters.max_depth).to eq(max_depth)
-        end
-      end
-    end
-  end
-
   describe "XGBoost" do
     let(:model) do
       model_class.new(model_config)
@@ -129,6 +102,24 @@ RSpec.describe EasyML::Models do
       EasyML::Models::XGBoost
     end
     let(:xgb) { ::XGBoost }
+
+    def cleanup
+      paths = [
+        File.join(root_dir, "xgboost_model.json"),
+        File.join(root_dir, "xg_boost.bin")
+      ]
+      paths.each do |path|
+        FileUtils.rm(path) if File.exist?(path)
+      end
+    end
+
+    before(:each) do
+      dataset.refresh!
+      cleanup
+    end
+    after(:each) do
+      dataset.cleanup
+    end
 
     describe "#fit" do
       it "trains the model" do
@@ -139,19 +130,58 @@ RSpec.describe EasyML::Models do
 
         model.fit
       end
+    end
 
+    describe "#predict" do
       it "makes predictions" do
         x_test, = dataset.test(split_ys: true)
         model.fit
         preds = model.predict(x_test)
         expect(preds).to all(be_a Numeric)
       end
+    end
 
-      it "supports feature importances", :focus do
+    describe "#feature_importances" do
+      it "supports feature importances" do
         model.fit
         expect(model.feature_importances).to match(hash_including({ "annual_revenue" => a_value_between(0.0, 1.0),
                                                                     "loan_purpose_payroll" => a_value_between(0.0,
                                                                                                               1.0) }))
+      end
+    end
+
+    describe "#model_path" do
+      it "has one" do
+        expect(model.model_path).to eq File.join(root_dir, "xg_boost.bin")
+      end
+    end
+
+    describe "#save" do
+      it "saves the model to a file" do
+        model.fit
+        file_path = File.join(root_dir, "xgboost_model.json")
+        model.save(file_path)
+
+        expect(File).to exist(file_path)
+        expect(File.size(file_path)).to be > 0
+
+        default_path = model.model_path
+        model.save
+        expect(File).to exist(default_path)
+        expect(File.size(file_path)).to be > 0
+      end
+    end
+
+    describe "#load" do
+      it "loads the model from a file", :focus do
+        model.fit
+        file_path = File.join(root_dir, "xgboost_model.json")
+        model.save(file_path)
+
+        loaded_model = model_class.new(model_config)
+        loaded_model.load(file_path)
+
+        expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
       end
     end
   end

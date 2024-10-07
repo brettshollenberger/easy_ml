@@ -1,5 +1,4 @@
 require "polars"
-require "xgboost"
 require_relative "datasource"
 require_relative "dataset/splitters"
 require_relative "dataset/splits"

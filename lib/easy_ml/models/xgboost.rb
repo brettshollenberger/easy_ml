@@ -35,17 +35,26 @@ module EasyML
       end
 
       def predict(xs)
+        raise "No trained model! Train a model before calling predict" unless @booster.present?
+
         @booster.predict(preprocess(xs))
       end
 
-      def save
-        # Implement XGBoost-specific model saving logic
-        XGBoost.save_model(@model, model_path)
+      def save(path = nil)
+        raise "No trained model! Need to train model before saving!" unless @booster.present?
+
+        path ||= model_path
+        @booster.save_model(path)
       end
 
-      def load
+      def load(path = nil)
         # Implement XGBoost-specific model loading logic
-        @model = XGBoost.load_model(model_path)
+        path ||= model_path
+        raise "No existing model at #{path}" unless File.exist?(path)
+
+        initialize_model do
+          booster_class.new(params: hyperparameters.to_h, model_file: path)
+        end
       end
 
       def feature_importances
@@ -58,7 +67,11 @@ module EasyML
 
       private
 
-      def d_matrix
+      def booster_class
+        ::XGBoost::Booster
+      end
+
+      def d_matrix_class
         ::XGBoost::DMatrix
       end
 
@@ -69,7 +82,7 @@ module EasyML
       def train
         xs = xs.to_a.map(&:values)
         ys = ys.to_a.map(&:values)
-        dtrain = d_matrix.new(xs, label: ys)
+        dtrain = d_matrix_class.new(xs, label: ys)
         @model = base_model.train(hyperparameters.to_h, dtrain)
       end
 
@@ -115,6 +128,12 @@ module EasyML
         end
       end
 
+      def initialize_model
+        @model = model_class.new(n_estimators: hyperparameters.to_h.dig(:n_estimators))
+        @booster = yield
+        @model.instance_variable_set(:@booster, @booster)
+      end
+
       def fit_batch(x_train, y_train, x_valid, y_valid)
         d_train = preprocess(x_train, y_train)
         d_valid = preprocess(x_valid, y_valid)
@@ -123,9 +142,9 @@ module EasyML
 
         # # If this is the first batch, create the booster
         if @booster.nil?
-          @model = model_class.new(n_estimators: hyperparameters.to_h.dig(:n_estimators))
-          @booster = base_model.train(hyperparameters.to_h, d_train, evals: evals)
-          @model.instance_variable_set(:@booster, @booster)
+          initialize_model do
+            base_model.train(hyperparameters.to_h, d_train, evals: evals)
+          end
         else
           # Update the existing booster with the new batch
           @model.update(d_train)

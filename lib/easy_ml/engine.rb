@@ -1,25 +1,29 @@
-# lib/railtie.rb
-require "rails/railtie"
+require "rails/engine"
 
 module EasyML
-  class Railtie < Rails::Railtie
+  class Engine < Rails::Engine
+    isolate_namespace EasyML
+
     initializer "easy_ml.inflections" do
       require_relative "initializers/inflections"
     end
-    # Initialize the generators path
-    initializer "easy_ml_railtie.setup_generators" do |app|
+
+    initializer "easy_ml.setup_generators" do |app|
       app.config.generators do |g|
-        # Add the templates directory to the generator's template paths
-        g.templates.unshift File.expand_path("railtie/generators/templates", __dir__)
+        g.templates.unshift File.expand_path("../templates", __dir__)
       end
     end
 
-    # Load generators when the railtie is loaded
     generators_path = File.expand_path("railtie/generators", __dir__)
     generators_dirs = Dir[File.join(generators_path, "**", "*.rb")]
     generators_dirs.each { |file| require file }
 
-    # Ensure that models are loaded after ActiveRecord is initialized
+    config.to_prepare do
+      Dir.glob(Engine.root.join("app", "**", "*_decorator*.rb")).each do |c|
+        require_dependency(c)
+      end
+    end
+
     config.after_initialize do
       require_relative "model"
       require_relative "model_uploader"

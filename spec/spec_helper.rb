@@ -6,11 +6,11 @@ Bundler.require(:default)
 
 Bundler.require :default, :development
 
-Combustion.initialize! :all do
-  config.generators do |g|
-    g.templates.unshift File.expand_path("../lib/railtie/generators", __dir__)
-  end
-end
+# Require the engine file
+require "easy_ml/engine"
+
+Combustion.initialize! :all
+
 require "rspec/rails"
 
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))

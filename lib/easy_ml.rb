@@ -4,7 +4,7 @@ require "rails"
 require "glue_gun"
 require "numo/narray"
 require_relative "easy_ml/version"
-require_relative "easy_ml/railtie"
+require_relative "easy_ml/engine"
 
 module EasyML
   class Error < StandardError; end

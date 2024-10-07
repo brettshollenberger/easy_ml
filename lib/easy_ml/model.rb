@@ -6,8 +6,8 @@ module EasyML
     attribute :verbose, :boolean, default: false
     attribute :root_dir, :string
     attribute :task, :string, default: :regression
-    attribute :version, :string
     validates :task, inclusion: { in: %w[regression classification] }
+    attribute :version, :string
 
     def initialize(options = {})
       super(options.reverse_merge!(version: generate_version_string))

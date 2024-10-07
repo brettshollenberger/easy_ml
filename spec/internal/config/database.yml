@@ -1,0 +1,3 @@
+test:
+  adapter:  sqlite3
+  database: db/easy_ml_test.sqlite

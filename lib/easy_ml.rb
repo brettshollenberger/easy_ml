@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
-require_relative "easy_ml/version"
-require "active_support"
-require "numo/narray"
+require "rails"
 require "glue_gun"
+require "numo/narray"
+require_relative "easy_ml/version"
+require_relative "easy_ml/railtie"
 
 module EasyML
   class Error < StandardError; end

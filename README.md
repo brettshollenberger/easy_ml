@@ -1,4 +1,39 @@
-# EasyMl
+# EasyML
+
+# Installation
+
+1. Install the gem
+
+```bash
+gem install easy_ml
+```
+
+2. Run the generator to store model versions:
+
+```bash
+rails generate easy_ml:migration
+rails db:migrate
+```
+
+3. By default, EasyML uses S3 to store model files, so if you don't already have Carrierwave, make sure it's configured:
+
+```ruby
+# config/initializers/carrierwave.rb
+CarrierWave.configure do |config|
+    config.fog_provider = 'fog/aws' # required
+    config.fog_credentials = {
+        provider: 'AWS', # required
+        aws_access_key_id: ENV['AWS_ACCESS_KEY_ID'], # required
+        aws_secret_access_key: ENV['AWS_SECRET_ACCESS_KEY'], # required
+        region: ENV['AWS_REGION'], # optional, defaults to 'us-east-1'
+    }
+    config.fog_directory = ENV['AWS_S3_BUCKET'] # required
+    config.fog_public = false # optional, defaults to true
+    config.storage = :fog
+end
+```
+
+# Deployment
 
 TODO: Delete this and the text below, and describe your gem
 

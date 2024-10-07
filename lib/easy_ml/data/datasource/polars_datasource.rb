@@ -10,6 +10,12 @@ module EasyML::Data
 
         errors.add(:df, "Must be an instance of Polars::DataFrame")
       end
+      attr_accessor :last_updated_at
+
+      def initialize(options)
+        super
+        @last_updated_at = Time.now
+      end
 
       def in_batches(of: 10_000)
         total_rows = df.shape[0]
@@ -21,10 +27,6 @@ module EasyML::Data
 
       def files
         [] # No files, as this is in-memory
-      end
-
-      def last_updated_at
-        Time.now # Always return current time as it's in-memory
       end
 
       def refresh!

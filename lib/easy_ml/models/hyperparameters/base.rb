@@ -10,9 +10,7 @@ module EasyML
         attribute :regularization, :float, default: 0.0001
 
         def to_h
-          self.class.send(:attrs).each_with_object({}) do |attr, hash|
-            hash[attr.name] = send(attr.name)
-          end
+          attributes
         end
 
         def merge(other)

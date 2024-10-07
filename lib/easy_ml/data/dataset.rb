@@ -1,7 +1,5 @@
 require "polars"
-# require "easy_ml/support/age"
-# require "easy_ml/support/git_ignorable"
-# require "core_ext/pathname"
+require "xgboost"
 require_relative "datasource"
 require_relative "dataset/splitters"
 require_relative "dataset/splits"
@@ -311,7 +309,7 @@ module EasyML
       end
 
       def processed?
-        processed.split_at && processed.split_at >= raw.split_at
+        !should_split?
       end
 
       private

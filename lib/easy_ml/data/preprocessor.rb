@@ -100,8 +100,6 @@ module EasyML::Data
       standardize_config(config).each_with_object({}) do |(col, strategies), hash|
         hash[col] ||= {}
         strategies.each do |strategy, options|
-          next if strategy.to_sym == :one_hot
-
           options = {} if options == true
 
           hash[col][strategy] = EasyML::Data::Preprocessor::SimpleImputer.new(
@@ -122,7 +120,7 @@ module EasyML::Data
           actual_col = df.columns.find { |c| c.downcase == col.downcase }
 
           sorted_strategies(strategies).each do |strategy|
-            if strategy.to_sym == :one_hot
+            if strategy.to_sym == :categorical && imputers.dig(col, strategy).options.dig("one_hot")
               df = apply_one_hot(df, col, imputers)
             else
               imputer = imputers.dig(col, strategy)
@@ -138,13 +136,10 @@ module EasyML::Data
     end
 
     def apply_one_hot(df, col, imputers)
-      approved_values = if (cat_imputer = imputers.dig(col, "categorical")).present?
-                          cat_imputer.statistics[:categorical][:value].select do |_k, v|
-                            v >= cat_imputer.options["categorical_min"]
-                          end.keys
-                        else
-                          df[col].uniq.to_a
-                        end
+      cat_imputer = imputers.dig(col, "categorical")
+      approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
+        v >= cat_imputer.options["categorical_min"]
+      end.keys
 
       # Create one-hot encoded columns
       approved_values.each do |value|

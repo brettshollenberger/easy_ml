@@ -10,7 +10,10 @@ RSpec.describe EasyML::Models do
           clip: { min: 0, max: 1_000_000 }
         },
         loan_purpose: {
-          one_hot: true
+          categorical: {
+            categorical_min: 2,
+            one_hot: true
+          }
         }
       }
     }
@@ -60,13 +63,12 @@ RSpec.describe EasyML::Models do
     }
   end
 
-  let(:xgb) { described_class.new(**config) }
-
   let(:learning_rate) { 0.05 }
   let(:max_depth) { 8 }
   let(:model_config) do
     {
       root_dir: root_dir,
+      dataset: dataset,
       hyperparameters: {
         learning_rate: learning_rate,
         max_depth: max_depth
@@ -91,18 +93,29 @@ RSpec.describe EasyML::Models do
                           )
   end
 
-  EasyML::Models::AVAILABLE_MODELS.each do |model|
-    describe model do
+  EasyML::Models::AVAILABLE_MODELS.each do |model_class|
+    let(:model) do
+      model_class.new(model_config)
+    end
+    let(:model_name) do
+      model_class.name.split("::").last
+    end
+    before(:each) do
+      dataset.refresh!
+    end
+    after(:each) do
+      dataset.cleanup
+    end
+
+    describe model_class do
       describe "#initialize" do
-        it "sets up the model with correct attributes", :focus do
-          instance = model.new(model_config)
-          model_name = instance.class.name.split("::").last
-          expect(instance.verbose).to be false
-          expect(instance.task).to eq "regression"
-          expect(instance.root_dir).to eq(root_dir)
-          expect(instance.hyperparameters).to be_a(EasyML::Models::Hyperparameters.const_get(model_name))
-          expect(instance.hyperparameters.learning_rate).to eq(learning_rate)
-          expect(instance.hyperparameters.max_depth).to eq(max_depth)
+        it "sets up the model with correct attributes" do
+          expect(model.verbose).to be false
+          expect(model.task).to eq "regression"
+          expect(model.root_dir).to eq(root_dir)
+          expect(model.hyperparameters).to be_a(EasyML::Models::Hyperparameters.const_get(model_name))
+          expect(model.hyperparameters.learning_rate).to eq(learning_rate)
+          expect(model.hyperparameters.max_depth).to eq(max_depth)
         end
       end
     end

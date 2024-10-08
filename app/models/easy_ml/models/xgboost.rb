@@ -3,24 +3,14 @@ module EasyML
     class XGBoost < EasyML::Model
       include GlueGun::DSL
 
-      attribute :dataset
-      validate :dataset_is_a_dataset?
-
-      def dataset_is_a_dataset?
-        return if dataset.nil?
-        return if dataset.class.ancestors.include?(EasyML::Data::Dataset)
-
-        errors.add(:dataset, "Must be a subclass of EasyML::Dataset")
-      end
-
       dependency :hyperparameters do |dep|
         dep.set_class EasyML::Models::Hyperparameters::XGBoost
-        dep.attribute :batch_size, default: 32
-        dep.attribute :learning_rate, default: 0.1
-        dep.attribute :max_depth, default: 6
-        dep.attribute :n_estimators, default: 100
-        dep.attribute :booster, default: "gbtree"
-        dep.attribute :objective, default: "reg:squarederror"
+        dep.bind_attribute :batch_size, default: 32
+        dep.bind_attribute :learning_rate, default: 0.1
+        dep.bind_attribute :max_depth, default: 6
+        dep.bind_attribute :n_estimators, default: 100
+        dep.bind_attribute :booster, default: "gbtree"
+        dep.bind_attribute :objective, default: "reg:squarederror"
       end
 
       attr_accessor :model, :booster
@@ -32,6 +22,7 @@ module EasyML
         else
           train(x_train, y_train, x_valid, y_valid)
         end
+        @is_fit = true
       end
 
       def predict(xs)
@@ -40,16 +31,25 @@ module EasyML
         @booster.predict(preprocess(xs))
       end
 
-      def save(path = nil)
-        raise "No trained model! Need to train model before saving!" unless @booster.present?
+      def save_model_file(path = nil)
+        raise "No trained model! Need to train model before saving (call model.fit)" unless @booster.present?
 
-        path ||= model_path
+        path ||= file.path if file.respond_to?(:path)
+        path ||= Rails.root.join("tmp", "models", "#{version}.json").to_s
+
+        ensure_directory_exists(File.dirname(path))
         @booster.save_model(path)
+
+        # Update the file attribute with the new CarrierWave uploader
+        File.open(path) do |f|
+          self.file = f
+        end
       end
 
       def load(path = nil)
-        # Implement XGBoost-specific model loading logic
-        path ||= model_path
+        path ||= file
+        path = path.file.file if path.class.ancestors.include?(CarrierWave::Uploader::Base)
+        # retrieve_and_cache_file when is remote...
         raise "No existing model at #{path}" unless File.exist?(path)
 
         initialize_model do
@@ -63,6 +63,10 @@ module EasyML
 
       def base_model
         ::XGBoost
+      end
+
+      def fit?
+        @is_fit == true
       end
 
       private
@@ -129,7 +133,7 @@ module EasyML
       end
 
       def initialize_model
-        @model = model_class.new(n_estimators: hyperparameters.to_h.dig(:n_estimators))
+        @model = model_class.new(n_estimators: @hyperparameters.to_h.dig(:n_estimators))
         @booster = yield
         @model.instance_variable_set(:@booster, @booster)
       end
@@ -143,12 +147,16 @@ module EasyML
         # # If this is the first batch, create the booster
         if @booster.nil?
           initialize_model do
-            base_model.train(hyperparameters.to_h, d_train, evals: evals)
+            base_model.train(@hyperparameters.to_h, d_train, evals: evals)
           end
         else
           # Update the existing booster with the new batch
           @model.update(d_train)
         end
+      end
+
+      def ensure_directory_exists(dir)
+        FileUtils.mkdir_p(dir) unless File.directory?(dir)
       end
     end
   end

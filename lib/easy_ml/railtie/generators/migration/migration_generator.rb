@@ -22,7 +22,9 @@ module EasyML
 
         # Specify the next migration number
         def self.next_migration_number(dirname)
-          if ActiveRecord.timestamped_migrations
+          if ActiveRecord.version < Gem::Version.new("7")
+            Time.now.utc.strftime("%Y%m%d%H%M%S")
+          elsif ActiveRecord.timestamped_migrations
             Time.now.utc.strftime("%Y%m%d%H%M%S")
           else
             format("%.3d", (current_migration_number(dirname) + 1))

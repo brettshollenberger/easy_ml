@@ -2,14 +2,25 @@
 
 require "bundler/setup"
 require "combustion"
-Bundler.require(:default)
-
 Bundler.require :default, :development
 
 # Require the engine file
 require "easy_ml/engine"
 
 Combustion.initialize! :all
+
+# ActiveRecord::Base.establish_connection(adapter: "postgresql", database: "easy_ml_test")
+
+# ActiveRecord::Schema.define do
+#   create_table :easy_ml_models do |t|
+#     t.string :version
+#     t.string :ml_model
+#     t.string :task
+#     t.json :metrics, default: []
+#     t.json :file, null: false
+#     t.timestamps
+#   end
+# end
 
 require "rspec/rails"
 
@@ -36,8 +47,17 @@ RSpec.configure do |config|
     migration_paths = ActiveRecord::Migrator.migrations_paths
     migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
 
-    # Apply migrations
-    ActiveRecord::MigrationContext.new(migration_paths).migrate
+    # Apply migrations based on Rails version
+    case Rails::VERSION::MAJOR
+    when 7
+      ActiveRecord::MigrationContext.new(migration_paths).migrate
+    when 6
+      migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
+      migration_context.migrate
+    else
+      ActiveRecord::Migrator.migrate(migration_paths)
+    end
   end
+
   config.use_transactional_fixtures = true
 end

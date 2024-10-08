@@ -97,27 +97,27 @@ module EasyML
         dependency.option :s3 do |option|
           option.default
           option.set_class EasyML::Data::Datasource::S3Datasource
-          option.attribute :root_dir do |value|
+          option.bind_attribute :root_dir do |value|
             Pathname.new(value).append("files")
           end
-          option.attribute :polars_args, default: {}
-          option.attribute :s3_bucket, required: true
-          option.attribute :s3_prefix
-          option.attribute :s3_access_key_id, required: true
-          option.attribute :s3_secret_access_key, required: true
+          option.bind_attribute :polars_args, default: {}
+          option.bind_attribute :s3_bucket, required: true
+          option.bind_attribute :s3_prefix
+          option.bind_attribute :s3_access_key_id, required: true
+          option.bind_attribute :s3_secret_access_key, required: true
         end
 
         dependency.option :file do |option|
           option.set_class EasyML::Data::Datasource::FileDatasource
-          option.attribute :root_dir do |value|
+          option.bind_attribute :root_dir do |value|
             Pathname.new(value).append("files/raw")
           end
-          option.attribute :polars_args
+          option.bind_attribute :polars_args
         end
 
         dependency.option :polars do |option|
           option.set_class EasyML::Data::Datasource::PolarsDatasource
-          option.attribute :df
+          option.bind_attribute :df
         end
 
         # Passing in datasource: Polars::DataFrame will wrap properly
@@ -146,10 +146,10 @@ module EasyML
         dependency.option :date do |option|
           option.default
           option.set_class EasyML::Data::Dataset::Splitters::DateSplitter
-          option.attribute :today, required: true
-          option.attribute :date_col, required: true
-          option.attribute :months_test, required: true
-          option.attribute :months_valid, required: true
+          option.bind_attribute :today, required: true
+          option.bind_attribute :date_col, required: true
+          option.bind_attribute :months_test, required: true
+          option.bind_attribute :months_valid, required: true
         end
       end
 
@@ -174,10 +174,10 @@ module EasyML
       attribute :preprocessing_steps, :hash, default: {}
       dependency :preprocessor do |dependency|
         dependency.set_class EasyML::Data::Preprocessor
-        dependency.attribute :directory, source: :root_dir do |value|
+        dependency.bind_attribute :directory, source: :root_dir do |value|
           Pathname.new(value).append("preprocessor")
         end
-        dependency.attribute :preprocessing_steps
+        dependency.bind_attribute :preprocessing_steps
       end
 
       # Here we define the raw dataset (uses the Split class)
@@ -188,19 +188,19 @@ module EasyML
         dependency.option :file do |option|
           option.default
           option.set_class EasyML::Data::Dataset::Splits::FileSplit
-          option.attribute :dir, source: :root_dir do |value|
+          option.bind_attribute :dir, source: :root_dir do |value|
             Pathname.new(value).append("files/splits/raw")
           end
-          option.attribute :polars_args
-          option.attribute :max_rows_per_file, source: :batch_size
-          option.attribute :batch_size
-          option.attribute :sample
-          option.attribute :verbose
+          option.bind_attribute :polars_args
+          option.bind_attribute :max_rows_per_file, source: :batch_size
+          option.bind_attribute :batch_size
+          option.bind_attribute :sample
+          option.bind_attribute :verbose
         end
 
         dependency.option :memory do |option|
           option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
-          option.attribute :sample
+          option.bind_attribute :sample
         end
 
         dependency.when do |_dep|
@@ -216,19 +216,19 @@ module EasyML
         dependency.option :file do |option|
           option.default
           option.set_class EasyML::Data::Dataset::Splits::FileSplit
-          option.attribute :dir, source: :root_dir do |value|
+          option.bind_attribute :dir, source: :root_dir do |value|
             Pathname.new(value).append("files/splits/processed")
           end
-          option.attribute :polars_args
-          option.attribute :max_rows_per_file, source: :batch_size
-          option.attribute :batch_size
-          option.attribute :sample
-          option.attribute :verbose
+          option.bind_attribute :polars_args
+          option.bind_attribute :max_rows_per_file, source: :batch_size
+          option.bind_attribute :batch_size
+          option.bind_attribute :sample
+          option.bind_attribute :verbose
         end
 
         dependency.option :memory do |option|
           option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
-          option.attribute :sample
+          option.bind_attribute :sample
         end
 
         dependency.when do |_dep|
@@ -257,9 +257,7 @@ module EasyML
       # A "production" preprocessor is predicting live values (e.g. used on live webservers)
       # A "development" preprocessor is used during training (e.g. we're learning new values for the dataset)
       #
-      def statistics
-        preprocessor.statistics
-      end
+      delegate :statistics, to: :preprocessor
 
       def train(split_ys: false, all_columns: false, &block)
         load_data(:train, split_ys: split_ys, all_columns: all_columns, &block)

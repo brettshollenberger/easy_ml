@@ -28,11 +28,11 @@ module EasyML::Data
 
       dependency :synced_directory do |dependency|
         dependency.set_class EasyML::Support::SyncedDirectory
-        dependency.attribute :root_dir, required: true
-        dependency.attribute :s3_bucket, required: true
-        dependency.attribute :s3_prefix
-        dependency.attribute :s3_access_key_id, required: true
-        dependency.attribute :s3_secret_access_key, required: true
+        dependency.bind_attribute :root_dir, required: true
+        dependency.bind_attribute :s3_bucket, required: true
+        dependency.bind_attribute :s3_prefix
+        dependency.bind_attribute :s3_access_key_id, required: true
+        dependency.bind_attribute :s3_secret_access_key, required: true
       end
 
       delegate :files, :last_updated_at, to: :synced_directory

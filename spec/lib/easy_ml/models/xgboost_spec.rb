@@ -150,39 +150,55 @@ RSpec.describe EasyML::Models do
       end
     end
 
-    describe "#model_path" do
-      it "has one" do
-        expect(model.model_path).to eq File.join(root_dir, "xg_boost.bin")
-      end
-    end
-
     describe "#save" do
-      it "saves the model to a file" do
+      it "saves the model to a file / remote storage" do
+        model.name = "My Model"
+        model.metrics = ["mean_absolute_error"]
         model.fit
-        file_path = File.join(root_dir, "xgboost_model.json")
-        model.save(file_path)
+        model.save
 
+        file_path = model.file.file.file
         expect(File).to exist(file_path)
         expect(File.size(file_path)).to be > 0
+      end
 
-        default_path = model.model_path
-        model.save
-        expect(File).to exist(default_path)
-        expect(File.size(file_path)).to be > 0
+      it "works on S3 storage" do
+        # TODO: Implement test that exercises S3 storage for Carrierwave, including loading the file, caching it locally
       end
     end
 
     describe "#load" do
-      it "loads the model from a file", :focus do
+      it "loads the model from a file" do
+        model.name = "My Model" # Model name + version must be unique
+        model.metrics = ["mean_absolute_error"]
         model.fit
-        file_path = File.join(root_dir, "xgboost_model.json")
-        model.save(file_path)
+        model.save
+        expect(model.ml_model).to eq "xg_boost"
 
-        loaded_model = model_class.new(model_config)
-        loaded_model.load(file_path)
+        loaded_model = EasyML::Models::XGBoost.find(model.id)
+        loaded_model.load
 
         expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
       end
+
+      it "works on S3 storage" do
+        # TODO: Implement test that exercises S3 storage for Carrierwave, including loading the file, caching it locally
+      end
+    end
+
+    describe "#mark_live" do
+      it "marks all other models of the same name as is_live: false, and sets is_live: true to itself" do
+      end
+    end
+
+    describe "#cleanup" do
+      # TODO: Add test that checks:
+      # 1) The is_live model for ALL current models is NOT removed
+      # 2) The most recent 5 models for ALL models (by name) is NOT removed
+      # 3) All OTHER model files are removed (deleted from disk)
+      #
+      # When calling model.cleanup
+      #
     end
   end
 end

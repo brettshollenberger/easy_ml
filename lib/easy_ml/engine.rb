@@ -19,14 +19,14 @@ module EasyML
     generators_dirs.each { |file| require file }
 
     config.to_prepare do
-      Dir.glob(Engine.root.join("app", "**", "*_decorator*.rb")).each do |c|
+      Dir.glob(Engine.root.join("app", "**", "*.rb")).each do |c|
         require_dependency(c)
       end
     end
 
     config.after_initialize do
-      require_relative "model"
-      require_relative "model_uploader"
+      require_relative "../../app/models/easy_ml/model"
+      require_relative "../../app/uploaders/model_uploader"
     end
   end
 end

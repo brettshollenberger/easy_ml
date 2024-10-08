@@ -1,3 +1,8 @@
+# test:
+#   adapter:  sqlite3
+#   database: db/easy_ml_test.sqlite
+
+
 test:
-  adapter:  sqlite3
-  database: db/easy_ml_test.sqlite
+  adapter: postgresql
+  database: easy_ml_test

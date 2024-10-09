@@ -14,18 +14,18 @@ module EasyML
 
     scope :live, -> { where(is_live: true) }
 
-    # def only_one_model_is_live?
-    #   return if @marking_live
+    def only_one_model_is_live?
+      return if @marking_live
 
-    #   if previous_versions.live.count > 1
-    #     raise "Multiple previous versions of #{name} are live! This should never happen. Update previous versions to is_live=false before proceeding"
-    #   end
+      if previous_versions.live.count > 1
+        raise "Multiple previous versions of #{name} are live! This should never happen. Update previous versions to is_live=false before proceeding"
+      end
 
-    #   return unless previous_versions.live.any? && is_live
+      return unless previous_versions.live.any? && is_live
 
-    #   errors.add(:is_live,
-    #              "cannot mark model live when previous version is live. Explicitly use the mark_live method to mark this as the live version")
-    # end
+      errors.add(:is_live,
+                 "cannot mark model live when previous version is live. Explicitly use the mark_live method to mark this as the live version")
+    end
 
     after_initialize :apply_defaults
     before_validation :save_model_file, if: -> { fit? }
@@ -76,24 +76,38 @@ module EasyML
       end
     end
 
-    def fit(xs, ys)
-      raise NotImplementedError, "Subclasses must implement fit method"
+    def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
+      if x_train.nil?
+        dataset.refresh!
+        train_in_batches
+      else
+        train(x_train, y_train, x_valid, y_valid)
+      end
+      @is_fit = true
     end
 
     def predict(xs)
       raise NotImplementedError, "Subclasses must implement predict method"
     end
 
-    def save_model_file(path = nil)
-      raise NotImplementedError, "Subclasses must implement save_model_file method"
-    end
-
-    def fit?
-      raise NotImplementedError, "Subclasses must implement fit? method"
-    end
-
     def load
       raise NotImplementedError, "Subclasses must implement load method"
+    end
+
+    def save_model_file
+      raise "No trained model! Need to train model before saving (call model.fit)" unless fit?
+
+      path ||= file.path if file.respond_to?(:path)
+      path ||= model_dir.join("#{version}.json").to_s
+
+      ensure_directory_exists(File.dirname(path))
+
+      _save_model_file(path)
+      File.open(path) do |f|
+        self.file = f
+      end
+      file.store!
+      cleanup
     end
 
     def get_params
@@ -123,7 +137,19 @@ module EasyML
       EasyML::FileRotate.new(model_dir, files_to_keep).cleanup(EasyML::ModelUploader.new.extension_allowlist)
     end
 
+    def fit?
+      @is_fit == true
+    end
+
     private
+
+    def _save_model_file(path = nil)
+      raise NotImplementedError, "Subclasses must implement _save_model_file method"
+    end
+
+    def ensure_directory_exists(dir)
+      FileUtils.mkdir_p(dir) unless File.directory?(dir)
+    end
 
     def apply_defaults
       self.version ||= generate_version_string

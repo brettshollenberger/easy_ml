@@ -15,36 +15,10 @@ module EasyML
 
       attr_accessor :model, :booster
 
-      def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
-        if x_train.nil?
-          dataset.refresh!
-          train_in_batches
-        else
-          train(x_train, y_train, x_valid, y_valid)
-        end
-        @is_fit = true
-      end
-
       def predict(xs)
         raise "No trained model! Train a model before calling predict" unless @booster.present?
 
         @booster.predict(preprocess(xs))
-      end
-
-      def save_model_file
-        raise "No trained model! Need to train model before saving (call model.fit)" unless @booster.present?
-
-        path ||= file.path if file.respond_to?(:path)
-        path ||= model_dir.join("#{version}.json").to_s
-
-        ensure_directory_exists(File.dirname(path))
-
-        @booster.save_model(path)
-        File.open(path) do |f|
-          self.file = f
-        end
-        file.store!
-        cleanup
       end
 
       def load(path = nil)
@@ -58,16 +32,16 @@ module EasyML
         end
       end
 
+      def _save_model_file(path)
+        @booster.save_model(path)
+      end
+
       def feature_importances
         @model.booster.feature_names.zip(@model.feature_importances).to_h
       end
 
       def base_model
         ::XGBoost
-      end
-
-      def fit?
-        @is_fit == true
       end
 
       private
@@ -155,10 +129,6 @@ module EasyML
           # Update the existing booster with the new batch
           @model.update(d_train)
         end
-      end
-
-      def ensure_directory_exists(dir)
-        FileUtils.mkdir_p(dir) unless File.directory?(dir)
       end
     end
   end

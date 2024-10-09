@@ -27,7 +27,26 @@ module EasyML
         raise "No trained model! Train a model before calling predict" unless @booster.present?
         raise "Cannot predict on nil — XGBoost" if xs.nil?
 
-        @booster.predict(preprocess(xs))
+        y_pred = @booster.predict(preprocess(xs))
+
+        case task.to_sym
+        when :classification
+          massage_classification(y_pred)
+        else
+          y_pred
+        end
+      end
+
+      def predict_proba(data)
+        dmat = DMatrix.new(data)
+        y_pred = @booster.predict(dmat)
+
+        if y_pred.first.is_a?(Array)
+          # multiple classes
+          y_pred
+        else
+          y_pred.map { |v| [1 - v, v] }
+        end
       end
 
       def load(path = nil)
@@ -157,6 +176,17 @@ module EasyML
         else
           # Update the existing booster with the new batch
           @model.update(d_train)
+        end
+      end
+
+      def massage_classification(y_pred)
+        if y_pred.first.is_a?(Array)
+          # multiple classes
+          y_pred.map do |v|
+            v.map.with_index.max_by { |v2, _| v2 }.last
+          end
+        else
+          y_pred.map { |v| v > 0.5 ? 1 : 0 }
         end
       end
     end

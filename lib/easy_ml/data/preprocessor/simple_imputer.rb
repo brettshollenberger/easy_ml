@@ -102,7 +102,9 @@ module EasyML
                      if x.null_count == x.len
                        x.fill_null(transform_categorical(nil))
                      else
-                       x.apply { |val| allowed_values.include?(val) ? val : transform_categorical(val) }
+                       x.apply do |val|
+                         allowed_values.include?(val) ? val : transform_categorical(val)
+                       end
                      end
                    when :today
                      x.fill_null(transform_today(nil))
@@ -177,6 +179,7 @@ module EasyML
           min_ct = options[:categorical_min] || 25
           allowed_values = values.select { |_v, c| c >= min_ct }.keys.map(&:to_s)
 
+          binding.pry
           allowed_values.include?(val.to_s) ? val.to_s : "other"
         end
 
@@ -255,12 +258,18 @@ module EasyML
           value_column = column_names[0]
           count_column = column_names[1]
 
+          as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&:to_s)
+          label_encoder = as_hash.keys.sort.each.with_index.reduce({}) do |h, (k, i)|
+            h.tap do
+              h[k] = i
+            end
+          end
+          label_decoder = label_encoder.invert
+
           {
-            value: value_counts.select([value_column, count_column])
-                               .rows
-                               .to_a
-                               .to_h
-                               .transform_keys(&:to_s)
+            value: as_hash,
+            label_encoder: label_encoder,
+            label_decoder: label_decoder
           }
         end
 
@@ -365,7 +374,7 @@ module EasyML
           when /^Polars::Datetime/
             time_unit = dtype_string[/time_unit: "(.*?)"/, 1]
             time_zone = dtype_string[/time_zone: (.*)?\)/, 1]
-            time_zone = time_zone == "nil" ? nil : time_zone&.gsub('"', "")
+            time_zone = time_zone == "nil" ? nil : time_zone&.delete('"')
             Polars::Datetime.new(time_unit: time_unit, time_zone: time_zone).class
           when /^Polars::/
             Polars.const_get(dtype_string.split("::").last)

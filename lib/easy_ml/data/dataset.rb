@@ -271,6 +271,24 @@ module EasyML
         load_data(:test, split_ys: split_ys, all_columns: all_columns, &block)
       end
 
+      def data(split_ys: false, all_columns: false)
+        if split_ys
+          x_train, y_train = train(split_ys: true, all_columns: all_columns)
+          x_valid, y_valid = valid(split_ys: true, all_columns: all_columns)
+          x_test, y_test = test(split_ys: true, all_columns: all_columns)
+
+          xs = Polars.concat([x_train, x_valid, x_test])
+          ys = Polars.concat([y_train, y_valid, y_test])
+          [xs, ys]
+        else
+          train_df = train(split_ys: false, all_columns: all_columns)
+          valid_df = valid(split_ys: false, all_columns: all_columns)
+          test_df = test(split_ys: false, all_columns: all_columns)
+
+          Polars.concat([train_df, valid_df, test_df])
+        end
+      end
+
       def cleanup
         raw.cleanup
         processed.cleanup

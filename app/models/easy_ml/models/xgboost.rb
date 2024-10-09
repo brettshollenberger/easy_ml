@@ -3,6 +3,14 @@ module EasyML
     class XGBoost < EasyML::Model
       include GlueGun::DSL
 
+      OBJECTIVES = {
+        classification: {
+          binary: %w[binary:logistic binary:hinge],
+          multi_class: %w[multi:softmax multi:softprob]
+        },
+        regression: %w[reg:squarederror reg:logistic]
+      }
+
       dependency :hyperparameters do |dep|
         dep.set_class EasyML::Models::Hyperparameters::XGBoost
         dep.bind_attribute :batch_size, default: 32
@@ -17,6 +25,7 @@ module EasyML
 
       def predict(xs)
         raise "No trained model! Train a model before calling predict" unless @booster.present?
+        raise "Cannot predict on nil — XGBoost" if xs.nil?
 
         @booster.predict(preprocess(xs))
       end
@@ -59,6 +68,8 @@ module EasyML
       end
 
       def train
+        validate_objective
+
         xs = xs.to_a.map(&:values)
         ys = ys.to_a.map(&:values)
         dtrain = d_matrix_class.new(xs, label: ys)
@@ -66,6 +77,8 @@ module EasyML
       end
 
       def train_in_batches
+        validate_objective
+
         # Initialize the model with the first batch
         @model = nil
         @booster = nil
@@ -86,7 +99,7 @@ module EasyML
             when Date
               value.to_time.to_i # Convert Date to Unix timestamp
             when String
-              value.hash.to_f # Convert String to a float (using its hash)
+              value
             when TrueClass, FalseClass
               value ? 1.0 : 0.0 # Convert booleans to 1.0 and 0.0
             when Integer
@@ -112,6 +125,22 @@ module EasyML
         @model = model_class.new(n_estimators: @hyperparameters.to_h.dig(:n_estimators))
         @booster = yield
         @model.instance_variable_set(:@booster, @booster)
+      end
+
+      def validate_objective
+        objective = hyperparameters.objective
+        case task.to_sym
+        when :classification
+          _, ys = dataset.data(split_ys: true)
+          classification_type = ys[ys.columns.first].uniq.count <= 2 ? :binary : :multi_class
+          allowed_objectives = OBJECTIVES[:classification][classification_type]
+        else
+          allowed_objectives = OBJECTIVES[task.to_sym]
+        end
+        return if allowed_objectives.map(&:to_sym).include?(objective.to_sym)
+
+        raise ArgumentError,
+              "cannot use #{objective} for #{task} task. Allowed objectives are: #{allowed_objectives.join(", ")}"
       end
 
       def fit_batch(x_train, y_train, x_valid, y_valid)

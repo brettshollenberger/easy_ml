@@ -164,6 +164,60 @@ RSpec.describe EasyML::Models do
         preds = model.predict(x_test)
         expect(preds).to all(be_a Numeric)
       end
+
+      it "evaluates regression predictions" do
+        xs, ys = dataset.data(split_ys: true)
+        model.metrics = %w[mean_absolute_error mean_squared_error root_mean_squared_error r2_score]
+        model.fit
+        preds = model.predict(xs)
+
+        # Evaluate all regression metrics
+        evaluation_metrics = model.evaluate(y_pred: preds, y_true: ys)
+
+        expect(evaluation_metrics[:mean_absolute_error]).to be_between(784, 785)
+        expect(evaluation_metrics[:mean_squared_error]).to be_between(4_793_806, 4_793_807)
+        expect(evaluation_metrics[:root_mean_squared_error]).to be_between(2189, 2190)
+        expect(evaluation_metrics[:r2_score]).to be_between(-Float::INFINITY, 1)
+      end
+
+      it "evaluates classification predictions" do
+        df = Polars::DataFrame.new({
+                                     "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                                     "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
+                                                         "Business G", "Business H", "Business I", "Business J"],
+                                     "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
+                                     "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
+                                                          marketing equipment marketing],
+                                     "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
+                                     "did_convert" => %w[converts not_converts converts converts converts
+                                                         not_converts not_converts converts converts not_converts],
+                                     "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
+                                                  2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
+                                   }).with_column(
+                                     Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
+                                   )
+        dataset_config.merge!(datasource: df, target: :did_convert)
+        dataset_config[:preprocessing_steps][:training].merge!(did_convert: { categorical: { categorical_min: 1,
+                                                                                             numeric: true } })
+        classification_dataset = EasyML::Data::Dataset.new(**dataset_config)
+        classification_dataset.refresh!
+
+        model.task = "classification"
+        model.hyperparameters.objective = "binary:logistic"
+        model.dataset = classification_dataset
+        model.metrics = %w[accuracy_score precision_score recall_score f1_score]
+        x_test, y_test = classification_dataset.test(split_ys: true)
+        model.fit
+        preds = model.predict(x_test)
+
+        # Evaluate all classification metrics
+        evaluation_metrics = model.evaluate(y_pred: preds, y_true: y_test)
+
+        expect(evaluation_metrics[:accuracy_score]).to be_between(0, 1)
+        expect(evaluation_metrics[:precision_score]).to be_between(0, 1)
+        expect(evaluation_metrics[:recall_score]).to be_between(0, 1)
+        expect(evaluation_metrics[:f1_score]).to be_between(0, 1)
+      end
     end
 
     describe "#feature_importances" do

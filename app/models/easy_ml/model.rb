@@ -10,7 +10,7 @@ module EasyML
     include GlueGun::DSL
 
     validates :name, presence: true
-    # validate :only_one_model_is_live?
+    validate :only_one_model_is_live?
 
     scope :live, -> { where(is_live: true) }
 
@@ -84,6 +84,10 @@ module EasyML
         train(x_train, y_train, x_valid, y_valid)
       end
       @is_fit = true
+    end
+
+    def evaluate(y_pred: nil, y_true: nil)
+      EasyML::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true)
     end
 
     def predict(xs)

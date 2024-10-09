@@ -120,8 +120,12 @@ module EasyML::Data
           actual_col = df.columns.find { |c| c.downcase == col.downcase }
 
           sorted_strategies(strategies).each do |strategy|
-            if strategy.to_sym == :categorical && imputers.dig(col, strategy).options.dig("one_hot")
-              df = apply_one_hot(df, col, imputers)
+            if strategy.to_sym == :categorical
+              if imputers.dig(col, strategy).options.dig("one_hot")
+                df = apply_one_hot(df, col, imputers)
+              elsif imputers.dig(col, strategy).options.dig("numeric")
+                df = apply_numeric(df, col, imputers)
+              end
             else
               imputer = imputers.dig(col, strategy)
               df[actual_col] = imputer.transform(df[actual_col]) if imputer
@@ -143,7 +147,7 @@ module EasyML::Data
 
       # Create one-hot encoded columns
       approved_values.each do |value|
-        new_col_name = "#{col}_#{value}".gsub(/-/, "_")
+        new_col_name = "#{col}_#{value}".tr("-", "_")
         df = df.with_column(
           df[col].eq(value.to_s).cast(Polars::Int64).alias(new_col_name)
         )
@@ -155,6 +159,26 @@ module EasyML::Data
         approved_values.map(&:to_s).exclude?(value)
       end.cast(Polars::Int64)
       df.drop([col])
+    end
+
+    def apply_numeric(df, col, imputers)
+      cat_imputer = imputers.dig(col, "categorical")
+      approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
+        v >= cat_imputer.options["categorical_min"]
+      end.keys
+
+      df.with_column(
+        df[col].map_elements do |value|
+          approved_values.map(&:to_s).exclude?(value) ? "other" : value
+        end.alias(col)
+      )
+
+      label_encoder = cat_imputer.statistics[:categorical][:label_encoder].stringify_keys
+      other_value = label_encoder.values.max + 1
+      label_encoder["other"] = other_value
+      df.with_column(
+        df[col].map { |v| label_encoder[v.to_s] }.alias(col)
+      )
     end
 
     def sorted_strategies(strategies)

@@ -6,10 +6,7 @@ EasyML is a Ruby gem designed to simplify the process of building, deploying, an
 
 - **Plug-and-Play Architecture**: EasyML is designed to be easily extendable, allowing for the integration of various machine learning models and data sources.
 - **Opinionated Framework**: Provides a structured approach to model management, ensuring best practices are followed.
-- **Model Lifecycle Management**: Simplifies the deployment and management of model versions, making it easy to update and maintain models in production.
-- **Integration with AWS S3**: Store model files in AWS S3 using CarrierWave and Fog.
-- **Rails Integration**: Seamlessly integrates with Rails applications, following Rails conventions and best practices.
-- **Comprehensive Testing**: Use RSpec for testing with support for database cleaning and test data generation.
+- **Model Lifecycle On Rails**: Seamlessly integrates with Ruby on Rails, allowing simplified deployment of models to production.
 
 ## Current and Planned Features
 

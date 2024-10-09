@@ -10,6 +10,18 @@ RSpec.describe EasyML::Models do
     model_class.new.cleanup!
   end
 
+  def build_model(params)
+    Timecop.freeze(incr_time)
+    model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error])).tap do |model|
+      model.fit
+      model.save
+    end
+  end
+
+  def incr_time
+    @time += 1.second
+  end
+
   let(:root_dir) { File.expand_path("..", Pathname.new(__FILE__)) }
   let(:preprocessing_steps) do
     {
@@ -141,7 +153,7 @@ RSpec.describe EasyML::Models do
 
       it "calls fit multiple times" do
         model.fit
-        model.fit
+        expect { model.fit }.to_not raise_error
       end
     end
 
@@ -211,11 +223,14 @@ RSpec.describe EasyML::Models do
     end
 
     describe "#mark_live" do
-      it "marks all other models of the same name as is_live: false, and sets is_live: true to itself", :focus do
-        model1 = model_class.create(name: "Test Model", is_live: true)
-        model2 = model_class.create(name: "Test Model", is_live: false)
-        model3 = model_class.create(name: "Test Model", is_live: false)
-        other_model = model_class.create(name: "Other Model", is_live: true)
+      it "marks all other models of the same name as is_live: false, and sets is_live: true to itself" do
+        @time = EST.now
+        Timecop.freeze(@time)
+
+        model1 = build_model(name: "Test Model", is_live: true)
+        model2 = build_model(name: "Test Model", is_live: false)
+        model3 = build_model(name: "Test Model", is_live: false)
+        other_model = build_model(name: "Other Model", is_live: true)
 
         model3.mark_live
 
@@ -227,18 +242,6 @@ RSpec.describe EasyML::Models do
     end
 
     describe "#cleanup" do
-      def build_model(params)
-        Timecop.freeze(incr_time)
-        model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error])).tap do |model|
-          model.fit
-          model.save
-        end
-      end
-
-      def incr_time
-        @time += 1.second
-      end
-
       it "keeps the live model, deletes the oldest version when training, and retains up to 5 versions per model name" do
         @time = EST.now
         Timecop.freeze(@time)

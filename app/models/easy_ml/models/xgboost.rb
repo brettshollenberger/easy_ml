@@ -94,6 +94,7 @@ module EasyML
       def train_in_batches
         # Initialize the model with the first batch
         @model = nil
+        @booster = nil
         x_valid, y_valid = dataset.valid(split_ys: true)
 
         dataset.train(split_ys: true) do |x_train, y_train|

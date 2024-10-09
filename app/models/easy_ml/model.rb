@@ -10,20 +10,22 @@ module EasyML
     include GlueGun::DSL
 
     validates :name, presence: true
-    validate :only_one_model_is_live?
+    # validate :only_one_model_is_live?
 
     scope :live, -> { where(is_live: true) }
 
-    def only_one_model_is_live?
-      if previous_versions.live.count > 1
-        raise "Multiple previous versions of #{name} are live! This should never happen. Update previous versions to is_live=false before proceeding"
-      end
+    # def only_one_model_is_live?
+    #   return if @marking_live
 
-      return unless previous_versions.live.any? && is_live
+    #   if previous_versions.live.count > 1
+    #     raise "Multiple previous versions of #{name} are live! This should never happen. Update previous versions to is_live=false before proceeding"
+    #   end
 
-      errors.add(:is_live,
-                 "cannot mark model live when previous version is live. Explicitly use the mark_live method to mark this as the live version")
-    end
+    #   return unless previous_versions.live.any? && is_live
+
+    #   errors.add(:is_live,
+    #              "cannot mark model live when previous version is live. Explicitly use the mark_live method to mark this as the live version")
+    # end
 
     after_initialize :apply_defaults
     before_validation :save_model_file, if: -> { fit? }
@@ -64,6 +66,14 @@ module EasyML
 
       errors.add(:metrics,
                  "cannot use metrics: #{nonsensical_metrics.join(", ")} for task #{task}. Allowed metrics are: #{allowed_metrics.join(", ")}")
+    end
+
+    def mark_live
+      # Start a transaction to ensure atomicity
+      transaction do
+        self.class.where(name: name).where.not(id: id).update_all(is_live: false)
+        self.class.where(id: id).update_all(is_live: true)
+      end
     end
 
     def fit(xs, ys)

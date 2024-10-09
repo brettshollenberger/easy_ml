@@ -39,6 +39,14 @@ RSpec.configure do |config|
   end
   config.filter_run_when_matching :focus
 
+  config.before(:each, :logsql) do
+    ActiveRecord::Base.logger = Logger.new(STDOUT)
+  end
+
+  config.after(:each, :logsql) do
+    ActiveRecord::Base.logger = nil
+  end
+
   config.before(:suite) do
     # Run your generator and apply the generated migration
     Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
@@ -59,8 +67,6 @@ RSpec.configure do |config|
     end
   end
 
-  config.use_transactional_fixtures = true
-
   # Configure CarrierWave storage based on environment variable or RSpec metadata
   config.before(:each) do |example|
     if example.metadata[:fog]
@@ -79,6 +85,17 @@ RSpec.configure do |config|
         carrierwave_config.enable_processing = false
         carrierwave_config.root = "#{Rails.root.join("tmp")}"
       end
+    end
+  end
+
+  config.before(:suite) do
+    DatabaseCleaner.strategy = :truncation
+    DatabaseCleaner.clean_with(:truncation)
+  end
+
+  config.around(:each) do |example|
+    DatabaseCleaner.cleaning do
+      example.run
     end
   end
 end

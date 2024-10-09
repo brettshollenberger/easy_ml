@@ -1,4 +1,4 @@
-# <img src="easy_ml.svg" alt="EasyML Logo" style="width: 300px; max-width: 300px;">
+# <img src="easy_ml.svg" alt="EasyML Logo" style="width: 300px; height: 300px;">
 
 # EasyML
 

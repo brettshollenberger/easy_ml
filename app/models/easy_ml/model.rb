@@ -9,6 +9,11 @@ module EasyML
 
     include GlueGun::DSL
 
+    attribute :objective, :string
+    validates :objective,
+              inclusion: { in: %w[binary:logistic binary:hinge multi:softmax multi:softprob reg:squarederror
+                                  reg:logistic] }
+
     validates :name, presence: true
     validate :only_one_model_is_live?
 
@@ -84,6 +89,10 @@ module EasyML
         train(x_train, y_train, x_valid, y_valid)
       end
       @is_fit = true
+    end
+
+    def decode_labels(ys, col: nil)
+      dataset.decode_labels(ys, col: col)
     end
 
     def evaluate(y_pred: nil, y_true: nil)

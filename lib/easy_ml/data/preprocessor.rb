@@ -94,9 +94,23 @@ module EasyML::Data
       @directory = new_dir
     end
 
+    def decode_labels(values, col: nil)
+      imputers = initialize_imputers(preprocessing_steps[:training], dumb: true)
+      imputer = imputers.dig(col, "categorical")
+      decoder = imputer.statistics.dig(:categorical, :label_decoder)
+
+      other_value = decoder.keys.map(&:to_s).map(&:to_i).max + 1
+      decoder[other_value] = "other"
+      decoder.stringify_keys!
+
+      values.map do |value|
+        decoder[value.to_s]
+      end
+    end
+
     private
 
-    def initialize_imputers(config)
+    def initialize_imputers(config, dumb: false)
       standardize_config(config).each_with_object({}) do |(col, strategies), hash|
         hash[col] ||= {}
         strategies.each do |strategy, options|
@@ -176,6 +190,7 @@ module EasyML::Data
       label_encoder = cat_imputer.statistics[:categorical][:label_encoder].stringify_keys
       other_value = label_encoder.values.max + 1
       label_encoder["other"] = other_value
+
       df.with_column(
         df[col].map { |v| label_encoder[v.to_s] }.alias(col)
       )

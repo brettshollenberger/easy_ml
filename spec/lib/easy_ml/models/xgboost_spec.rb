@@ -12,7 +12,8 @@ RSpec.describe EasyML::Models do
 
   def build_model(params)
     Timecop.freeze(incr_time)
-    model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error])).tap do |model|
+    model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
+                                          objective: "reg:squarederror")).tap do |model|
       model.fit
       model.save
     end
@@ -86,9 +87,17 @@ RSpec.describe EasyML::Models do
 
   let(:learning_rate) { 0.05 }
   let(:max_depth) { 8 }
+  let(:task) do
+    :regression
+  end
+  let(:objective) do
+    "reg:squarederror"
+  end
   let(:model_config) do
     {
       root_dir: root_dir,
+      task: task,
+      objective: objective,
       dataset: dataset,
       hyperparameters: {
         learning_rate: learning_rate,
@@ -180,43 +189,110 @@ RSpec.describe EasyML::Models do
         expect(evaluation_metrics[:r2_score]).to be_between(-Float::INFINITY, 1)
       end
 
-      it "evaluates classification predictions" do
-        df = Polars::DataFrame.new({
-                                     "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                                     "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
-                                                         "Business G", "Business H", "Business I", "Business J"],
-                                     "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
-                                     "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
-                                                          marketing equipment marketing],
-                                     "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
-                                     "did_convert" => %w[converts not_converts converts converts converts
-                                                         not_converts not_converts converts converts not_converts],
-                                     "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                                  2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
-                                   }).with_column(
-                                     Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                                   )
-        dataset_config.merge!(datasource: df, target: :did_convert)
-        dataset_config[:preprocessing_steps][:training].merge!(did_convert: { categorical: { categorical_min: 1,
-                                                                                             encode_labels: true } })
-        classification_dataset = EasyML::Data::Dataset.new(**dataset_config)
-        classification_dataset.refresh!
+      describe "classification" do
+        let(:task) do
+          :classification
+        end
+        let(:objective) do
+          "binary:logistic"
+        end
 
-        model.task = "classification"
-        model.hyperparameters.objective = "binary:logistic"
-        model.dataset = classification_dataset
-        model.metrics = %w[accuracy_score precision_score recall_score f1_score]
-        x_test, y_test = classification_dataset.test(split_ys: true)
-        model.fit
-        preds = model.predict(x_test)
+        let(:df) do
+          Polars::DataFrame.new({
+                                  "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                                  "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
+                                                      "Business G", "Business H", "Business I", "Business J"],
+                                  "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000,
+                                                       10_000],
+                                  "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
+                                                       marketing equipment marketing],
+                                  "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
+                                  "did_convert" => %w[converts not_converts converts converts converts
+                                                      not_converts not_converts converts converts not_converts],
+                                  "rev" => [1_000, 0, 2_000, 3_000, 4_000, 0, 0, 5_000, 6_000, 0],
+                                  "passive_rev" => [0, 30, 0, 0, 0, 50, 60, 0, 0, 70],
+                                  "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
+                                               2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
+                                }).with_column(
+                                  Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
+                                )
+        end
+        let(:target) do
+          :did_convert
+        end
+        let(:preprocessing_steps) do
+          {
+            training: {
+              annual_revenue: {
+                median: true,
+                clip: { min: 0, max: 1_000_000 }
+              },
+              loan_purpose: {
+                categorical: {
+                  categorical_min: 2,
+                  one_hot: true
+                }
+              },
+              did_convert: {
+                categorical: {
+                  categorical_min: 1,
+                  encode_labels: true
+                }
+              }
+            }
+          }
+        end
 
-        # Evaluate all classification metrics
-        evaluation_metrics = model.evaluate(y_pred: preds, y_true: y_test)
+        it "evaluates classification predictions" do
+          x_test, y_test = dataset.test(split_ys: true)
+          model.fit
+          model.metrics = %w[accuracy_score precision_score recall_score f1_score]
+          preds = model.predict(x_test)
 
-        expect(evaluation_metrics[:accuracy_score]).to be_between(0, 1)
-        expect(evaluation_metrics[:precision_score]).to be_between(0, 1)
-        expect(evaluation_metrics[:recall_score]).to be_between(0, 1)
-        expect(evaluation_metrics[:f1_score]).to be_between(0, 1)
+          # Evaluate all classification metrics
+          evaluation_metrics = model.evaluate(y_pred: preds, y_true: y_test)
+
+          expect(evaluation_metrics[:accuracy_score]).to be_between(0, 1)
+          expect(evaluation_metrics[:precision_score]).to be_between(0, 1)
+          expect(evaluation_metrics[:recall_score]).to be_between(0, 1)
+          expect(evaluation_metrics[:f1_score]).to be_between(0, 1)
+        end
+
+        it "decodes labels" do
+          x_test, = dataset.test(split_ys: true)
+          model.metrics = %w[accuracy_score precision_score recall_score f1_score]
+          model.fit
+          preds_orig = model.predict(x_test)
+          preds = model.decode_labels(preds_orig)
+          expect(preds_orig).to eq([0, 0])
+          expect(preds).to eq(%w[converts converts])
+        end
+      end
+
+      describe "Custom evaluators" do
+        xit "do" do
+          dataset_config.merge!(datasource: df, target: :did_convert)
+          dataset_config[:preprocessing_steps][:training].merge!(did_convert: { categorical: { categorical_min: 1,
+                                                                                               encode_labels: true } })
+          classification_dataset = EasyML::Data::Dataset.new(**dataset_config)
+          classification_dataset.refresh!
+
+          model.task = "classification"
+          model.hyperparameters.objective = "binary:logistic"
+          model.dataset = classification_dataset
+          model.metrics = %w[accuracy_score precision_score recall_score f1_score]
+          x_test, y_test = classification_dataset.test(split_ys: true)
+          model.fit
+          preds = model.predict(x_test)
+
+          # Evaluate all classification metrics
+          evaluation_metrics = model.evaluate(y_pred: preds, y_true: y_test)
+
+          expect(evaluation_metrics[:accuracy_score]).to be_between(0, 1)
+          expect(evaluation_metrics[:precision_score]).to be_between(0, 1)
+          expect(evaluation_metrics[:recall_score]).to be_between(0, 1)
+          expect(evaluation_metrics[:f1_score]).to be_between(0, 1)
+        end
       end
     end
 

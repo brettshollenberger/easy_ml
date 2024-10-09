@@ -327,6 +327,10 @@ module EasyML
         !should_split?
       end
 
+      def decode_labels(ys, col: nil)
+        preprocessor.decode_labels(ys, col: col.nil? ? target : col)
+      end
+
       private
 
       def refresh_datasource

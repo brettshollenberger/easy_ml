@@ -35,7 +35,7 @@ module EasyML
       def synced?
         return @synced unless @synced.nil?
 
-        @synced = calculate_syncedroot
+        @synced = calculate_synced
       end
 
       def last_updated_at

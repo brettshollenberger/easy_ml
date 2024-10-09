@@ -1,4 +1,4 @@
-# ![EasyML Logo](easy_ml.svg)
+# <img src="easy_ml.svg" alt="EasyML Logo" style="max-width: 300px;">
 
 # EasyML
 

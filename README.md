@@ -22,20 +22,6 @@ EasyML is a Ruby gem designed to simplify the process of building, deploying, an
 | --- | ---- | ------ | ------------- | --------- |
 | ✅  | ✅   | ✅     | ❌            | ❌        |
 
-| Feature                   | Status |
-| ------------------------- | ------ |
-| **Models Available**      |        |
-| XGBoost                   | ✅     |
-| LightGBM                  | ❌     |
-| TensorFlow                | ❌     |
-| PyTorch                   | ❌     |
-| **Datasources Available** |        |
-| S3                        | ✅     |
-| File                      | ✅     |
-| Polars                    | ✅     |
-| SQL Databases             | ❌     |
-| REST APIs                 | ❌     |
-
 _Note: Features marked with ❌ are part of the roadmap and are not yet implemented._
 
 ## Quick Start:

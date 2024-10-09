@@ -123,8 +123,8 @@ module EasyML::Data
             if strategy.to_sym == :categorical
               if imputers.dig(col, strategy).options.dig("one_hot")
                 df = apply_one_hot(df, col, imputers)
-              elsif imputers.dig(col, strategy).options.dig("numeric")
-                df = apply_numeric(df, col, imputers)
+              elsif imputers.dig(col, strategy).options.dig("encode_labels")
+                df = apply_encode_labels(df, col, imputers)
               end
             else
               imputer = imputers.dig(col, strategy)
@@ -161,7 +161,7 @@ module EasyML::Data
       df.drop([col])
     end
 
-    def apply_numeric(df, col, imputers)
+    def apply_encode_labels(df, col, imputers)
       cat_imputer = imputers.dig(col, "categorical")
       approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
         v >= cat_imputer.options["categorical_min"]

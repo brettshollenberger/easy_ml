@@ -198,7 +198,7 @@ RSpec.describe EasyML::Models do
                                    )
         dataset_config.merge!(datasource: df, target: :did_convert)
         dataset_config[:preprocessing_steps][:training].merge!(did_convert: { categorical: { categorical_min: 1,
-                                                                                             numeric: true } })
+                                                                                             encode_labels: true } })
         classification_dataset = EasyML::Data::Dataset.new(**dataset_config)
         classification_dataset.refresh!
 

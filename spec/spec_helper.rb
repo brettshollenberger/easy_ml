@@ -60,4 +60,25 @@ RSpec.configure do |config|
   end
 
   config.use_transactional_fixtures = true
+
+  # Configure CarrierWave storage based on environment variable or RSpec metadata
+  config.before(:each) do |example|
+    if example.metadata[:fog]
+      CarrierWave.configure do |carrierwave_config|
+        carrierwave_config.fog_credentials = {
+          provider: "AWS",
+          aws_access_key_id: "mock_access_key",
+          aws_secret_access_key: "mock_secret_key",
+          region: "us-east-1"
+        }
+        carrierwave_config.fog_directory = "mock-bucket"
+      end
+    else
+      CarrierWave.configure do |carrierwave_config|
+        carrierwave_config.storage = :file
+        carrierwave_config.enable_processing = false
+        carrierwave_config.root = "#{Rails.root.join("tmp")}"
+      end
+    end
+  end
 end

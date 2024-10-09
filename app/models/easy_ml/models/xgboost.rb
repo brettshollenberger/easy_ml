@@ -31,16 +31,15 @@ module EasyML
         @booster.predict(preprocess(xs))
       end
 
-      def save_model_file(path = nil)
+      def save_model_file
         raise "No trained model! Need to train model before saving (call model.fit)" unless @booster.present?
 
         path ||= file.path if file.respond_to?(:path)
         path ||= Rails.root.join("tmp", "models", "#{version}.json").to_s
 
         ensure_directory_exists(File.dirname(path))
-        @booster.save_model(path)
 
-        # Update the file attribute with the new CarrierWave uploader
+        @booster.save_model(path)
         File.open(path) do |f|
           self.file = f
         end

@@ -10,7 +10,7 @@ module EasyML
     end
 
     def store_dir
-      "easy_ml_models/#{model.version}"
+      "easy_ml_models/#{model.name}"
     end
 
     def extension_allowlist

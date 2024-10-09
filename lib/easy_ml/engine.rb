@@ -18,12 +18,6 @@ module EasyML
     generators_dirs = Dir[File.join(generators_path, "**", "*.rb")]
     generators_dirs.each { |file| require file }
 
-    config.to_prepare do
-      Dir.glob(Engine.root.join("app", "**", "*.rb")).each do |c|
-        require_dependency(c)
-      end
-    end
-
     config.after_initialize do
       require_relative "../../app/models/easy_ml/model"
       require_relative "../../app/uploaders/model_uploader"

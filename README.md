@@ -11,6 +11,24 @@ EasyML is a Ruby gem designed to simplify the process of building, deploying, an
 - **Rails Integration**: Seamlessly integrates with Rails applications, following Rails conventions and best practices.
 - **Comprehensive Testing**: Use RSpec for testing with support for database cleaning and test data generation.
 
+## Current and Planned Features
+
+| Feature                   | Status |
+| ------------------------- | ------ |
+| **Models Available**      |        |
+| XGBoost                   | ✅     |
+| LightGBM                  | ❌     |
+| TensorFlow                | ❌     |
+| PyTorch                   | ❌     |
+| **Datasources Available** |        |
+| S3                        | ✅     |
+| File                      | ✅     |
+| Polars                    | ✅     |
+| SQL Databases             | ❌     |
+| REST APIs                 | ❌     |
+
+_Note: Features marked with ❌ are part of the roadmap and are not yet implemented._
+
 ## Quick Start:
 
 Building a Production pipeline is as easy as 1,2,3!
@@ -71,24 +89,6 @@ Now you're ready to predict in production!
 MyTrainer.predict(customer_data: "I am worth a lot of money")
 # prediction: true!
 ```
-
-## Current and Planned Features
-
-| Feature                   | Status |
-| ------------------------- | ------ |
-| **Models Available**      |        |
-| XGBoost                   | ✅     |
-| LightGBM                  | ❌     |
-| TensorFlow                | ❌     |
-| PyTorch                   | ❌     |
-| **Datasources Available** |        |
-| S3                        | ✅     |
-| File                      | ✅     |
-| Polars                    | ✅     |
-| SQL Databases             | ❌     |
-| REST APIs                 | ❌     |
-
-_Note: Features marked with ❌ are part of the roadmap and are not yet implemented._
 
 ## Data Management
 

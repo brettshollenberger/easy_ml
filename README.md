@@ -83,6 +83,8 @@ end
 Now you're ready to predict in production!
 
 ```ruby
+MyTrainer.train # Yay, we did it!
+MyTrainer.deploy # Let the production hosts know it's live!
 MyTrainer.predict(customer_data: "I am worth a lot of money")
 # prediction: true!
 ```

@@ -2,6 +2,14 @@ require "spec_helper"
 require "xgboost"
 
 RSpec.describe EasyML::Models do
+  before(:each) do
+    model_class.new.cleanup!
+  end
+
+  after(:each) do
+    model_class.new.cleanup!
+  end
+
   let(:root_dir) { File.expand_path("..", Pathname.new(__FILE__)) }
   let(:preprocessing_steps) do
     {
@@ -130,6 +138,11 @@ RSpec.describe EasyML::Models do
 
         model.fit
       end
+
+      it "calls fit multiple times" do
+        model.fit
+        model.fit
+      end
     end
 
     describe "#predict" do
@@ -198,7 +211,7 @@ RSpec.describe EasyML::Models do
     end
 
     describe "#mark_live" do
-      it "marks all other models of the same name as is_live: false, and sets is_live: true to itself" do
+      it "marks all other models of the same name as is_live: false, and sets is_live: true to itself", :focus do
         model1 = model_class.create(name: "Test Model", is_live: true)
         model2 = model_class.create(name: "Test Model", is_live: false)
         model3 = model_class.create(name: "Test Model", is_live: false)
@@ -214,54 +227,68 @@ RSpec.describe EasyML::Models do
     end
 
     describe "#cleanup" do
+      def build_model(params)
+        Timecop.freeze(incr_time)
+        model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error])).tap do |model|
+          model.fit
+          model.save
+        end
+      end
+
+      def incr_time
+        @time += 1.second
+      end
+
       it "keeps the live model, deletes the oldest version when training, and retains up to 5 versions per model name" do
+        @time = EST.now
+        Timecop.freeze(@time)
         # Create test models
-        live_model_x = model_class.create(name: "Model X", is_live: true, created_at: 1.year.ago)
-        old_versions_x = 5.times.map { |i| model_class.create(name: "Model X", created_at: (6 - i).days.ago) }
+        live_model_x = build_model(name: "Model X", is_live: true, created_at: 1.year.ago, dataset: dataset,
+                                   metrics: %w[mean_absolute_error])
+
+        recent_models = 7.times.map do |i|
+          build_model(name: "Model X", created_at: (6 - i).days.ago)
+        end
+
+        old_versions_x = recent_models[0..1]
+        recent_versions_x = recent_models[2..-1]
+
+        expect(File).to exist(live_model_x.file.path)
+        old_versions_x.each do |old_version|
+          expect(File).to_not exist(old_version.file.path)
+        end
+        recent_versions_x.each do |recent_version|
+          expect(File).to exist(recent_version.file.path)
+        end
 
         # Create models with a different name
-        live_model_y = model_class.create(name: "Model Y", is_live: true, created_at: 1.year.ago)
-        old_versions_y = 5.times.map { |i| model_class.create(name: "Model Y", created_at: (6 - i).days.ago) }
-
-        # Create test files
-        all_models = [live_model_x] + old_versions_x + [live_model_y] + old_versions_y
-        all_models.each do |m|
-          file_path = File.join(root_dir, "#{m.name.underscore}_#{m.id}.json")
-          File.write(file_path, "test content")
-          allow(m).to receive(:file).and_return(double(path: file_path))
+        build_model(name: "Model Y", is_live: true, created_at: 1.year.ago)
+        recent_y = 7.times.map do |i|
+          build_model(name: "Model Y", created_at: (6 - i).days.ago)
         end
+
+        old_versions_y = recent_y[0..1]
+        recent_versions_y = recent_y[2..-1]
 
         # Simulate training a new model X
-        new_model_x = model_class.new(name: "Model X")
-        allow(new_model_x).to receive(:fit) do
-          new_model_x.save
-          new_model_x.cleanup
+        build_model(name: "Model X")
+
+        # add least recent x to old versions x
+        old_versions_x << recent_versions_x.shift
+        expect(old_versions_x.count).to eq 3
+        old_versions_x.each do |old_version|
+          expect(File).to_not exist(old_version.file.path)
+        end
+        recent_versions_x.each do |recent_version|
+          expect(File).to exist(recent_version.file.path)
         end
 
-        # Train the new model X (which should trigger cleanup)
-        new_model_x.fit
-
-        # Check results for Model X
-        expect(File.exist?(live_model_x.file.path)).to be true # Live model X should always be kept
-        expect(File.exist?(old_versions_x.first.file.path)).to be false # Oldest version of X should be deleted
-        expect( # Other 4 old versions of X should be kept
-          old_versions_x[1..].all? do |m|
-            File.exist?(m.file.path)
-          end
-        ).to be true
-        expect(File.exist?(new_model_x.file.path)).to be true # New model X should be kept
-
-        # Check results for Model Y
-        expect(File.exist?(live_model_y.file.path)).to be true # Live model Y should always be kept
-        expect(old_versions_y.all? { |m| File.exist?(m.file.path) }).to be true # All versions of Y should be kept
-
-        # Verify we have exactly 6 models for X: 1 live + 5 versions (including the new one)
-        existing_models_x = [live_model_x] + old_versions_x + [new_model_x]
-        expect(existing_models_x.count { |m| File.exist?(m.file.path) }).to eq(6)
-
-        # Verify we have exactly 6 models for Y: 1 live + 5 versions
-        existing_models_y = [live_model_y] + old_versions_y
-        expect(existing_models_y.count { |m| File.exist?(m.file.path) }).to eq(6)
+        old_versions_y.each do |old_version|
+          expect(File).to_not exist(old_version.file.path)
+        end
+        recent_versions_y.each do |recent_version|
+          expect(File).to exist(recent_version.file.path)
+        end
       end
     end
   end

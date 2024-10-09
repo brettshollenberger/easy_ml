@@ -15,4 +15,5 @@ group :test do
   gem "rspec-rails"
   # gem "sqlite3", "~> 1.4"
   gem "pg"
+  gem "timecop"
 end

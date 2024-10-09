@@ -19,7 +19,7 @@ module EasyML
         raise "Multiple previous versions of #{name} are live! This should never happen. Update previous versions to is_live=false before proceeding"
       end
 
-      return unless previous_versions.live.any? && live
+      return unless previous_versions.live.any? && is_live
 
       errors.add(:is_live,
                  "cannot mark model live when previous version is live. Explicitly use the mark_live method to mark this as the live version")
@@ -105,6 +105,14 @@ module EasyML
       EasyML::Model.where(name: name).order(id: :desc)
     end
 
+    def cleanup!
+      EasyML::FileRotate.new(model_dir, []).cleanup(EasyML::ModelUploader.new.extension_allowlist)
+    end
+
+    def cleanup
+      EasyML::FileRotate.new(model_dir, files_to_keep).cleanup(EasyML::ModelUploader.new.extension_allowlist)
+    end
+
     private
 
     def apply_defaults
@@ -122,8 +130,28 @@ module EasyML
       "#{model_name}_#{timestamp}"
     end
 
-    def generate_file_path
-      Rails.root.join("tmp", "models", "#{version}.bin").to_s
+    def model_dir
+      Rails.root.join("tmp/easy_ml_models")
+    end
+
+    def files_to_keep
+      live_models = self.class.live
+
+      recent_copies = live_models.flat_map do |live|
+        # Fetch all models with the same name
+        self.class.where(name: live.name).where(is_live: false).order(created_at: :desc).limit(live.name == name ? 4 : 5)
+      end
+
+      recent_versions = self.class
+                            .where.not(
+                              "EXISTS (SELECT 1 FROM easy_ml_models e2 WHERE e2.name = easy_ml_models.name AND e2.is_live = true)"
+                            )
+                            .where("created_at >= ?", 2.days.ago)
+                            .order(created_at: :desc)
+                            .group_by(&:name)
+                            .flat_map { |_, models| models.take(5) }
+
+      ([self] + recent_versions + recent_copies + live_models).compact.map(&:file).map(&:path).uniq
     end
   end
 end

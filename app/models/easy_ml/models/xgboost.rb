@@ -35,7 +35,7 @@ module EasyML
         raise "No trained model! Need to train model before saving (call model.fit)" unless @booster.present?
 
         path ||= file.path if file.respond_to?(:path)
-        path ||= Rails.root.join("tmp", "models", "#{version}.json").to_s
+        path ||= model_dir.join("#{version}.json").to_s
 
         ensure_directory_exists(File.dirname(path))
 
@@ -43,6 +43,8 @@ module EasyML
         File.open(path) do |f|
           self.file = f
         end
+        file.store!
+        cleanup
       end
 
       def load(path = nil)

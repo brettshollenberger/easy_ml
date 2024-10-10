@@ -5,6 +5,7 @@ require "active_record"
 require "active_model"
 require "glue_gun"
 require "numo/narray"
+require "xgboost"
 require_relative "easy_ml/version"
 require_relative "easy_ml/engine"
 

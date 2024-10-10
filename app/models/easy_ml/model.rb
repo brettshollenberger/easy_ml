@@ -1,10 +1,13 @@
 require_relative "../../../lib/easy_ml/core/model"
 module EasyML
   class Model < ActiveRecord::Base
-    include EasyML::Core::Model
+    include EasyML::Core::ModelCore
+
     self.table_name = "easy_ml_models"
 
     scope :live, -> { where(is_live: true) }
+    attribute :root_dir, :string
+    after_initialize :apply_defaults
 
     validate :only_one_model_is_live?
     def only_one_model_is_live?
@@ -21,7 +24,6 @@ module EasyML
     end
 
     def mark_live
-      # Start a transaction to ensure atomicity
       transaction do
         self.class.where(name: name).where.not(id: id).update_all(is_live: false)
         self.class.where(id: id).update_all(is_live: true)

@@ -1,28 +1,32 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
+require "timecop"
 require "combustion"
 Bundler.require :default, :development
 
 # Require the engine file
 require "easy_ml/engine"
 
-Combustion.initialize! :all
+# Initialize Combustion only for app directory specs
+running_rails_specs = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
+if running_rails_specs
+  Combustion.initialize! :all
+  require "rspec/rails"
 
-# ActiveRecord::Base.establish_connection(adapter: "postgresql", database: "easy_ml_test")
+  # ActiveRecord::Base.establish_connection(adapter: "postgresql", database: "easy_ml_test")
 
-# ActiveRecord::Schema.define do
-#   create_table :easy_ml_models do |t|
-#     t.string :version
-#     t.string :ml_model
-#     t.string :task
-#     t.json :metrics, default: []
-#     t.json :file, null: false
-#     t.timestamps
-#   end
-# end
-
-require "rspec/rails"
+  # ActiveRecord::Schema.define do
+  #   create_table :easy_ml_models do |t|
+  #     t.string :version
+  #     t.string :ml_model
+  #     t.string :task
+  #     t.json :metrics, default: []
+  #     t.json :file, null: false
+  #     t.timestamps
+  #   end
+  # end
+end
 
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")
@@ -48,7 +52,7 @@ RSpec.configure do |config|
   end
 
   config.before(:suite) do
-    unless Dir.glob(Rails.root.join("db/migrate/**/*")).count > 1
+    if running_rails_specs && Dir.glob(Rails.root.join("db/migrate/**/*")).none?
       # Run your generator and apply the generated migration
       Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
 
@@ -90,14 +94,16 @@ RSpec.configure do |config|
     end
   end
 
-  config.before(:suite) do
-    DatabaseCleaner.strategy = :truncation
-    DatabaseCleaner.clean_with(:truncation)
-  end
+  if running_rails_specs
+    config.before(:suite) do
+      DatabaseCleaner.strategy = :truncation
+      DatabaseCleaner.clean_with(:truncation)
+    end
 
-  config.around(:each) do |example|
-    DatabaseCleaner.cleaning do
-      example.run
+    config.around(:each) do |example|
+      DatabaseCleaner.cleaning do
+        example.run
+      end
     end
   end
 end

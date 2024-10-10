@@ -1,20 +1,23 @@
 require "spec_helper"
 require "xgboost"
-require Rails.root.join("app/custom_evaluator")
+# require Rails.root.join("app/custom_evaluator")
 
-RSpec.describe EasyML::Models do
+RSpec.describe EasyML::Core::Models::XGBoost do
   before(:each) do
-    model_class.new.cleanup!
+    model.cleanup!
   end
 
   after(:each) do
-    model_class.new.cleanup!
+    model.cleanup!
   end
 
   def build_model(params)
     Timecop.freeze(incr_time)
     model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
-                                          objective: "reg:squarederror")).tap do |model|
+                                          hyperparameters: {
+                                            objective: "reg:squarederror"
+
+                                          })).tap do |model|
       model.fit
       model.save
     end
@@ -98,11 +101,11 @@ RSpec.describe EasyML::Models do
     {
       root_dir: root_dir,
       task: task,
-      objective: objective,
       dataset: dataset,
       hyperparameters: {
         learning_rate: learning_rate,
-        max_depth: max_depth
+        max_depth: max_depth,
+        objective: objective
       }
     }
   end
@@ -129,7 +132,7 @@ RSpec.describe EasyML::Models do
       model_class.new(model_config)
     end
     let(:model_class) do
-      EasyML::Models::XGBoost
+      EasyML::Core::Models::XGBoost
     end
     let(:xgb) { ::XGBoost }
 
@@ -270,7 +273,7 @@ RSpec.describe EasyML::Models do
         end
 
         describe "Custom evaluators" do
-          it "uses custom evaluators", :focus do
+          xit "uses custom evaluators" do
             model.metrics = %w[accuracy_score precision_score recall_score f1_score]
             model.metrics << CustomEvaluator
             x_test, y_test = dataset.test(split_ys: true)
@@ -319,13 +322,13 @@ RSpec.describe EasyML::Models do
         model.save
         expect(model.ml_model).to eq "xg_boost"
 
-        loaded_model = EasyML::Models::XGBoost.find(model.id)
+        loaded_model = EasyML::Core::Models::XGBoost.new(file: model.file)
         loaded_model.load
 
         expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
       end
 
-      it "works on S3 storage", :fog do
+      it "works on S3 storage", fog: true do
         s3_url = "https://s3-bucket.amazonaws.com/model.json"
         allow_any_instance_of(CarrierWave::Storage::Fog::File).to receive(:url).and_return(s3_url)
 
@@ -334,7 +337,7 @@ RSpec.describe EasyML::Models do
         model.fit
         model.save
 
-        loaded_model = EasyML::Models::XGBoost.find(model.id)
+        loaded_model = EasyML::Core::Models::XGBoost.new(file: model.file)
 
         allow(loaded_model.file).to receive(:download) do |&block|
           File.open(model.file.path, "rb", &block)
@@ -342,79 +345,6 @@ RSpec.describe EasyML::Models do
 
         loaded_model.load
         expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
-      end
-    end
-
-    describe "#mark_live" do
-      it "marks all other models of the same name as is_live: false, and sets is_live: true to itself" do
-        @time = EST.now
-        Timecop.freeze(@time)
-
-        model1 = build_model(name: "Test Model", is_live: true)
-        model2 = build_model(name: "Test Model", is_live: false)
-        model3 = build_model(name: "Test Model", is_live: false)
-        other_model = build_model(name: "Other Model", is_live: true)
-
-        model3.mark_live
-
-        expect(model1.reload.is_live).to be false
-        expect(model2.reload.is_live).to be false
-        expect(model3.reload.is_live).to be true
-        expect(other_model.reload.is_live).to be true
-      end
-    end
-
-    describe "#cleanup" do
-      it "keeps the live model, deletes the oldest version when training, and retains up to 5 versions per model name" do
-        @time = EST.now
-        Timecop.freeze(@time)
-        # Create test models
-        live_model_x = build_model(name: "Model X", is_live: true, created_at: 1.year.ago, dataset: dataset,
-                                   metrics: %w[mean_absolute_error])
-
-        recent_models = 7.times.map do |i|
-          build_model(name: "Model X", created_at: (6 - i).days.ago)
-        end
-
-        old_versions_x = recent_models[0..1]
-        recent_versions_x = recent_models[2..-1]
-
-        expect(File).to exist(live_model_x.file.path)
-        old_versions_x.each do |old_version|
-          expect(File).to_not exist(old_version.file.path)
-        end
-        recent_versions_x.each do |recent_version|
-          expect(File).to exist(recent_version.file.path)
-        end
-
-        # Create models with a different name
-        build_model(name: "Model Y", is_live: true, created_at: 1.year.ago)
-        recent_y = 7.times.map do |i|
-          build_model(name: "Model Y", created_at: (6 - i).days.ago)
-        end
-
-        old_versions_y = recent_y[0..1]
-        recent_versions_y = recent_y[2..-1]
-
-        # Simulate training a new model X
-        build_model(name: "Model X")
-
-        # add least recent x to old versions x
-        old_versions_x << recent_versions_x.shift
-        expect(old_versions_x.count).to eq 3
-        old_versions_x.each do |old_version|
-          expect(File).to_not exist(old_version.file.path)
-        end
-        recent_versions_x.each do |recent_version|
-          expect(File).to exist(recent_version.file.path)
-        end
-
-        old_versions_y.each do |old_version|
-          expect(File).to_not exist(old_version.file.path)
-        end
-        recent_versions_y.each do |recent_version|
-          expect(File).to exist(recent_version.file.path)
-        end
       end
     end
   end

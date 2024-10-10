@@ -11,8 +11,8 @@
   "loan_purpose": {
     "categorical": {
       "value": {
-        "payroll": 4,
-        "expansion": 1
+        "expansion": 1,
+        "payroll": 4
       },
       "label_encoder": {
         "expansion": 0,

@@ -79,7 +79,13 @@ module EasyML
         metrics_results = {}
 
         model.metrics.each do |metric|
-          if EVALUATORS.key?(metric.to_sym)
+          if metric.is_a?(Module) || metric.is_a?(Class)
+            unless metric.respond_to?(:evaluate)
+              raise "Metric #{metric} must respond to #evaluate in order to be used as a custom evaluator"
+            end
+
+            metrics_results[metric.name] = metric.evaluate(y_pred, y_true)
+          elsif EVALUATORS.key?(metric.to_sym)
             metrics_results[metric.to_sym] =
               EVALUATORS[metric.to_sym].call(y_pred, y_true)
           end

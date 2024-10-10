@@ -31,7 +31,7 @@ module EasyML
 
         case task.to_sym
         when :classification
-          massage_classification(y_pred)
+          to_classification(y_pred)
         else
           y_pred
         end
@@ -179,7 +179,7 @@ module EasyML
         end
       end
 
-      def massage_classification(y_pred)
+      def to_classification(y_pred)
         if y_pred.first.is_a?(Array)
           # multiple classes
           y_pred.map do |v|

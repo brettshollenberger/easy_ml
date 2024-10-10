@@ -48,22 +48,24 @@ RSpec.configure do |config|
   end
 
   config.before(:suite) do
-    # Run your generator and apply the generated migration
-    Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
+    unless Dir.glob(Rails.root.join("db/migrate/**/*")).count > 1
+      # Run your generator and apply the generated migration
+      Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
 
-    # Ensure the correct migration paths are set
-    migration_paths = ActiveRecord::Migrator.migrations_paths
-    migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
+      # Ensure the correct migration paths are set
+      migration_paths = ActiveRecord::Migrator.migrations_paths
+      migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
 
-    # Apply migrations based on Rails version
-    case Rails::VERSION::MAJOR
-    when 7
-      ActiveRecord::MigrationContext.new(migration_paths).migrate
-    when 6
-      migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
-      migration_context.migrate
-    else
-      ActiveRecord::Migrator.migrate(migration_paths)
+      # Apply migrations based on Rails version
+      case Rails::VERSION::MAJOR
+      when 7
+        ActiveRecord::MigrationContext.new(migration_paths).migrate
+      when 6
+        migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
+        migration_context.migrate
+      else
+        ActiveRecord::Migrator.migrate(migration_paths)
+      end
     end
   end
 

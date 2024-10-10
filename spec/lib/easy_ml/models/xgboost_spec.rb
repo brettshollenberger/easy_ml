@@ -1,5 +1,6 @@
 require "spec_helper"
 require "xgboost"
+require Rails.root.join("app/custom_evaluator")
 
 RSpec.describe EasyML::Models do
   before(:each) do
@@ -267,31 +268,23 @@ RSpec.describe EasyML::Models do
           expect(preds_orig).to eq([0, 0])
           expect(preds).to eq(%w[converts converts])
         end
-      end
 
-      describe "Custom evaluators" do
-        xit "do" do
-          dataset_config.merge!(datasource: df, target: :did_convert)
-          dataset_config[:preprocessing_steps][:training].merge!(did_convert: { categorical: { categorical_min: 1,
-                                                                                               encode_labels: true } })
-          classification_dataset = EasyML::Data::Dataset.new(**dataset_config)
-          classification_dataset.refresh!
+        describe "Custom evaluators" do
+          it "uses custom evaluators", :focus do
+            model.metrics = %w[accuracy_score precision_score recall_score f1_score]
+            model.metrics << CustomEvaluator
+            x_test, y_test = dataset.test(split_ys: true)
+            model.fit
+            preds = model.predict(x_test)
 
-          model.task = "classification"
-          model.hyperparameters.objective = "binary:logistic"
-          model.dataset = classification_dataset
-          model.metrics = %w[accuracy_score precision_score recall_score f1_score]
-          x_test, y_test = classification_dataset.test(split_ys: true)
-          model.fit
-          preds = model.predict(x_test)
+            # Evaluate all classification metrics
+            evaluation_metrics = model.evaluate(y_pred: preds, y_true: y_test)
 
-          # Evaluate all classification metrics
-          evaluation_metrics = model.evaluate(y_pred: preds, y_true: y_test)
-
-          expect(evaluation_metrics[:accuracy_score]).to be_between(0, 1)
-          expect(evaluation_metrics[:precision_score]).to be_between(0, 1)
-          expect(evaluation_metrics[:recall_score]).to be_between(0, 1)
-          expect(evaluation_metrics[:f1_score]).to be_between(0, 1)
+            expect(evaluation_metrics[:accuracy_score]).to be_between(0, 1)
+            expect(evaluation_metrics[:precision_score]).to be_between(0, 1)
+            expect(evaluation_metrics[:recall_score]).to be_between(0, 1)
+            expect(evaluation_metrics[:f1_score]).to be_between(0, 1)
+          end
         end
       end
     end

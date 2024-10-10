@@ -31,6 +31,9 @@ end
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")
 
+# Load support files
+Dir[Rails.root.join("spec/support/**/*.rb")].each { |f| require f }
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"

@@ -1,8 +1,14 @@
 require "spec_helper"
+require "support/model_spec_helper"
 
-describe EasyML::Models::XGBoost do
+RSpec.describe EasyML::Models::XGBoost do
+  let(:model_class) do
+    EasyML::Models::XGBoost
+  end
+  include ModelSpecHelper
+
   describe "#load" do
-    it "loads the model from a file", :focus do
+    it "loads the model from a file" do
       model.name = "My Model" # Model name + version must be unique
       model.metrics = ["mean_absolute_error"]
       model.fit
@@ -47,14 +53,15 @@ describe EasyML::Models::XGBoost do
         build_model(name: "Model X", created_at: (6 - i).days.ago)
       end
 
-      old_versions_x = recent_models[0..1]
-      recent_versions_x = recent_models[2..-1]
+      old_versions_x = recent_models[0..2]
+      recent_versions_x = recent_models[3..-1]
 
       expect(File).to exist(live_model_x.file.path)
       old_versions_x.each do |old_version|
         expect(File).to_not exist(old_version.file.path)
       end
-      recent_versions_x.each do |recent_version|
+      recent_versions_x.each.with_index do |recent_version, idx|
+        puts "version #{idx + 1} still exist?"
         expect(File).to exist(recent_version.file.path)
       end
 
@@ -64,15 +71,15 @@ describe EasyML::Models::XGBoost do
         build_model(name: "Model Y", created_at: (6 - i).days.ago)
       end
 
-      old_versions_y = recent_y[0..1]
-      recent_versions_y = recent_y[2..-1]
+      old_versions_y = recent_y[0..2]
+      recent_versions_y = recent_y[3..-1]
 
       # Simulate training a new model X
       build_model(name: "Model X")
 
       # add least recent x to old versions x
       old_versions_x << recent_versions_x.shift
-      expect(old_versions_x.count).to eq 3
+      expect(old_versions_x.count).to eq 4
       old_versions_x.each do |old_version|
         expect(File).to_not exist(old_version.file.path)
       end
@@ -86,6 +93,8 @@ describe EasyML::Models::XGBoost do
       recent_versions_y.each do |recent_version|
         expect(File).to exist(recent_version.file.path)
       end
+
+      live_model_x.cleanup!
     end
   end
 end

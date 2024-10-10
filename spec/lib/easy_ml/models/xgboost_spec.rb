@@ -1,158 +1,14 @@
 require "spec_helper"
-require "xgboost"
-# require Rails.root.join("app/custom_evaluator")
+require "support/model_spec_helper"
 
 RSpec.describe EasyML::Core::Models::XGBoost do
-  before(:each) do
-    model.cleanup!
-  end
-
-  after(:each) do
-    model.cleanup!
-  end
-
-  def build_model(params)
-    Timecop.freeze(incr_time)
-    model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
-                                          hyperparameters: {
-                                            objective: "reg:squarederror"
-
-                                          })).tap do |model|
-      model.fit
-      model.save
-    end
-  end
-
-  def incr_time
-    @time += 1.second
-  end
-
-  let(:root_dir) { File.expand_path("..", Pathname.new(__FILE__)) }
-  let(:preprocessing_steps) do
-    {
-      training: {
-        annual_revenue: {
-          median: true,
-          clip: { min: 0, max: 1_000_000 }
-        },
-        loan_purpose: {
-          categorical: {
-            categorical_min: 2,
-            one_hot: true
-          }
-        }
-      }
-    }
-  end
-  let(:target) { "rev" }
-  let(:date_col) { "date" }
-  let(:months_test) { 2 }
-  let(:months_valid) { 2 }
-  let(:today) { EST.parse("2024-06-01") }
-
-  let(:dataset_config) do
-    {
-      verbose: false,
-      drop_if_null: ["loan_purpose"],
-      drop_cols: %w[business_name state],
-      datasource: df,
-      target: target,
-      preprocessing_steps: preprocessing_steps,
-      splitter: {
-        date: {
-          today: today,
-          date_col: date_col,
-          months_test: months_test,
-          months_valid: months_valid
-        }
-      }
-    }
-  end
-
-  let(:dataset) { EasyML::Data::Dataset.new(**dataset_config) }
-
-  let(:hyperparameters) do
-    {
-      learning_rate: 0.05,
-      max_depth: 8,
-      n_estimators: 150,
-      booster: "gbtree",
-      objective: "reg:squarederror"
-    }
-  end
-
-  let(:config) do
-    {
-      root_dir: root_dir,
-      verbose: false,
-      hyperparameters: hyperparameters
-    }
-  end
-
-  let(:learning_rate) { 0.05 }
-  let(:max_depth) { 8 }
-  let(:task) do
-    :regression
-  end
-  let(:objective) do
-    "reg:squarederror"
-  end
-  let(:model_config) do
-    {
-      root_dir: root_dir,
-      task: task,
-      dataset: dataset,
-      hyperparameters: {
-        learning_rate: learning_rate,
-        max_depth: max_depth,
-        objective: objective
-      }
-    }
-  end
-
-  let(:df) do
-    Polars::DataFrame.new({
-                            "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                            "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
-                                                "Business G", "Business H", "Business I", "Business J"],
-                            "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
-                            "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
-                                                 marketing equipment marketing],
-                            "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
-                            "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
-                            "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
-                          }).with_column(
-                            Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                          )
+  include ModelSpecHelper
+  let(:model_class) do
+    EasyML::Core::Models::XGBoost
   end
 
   describe "XGBoost" do
-    let(:model) do
-      model_class.new(model_config)
-    end
-    let(:model_class) do
-      EasyML::Core::Models::XGBoost
-    end
     let(:xgb) { ::XGBoost }
-
-    def cleanup
-      paths = [
-        File.join(root_dir, "xgboost_model.json"),
-        File.join(root_dir, "xg_boost.bin")
-      ]
-      paths.each do |path|
-        FileUtils.rm(path) if File.exist?(path)
-      end
-    end
-
-    before(:each) do
-      dataset.refresh!
-      cleanup
-    end
-    after(:each) do
-      dataset.cleanup
-    end
 
     describe "#fit" do
       it "trains the model" do
@@ -184,7 +40,6 @@ RSpec.describe EasyML::Core::Models::XGBoost do
         model.fit
         preds = model.predict(xs)
 
-        # Evaluate all regression metrics
         evaluation_metrics = model.evaluate(y_pred: preds, y_true: ys)
 
         expect(evaluation_metrics[:mean_absolute_error]).to be_between(784, 785)

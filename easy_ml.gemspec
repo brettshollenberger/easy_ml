@@ -34,8 +34,10 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.13"
   spec.add_runtime_dependency "numo-narray"
   spec.add_runtime_dependency "polars-df"
+  spec.add_runtime_dependency "pycall"
   spec.add_runtime_dependency "rails"
-  spec.add_runtime_dependency "xgb"
+  spec.add_runtime_dependency "red-optuna"
+  # spec.add_runtime_dependency "xgb"
 
   # Uncomment to register a new dependency of your gem
   spec.add_development_dependency "annotate"

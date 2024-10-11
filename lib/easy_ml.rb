@@ -3,6 +3,7 @@
 require "rails"
 require "active_record"
 require "active_model"
+require "active_support/all"
 require "glue_gun"
 require "numo/narray"
 require "xgboost"

@@ -12,6 +12,8 @@ module EasyML
 
         def self.included(base)
           base.class_eval do
+            attribute :callbacks, :array
+
             dependency :hyperparameters do |dep|
               dep.set_class EasyML::Models::Hyperparameters::XGBoost
               dep.bind_attribute :batch_size, default: 32
@@ -96,7 +98,7 @@ module EasyML
           xs = xs.to_a.map(&:values)
           ys = ys.to_a.map(&:values)
           dtrain = d_matrix_class.new(xs, label: ys)
-          @model = base_model.train(hyperparameters.to_h, dtrain)
+          @model = base_model.train(hyperparameters.to_h, dtrain, callbacks: callbacks)
         end
 
         def train_in_batches
@@ -179,7 +181,7 @@ module EasyML
           # # If this is the first batch, create the booster
           if @booster.nil?
             initialize_model do
-              base_model.train(@hyperparameters.to_h, d_train, evals: evals)
+              base_model.train(@hyperparameters.to_h, d_train, evals: evals, callbacks: callbacks)
             end
           else
             # Update the existing booster with the new batch

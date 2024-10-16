@@ -16,6 +16,10 @@ module EasyML::Data::Dataset::Splitters
     end
 
     def split(df)
+      unless df[date_col].dtype.is_a?(Polars::Datetime)
+        raise "Date splitter cannot split on non-date col #{date_col}, dtype is #{df[date_col].dtype}"
+      end
+
       validation_date_start, test_date_start = splits
 
       test_df = df.filter(Polars.col(date_col) >= test_date_start)

@@ -172,6 +172,15 @@ EasyML offers a variety of preprocessing features to prepare your data for machi
 
 ## Installation
 
+Install necessary Python dependencies
+
+1. **Install Python dependencies (don't worry, all code is in Ruby, we just call through to Python)**
+
+```bash
+pip install wandb
+pip install optuna
+```
+
 1. **Install the gem**:
 
    ```bash

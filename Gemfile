@@ -8,6 +8,8 @@ gemspec
 gem "aws-sdk", "~> 3.1"
 gem "rake", "~> 13.0"
 gem "rubocop", "~> 1.21"
+gem "wandb", path: "/Users/brettshollenberger/programming/wandb"
+gem "xgb", path: "/Users/brettshollenberger/programming/xgboost-ruby"
 
 group :test do
   gem "activerecord"

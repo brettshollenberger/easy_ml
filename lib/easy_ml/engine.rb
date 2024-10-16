@@ -20,7 +20,7 @@ module EasyML
 
     config.after_initialize do
       require_relative "../../app/models/easy_ml/model"
-      require_relative "../../app/uploaders/model_uploader"
+      require_relative "../../app/models/easy_ml/models"
     end
   end
 end

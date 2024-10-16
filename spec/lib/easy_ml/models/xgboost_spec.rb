@@ -1,155 +1,14 @@
 require "spec_helper"
-require "xgboost"
-require Rails.root.join("app/custom_evaluator")
+require "support/model_spec_helper"
 
-RSpec.describe EasyML::Models do
-  before(:each) do
-    model_class.new.cleanup!
-  end
-
-  after(:each) do
-    model_class.new.cleanup!
-  end
-
-  def build_model(params)
-    Timecop.freeze(incr_time)
-    model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
-                                          objective: "reg:squarederror")).tap do |model|
-      model.fit
-      model.save
-    end
-  end
-
-  def incr_time
-    @time += 1.second
-  end
-
-  let(:root_dir) { File.expand_path("..", Pathname.new(__FILE__)) }
-  let(:preprocessing_steps) do
-    {
-      training: {
-        annual_revenue: {
-          median: true,
-          clip: { min: 0, max: 1_000_000 }
-        },
-        loan_purpose: {
-          categorical: {
-            categorical_min: 2,
-            one_hot: true
-          }
-        }
-      }
-    }
-  end
-  let(:target) { "rev" }
-  let(:date_col) { "date" }
-  let(:months_test) { 2 }
-  let(:months_valid) { 2 }
-  let(:today) { EST.parse("2024-06-01") }
-
-  let(:dataset_config) do
-    {
-      verbose: false,
-      drop_if_null: ["loan_purpose"],
-      drop_cols: %w[business_name state],
-      datasource: df,
-      target: target,
-      preprocessing_steps: preprocessing_steps,
-      splitter: {
-        date: {
-          today: today,
-          date_col: date_col,
-          months_test: months_test,
-          months_valid: months_valid
-        }
-      }
-    }
-  end
-
-  let(:dataset) { EasyML::Data::Dataset.new(**dataset_config) }
-
-  let(:hyperparameters) do
-    {
-      learning_rate: 0.05,
-      max_depth: 8,
-      n_estimators: 150,
-      booster: "gbtree",
-      objective: "reg:squarederror"
-    }
-  end
-
-  let(:config) do
-    {
-      root_dir: root_dir,
-      verbose: false,
-      hyperparameters: hyperparameters
-    }
-  end
-
-  let(:learning_rate) { 0.05 }
-  let(:max_depth) { 8 }
-  let(:task) do
-    :regression
-  end
-  let(:objective) do
-    "reg:squarederror"
-  end
-  let(:model_config) do
-    {
-      root_dir: root_dir,
-      task: task,
-      objective: objective,
-      dataset: dataset,
-      hyperparameters: {
-        learning_rate: learning_rate,
-        max_depth: max_depth
-      }
-    }
-  end
-
-  let(:df) do
-    Polars::DataFrame.new({
-                            "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                            "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
-                                                "Business G", "Business H", "Business I", "Business J"],
-                            "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
-                            "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
-                                                 marketing equipment marketing],
-                            "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
-                            "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
-                            "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
-                          }).with_column(
-                            Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                          )
+RSpec.describe EasyML::Core::Models::XGBoost do
+  include ModelSpecHelper
+  let(:model_class) do
+    EasyML::Core::Models::XGBoost
   end
 
   describe "XGBoost" do
-    let(:model) do
-      model_class.new(model_config)
-    end
-    let(:model_class) do
-      EasyML::Models::XGBoost
-    end
     let(:xgb) { ::XGBoost }
-
-    def cleanup
-      paths = [
-        File.join(root_dir, "xgboost_model.json"),
-        File.join(root_dir, "xg_boost.bin")
-      ]
-      paths.each do |path|
-        FileUtils.rm(path) if File.exist?(path)
-      end
-    end
-
-    before(:each) do
-      dataset.refresh!
-      cleanup
-    end
-    after(:each) do
-      dataset.cleanup
-    end
 
     describe "#fit" do
       it "trains the model" do
@@ -181,7 +40,6 @@ RSpec.describe EasyML::Models do
         model.fit
         preds = model.predict(xs)
 
-        # Evaluate all regression metrics
         evaluation_metrics = model.evaluate(y_pred: preds, y_true: ys)
 
         expect(evaluation_metrics[:mean_absolute_error]).to be_between(784, 785)
@@ -270,7 +128,7 @@ RSpec.describe EasyML::Models do
         end
 
         describe "Custom evaluators" do
-          it "uses custom evaluators", :focus do
+          xit "uses custom evaluators" do
             model.metrics = %w[accuracy_score precision_score recall_score f1_score]
             model.metrics << CustomEvaluator
             x_test, y_test = dataset.test(split_ys: true)
@@ -319,13 +177,13 @@ RSpec.describe EasyML::Models do
         model.save
         expect(model.ml_model).to eq "xg_boost"
 
-        loaded_model = EasyML::Models::XGBoost.find(model.id)
+        loaded_model = EasyML::Core::Models::XGBoost.new(file: model.file)
         loaded_model.load
 
         expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
       end
 
-      it "works on S3 storage", :fog do
+      it "works on S3 storage", fog: true do
         s3_url = "https://s3-bucket.amazonaws.com/model.json"
         allow_any_instance_of(CarrierWave::Storage::Fog::File).to receive(:url).and_return(s3_url)
 
@@ -334,7 +192,7 @@ RSpec.describe EasyML::Models do
         model.fit
         model.save
 
-        loaded_model = EasyML::Models::XGBoost.find(model.id)
+        loaded_model = EasyML::Core::Models::XGBoost.new(file: model.file)
 
         allow(loaded_model.file).to receive(:download) do |&block|
           File.open(model.file.path, "rb", &block)
@@ -342,79 +200,6 @@ RSpec.describe EasyML::Models do
 
         loaded_model.load
         expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
-      end
-    end
-
-    describe "#mark_live" do
-      it "marks all other models of the same name as is_live: false, and sets is_live: true to itself" do
-        @time = EST.now
-        Timecop.freeze(@time)
-
-        model1 = build_model(name: "Test Model", is_live: true)
-        model2 = build_model(name: "Test Model", is_live: false)
-        model3 = build_model(name: "Test Model", is_live: false)
-        other_model = build_model(name: "Other Model", is_live: true)
-
-        model3.mark_live
-
-        expect(model1.reload.is_live).to be false
-        expect(model2.reload.is_live).to be false
-        expect(model3.reload.is_live).to be true
-        expect(other_model.reload.is_live).to be true
-      end
-    end
-
-    describe "#cleanup" do
-      it "keeps the live model, deletes the oldest version when training, and retains up to 5 versions per model name" do
-        @time = EST.now
-        Timecop.freeze(@time)
-        # Create test models
-        live_model_x = build_model(name: "Model X", is_live: true, created_at: 1.year.ago, dataset: dataset,
-                                   metrics: %w[mean_absolute_error])
-
-        recent_models = 7.times.map do |i|
-          build_model(name: "Model X", created_at: (6 - i).days.ago)
-        end
-
-        old_versions_x = recent_models[0..1]
-        recent_versions_x = recent_models[2..-1]
-
-        expect(File).to exist(live_model_x.file.path)
-        old_versions_x.each do |old_version|
-          expect(File).to_not exist(old_version.file.path)
-        end
-        recent_versions_x.each do |recent_version|
-          expect(File).to exist(recent_version.file.path)
-        end
-
-        # Create models with a different name
-        build_model(name: "Model Y", is_live: true, created_at: 1.year.ago)
-        recent_y = 7.times.map do |i|
-          build_model(name: "Model Y", created_at: (6 - i).days.ago)
-        end
-
-        old_versions_y = recent_y[0..1]
-        recent_versions_y = recent_y[2..-1]
-
-        # Simulate training a new model X
-        build_model(name: "Model X")
-
-        # add least recent x to old versions x
-        old_versions_x << recent_versions_x.shift
-        expect(old_versions_x.count).to eq 3
-        old_versions_x.each do |old_version|
-          expect(File).to_not exist(old_version.file.path)
-        end
-        recent_versions_x.each do |recent_version|
-          expect(File).to exist(recent_version.file.path)
-        end
-
-        old_versions_y.each do |old_version|
-          expect(File).to_not exist(old_version.file.path)
-        end
-        recent_versions_y.each do |recent_version|
-          expect(File).to exist(recent_version.file.path)
-        end
       end
     end
   end

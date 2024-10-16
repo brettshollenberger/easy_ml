@@ -6,6 +6,8 @@ module EasyML
     end
 
     def cleanup(allowed_endings = %w[json])
+      return unless @directory.present?
+
       allowed_patterns = allowed_endings.map { |ending| File.join(@directory, "**", "*#{ending}") }
       files_to_check = allowed_patterns.empty? ? Dir.glob(File.join(@directory, "**/*")) : Dir.glob(allowed_patterns)
       # Filter out directories

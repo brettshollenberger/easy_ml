@@ -1,5 +1,5 @@
 require "optuna"
-require_relative "xgboost_adapter"
+require_relative "adapters"
 
 module EasyML
   module Core
@@ -12,12 +12,18 @@ module EasyML
         attribute :config, :hash
         attribute :metrics, :array
         attribute :objective, :string
+        attribute :callbacks, :array
+        attribute :project_name, :string
+        attribute :tune_started_at
 
         dependency :adapter do |dep|
           dep.option :xgboost do |opt|
-            opt.set_class XGBoostAdapter
+            opt.set_class Adapters::XGBoostAdapter
             opt.bind_attribute :model
             opt.bind_attribute :config
+            opt.bind_attribute :callbacks
+            opt.bind_attribute :project_name
+            opt.bind_attribute :tune_started_at
           end
 
           dep.when do |_dep|

@@ -1,3 +1,4 @@
+require "wandb"
 module EasyML
   module Core
     module Models
@@ -12,12 +13,22 @@ module EasyML
 
         def self.included(base)
           base.class_eval do
-            attribute :callbacks, :array
+            dependency :callbacks, { array: true } do |dep|
+              dep.option :wandb do |opt|
+                opt.default
+                opt.set_class Wandb::XGBoostCallback
+                opt.bind_attribute :log_model, default: false
+                opt.bind_attribute :log_feature_importance, default: true
+                opt.bind_attribute :importance_type, default: "gain"
+                opt.bind_attribute :define_metric, default: true
+                opt.bind_attribute :project_name
+              end
+            end
 
             dependency :hyperparameters do |dep|
               dep.set_class EasyML::Models::Hyperparameters::XGBoost
               dep.bind_attribute :batch_size, default: 32
-              dep.bind_attribute :learning_rate, default: 0.1
+              dep.bind_attribute :learning_rate, default: 1.1
               dep.bind_attribute :max_depth, default: 6
               dep.bind_attribute :n_estimators, default: 100
               dep.bind_attribute :booster, default: "gbtree"
@@ -181,7 +192,8 @@ module EasyML
           # # If this is the first batch, create the booster
           if @booster.nil?
             initialize_model do
-              base_model.train(@hyperparameters.to_h, d_train, evals: evals, callbacks: callbacks)
+              base_model.train(@hyperparameters.to_h, d_train,
+                               num_boost_round: @hyperparameters.to_h.dig("n_estimators"), evals: evals, callbacks: callbacks)
             end
           else
             # Update the existing booster with the new batch

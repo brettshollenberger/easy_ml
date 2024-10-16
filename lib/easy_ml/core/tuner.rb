@@ -1,6 +1,5 @@
 require "optuna"
 require_relative "tuner/tuner_run"
-require_relative "tuner/xgboost_adapter"
 
 module EasyML
   module Core
@@ -9,27 +8,14 @@ module EasyML
 
       attribute :model
       attribute :dataset
+      attribute :project_name, :string
       attribute :task, :string
-      attribute :config, :hash
+      attribute :config, :hash, default: {}
       attribute :metrics, :array
       attribute :objective, :string
       attribute :n_trials, default: 100
       attribute :run_metrics
-
-      dependency :adapter do |dep|
-        dep.option :xgboost do |opt|
-          opt.set_class XGBoostAdapter
-          opt.bind_attribute :model
-          opt.bind_attribute :config
-        end
-
-        dep.when do |_dep|
-          case model
-          when EasyML::Core::Models::XGBoost, EasyML::Models::XGBoost
-            { option: :xgboost }
-          end
-        end
-      end
+      attribute :callbacks, :array
 
       def loggers(_study, trial)
         return unless trial.state.name == "FAIL"
@@ -42,6 +28,7 @@ module EasyML
 
         study = Optuna::Study.new
         _, y_true = model.dataset.test(split_ys: true)
+        tune_started_at = EST.now
 
         study.optimize(n_trials: n_trials, callbacks: [method(:loggers)]) do |trial|
           class << trial
@@ -64,13 +51,20 @@ module EasyML
             y_true: y_true,
             config: config,
             metrics: metrics,
-            objective: objective
+            objective: objective,
+            tune_started_at: tune_started_at,
+            project_name: project_name,
+            callbacks: callbacks
           ).tune(trial)
 
           run_metrics[objective.to_sym]
         rescue StandardError => e
           puts "Optuna failed with: #{e.message}"
         end
+
+        raise "Optuna study failed" unless study.respond_to?(:best_trial)
+
+        study.best_trial.params
       end
 
       def set_defaults!

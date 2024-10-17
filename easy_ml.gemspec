@@ -31,7 +31,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "activesupport"
   spec.add_runtime_dependency "carrierwave", ">= 2.0", "< 4"
   spec.add_runtime_dependency "fog-aws", "~> 3.0"
-  spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.17"
+  spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.19"
   spec.add_runtime_dependency "numo-narray"
   spec.add_runtime_dependency "polars-df"
   spec.add_runtime_dependency "pycall"

@@ -26,11 +26,21 @@ module EasyML
           end
 
           def configure_callbacks
-            wandb_callback = callbacks.detect { |h| h.keys.map(&:to_sym).include?(:wandb) }
-            return unless wandb_callback.present?
+            model.customize_callbacks do |callbacks|
+              return unless callbacks.present?
 
-            wandb_callback[:wandb][:project_name] = "#{project_name}_#{tune_started_at.strftime("%Y_%m_%d_%H_%M_%S")}"
-            model.callbacks = callbacks
+              wandb_callback = callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
+              return unless wandb_callback.present?
+
+              wandb_callback.project_name = "#{wandb_callback.project_name}_#{tune_started_at.strftime("%Y_%m_%d_%H_%M_%S")}"
+              wandb_callback.custom_loggers = [
+                lambda do |booster, _epoch, _hist|
+                  dtrain = model.send(:preprocess, x_true, y_true)
+                  y_pred = booster.predict(dtrain)
+                  model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
+                end
+              ]
+            end
           end
         end
       end

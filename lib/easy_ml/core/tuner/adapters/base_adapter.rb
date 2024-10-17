@@ -11,13 +11,14 @@ module EasyML
 
           attribute :model
           attribute :config, :hash
-          attribute :callbacks, :array
           attribute :project_name, :string
           attribute :tune_started_at
+          attribute :y_true
+          attribute :x_true
 
           def run_trial(trial)
-            suggest_parameters(trial)
-            configure_callbacks
+            config = deep_merge_defaults(self.config.clone)
+            suggest_parameters(trial, config)
             model.fit
             yield model
           end
@@ -26,14 +27,24 @@ module EasyML
             raise "Subclasses fof Tuner::Adapter::BaseAdapter must define #configure_callbacks"
           end
 
-          def suggest_parameters(trial)
+          def suggest_parameters(trial, config)
             defaults.keys.each do |param_name|
-              param_value = suggest_parameter(trial, param_name)
+              param_value = suggest_parameter(trial, param_name, config)
               model.hyperparameters.send("#{param_name}=", param_value)
             end
           end
 
-          def suggest_parameter(trial, param_name)
+          def deep_merge_defaults(config)
+            defaults.deep_merge(config) do |_key, default_value, config_value|
+              if default_value.is_a?(Hash) && config_value.is_a?(Hash)
+                default_value.merge(config_value)
+              else
+                config_value
+              end
+            end
+          end
+
+          def suggest_parameter(trial, param_name, config)
             param_config = config[param_name]
             min = param_config[:min]
             max = param_config[:max]

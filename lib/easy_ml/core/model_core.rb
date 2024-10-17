@@ -59,8 +59,10 @@ module EasyML
         dataset.decode_labels(ys, col: col)
       end
 
-      def evaluate(y_pred: nil, y_true: nil)
-        EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true)
+      def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
+        evaluator ||= self.evaluator
+        EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true,
+                                              evaluator: evaluator)
       end
 
       def predict(xs)
@@ -151,6 +153,7 @@ module EasyML
 
       def apply_defaults
         self.version ||= generate_version_string
+        self.metrics ||= allowed_metrics
         self.ml_model ||= get_ml_model
       end
 

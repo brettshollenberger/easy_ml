@@ -13,9 +13,10 @@ module EasyML
 
         def self.included(base)
           base.class_eval do
+            attribute :evaluator
+
             dependency :callbacks, { array: true } do |dep|
               dep.option :wandb do |opt|
-                opt.default
                 opt.set_class Wandb::XGBoostCallback
                 opt.bind_attribute :log_model, default: false
                 opt.bind_attribute :log_feature_importance, default: true
@@ -89,6 +90,10 @@ module EasyML
           ::XGBoost
         end
 
+        def customize_callbacks
+          yield callbacks
+        end
+
         private
 
         def booster_class
@@ -119,10 +124,8 @@ module EasyML
           @model = nil
           @booster = nil
           x_valid, y_valid = dataset.valid(split_ys: true)
-
-          dataset.train(split_ys: true) do |x_train, y_train|
-            fit_batch(x_train, y_train, x_valid, y_valid)
-          end
+          x_train, y_train = dataset.train(split_ys: true)
+          fit_batch(x_train, y_train, x_valid, y_valid)
         end
 
         def _preprocess(df)

@@ -26,6 +26,8 @@ module ML
       require_relative "datasource/s3_datasource"
       require_relative "datasource/file_datasource"
       require_relative "datasource/polars_datasource"
+      require_relative "datasource/merged_datasource"
+      require_relative "datasource/datasource_factory"
     end
   end
 end

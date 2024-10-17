@@ -159,7 +159,6 @@ RSpec.describe EasyML::Data::Dataset do
       allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
       allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
       allow_any_instance_of(s3_datasource).to receive(:refresh!).and_return(true)
-      allow_any_instance_of(EasyML::Data::Dataset).to receive(:should_split?).and_return(true)
     end
 
     describe "When passing in args" do
@@ -629,4 +628,91 @@ RSpec.describe EasyML::Data::Dataset do
     #   end
     # end
   end
+
+  describe "Merged Datasource" do
+    let(:df) do
+      df = Polars::DataFrame.new({
+                                   id: [1, 2, 3, 4, 5, 6, 7, 8],
+                                   company_id: [1, 1, 1, 2, 2, 2, 1, 2],
+                                   annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
+                                   created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
+                                                    2024-08-01 2024-09-01]
+                                 })
+
+      # Convert the 'created_date' column to datetime
+      df.with_column(
+        Polars.col("created_date").str.strptime(Polars::Datetime, "%Y-%m-%d").alias("created_date")
+      )
+    end
+
+    let(:fundings) do
+      Polars::DataFrame.new({
+                              id: [1, 2, 3, 4, 5, 6, 7, 8],
+                              rev: [0, 0, 100, 200, 0, 300, 400, 500]
+                            })
+    end
+
+    it "merges datasources" do
+      factory = EasyML::Data::Datasource::DatasourceFactory.new(
+        datasource: {
+          merged: {
+            root_dir: Rails.root,
+            datasources: { core: df, fundings: fundings },
+            merge: lambda do |datasources|
+              datasources[:core].df.join(datasources[:fundings].df, on: "id", how: "left")
+            end
+          }
+        }
+      )
+      datasource = factory.datasource
+      datasource.cleanup
+
+      merged_df = datasource.data
+
+      expect(merged_df[%w[company_id rev]]).to eq(Polars::DataFrame.new({
+                                                                          company_id: [1, 1, 1, 2, 2, 2, 1, 2],
+                                                                          rev: [0, 0, 100, 200, 0, 300, 400, 500]
+                                                                        }))
+      expect(datasource.datasources.keys).to eq(%i[core fundings])
+    end
+  end
+
+  # describe "Inference Transformations", :focus do
+  #   let(:df) do
+  #     df = Polars::DataFrame.new({
+  #                                  id: [1, 2, 3, 4, 5, 6, 7, 8],
+  #                                  company_id: [1, 1, 1, 2, 2, 2, 1, 2],
+  #                                  loan_application_id: [1, 2, 3, 4, 5, 6, 7, 8],
+  #                                  rev: [0, 0, 100, 200, 0, 300, 400, 500],
+  #                                  created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
+  #                                                   2024-08-01 2024-09-01]
+  #                                })
+
+  #     # Convert the 'created_date' column to datetime
+  #     df.with_column(
+  #       Polars.col("created_date").str.strptime(Polars::Datetime, "%Y-%m-%d").alias("created_date")
+  #     )
+  #   end
+
+  #   module InferenceTransforms
+  #     include EasyML::Transforms
+
+  #     def inference; end
+  #   end
+
+  #   let(:dataset) do
+  #     EasyML::Data::Dataset.new(
+  #       target: "rev",
+  #       datasource: df,
+  #       splitter: {
+  #         date: {
+  #           today: EST.parse("2024-10-01"),
+  #           date_col: "created_date",
+  #           months_test: 2,
+  #           months_valid: 2
+  #         }
+  #       }
+  #     )
+  #   end
+  # end
 end

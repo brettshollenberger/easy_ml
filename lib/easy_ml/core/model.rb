@@ -14,6 +14,9 @@ module EasyML
       attribute :ml_model, :string
       attribute :file, :string
       attribute :root_dir, :string
+      attribute :objective
+      attribute :evaluator
+      attribute :evaluator_metric
 
       include EasyML::Core::ModelCore
 

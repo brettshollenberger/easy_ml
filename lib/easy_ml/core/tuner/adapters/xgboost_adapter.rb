@@ -37,7 +37,8 @@ module EasyML
                 lambda do |booster, _epoch, _hist|
                   dtrain = model.send(:preprocess, x_true, y_true)
                   y_pred = booster.predict(dtrain)
-                  model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
+                  metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
+                  Wandb.log(metrics)
                 end
               ]
             end

@@ -6,7 +6,7 @@ PATH
       activesupport
       carrierwave (>= 2.0, < 4)
       fog-aws (~> 3.0)
-      glue_gun_dsl (~> 0.1.17)
+      glue_gun_dsl (~> 0.1.19)
       numo-narray
       polars-df
       pycall
@@ -1717,7 +1717,7 @@ GEM
     formatador (1.1.0)
     globalid (1.2.1)
       activesupport (>= 6.1)
-    glue_gun_dsl (0.1.17)
+    glue_gun_dsl (0.1.19)
       activemodel (>= 6, < 8)
       activerecord (>= 6, < 8)
       activesupport (>= 6, < 8)

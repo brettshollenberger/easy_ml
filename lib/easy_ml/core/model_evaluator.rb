@@ -72,7 +72,7 @@ module EasyML
       }
 
       class << self
-        def evaluate(model: nil, y_pred: nil, y_true: nil)
+        def evaluate(model: nil, y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
           y_pred = normalize_input(y_pred)
           y_true = normalize_input(y_true)
           check_size(y_pred, y_true)
@@ -89,6 +89,24 @@ module EasyML
             elsif EVALUATORS.key?(metric.to_sym)
               metrics_results[metric.to_sym] =
                 EVALUATORS[metric.to_sym].call(y_pred, y_true)
+            end
+          end
+
+          if evaluator.present?
+            if evaluator.is_a?(Class)
+              response = evaluator.new.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
+            elsif evaluator.respond_to?(:evaluate)
+              response = evaluator.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
+            elsif evaluator.respond_to?(:call)
+              response = evaluator.call(y_pred: y_pred, y_true: y_true, x_true: x_true)
+            else
+              raise "Don't know how to use CustomEvaluator. Must be a class that responds to evaluate or lambda"
+            end
+
+            if response.is_a?(Hash)
+              metrics_results.merge!(response)
+            else
+              metrics_results[:custom] = response
             end
           end
 

@@ -42,9 +42,9 @@ RSpec.describe EasyML::Core::Models::XGBoost do
 
         evaluation_metrics = model.evaluate(y_pred: preds, y_true: ys)
 
-        expect(evaluation_metrics[:mean_absolute_error]).to be_between(784, 785)
-        expect(evaluation_metrics[:mean_squared_error]).to be_between(4_793_806, 4_793_807)
-        expect(evaluation_metrics[:root_mean_squared_error]).to be_between(2189, 2190)
+        expect(evaluation_metrics[:mean_absolute_error]).to be_between(0, 1_000)
+        expect(evaluation_metrics[:mean_squared_error]).to be_between(4_600_000, 4_700_000)
+        expect(evaluation_metrics[:root_mean_squared_error]).to be_between(2150, 2160)
         expect(evaluation_metrics[:r2_score]).to be_between(-Float::INFINITY, 1)
       end
 

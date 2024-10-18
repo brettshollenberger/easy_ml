@@ -1,4 +1,3 @@
-# lib/railtie/generators/migration/migration_generator.rb
 require "rails/generators"
 require "rails/generators/active_record/migration"
 
@@ -13,12 +12,7 @@ module EasyML
         source_root File.expand_path("../../templates/migration", __dir__)
 
         # Define the migration name
-        desc "Generates a migration for EasyMLModel with version and file for remote storage"
-
-        # Define the migration name; can be customized if needed
-        def self.migration_name
-          "create_easy_ml_models"
-        end
+        desc "Generates migrations for EasyMLModel, Dataset, and TunerRun"
 
         # Specify the next migration number
         def self.next_migration_number(dirname)
@@ -31,10 +25,42 @@ module EasyML
           end
         end
 
-        # Generate the migration file using the template
-        def create_migration_file
-          migration_template "create_easy_ml_models.rb.tt",
-                             "db/migrate/#{self.class.migration_name}.rb"
+        # Generate the migration files using the templates
+        def create_migration_files
+          create_easy_ml_models_migration
+          create_datasets_migration
+          create_tuner_runs_migration
+        end
+
+        private
+
+        # Generate the migration file for EasyMLModel using the template
+        def create_easy_ml_models_migration
+          migration_template(
+            "create_easy_ml_models.rb.tt",
+            "db/migrate/#{next_migration_number}_create_easy_ml_models.rb"
+          )
+        end
+
+        # Generate the migration file for Dataset using the template
+        def create_datasets_migration
+          migration_template(
+            "create_datasets.rb.tt",
+            "db/migrate/#{next_migration_number}_create_datasets.rb"
+          )
+        end
+
+        # Generate the migration file for TunerRun using the template
+        def create_tuner_runs_migration
+          migration_template(
+            "create_tuner_runs.rb.tt",
+            "db/migrate/#{next_migration_number}_create_tuner_runs.rb"
+          )
+        end
+
+        # Get the next migration number
+        def next_migration_number
+          self.class.next_migration_number(Rails.root.join("db/migrate"))
         end
       end
     end

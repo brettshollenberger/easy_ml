@@ -54,6 +54,10 @@ RSpec.configure do |config|
     ActiveRecord::Base.logger = nil
   end
 
+  config.after(:suite) do
+    FileUtils.rm_rf(Rails.root.join("tmp/"))
+  end
+
   config.before(:suite) do
     if running_rails_specs && Dir.glob(Rails.root.join("db/migrate/**/*")).none?
       # Run your generator and apply the generated migration

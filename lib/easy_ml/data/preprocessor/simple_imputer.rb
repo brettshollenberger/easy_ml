@@ -179,7 +179,6 @@ module EasyML
           min_ct = options[:categorical_min] || 25
           allowed_values = values.select { |_v, c| c >= min_ct }.keys.map(&:to_s)
 
-          binding.pry
           allowed_values.include?(val.to_s) ? val.to_s : "other"
         end
 

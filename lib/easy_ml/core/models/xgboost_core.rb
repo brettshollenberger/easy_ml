@@ -150,6 +150,7 @@ module EasyML
         end
 
         def preprocess(xs, ys = nil)
+          puts "orig xs #{xs}"
           column_names = xs.columns
           xs = _preprocess(xs)
           ys = ys.nil? ? nil : _preprocess(ys).flatten

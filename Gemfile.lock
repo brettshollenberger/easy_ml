@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.1.0)
+    easy_ml (0.1.1)
       activerecord
       activesupport
       carrierwave (>= 2.0, < 4)

@@ -1,9 +1,18 @@
 require_relative "../../../lib/easy_ml/core/model"
 module EasyML
   class Model < ActiveRecord::Base
-    include EasyML::Core::ModelCore
+    if ActiveRecord::Base.connection.data_source_exists?("easy_ml_models")
+      include EasyML::Core::ModelCore
 
-    self.table_name = "easy_ml_models"
+      self.table_name = "easy_ml_models"
+    else
+      # Placeholder if the table doesn't exist (keeps the file quiet)
+      def self.table_ready?
+        false
+      end
+
+      Rails.logger.info("Skipping EasyML::Model definition as the 'easy_ml_models' table doesn't exist.")
+    end
 
     scope :live, -> { where(is_live: true) }
     attribute :root_dir, :string

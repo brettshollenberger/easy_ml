@@ -150,13 +150,12 @@ module EasyML
         end
 
         def preprocess(xs, ys = nil)
-          puts "orig xs #{xs}"
           column_names = xs.columns
           xs = _preprocess(xs)
           ys = ys.nil? ? nil : _preprocess(ys).flatten
           kwargs = { label: ys }.compact
           ::XGBoost::DMatrix.new(xs, **kwargs).tap do |dmat|
-            dmat.instance_variable_set(:@feature_names, column_names)
+            dmat.feature_names = column_names
           end
         end
 

@@ -21,30 +21,6 @@ module EasyML
         end
       end
 
-      def dataset_is_a_dataset?
-        return if dataset.nil?
-        return if dataset.class.ancestors.include?(EasyML::Data::Dataset)
-
-        errors.add(:dataset, "Must be a subclass of EasyML::Dataset")
-      end
-
-      def validate_any_metrics?
-        return if metrics.any?
-
-        errors.add(:metrics, "Must include at least one metric. Allowed metrics are #{allowed_metrics.join(", ")}")
-      end
-
-      def validate_metrics_for_task
-        nonsensical_metrics = metrics.select do |metric|
-          allowed_metrics.exclude?(metric)
-        end
-
-        return unless nonsensical_metrics.any?
-
-        errors.add(:metrics,
-                   "cannot use metrics: #{nonsensical_metrics.join(", ")} for task #{task}. Allowed metrics are: #{allowed_metrics.join(", ")}")
-      end
-
       def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
         if x_train.nil?
           dataset.refresh!
@@ -53,16 +29,6 @@ module EasyML
           train(x_train, y_train, x_valid, y_valid)
         end
         @is_fit = true
-      end
-
-      def decode_labels(ys, col: nil)
-        dataset.decode_labels(ys, col: col)
-      end
-
-      def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
-        evaluator ||= self.evaluator
-        EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true,
-                                              evaluator: evaluator)
       end
 
       def predict(xs)
@@ -80,6 +46,16 @@ module EasyML
       def save
         super if defined?(super) && self.class.superclass.method_defined?(:save)
         save_model_file
+      end
+
+      def decode_labels(ys, col: nil)
+        dataset.decode_labels(ys, col: col)
+      end
+
+      def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
+        evaluator ||= self.evaluator
+        EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true,
+                                              evaluator: evaluator)
       end
 
       def save_model_file
@@ -116,13 +92,13 @@ module EasyML
       end
 
       def cleanup!
-        [file_dir, model_dir].each do |dir|
+        [carrierwave_dir, model_dir].each do |dir|
           EasyML::FileRotate.new(dir, []).cleanup(extension_allowlist)
         end
       end
 
       def cleanup
-        [file_dir, model_dir].each do |dir|
+        [carrierwave_dir, model_dir].each do |dir|
           EasyML::FileRotate.new(dir, files_to_keep).cleanup(extension_allowlist)
         end
       end
@@ -133,7 +109,7 @@ module EasyML
 
       private
 
-      def file_dir
+      def carrierwave_dir
         return unless file.path.present?
 
         File.dirname(file.path).split("/")[0..-2].join("/")
@@ -172,9 +148,33 @@ module EasyML
       end
 
       def files_to_keep
-        Dir.glob(File.join(file_dir, "*")).select { |f| File.file?(f) }.sort_by do |filename|
+        Dir.glob(File.join(carrierwave_dir, "**/*")).select { |f| File.file?(f) }.sort_by do |filename|
           Time.parse(filename.split("/").last.gsub(/\D/, ""))
         end.reverse.take(5)
+      end
+
+      def dataset_is_a_dataset?
+        return if dataset.nil?
+        return if dataset.class.ancestors.include?(EasyML::Data::Dataset)
+
+        errors.add(:dataset, "Must be a subclass of EasyML::Dataset")
+      end
+
+      def validate_any_metrics?
+        return if metrics.any?
+
+        errors.add(:metrics, "Must include at least one metric. Allowed metrics are #{allowed_metrics.join(", ")}")
+      end
+
+      def validate_metrics_for_task
+        nonsensical_metrics = metrics.select do |metric|
+          allowed_metrics.exclude?(metric)
+        end
+
+        return unless nonsensical_metrics.any?
+
+        errors.add(:metrics,
+                   "cannot use metrics: #{nonsensical_metrics.join(", ")} for task #{task}. Allowed metrics are: #{allowed_metrics.join(", ")}")
       end
     end
   end

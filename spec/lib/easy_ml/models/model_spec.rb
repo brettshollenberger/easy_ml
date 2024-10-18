@@ -93,7 +93,7 @@ RSpec.describe EasyML::Models do
                           )
   end
 
-  EasyML::Models::AVAILABLE_MODELS.each do |model_class|
+  EasyML::Core::Models::AVAILABLE_MODELS.each do |model_class|
     let(:model) do
       model_class.new(model_config)
     end

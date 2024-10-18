@@ -9,6 +9,7 @@ module EasyML
 
       attribute :name, :string
       attribute :version, :string
+      attribute :verbose, :boolean, default: false
       attribute :task, :string, default: "regression"
       attribute :metrics, :array
       attribute :ml_model, :string

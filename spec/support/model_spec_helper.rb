@@ -103,6 +103,7 @@ module ModelSpecHelper
     end
 
     base.before(:each) do
+      dataset.cleanup
       dataset.refresh!
       model.cleanup!
     end

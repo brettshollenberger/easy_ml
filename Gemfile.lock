@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.1.2)
+    easy_ml (0.1.3)
       activerecord
       activesupport
       carrierwave (>= 2.0, < 4)
@@ -2109,6 +2109,7 @@ DEPENDENCIES
   combustion
   database_cleaner-active_record
   easy_ml!
+  glue_gun_dsl (~> 0.1.19)
   guard
   ostruct
   pg

@@ -6,6 +6,7 @@ source "https://rubygems.org"
 gemspec
 
 gem "aws-sdk", "~> 3.1"
+gem "glue_gun_dsl", "~> 0.1.19"
 gem "rake", "~> 13.0"
 gem "rubocop", "~> 1.21"
 gem "wandb", "~> 0.1.6"

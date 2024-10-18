@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.1.1)
+    easy_ml (0.1.2)
       activerecord
       activesupport
       carrierwave (>= 2.0, < 4)
@@ -13,6 +13,7 @@ PATH
       pycall
       rails
       red-optuna
+      wandb (~> 0.1.6)
       xgb
 
 GEM

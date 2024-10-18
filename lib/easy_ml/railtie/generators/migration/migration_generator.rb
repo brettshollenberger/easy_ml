@@ -12,7 +12,7 @@ module EasyML
         source_root File.expand_path("../../templates/migration", __dir__)
 
         # Define the migration name
-        desc "Generates migrations for EasyMLModel, Dataset, and TunerRun"
+        desc "Generates migrations for EasyMLModel"
 
         # Specify the next migration number
         def self.next_migration_number(dirname)

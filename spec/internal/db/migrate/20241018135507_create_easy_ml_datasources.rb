@@ -1,4 +1,4 @@
-class CreateDatasources < ActiveRecord::Migration[7.2]
+class CreateEasyMLDatasources < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_datasources do |t|
       t.string :name, null: false

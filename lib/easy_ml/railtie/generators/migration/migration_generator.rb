@@ -40,7 +40,7 @@ module EasyML
         def create_easy_ml_models_migration
           migration_template(
             "create_easy_ml_models.rb.tt",
-            "create_easy_ml_models.rb"
+            "db/migrate/create_easy_ml_models.rb"
           )
         end
 
@@ -48,7 +48,7 @@ module EasyML
         def create_datasources_migration
           migration_template(
             "create_datasources.rb.tt",
-            "create_easy_ml_datasources.rb"
+            "db/migrate/create_easy_ml_datasources.rb"
           )
         end
 
@@ -56,7 +56,7 @@ module EasyML
         def create_datasets_migration
           migration_template(
             "create_datasets.rb.tt",
-            "create_easy_ml_datasets.rb"
+            "db/migrate/create_easy_ml_datasets.rb"
           )
         end
 
@@ -64,7 +64,7 @@ module EasyML
         def create_tuner_runs_migration
           migration_template(
             "create_tuner_runs.rb.tt",
-            "create_easy_ml_tuner_runs.rb"
+            "db/migrate/create_easy_ml_tuner_runs.rb"
           )
         end
 

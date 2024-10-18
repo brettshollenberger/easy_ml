@@ -1,4 +1,4 @@
-class CreateDatasets < ActiveRecord::Migration[7.2]
+class CreateEasyMLDatasets < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_datasets do |t|
       t.string :name, null: false

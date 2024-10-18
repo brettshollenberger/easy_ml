@@ -1,4 +1,4 @@
-class CreateTunerRuns < ActiveRecord::Migration[7.2]
+class CreateEasyMLTunerRuns < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_tuner_runs do |t|
       t.bigint :easy_ml_model_id, null: false

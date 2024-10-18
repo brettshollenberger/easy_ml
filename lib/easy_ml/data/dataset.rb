@@ -82,7 +82,7 @@ module EasyML
 
       attribute :drop_cols, :array, default: []
 
-      dependency :datasource, EasyML::Data::Datasource::DatasourceFactory
+      # dependency :datasource, EasyML::Data::Datasource::DatasourceFactory
 
       # dependency defines a configurable dependency, with optional args,
       # for example, here we define a datasource:

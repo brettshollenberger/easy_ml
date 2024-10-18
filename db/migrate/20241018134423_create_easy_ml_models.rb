@@ -1,4 +1,3 @@
-# lib/railtie/generators/templates/migration/create_easy_ml_models.rb.tt
 class CreateEasyMLModels < ActiveRecord::Migration[6.0]
   def change
     create_table :easy_ml_models do |t|
@@ -9,6 +8,8 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.string :task
       t.json :metrics, default: []
       t.json :file, null: false
+      t.bigint :easy_ml_dataset_id
+      t.jsonb :hyperparameters
 
       t.timestamps
 
@@ -18,6 +19,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.index :is_live
       t.index [:name, :version], unique: true
       t.index [:name, :version, :is_live]
+      t.index :easy_ml_dataset_id
     end
   end
 end

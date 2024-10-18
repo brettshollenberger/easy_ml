@@ -171,7 +171,7 @@ RSpec.describe EasyML::Core::Tuner do
   end
 
   describe "Model Tuner" do
-    it "sets defaults" do
+    it "sets defaults", :focus do
       expect_any_instance_of(EasyML::Core::Tuner::Adapters::XGBoostAdapter).to receive(:run_trial).exactly(n_trials).times do |adapter|
         expect(adapter.config[:learning_rate][:max]).to eq 0.1
         expect(adapter.config[:learning_rate][:log]).to eq true

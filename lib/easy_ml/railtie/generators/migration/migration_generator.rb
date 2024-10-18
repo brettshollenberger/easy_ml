@@ -16,7 +16,8 @@ module EasyML
 
         # Specify the next migration number
         def self.next_migration_number(dirname)
-          if ActiveRecord.version < Gem::Version.new("7")
+          sleep(1)
+          if Rails::VERSION::MAJOR >= 7
             Time.now.utc.strftime("%Y%m%d%H%M%S")
           elsif ActiveRecord.timestamped_migrations
             Time.now.utc.strftime("%Y%m%d%H%M%S")
@@ -28,6 +29,7 @@ module EasyML
         # Generate the migration files using the templates
         def create_migration_files
           create_easy_ml_models_migration
+          create_datasources_migration
           create_datasets_migration
           create_tuner_runs_migration
         end
@@ -38,7 +40,15 @@ module EasyML
         def create_easy_ml_models_migration
           migration_template(
             "create_easy_ml_models.rb.tt",
-            "db/migrate/#{next_migration_number}_create_easy_ml_models.rb"
+            "create_easy_ml_models.rb"
+          )
+        end
+
+        # Generate the migration file for Datasource using the template
+        def create_datasources_migration
+          migration_template(
+            "create_datasources.rb.tt",
+            "create_easy_ml_datasources.rb"
           )
         end
 
@@ -46,7 +56,7 @@ module EasyML
         def create_datasets_migration
           migration_template(
             "create_datasets.rb.tt",
-            "db/migrate/#{next_migration_number}_create_datasets.rb"
+            "create_easy_ml_datasets.rb"
           )
         end
 
@@ -54,7 +64,7 @@ module EasyML
         def create_tuner_runs_migration
           migration_template(
             "create_tuner_runs.rb.tt",
-            "db/migrate/#{next_migration_number}_create_tuner_runs.rb"
+            "create_easy_ml_tuner_runs.rb"
           )
         end
 

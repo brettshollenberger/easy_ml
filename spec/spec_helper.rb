@@ -8,6 +8,8 @@ Bundler.require :default, :development
 # Require the engine file
 require "easy_ml/engine"
 
+PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
+SPEC_ROOT = PROJECT_ROOT.join("spec")
 # Initialize Combustion only for app directory specs
 running_rails_specs = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
 if running_rails_specs
@@ -27,9 +29,6 @@ if running_rails_specs
   #   end
   # end
 end
-
-PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
-SPEC_ROOT = PROJECT_ROOT.join("spec")
 
 # Load support files
 Dir[Rails.root.join("spec/support/**/*.rb")].each { |f| require f }
@@ -54,10 +53,6 @@ RSpec.configure do |config|
     ActiveRecord::Base.logger = nil
   end
 
-  config.after(:suite) do
-    FileUtils.rm_rf(Rails.root.join("tmp/"))
-  end
-
   config.before(:suite) do
     if running_rails_specs && Dir.glob(Rails.root.join("db/migrate/**/*")).none?
       # Run your generator and apply the generated migration
@@ -78,6 +73,10 @@ RSpec.configure do |config|
         ActiveRecord::Migrator.migrate(migration_paths)
       end
     end
+  end
+
+  config.after(:suite) do
+    FileUtils.rm_rf(Rails.root.join("tmp/"))
   end
 
   # Configure CarrierWave storage based on environment variable or RSpec metadata

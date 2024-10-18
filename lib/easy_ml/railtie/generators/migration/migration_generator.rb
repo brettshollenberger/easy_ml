@@ -28,8 +28,6 @@ module EasyML
         # Generate the migration files using the templates
         def create_migration_files
           create_easy_ml_models_migration
-          create_datasets_migration
-          create_tuner_runs_migration
         end
 
         private
@@ -38,23 +36,7 @@ module EasyML
         def create_easy_ml_models_migration
           migration_template(
             "create_easy_ml_models.rb.tt",
-            "db/migrate/#{next_migration_number}_create_easy_ml_models.rb"
-          )
-        end
-
-        # Generate the migration file for Dataset using the template
-        def create_datasets_migration
-          migration_template(
-            "create_datasets.rb.tt",
-            "db/migrate/#{next_migration_number}_create_datasets.rb"
-          )
-        end
-
-        # Generate the migration file for TunerRun using the template
-        def create_tuner_runs_migration
-          migration_template(
-            "create_tuner_runs.rb.tt",
-            "db/migrate/#{next_migration_number}_create_tuner_runs.rb"
+            "db/migrate/create_easy_ml_models.rb"
           )
         end
 

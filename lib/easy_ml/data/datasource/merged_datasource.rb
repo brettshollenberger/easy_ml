@@ -21,6 +21,14 @@ module EasyML::Data
         datasources.map(&:last_updated_at).min
       end
 
+      def refresh
+        if datasources.is_a?(Array)
+          datasources.each(&:refresh)
+        elsif datasources.is_a?(Hash)
+          datasources.values.each(&:refresh)
+        end
+      end
+
       def refresh!
         cleanup
         if datasources.is_a?(Array)

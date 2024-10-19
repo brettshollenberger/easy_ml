@@ -15,6 +15,10 @@ module ML
         raise NotImplementedError, "Subclasses must implement #last_updated_at"
       end
 
+      def refresh
+        raise NotImplementedError, "Subclasses must implement #refresh"
+      end
+
       def refresh!
         raise NotImplementedError, "Subclasses must implement #refresh!"
       end

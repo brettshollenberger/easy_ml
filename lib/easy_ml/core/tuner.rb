@@ -14,7 +14,6 @@ module EasyML
       attribute :metrics, :array
       attribute :objective, :string
       attribute :n_trials, default: 100
-      attribute :callbacks, :array
       attr_accessor :study, :results
 
       dependency :adapter, lazy: false do |dep|
@@ -52,9 +51,12 @@ module EasyML
         adapter = pick_adapter.new(model: model, config: config, tune_started_at: tune_started_at, y_true: y_true,
                                    x_true: x_true)
         adapter.configure_callbacks
+        puts "Preparing data..."
+        train, valid = adapter.prepare_data
+        puts "Running tuner"
 
         @study.optimize(n_trials: n_trials, callbacks: [method(:loggers)]) do |trial|
-          run_metrics = tune_once(trial, x_true, y_true, adapter)
+          run_metrics = tune_once(trial, train, valid, x_true, y_true, adapter)
 
           result = if model.evaluator.present?
                      if model.evaluator_metric.present?
@@ -83,8 +85,8 @@ module EasyML
         end
       end
 
-      def tune_once(trial, x_true, y_true, adapter)
-        adapter.run_trial(trial) do |model|
+      def tune_once(trial, train, valid, x_true, y_true, adapter)
+        adapter.run_trial(trial, train, valid) do |model|
           y_pred = model.predict(y_true)
           model.metrics = metrics
           model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)

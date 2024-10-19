@@ -10,9 +10,14 @@ module EasyML
       attribute :s3_prefix, :string
       attribute :s3_access_key_id, :string
       attribute :s3_secret_access_key, :string
+      attribute :cache_for, default: nil
 
-      def sync
-        return false if synced?
+      def sync!
+        sync(force: true)
+      end
+
+      def sync(force: false)
+        return false if synced? && !force
 
         mk_dir
         clean_dir!
@@ -35,7 +40,16 @@ module EasyML
       def synced?
         return @synced unless @synced.nil?
 
+        return true if use_cached?
+
         @synced = calculate_synced
+      end
+
+      def use_cached?
+        return false unless cache_for.present?
+
+        age_in_seconds = EasyML::Support::Age.age(last_updated_at, EST.now, format: "integer")
+        age_in_seconds < cache_for.to_i
       end
 
       def last_updated_at

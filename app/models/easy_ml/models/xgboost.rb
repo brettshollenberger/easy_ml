@@ -1,5 +1,3 @@
-require_relative "../model"
-
 module EasyML
   module Models
     class XGBoost < EasyML::Model

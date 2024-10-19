@@ -18,6 +18,8 @@ module EasyML
             option.bind_attribute :s3_prefix
             option.bind_attribute :s3_access_key_id, required: true
             option.bind_attribute :s3_secret_access_key, required: true
+            option.bind_attribute :cache_for
+            option.bind_attribute :verbose
           end
 
           dependency.option :file do |option|

@@ -24,61 +24,32 @@ module EasyML
             segment_dir = File.join(dir, segment.to_s)
             FileUtils.mkdir_p(segment_dir)
 
-            current_file = current_file_for_segment(segment)
-            current_row_count = current_file && File.exist?(current_file) ? df(current_file).shape[0] : 0
-            remaining_rows = max_rows_per_file - current_row_count
-
-            while df.shape[0] > 0
-              if df.shape[0] <= remaining_rows
-                append_to_csv(df, current_file)
-                break
-              else
-                df_to_append = df.slice(0, remaining_rows)
-                df = df.slice(remaining_rows, df.shape[0] - remaining_rows)
-                append_to_csv(df_to_append, current_file)
-                current_file = new_file_path_for_segment(segment)
-                remaining_rows = max_rows_per_file
-              end
-            end
+            file_path = new_file_path_for_segment(segment)
+            df = cast(df)
+            df.write_parquet(file_path)
           end
 
-          def read(segment, split_ys: false, target: nil, drop_cols: [], &block)
+          def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil)
             files = files_for_segment(segment)
+            return split_ys ? [nil, nil] : nil if files.empty?
 
-            if block_given?
-              result = nil
-              total_rows = files.sum { |file| df(file).shape[0] }
-              progress_bar = create_progress_bar(segment, total_rows) if verbose
+            # Process all files together when no block is given
+            lazy_frames = files.map { |file| Polars.scan_parquet(file) }
+            combined_lazy_df = Polars.concat(lazy_frames)
 
-              files.each do |file|
-                df = self.df(file)
-                df = sample_data(df) if sample < 1.0
-                drop_cols &= df.columns
-                df = df.drop(drop_cols) unless drop_cols.empty?
+            # Apply the predicate filter if given
+            combined_lazy_df = combined_lazy_df.filter(filter) if filter
 
-                if split_ys
-                  xs, ys = split_features_targets(df, true, target)
-                  result = process_block_with_split_ys(block, result, xs, ys)
-                else
-                  result = process_block_without_split_ys(block, result, df)
-                end
+            # Sample data if needed
+            combined_lazy_df = combined_lazy_df.sample(frac: sample) if sample < 1.0
 
-                progress_bar.progress += df.shape[0] if verbose
-              end
-              progress_bar.finish if verbose
-              result
-            elsif files.empty?
-              return nil, nil if split_ys
+            # Apply drop columns
+            drop_cols &= combined_lazy_df.columns
+            combined_lazy_df = combined_lazy_df.drop(drop_cols) unless drop_cols.empty?
 
-              nil
-
-            else
-              combined_df = combine_dataframes(files)
-              combined_df = sample_data(combined_df) if sample < 1.0
-              drop_cols &= combined_df.columns
-              combined_df = combined_df.drop(drop_cols) unless drop_cols.empty?
-              split_features_targets(combined_df, split_ys, target)
-            end
+            # Collect the DataFrame (execute the lazy operations)
+            df = combined_lazy_df.collect
+            split_features_targets(df, split_ys, target)
           end
 
           def cleanup
@@ -92,41 +63,49 @@ module EasyML
             output_files.map { |file| File.mtime(file) }.max
           end
 
+          def num_batches(segment)
+            files_for_segment(segment).count
+          end
+
           private
 
-          def read_csv_batched(path)
-            Polars.read_csv_batched(path, batch_size: batch_size, **polars_args)
+          def read_parquet_batched(path)
+            filtered_args = filter_polars_args(Polars.method(:read_parquet_batched))
+            Polars.read_parquet_batched(path, batch_size: batch_size, **filtered_args)
           end
 
           def df(path)
-            Polars.read_csv(path, **polars_args)
+            filtered_args = filter_polars_args(Polars.method(:read_parquet))
+            Polars.read_parquet(path, **filtered_args)
+          end
+
+          def filter_polars_args(method)
+            supported_params = method.parameters.map { |_, name| name }
+            polars_args.select { |k, _| supported_params.include?(k) }
           end
 
           def output_files
-            Dir.glob("#{dir}/**/*.csv")
+            Dir.glob("#{dir}/**/*.parquet")
           end
 
           def files_for_segment(segment)
-            segment_dir = File.join(dir, segment.to_s)
-            Dir.glob(File.join(segment_dir, "**/*.csv")).sort
+            if segment.to_s == "all"
+              files_for_segment("train") + files_for_segment("test") + files_for_segment("valid")
+            else
+              segment_dir = File.join(dir, segment.to_s)
+              Dir.glob(File.join(segment_dir, "**/*.parquet")).sort
+            end
           end
 
           def current_file_for_segment(segment)
-            current_file = files_for_segment(segment).last
-            return new_file_path_for_segment(segment) if current_file.nil?
-
-            row_count = df(current_file).shape[0]
-            if row_count >= max_rows_per_file
-              new_file_path_for_segment(segment)
-            else
-              current_file
-            end
+            segment_dir = File.join(dir, segment.to_s)
+            File.join(segment_dir, "#{segment}.parquet")
           end
 
           def new_file_path_for_segment(segment)
             segment_dir = File.join(dir, segment.to_s)
-            file_number = Dir.glob(File.join(segment_dir, "*.csv")).count
-            File.join(segment_dir, "#{segment}_%04d.csv" % file_number)
+            file_number = Dir.glob(File.join(segment_dir, "*.parquet")).count
+            File.join(segment_dir, "#{segment}_%04d.parquet" % file_number)
           end
 
           def combine_dataframes(files)

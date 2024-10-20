@@ -23,6 +23,10 @@ module EasyML::Data
         files.map { |file| File.mtime(file) }.max
       end
 
+      def refresh
+        # No need to refresh for directory-based datasource
+      end
+
       def refresh!
         # No need to refresh for directory-based datasource
       end

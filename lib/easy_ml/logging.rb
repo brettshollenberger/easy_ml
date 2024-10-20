@@ -7,9 +7,9 @@ module EasyML
     module ClassMethods
       def log_method(method_name, message, verbose: false)
         original_method = instance_method(method_name)
-        define_method(method_name) do |*args, &block|
+        define_method(method_name) do |*args, **kwargs, &block|
           log_message(message, verbose: verbose)
-          result = original_method.bind(self).call(*args, &block)
+          result = original_method.bind(self).call(*args, **kwargs, &block)
           result
         end
       end

@@ -5,10 +5,13 @@ module EasyML::Data
     class S3Datasource
       include GlueGun::DSL
 
+      attribute :verbose, default: false
       attribute :root_dir, :string
       validates :root_dir, presence: true
 
-      attribute :polars_args, :hash, default: {}
+      attribute :polars_args, :hash, default: {} do |args|
+        super(args.deep_stringify_keys)
+      end
       validates :polars_args, presence: true
 
       attribute :s3_bucket, :string
@@ -26,6 +29,8 @@ module EasyML::Data
       attribute :s3_secret_access_key, :string
       validates :s3_secret_access_key, presence: true
 
+      attribute :cache_for
+
       dependency :synced_directory do |dependency|
         dependency.set_class EasyML::Support::SyncedDirectory
         dependency.bind_attribute :root_dir, required: true
@@ -33,6 +38,7 @@ module EasyML::Data
         dependency.bind_attribute :s3_prefix
         dependency.bind_attribute :s3_access_key_id, required: true
         dependency.bind_attribute :s3_secret_access_key, required: true
+        dependency.bind_attribute :cache_for
       end
 
       delegate :files, :last_updated_at, to: :synced_directory
@@ -46,8 +52,12 @@ module EasyML::Data
         end
       end
 
-      def refresh!
+      def refresh
         synced_directory.sync
+      end
+
+      def refresh!
+        synced_directory.sync!
       end
 
       def data

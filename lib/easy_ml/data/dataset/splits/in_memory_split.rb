@@ -5,7 +5,6 @@ module EasyML
         class InMemorySplit < Split
           include GlueGun::DSL
 
-          attribute :sample, :float, default: 1.0
           def initialize(options)
             super
             @data = {}
@@ -15,24 +14,19 @@ module EasyML
             @data[segment] = df
           end
 
-          def read(segment, split_ys: false, target: nil, drop_cols: [], &block)
-            df = @data[segment]
+          def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil)
+            df = if segment.to_s == "all"
+                   Polars.concat(%i[train test valid].map { |segment| @data[segment] })
+                 else
+                   @data[segment]
+                 end
             return nil if df.nil?
 
-            df = sample_data(df) if sample < 1.0
+            df = df.filter(filter) if filter.present?
             drop_cols &= df.columns
             df = df.drop(drop_cols) unless drop_cols.empty?
 
-            if block_given?
-              if split_ys
-                xs, ys = split_features_targets(df, true, target)
-                process_block_with_split_ys(block, nil, xs, ys)
-              else
-                process_block_without_split_ys(block, nil, df)
-              end
-            else
-              split_features_targets(df, split_ys, target)
-            end
+            split_features_targets(df, split_ys, target)
           end
 
           def cleanup

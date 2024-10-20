@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.1.5)
+    easy_ml (0.1.6)
       activerecord
       activesupport
       carrierwave (>= 2.0, < 4)
@@ -15,12 +15,6 @@ PATH
       red-optuna
       wandb (~> 0.1.6)
       xgb
-
-PATH
-  remote: /Users/brettshollenberger/programming/wandb
-  specs:
-    wandb (0.1.8)
-      pycall
 
 GEM
   remote: https://rubygems.org/
@@ -2083,6 +2077,8 @@ GEM
     unf_ext (0.0.8.2)
     unicode-display_width (2.6.0)
     useragent (0.16.10)
+    wandb (0.1.8)
+      pycall
     webrick (1.8.2)
     websocket-driver (0.7.6)
       websocket-extensions (>= 0.1.0)
@@ -2123,7 +2119,7 @@ DEPENDENCIES
   rspec-rails
   rubocop (~> 1.21)
   timecop
-  wandb!
+  wandb (~> 0.1.8)
   xgb (~> 0.9.0)
 
 BUNDLED WITH

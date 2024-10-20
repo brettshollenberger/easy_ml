@@ -21,13 +21,12 @@ module EasyML
         end
       end
 
-      def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, d_train: nil, d_valid: nil)
-        if x_train.nil? && d_train.nil?
+      def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
+        if x_train.nil?
           dataset.refresh
           train
         else
-          train(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, d_train: d_train,
-                d_valid: d_valid)
+          train(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid)
         end
         @is_fit = true
       end

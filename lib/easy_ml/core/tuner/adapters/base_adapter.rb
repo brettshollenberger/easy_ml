@@ -16,10 +16,10 @@ module EasyML
           attribute :y_true
           attribute :x_true
 
-          def run_trial(trial, train, valid)
+          def run_trial(trial)
             config = deep_merge_defaults(self.config.clone)
             suggest_parameters(trial, config)
-            model.fit(d_train: train, d_valid: valid)
+            model.fit
             yield model
           end
 

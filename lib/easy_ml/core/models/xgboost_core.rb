@@ -98,6 +98,20 @@ module EasyML
           yield callbacks
         end
 
+        def prepare_data
+          if @d_train.nil?
+            binding.pry
+            x_train, y_train = dataset.train(split_ys: true)
+            x_valid, y_valid = dataset.valid(split_ys: true)
+            x_test, y_test = dataset.test(split_ys: true)
+            @d_train = preprocess(x_train, y_train)
+            @d_valid = preprocess(x_valid, y_valid)
+            @d_test = preprocess(x_test, y_test)
+          end
+
+          [@d_train, @d_valid, @d_test]
+        end
+
         private
 
         def booster_class
@@ -112,15 +126,10 @@ module EasyML
           ::XGBoost::Model
         end
 
-        def train(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, d_train: nil, d_valid: nil)
+        def train(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
           validate_objective
 
-          if d_train.nil? && x_train.nil?
-            x_valid, y_valid = dataset.valid(split_ys: true)
-            x_train, y_train = dataset.train(split_ys: true)
-            d_valid = preprocess(x_valid, y_valid)
-            d_train = preprocess(x_train, y_train)
-          end
+          d_train, d_valid, = prepare_data if x_train.nil?
           evals = [[d_train, "train"], [d_valid, "eval"]]
           @booster = base_model.train(hyperparameters.to_h, d_train,
                                       evals: evals,

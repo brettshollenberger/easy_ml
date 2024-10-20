@@ -25,18 +25,6 @@ module EasyML
             }
           end
 
-          def prepare_data
-            puts "Fetching train"
-            x_train, y_train = model.dataset.train(split_ys: true)
-            puts "Fetching valid"
-            x_valid, y_valid = model.dataset.valid(split_ys: true)
-            puts "Preprocessing train..."
-            d_train = model.send(:preprocess, x_train, y_train)
-            puts "Preprocessing valid..."
-            d_valid = model.send(:preprocess, x_valid, y_valid)
-            [d_train, d_valid]
-          end
-
           def configure_callbacks
             model.customize_callbacks do |callbacks|
               return unless callbacks.present?

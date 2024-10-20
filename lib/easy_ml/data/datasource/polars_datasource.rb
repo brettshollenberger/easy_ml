@@ -29,6 +29,10 @@ module EasyML::Data
         [] # No files, as this is in-memory
       end
 
+      def refresh
+        # No need to refresh for in-memory datasource
+      end
+
       def refresh!
         # No need to refresh for in-memory datasource
       end

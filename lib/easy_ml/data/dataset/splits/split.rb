@@ -9,8 +9,52 @@ module EasyML
           attribute :polars_args, :hash, default: {}
           attribute :max_rows_per_file, :integer, default: 1_000_000
           attribute :batch_size, :integer, default: 10_000
-          attribute :sample, :float, default: 1.0
           attribute :verbose, :boolean, default: false
+
+          def schema
+            polars_args[:dtypes]
+          end
+
+          def cast(df)
+            cast_cols = schema.keys & df.columns
+            df = df.with_columns(
+              cast_cols.map do |column|
+                dtype = schema[column]
+                df[column].cast(dtype).alias(column)
+              end
+            )
+          end
+
+          # List of file paths, these will be csvs
+          def save_schema(files)
+            combined_schema = {}
+
+            files.each do |file|
+              df = Polars.read_csv(file, **polars_args)
+
+              df.schema.each do |column, dtype|
+                combined_schema[column] = if combined_schema.key?(column)
+                                            resolve_dtype(combined_schema[column], dtype)
+                                          else
+                                            dtype
+                                          end
+              end
+            end
+
+            polars_args[:dtypes] = combined_schema
+          end
+
+          def resolve_dtype(dtype1, dtype2)
+            # Example of simple rules: prioritize Float64 over Int64
+            if [dtype1, dtype2].include?(:float64)
+              :float64
+            elsif [dtype1, dtype2].include?(:int64)
+              :int64
+            else
+              # If both are the same, return any
+              dtype1
+            end
+          end
 
           def save(segment, df)
             raise NotImplementedError, "Subclasses must implement #save"
@@ -52,12 +96,6 @@ module EasyML
             else
               df
             end
-          end
-
-          def sample_data(df)
-            return df if sample >= 1.0
-
-            df.sample(n: (df.shape[0] * sample).ceil, seed: 42)
           end
 
           def create_progress_bar(segment, total_rows)

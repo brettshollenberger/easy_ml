@@ -83,7 +83,11 @@ module EasyML
         end
 
         def feature_importances
-          @model.booster.feature_names.zip(@model.feature_importances).to_h
+          score = @booster.score(importance_type: @importance_type || "gain")
+          scores = @booster.feature_names.map { |k| score[k] || 0.0 }
+          total = scores.sum.to_f
+          fi = scores.map { |s| s / total }
+          @booster.feature_names.zip(fi).to_h
         end
 
         def base_model
@@ -92,6 +96,20 @@ module EasyML
 
         def customize_callbacks
           yield callbacks
+        end
+
+        def prepare_data
+          if @d_train.nil?
+            binding.pry
+            x_train, y_train = dataset.train(split_ys: true)
+            x_valid, y_valid = dataset.valid(split_ys: true)
+            x_test, y_test = dataset.test(split_ys: true)
+            @d_train = preprocess(x_train, y_train)
+            @d_valid = preprocess(x_valid, y_valid)
+            @d_test = preprocess(x_test, y_test)
+          end
+
+          [@d_train, @d_valid, @d_test]
         end
 
         private
@@ -108,13 +126,14 @@ module EasyML
           ::XGBoost::Model
         end
 
-        def train
+        def train(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
           validate_objective
 
-          xs = xs.to_a.map(&:values)
-          ys = ys.to_a.map(&:values)
-          dtrain = d_matrix_class.new(xs, label: ys)
-          @model = base_model.train(hyperparameters.to_h, dtrain, callbacks: callbacks)
+          d_train, d_valid, = prepare_data if x_train.nil?
+          evals = [[d_train, "train"], [d_valid, "eval"]]
+          @booster = base_model.train(hyperparameters.to_h, d_train,
+                                      evals: evals,
+                                      num_boost_round: hyperparameters["n_estimators"], callbacks: callbacks)
         end
 
         def train_in_batches
@@ -124,8 +143,45 @@ module EasyML
           @model = nil
           @booster = nil
           x_valid, y_valid = dataset.valid(split_ys: true)
-          x_train, y_train = dataset.train(split_ys: true)
-          fit_batch(x_train, y_train, x_valid, y_valid)
+          d_valid = preprocess(x_valid, y_valid)
+
+          num_iterations = hyperparameters.to_h["n_estimators"]
+          current_iteration = 0
+          num_batches = dataset.num_batches(:train)
+          iterations_per_batch = num_iterations / num_batches
+          stopping_points = (1..num_batches).to_a.map { |n| n * iterations_per_batch }
+          stopping_points[-1] = num_iterations
+          current_batch = 0
+
+          callbacks = self.callbacks.nil? ? [] : self.callbacks.dup
+          callbacks << ::XGBoost::EvaluationMonitor.new(period: 1)
+          cb_container = ::XGBoost::CallbackContainer.new(callbacks)
+
+          dataset.train(split_ys: true) do |x_train, y_train|
+            d_train = preprocess(x_train, y_train)
+
+            evals = [[d_train, "train"], [d_valid, "eval"]]
+
+            puts "Batch number #{current_batch}"
+            until current_iteration == stopping_points[current_batch]
+              fit_batch(d_train, current_iteration, evals, cb_container)
+              current_iteration += 1
+            end
+            current_batch += 1
+          end
+
+          @booster = cb_container.after_training(@booster)
+        end
+
+        def fit_batch(d_train, current_iteration, evals, cb_container)
+          if @booster.nil?
+            @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map { |d| d[0] })
+          end
+
+          @booster = cb_container.before_training(@booster)
+          cb_container.before_iteration(@booster, current_iteration, d_train, evals)
+          @booster.update(d_train, current_iteration)
+          cb_container.after_iteration(@booster, current_iteration, d_train, evals)
         end
 
         def _preprocess(df)
@@ -184,24 +240,6 @@ module EasyML
 
           raise ArgumentError,
                 "cannot use #{objective} for #{task} task. Allowed objectives are: #{allowed_objectives.join(", ")}"
-        end
-
-        def fit_batch(x_train, y_train, x_valid, y_valid)
-          d_train = preprocess(x_train, y_train)
-          d_valid = preprocess(x_valid, y_valid)
-
-          evals = [[d_train, "train"], [d_valid, "eval"]]
-
-          # # If this is the first batch, create the booster
-          if @booster.nil?
-            initialize_model do
-              base_model.train(@hyperparameters.to_h, d_train,
-                               num_boost_round: @hyperparameters.to_h.dig("n_estimators"), evals: evals, callbacks: callbacks)
-            end
-          else
-            # Update the existing booster with the new batch
-            @model.update(d_train)
-          end
         end
 
         def to_classification(y_pred)

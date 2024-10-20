@@ -14,7 +14,6 @@ module EasyML
       attribute :metrics, :array
       attribute :objective, :string
       attribute :n_trials, default: 100
-      attribute :callbacks, :array
       attr_accessor :study, :results
 
       dependency :adapter, lazy: false do |dep|
@@ -52,6 +51,7 @@ module EasyML
         adapter = pick_adapter.new(model: model, config: config, tune_started_at: tune_started_at, y_true: y_true,
                                    x_true: x_true)
         adapter.configure_callbacks
+        model.prepare_data
 
         @study.optimize(n_trials: n_trials, callbacks: [method(:loggers)]) do |trial|
           run_metrics = tune_once(trial, x_true, y_true, adapter)

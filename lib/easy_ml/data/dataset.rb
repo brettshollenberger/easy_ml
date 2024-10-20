@@ -58,7 +58,6 @@ module EasyML
         super(Pathname.new(value).append("data").to_s)
       end
 
-      attribute :sample, :float, default: 1.0
       attribute :drop_if_null, :array, default: []
 
       # define_attr can also define default values, as well as argument helpers
@@ -158,13 +157,11 @@ module EasyML
           option.bind_attribute :polars_args
           option.bind_attribute :max_rows_per_file, source: :batch_size
           option.bind_attribute :batch_size
-          option.bind_attribute :sample
           option.bind_attribute :verbose
         end
 
         dependency.option :memory do |option|
           option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
-          option.bind_attribute :sample
         end
 
         dependency.when do |_dep|
@@ -186,13 +183,11 @@ module EasyML
           option.bind_attribute :polars_args
           option.bind_attribute :max_rows_per_file, source: :batch_size
           option.bind_attribute :batch_size
-          option.bind_attribute :sample
           option.bind_attribute :verbose
         end
 
         dependency.option :memory do |option|
           option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
-          option.bind_attribute :sample
         end
 
         dependency.when do |_dep|
@@ -204,12 +199,24 @@ module EasyML
       delegate :train, :test, :valid, to: :split
       delegate :splits, to: :splitter
 
-      def refresh!
-        refresh_datasource
+      def process_data
         split_data
         fit
         normalize_all
         alert_nulls
+      end
+
+      def refresh
+        refresh_datasource
+        return if processed?
+
+        process_data
+      end
+
+      def refresh!
+        cleanup
+        refresh_datasource!
+        process_data
       end
 
       def normalize(df = nil)
@@ -223,34 +230,27 @@ module EasyML
       #
       delegate :statistics, to: :preprocessor
 
-      def train(split_ys: false, all_columns: false, &block)
-        load_data(:train, split_ys: split_ys, all_columns: all_columns, &block)
+      # Filter data using Polars predicates:
+      # dataset.data(filter: Polars.col("CREATED_DATE") > EST.now - 2.days)
+      #
+      def train(split_ys: false, all_columns: false, filter: nil, &block)
+        load_data(:train, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
       end
 
-      def valid(split_ys: false, all_columns: false, &block)
-        load_data(:valid, split_ys: split_ys, all_columns: all_columns, &block)
+      def valid(split_ys: false, all_columns: false, filter: nil, &block)
+        load_data(:valid, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
       end
 
-      def test(split_ys: false, all_columns: false, &block)
-        load_data(:test, split_ys: split_ys, all_columns: all_columns, &block)
+      def test(split_ys: false, all_columns: false, filter: nil, &block)
+        load_data(:test, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
       end
 
-      def data(split_ys: false, all_columns: false)
-        if split_ys
-          x_train, y_train = train(split_ys: true, all_columns: all_columns)
-          x_valid, y_valid = valid(split_ys: true, all_columns: all_columns)
-          x_test, y_test = test(split_ys: true, all_columns: all_columns)
+      def data(split_ys: false, all_columns: false, filter: nil, &block)
+        load_data(:all, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      end
 
-          xs = Polars.concat([x_train, x_valid, x_test])
-          ys = Polars.concat([y_train, y_valid, y_test])
-          [xs, ys]
-        else
-          train_df = train(split_ys: false, all_columns: all_columns)
-          valid_df = valid(split_ys: false, all_columns: all_columns)
-          test_df = test(split_ys: false, all_columns: all_columns)
-
-          Polars.concat([train_df, valid_df, test_df])
-        end
+      def num_batches(segment)
+        processed.num_batches(segment)
       end
 
       def cleanup
@@ -298,18 +298,22 @@ module EasyML
       private
 
       def refresh_datasource
+        datasource.refresh
+      end
+      log_method :refresh, "Refreshing datasource", verbose: true
+
+      def refresh_datasource!
         datasource.refresh!
       end
-      log_method :refresh!, "Refreshing datasource", verbose: true
+      log_method :refresh!, "Refreshing! datasource", verbose: true
 
       def normalize_all
         processed.cleanup
 
         %i[train test valid].each do |segment|
-          raw.read(segment) do |df|
-            processed_df = normalize(df)
-            processed.save(segment, processed_df)
-          end
+          df = raw.read(segment)
+          processed_df = normalize(df)
+          processed.save(segment, processed_df)
         end
       end
       log_method :normalize_all, "Normalizing dataset", verbose: true
@@ -328,12 +332,12 @@ module EasyML
         end
       end
 
-      def load_data(segment, split_ys: false, all_columns: false, &block)
+      def load_data(segment, split_ys: false, all_columns: false, filter: nil)
         drop_cols = drop_columns(all_columns: all_columns)
         if processed?
-          processed.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, &block)
+          processed.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter)
         else
-          raw.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, &block)
+          raw.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter)
         end
       end
 
@@ -352,41 +356,28 @@ module EasyML
         end
       end
 
-      def split_data
-        return unless should_split?
+      def split_data!
+        split_data(force: true)
+      end
+
+      def split_data(force: false)
+        puts "Should split? #{!force && !should_split?}"
+        return if !force && !should_split?
 
         cleanup
+        raw.save_schema(datasource.files)
         datasource.in_batches do |df|
           train_df, valid_df, test_df = splitter.split(df)
           raw.save(:train, train_df)
           raw.save(:valid, valid_df)
           raw.save(:test, test_df)
         end
-
-        # Update the persisted sample size after splitting
-        save_previous_sample(sample)
       end
       log_method :split_data, "Splitting data", verbose: true
 
       def should_split?
         split_timestamp = raw.split_at
-        previous_sample = load_previous_sample
-        sample_increased = previous_sample && sample > previous_sample
-        previous_sample.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at || sample_increased
-      end
-
-      def sample_info_file
-        File.join(root_dir, "sample_info.json")
-      end
-
-      def save_previous_sample(sample_size)
-        File.write(sample_info_file, JSON.generate({ previous_sample: sample_size }))
-      end
-
-      def load_previous_sample
-        return nil unless File.exist?(sample_info_file)
-
-        JSON.parse(File.read(sample_info_file))["previous_sample"]
+        split_timestamp.nil? || split_timestamp < datasource.last_updated_at
       end
 
       def apply_transforms(df)

@@ -9,7 +9,6 @@ module EasyML
           attribute :polars_args, :hash, default: {}
           attribute :max_rows_per_file, :integer, default: 1_000_000
           attribute :batch_size, :integer, default: 10_000
-          attribute :sample, :float, default: 1.0
           attribute :verbose, :boolean, default: false
 
           def schema
@@ -97,12 +96,6 @@ module EasyML
             else
               df
             end
-          end
-
-          def sample_data(df)
-            return df if sample >= 1.0
-
-            df.sample(n: (df.shape[0] * sample).ceil, seed: 42)
           end
 
           def create_progress_bar(segment, total_rows)

@@ -12,7 +12,6 @@ module EasyML
           attribute :polars_args, :hash, default: {}
           attribute :max_rows_per_file, :integer, default: 1_000_000
           attribute :batch_size, :integer, default: 10_000
-          attribute :sample, :float, default: 1.0
           attribute :verbose, :boolean, default: false
 
           def initialize(options)
@@ -40,15 +39,13 @@ module EasyML
             # Apply the predicate filter if given
             combined_lazy_df = combined_lazy_df.filter(filter) if filter
 
-            # Sample data if needed
-            combined_lazy_df = combined_lazy_df.sample(frac: sample) if sample < 1.0
-
             # Apply drop columns
             drop_cols &= combined_lazy_df.columns
             combined_lazy_df = combined_lazy_df.drop(drop_cols) unless drop_cols.empty?
 
             # Collect the DataFrame (execute the lazy operations)
             df = combined_lazy_df.collect
+
             split_features_targets(df, split_ys, target)
           end
 

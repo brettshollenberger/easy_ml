@@ -58,7 +58,6 @@ module EasyML
         super(Pathname.new(value).append("data").to_s)
       end
 
-      attribute :sample, :float, default: 1.0
       attribute :drop_if_null, :array, default: []
 
       # define_attr can also define default values, as well as argument helpers
@@ -158,13 +157,11 @@ module EasyML
           option.bind_attribute :polars_args
           option.bind_attribute :max_rows_per_file, source: :batch_size
           option.bind_attribute :batch_size
-          option.bind_attribute :sample
           option.bind_attribute :verbose
         end
 
         dependency.option :memory do |option|
           option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
-          option.bind_attribute :sample
         end
 
         dependency.when do |_dep|
@@ -186,13 +183,11 @@ module EasyML
           option.bind_attribute :polars_args
           option.bind_attribute :max_rows_per_file, source: :batch_size
           option.bind_attribute :batch_size
-          option.bind_attribute :sample
           option.bind_attribute :verbose
         end
 
         dependency.option :memory do |option|
           option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
-          option.bind_attribute :sample
         end
 
         dependency.when do |_dep|
@@ -337,12 +332,12 @@ module EasyML
         end
       end
 
-      def load_data(segment, split_ys: false, all_columns: false, filter: nil, &block)
+      def load_data(segment, split_ys: false, all_columns: false, filter: nil)
         drop_cols = drop_columns(all_columns: all_columns)
         if processed?
-          processed.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter, &block)
+          processed.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter)
         else
-          raw.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter, &block)
+          raw.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter)
         end
       end
 
@@ -377,31 +372,12 @@ module EasyML
           raw.save(:valid, valid_df)
           raw.save(:test, test_df)
         end
-
-        # Update the persisted sample size after splitting
-        save_previous_sample(sample)
       end
       log_method :split_data, "Splitting data", verbose: true
 
       def should_split?
         split_timestamp = raw.split_at
-        previous_sample = load_previous_sample
-        sample_increased = previous_sample && sample > previous_sample
-        previous_sample.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at || sample_increased
-      end
-
-      def sample_info_file
-        File.join(root_dir, "sample_info.json")
-      end
-
-      def save_previous_sample(sample_size)
-        File.write(sample_info_file, JSON.generate({ previous_sample: sample_size }))
-      end
-
-      def load_previous_sample
-        return nil unless File.exist?(sample_info_file)
-
-        JSON.parse(File.read(sample_info_file))["previous_sample"]
+        split_timestamp.nil? || split_timestamp < datasource.last_updated_at
       end
 
       def apply_transforms(df)

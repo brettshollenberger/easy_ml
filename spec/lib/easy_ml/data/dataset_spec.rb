@@ -366,24 +366,6 @@ RSpec.describe EasyML::Data::Dataset do
         end
       end
 
-      describe "Sample" do
-        it "automatically samples a smaller percentage of the dataset" do
-          dataset.refresh!
-          full_train_df = dataset.train
-
-          dataset.sample = 0.1
-          dataset.refresh!
-
-          train_df = dataset.train
-
-          # Calculate the percentage of rows in the sampled dataset
-          sample_percentage = (train_df.shape[0].to_f / full_train_df.shape[0]) * 100
-
-          # Check if the sample size is between 30% and 50% of the full dataset
-          expect(sample_percentage).to be_between(10, 30)
-        end
-      end
-
       describe "Preprocessing steps" do
         it "Automatically manages preprocessing steps, and separates raw from processed data" do
           dataset.refresh!
@@ -542,32 +524,6 @@ RSpec.describe EasyML::Data::Dataset do
               expect(dataset.send(:should_split?)).to be true
             end
           end
-
-          context "when split is up-to-date but sample size increases" do
-            before do
-              allow(dataset.raw).to receive(:split_at).and_return(Time.now)
-              allow(dataset.datasource).to receive(:last_updated_at).and_return(Time.now - 1.day)
-              allow(dataset).to receive(:load_previous_sample).and_return(0.5)
-              dataset.sample = 0.7
-            end
-
-            it "returns true" do
-              expect(dataset.send(:should_split?)).to be true
-            end
-          end
-
-          context "when split is up-to-date and sample size decreases" do
-            before do
-              allow(dataset.raw).to receive(:split_at).and_return(Time.now)
-              allow(dataset.datasource).to receive(:last_updated_at).and_return(Time.now - 1.day)
-              allow(dataset).to receive(:load_previous_sample).and_return(0.7)
-              dataset.sample = 0.5
-            end
-
-            it "returns false" do
-              expect(dataset.send(:should_split?)).to be false
-            end
-          end
         end
 
         describe "#split_data" do
@@ -581,7 +537,6 @@ RSpec.describe EasyML::Data::Dataset do
             allow(dataset.datasource).to receive(:in_batches).and_yield(mock_df)
             allow(dataset.splitter).to receive(:split).and_return([mock_train_df, mock_valid_df, mock_test_df])
             allow(dataset.raw).to receive(:save)
-            allow(dataset).to receive(:save_previous_sample)
           end
 
           it "splits and saves data when necessary" do
@@ -589,7 +544,6 @@ RSpec.describe EasyML::Data::Dataset do
             expect(dataset.raw).to receive(:save).with(:train, mock_train_df)
             expect(dataset.raw).to receive(:save).with(:test, mock_test_df)
             expect(dataset.raw).to receive(:save).with(:valid, mock_valid_df)
-            expect(dataset).to receive(:save_previous_sample).with(dataset.sample)
             dataset.send(:split_data)
           end
         end

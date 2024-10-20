@@ -83,7 +83,11 @@ module EasyML
         end
 
         def feature_importances
-          @model.booster.feature_names.zip(@model.feature_importances).to_h
+          score = @booster.score(importance_type: @importance_type || "gain")
+          scores = @booster.feature_names.map { |k| score[k] || 0.0 }
+          total = scores.sum.to_f
+          fi = scores.map { |s| s / total }
+          @booster.feature_names.zip(fi).to_h
         end
 
         def base_model

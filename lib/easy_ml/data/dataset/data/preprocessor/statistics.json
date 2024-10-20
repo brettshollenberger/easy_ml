@@ -1,30 +1,10 @@
 {
   "annual_revenue": {
     "median": {
-      "value": 3000.0,
+      "value": 2700.0,
       "original_dtype": {
         "__type__": "polars_dtype",
-        "value": "Polars::Int64"
-      }
-    }
-  },
-  "loan_purpose": {
-    "categorical": {
-      "value": {
-        "payroll": 4,
-        "expansion": 1
-      },
-      "label_encoder": {
-        "expansion": 0,
-        "payroll": 1
-      },
-      "label_decoder": {
-        "0": "expansion",
-        "1": "payroll"
-      },
-      "original_dtype": {
-        "__type__": "polars_dtype",
-        "value": "Polars::String"
+        "value": "Polars::Float64"
       }
     }
   }

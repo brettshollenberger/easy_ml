@@ -70,7 +70,11 @@ module EasyML
           path ||= file
           path = path&.file&.file if path.class.ancestors.include?(CarrierWave::Uploader::Base)
 
-          raise "No existing model at #{path}" unless File.exist?(path)
+          unless File.exist?(path)
+            file.retrieve_from_store!(file_identifier)
+            file.cache_stored_file!
+            path = file.full_cache_path
+          end
 
           initialize_model do
             booster_class.new(params: hyperparameters.to_h, model_file: path)

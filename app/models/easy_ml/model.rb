@@ -7,8 +7,18 @@ module EasyML
     scope :live, -> { where(is_live: true) }
     attribute :root_dir, :string
     after_initialize :apply_defaults
-
     validate :only_one_model_is_live?
+    before_save :save_statistics
+    before_save :save_hyperparameters
+
+    def save_statistics
+      write_attribute(:statistics, dataset.statistics.deep_symbolize_keys)
+    end
+
+    def save_hyperparameters
+      write_attribute(:hyperparameters, hyperparameters.to_h)
+    end
+
     def only_one_model_is_live?
       return if @marking_live
 
@@ -33,7 +43,13 @@ module EasyML
       EasyML::Model.where(name: name).order(id: :desc)
     end
 
+    after_find :load_model
+
     private
+
+    def load_model
+      load if persisted?
+    end
 
     def files_to_keep
       live_models = self.class.live

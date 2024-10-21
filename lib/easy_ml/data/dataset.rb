@@ -219,10 +219,19 @@ module EasyML
         process_data
       end
 
-      def normalize(df = nil)
+      def normalize(df = nil, split_ys: false)
         df = drop_nulls(df)
         df = apply_transforms(df)
-        preprocessor.postprocess(df)
+        df = preprocessor.postprocess(df)
+        df = apply_drop_columns(df)
+        df, = processed.split_features_targets(df, true, target) if split_ys
+        df
+      end
+
+      def apply_drop_columns(df)
+        drop_cols = df.columns & drop_columns
+        df = df.drop(drop_cols) if drop_cols.any?
+        df
       end
 
       # A "production" preprocessor is predicting live values (e.g. used on live webservers)
@@ -321,7 +330,10 @@ module EasyML
       def drop_nulls(df)
         return df if drop_if_null.nil? || drop_if_null.empty?
 
-        df.drop_nulls(subset: drop_if_null)
+        drop = (df.columns & drop_if_null)
+        return df if drop.empty?
+
+        df.drop_nulls(subset: drop)
       end
 
       def drop_columns(all_columns: false)

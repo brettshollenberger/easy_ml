@@ -18,12 +18,13 @@ module EasyML
     end
 
     def train
-      dataset.refresh!
-      best_params = tuner.tune
-      best_params.each do |k, v|
-        model.hyperparameters.send("#{k}=", v)
-      end
+      dataset.refresh
+      # best_params = tuner.tune
+      # best_params.each do |k, v|
+      #   model.hyperparameters.send("#{k}=", v)
+      # end
       model.fit
+      binding.pry
       model.save
     end
 

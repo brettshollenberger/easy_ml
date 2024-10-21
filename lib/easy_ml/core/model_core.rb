@@ -10,15 +10,6 @@ module EasyML
         base.send(:include, GlueGun::DSL)
         base.send(:extend, CarrierWave::Mount)
         base.send(:mount_uploader, :file, EasyML::Core::Uploaders::ModelUploader)
-
-        base.class_eval do
-          validates :task, inclusion: { in: %w[regression classification] }
-          validates :task, presence: true
-          validate :dataset_is_a_dataset?
-          validate :validate_any_metrics?
-          validate :validate_metrics_for_task
-          before_validation :save_model_file, if: -> { fit? }
-        end
       end
 
       def root_dir
@@ -165,12 +156,14 @@ module EasyML
       end
 
       def validate_any_metrics?
+        binding.pry
         return if metrics.any?
 
         errors.add(:metrics, "Must include at least one metric. Allowed metrics are #{allowed_metrics.join(", ")}")
       end
 
       def validate_metrics_for_task
+        binding.pry
         nonsensical_metrics = metrics.select do |metric|
           allowed_metrics.exclude?(metric)
         end

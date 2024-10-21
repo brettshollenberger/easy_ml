@@ -2,6 +2,7 @@ require "fileutils"
 require "polars"
 require "date"
 require "json"
+require_relative "simple_imputer"
 
 module EasyML::Data
   class Preprocessor

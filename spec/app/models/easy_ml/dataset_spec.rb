@@ -364,7 +364,7 @@ RSpec.describe EasyML::Dataset do
           expect(raw_test_df["annual_revenue"][-1]).to be_nil
         end
 
-        it "saves and loads preprocessing statistics", :focus do
+        it "saves and loads preprocessing statistics" do
           dataset.refresh!
 
           expect(dataset.statistics.deep_symbolize_keys.dig(:annual_revenue, :median, :value)).to eq 2_700
@@ -377,6 +377,17 @@ RSpec.describe EasyML::Dataset do
 
           expect(reloaded.statistics.deep_symbolize_keys.dig(:annual_revenue, :median, :value)).to eq 2_700
           expect(reloaded.test["annual_revenue"].to_a).to all(eq 2_700)
+        end
+
+        it "can fully refresh from reloaded", :focus do
+          dataset.refresh!
+          dataset.save
+
+          reloaded = EasyML::Dataset.find(dataset.id)
+          reloaded.dataset_statistics_id = EasyML::DatasetStatistics.last.id
+
+          reloaded.refresh!
+          binding.pry
         end
 
         it "removes drop_cols" do

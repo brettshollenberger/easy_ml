@@ -13,13 +13,12 @@ module EasyML
     PREPROCESSING_ORDER = %w[clip mean median constant categorical one_hot ffill custom fill_date add_datepart]
 
     attribute :directory
-    attribute :preprocessing_steps
     attribute :verbose
     attribute :imputers
 
     def fit(df)
       return if df.nil?
-      return if preprocessing_steps.keys.none?
+      return if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
       preprocessing_steps.deep_symbolize_keys!
 
@@ -46,36 +45,13 @@ module EasyML
         end
       end
       self.statistics = serialize_statistics(stats)
+      self.preprocessing_steps = preprocessing_steps
       save
     end
 
-    # def save
-    #   FileUtils.mkdir_p(File.dirname(file_path))
-
-    #   all_statistics = (File.exist?(file_path) ? JSON.parse(File.read(file_path)) : {}).deep_symbolize_keys
-
-    #   deep_symbolize_keys!
-
-    #   serialized = serialize_statistics(@statistics)
-    #   all_statistics[attribute] = {} unless all_statistics.key?(attribute)
-    #   all_statistics[attribute][@strategy] = serialized[attribute.to_sym][@strategy.to_sym]
-
-    #   File.open(file_path, "w") do |file|
-    #     file.write(JSON.pretty_generate(all_statistics))
-    #   end
-    # end
-
-    # def load
-    #   return unless File.exist?(file_path)
-
-    #   all_statistics = JSON.parse(File.read(file_path))
-    #   attribute_stats = all_statistics[@attribute]
-
-    #   return unless attribute_stats
-
-    #   @statistics = deserialize_statistics(attribute_stats)
-    #   deep_symbolize_keys!
-    # end
+    def preprocessing_steps
+      (read_attribute(:preprocessing_steps) || {}).deep_symbolize_keys
+    end
 
     def postprocess(df, inference: false)
       puts "Postprocessing..." if verbose

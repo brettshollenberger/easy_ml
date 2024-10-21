@@ -79,7 +79,6 @@ module EasyML
 
     attribute :drop_cols, default: []
 
-    # dependency :datasource, EasyML::Data::Datasource::DatasourceFactory
     def datasource
       return @datasource if @datasource.present?
 
@@ -88,7 +87,7 @@ module EasyML
 
       config = config.deep_symbolize_keys.inject({}) do |h, (name, config)|
         h.tap do
-          h[name] = config.merge!(root_dir: root_dir)
+          h[name] = config.merge!(root_dir: Pathname.new(root_dir).append("files"))
         end
       end
       @datasource = EasyML::Data::Datasource::DatasourceFactory.new({
@@ -96,41 +95,24 @@ module EasyML
                                                                     }).datasource
     end
 
-    # dependency defines a configurable dependency, with optional args,
-    # for example, here we define a datasource:
-    #
-    # class YourDataset
-    #   datasource :s3, s3_bucket: "fundera-bart", s3_prefix: "xyz"
-    #   # This automatically uses the S3Datasource class to pull data
-    # end
-    #
-    # If we define any models based on other data sources (e.g. postgres),
-    # you would just define a new PostgresDatasource
-    #
+    def splitter
+      return @splitter if @splitter.present?
 
-    # Here we define splitter options, inspired by common Python data splitting techniques:
-    #
-    # 1. Date-based splitter (similar to TimeSeriesSplit from sklearn)
-    #
-    # NOT IMPLEMENTED (but you could implement as necessary):
-    # 2. Random splitter (similar to train_test_split from sklearn)
-    # 3. Stratified splitter (similar to StratifiedKFold from sklearn)
-    # 4. Group-based splitter (similar to GroupKFold from sklearn)
-    # 5. Sliding window splitter (similar to TimeSeriesSplit with a sliding window)
-    #
-    dependency :splitter do |dependency|
-      dependency.option :date do |option|
-        option.default
-        option.set_class EasyML::Data::Splitters::DateSplitter
-        option.bind_attribute :today, required: true
-        option.bind_attribute :date_col, required: true
-        option.bind_attribute :months_test, required: true
-        option.bind_attribute :months_valid, required: true
+      config = read_attribute(:splitter)
+      return nil unless config.present? && config.is_a?(Hash)
+
+      config = config.deep_symbolize_keys.inject({}) do |h, (name, config)|
+        h.tap do
+          h[name] = config.merge!(today: today)
+        end
       end
+      klass = case config.keys.first
+              when :date
+                EasyML::Data::Splitters::DateSplitter
+              end
+      config = config.values.first
+      @splitter = klass.new(config)
     end
-    # def splitter
-    #   @splitter ||=
-    # end
 
     # Here we define the preprocessing logic.
     # Aka what to do with null values. For instance:

@@ -1,7 +1,7 @@
 require "spec_helper"
 require "active_support/core_ext/integer/time"
 
-RSpec.describe EasyML::Data::Dataset do
+RSpec.describe EasyML::Dataset do
   let(:synced_directory) do
     EasyML::Support::SyncedDirectory
   end
@@ -23,26 +23,7 @@ RSpec.describe EasyML::Data::Dataset do
     end
 
     let(:dataset) do
-      EasyML::Data::Dataset.new(
-        target: "rev",
-        datasource: df,
-        preprocessing_steps: {
-          training: {
-            annual_revenue: {
-              median: true
-            }
-          }
-        },
-        splitter: {
-          date: {
-            today: EST.parse("2024-10-01"),
-            date_col: "created_date",
-            months_test: 2,
-            months_valid: 2
-          }
-        }
-      )
-      EasyML::Data::Dataset.new(
+      EasyML::Dataset.new(
         target: "rev",
         datasource: df,
         preprocessing_steps: {
@@ -74,8 +55,8 @@ RSpec.describe EasyML::Data::Dataset do
         expect(x_valid.count).to eq 2
         expect(x_test.count).to eq 2
 
-        expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::InMemorySplit)
-        expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::InMemorySplit)
+        expect(dataset.raw).to be_a(EasyML::Data::Splits::InMemorySplit)
+        expect(dataset.processed).to be_a(EasyML::Data::Splits::InMemorySplit)
 
         # Median applied
         expect(x_test["annual_revenue"].to_a).to all(eq(2_700))
@@ -101,7 +82,7 @@ RSpec.describe EasyML::Data::Dataset do
     end
 
     let(:dataset) do
-      EasyML::Data::Dataset.new(
+      EasyML::Dataset.new(
         target: "rev",
         datasource: root_dir.join("data"),
         polars_args: polars_args,
@@ -137,8 +118,8 @@ RSpec.describe EasyML::Data::Dataset do
         expect(x_valid.count).to eq 2
         expect(x_test.count).to eq 2
 
-        expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::FileSplit)
-        expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::FileSplit)
+        expect(dataset.raw).to be_a(EasyML::Data::Splits::FileSplit)
+        expect(dataset.processed).to be_a(EasyML::Data::Splits::FileSplit)
 
         # Median applied
         expect(x_test["annual_revenue"].to_a).to all(eq(2_700))
@@ -149,7 +130,7 @@ RSpec.describe EasyML::Data::Dataset do
 
   describe "S3 Dataset" do
     let(:dataset) do
-      EasyML::Data::Dataset.new(**config)
+      EasyML::Dataset.new(**config)
     end
 
     def prepare_test(dataset)
@@ -323,9 +304,9 @@ RSpec.describe EasyML::Data::Dataset do
         it "sets up the dataset with correct attributes" do
           expect(dataset.datasource).to be_a(EasyML::Data::Datasource::S3Datasource)
           expect(dataset.target).to eq(target)
-          expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
-          expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::Split)
-          expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::Split)
+          expect(dataset.splitter).to be_a(EasyML::Data::Splitters::DateSplitter)
+          expect(dataset.raw).to be_a(EasyML::Data::Splits::Split)
+          expect(dataset.processed).to be_a(EasyML::Data::Splits::Split)
         end
       end
 
@@ -381,6 +362,21 @@ RSpec.describe EasyML::Data::Dataset do
           # It maintains a separate copy of the RAW dataset, which is not overridden
           raw_test_df = dataset.raw.test
           expect(raw_test_df["annual_revenue"][-1]).to be_nil
+        end
+
+        it "saves and loads preprocessing statistics", :focus do
+          dataset.refresh!
+
+          expect(dataset.statistics.deep_symbolize_keys.dig(:annual_revenue, :median, :value)).to eq 2_700
+          expect(dataset.test["annual_revenue"].to_a).to all(eq 2_700)
+
+          dataset.save
+
+          reloaded = EasyML::Dataset.find(dataset.id)
+          reloaded.dataset_statistics_id = EasyML::DatasetStatistics.last.id
+
+          expect(reloaded.statistics.deep_symbolize_keys.dig(:annual_revenue, :median, :value)).to eq 2_700
+          expect(reloaded.test["annual_revenue"].to_a).to all(eq 2_700)
         end
 
         it "removes drop_cols" do
@@ -511,7 +507,7 @@ RSpec.describe EasyML::Data::Dataset do
       describe "private methods" do
         describe "#should_split?" do
           before do
-            allow_any_instance_of(EasyML::Data::Dataset).to receive(:should_split?).and_call_original
+            allow_any_instance_of(EasyML::Dataset).to receive(:should_split?).and_call_original
           end
 
           context "when split is outdated" do

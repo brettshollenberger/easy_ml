@@ -47,7 +47,7 @@ RSpec.describe EasyML::Core::Tuner do
     }
   end
 
-  let(:dataset) { EasyML::Data::Dataset.new(**dataset_config) }
+  let(:dataset) { EasyML::Dataset.new(**dataset_config) }
 
   let(:hyperparameters) do
     {

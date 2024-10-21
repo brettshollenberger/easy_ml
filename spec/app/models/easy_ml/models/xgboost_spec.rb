@@ -39,6 +39,26 @@ RSpec.describe EasyML::Models::XGBoost do
       expect(model3.reload.is_live).to be true
       expect(other_model.reload.is_live).to be true
     end
+
+    it "uses its statistics file for preprocessing", :focus do
+      @time = EST.now
+      Timecop.freeze(@time)
+
+      dataset.fit
+
+      model1 = build_model(name: "Test Model", is_live: true)
+      binding.pry
+      model2 = build_model(name: "Test Model", is_live: false)
+      model3 = build_model(name: "Test Model", is_live: false)
+      other_model = build_model(name: "Other Model", is_live: true)
+
+      model3.mark_live
+
+      expect(model1.reload.is_live).to be false
+      expect(model2.reload.is_live).to be false
+      expect(model3.reload.is_live).to be true
+      expect(other_model.reload.is_live).to be true
+    end
   end
 
   describe "#cleanup" do

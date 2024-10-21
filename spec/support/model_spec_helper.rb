@@ -44,7 +44,7 @@ module ModelSpecHelper
       }
     end
 
-    base.let(:dataset) { EasyML::Data::Dataset.new(**dataset_config) }
+    base.let(:dataset) { EasyML::Dataset.new(**dataset_config) }
 
     base.let(:hyperparameters) do
       {

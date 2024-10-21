@@ -1,4 +1,4 @@
-module EasyML::Data::Dataset::Splitters
+module EasyML::Data::Splitters
   class DateSplitter
     include GlueGun::DSL
 

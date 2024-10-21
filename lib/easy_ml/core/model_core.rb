@@ -155,7 +155,7 @@ module EasyML
 
       def dataset_is_a_dataset?
         return if dataset.nil?
-        return if dataset.class.ancestors.include?(EasyML::Data::Dataset)
+        return if dataset.class.ancestors.include?(EasyML::Dataset)
 
         errors.add(:dataset, "Must be a subclass of EasyML::Dataset")
       end

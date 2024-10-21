@@ -1,15 +1,13 @@
 {
   "annual_revenue": {
-    "clip": {
+    "median": {
+      "value": 2700.0,
       "original_dtype": {
         "__type__": "polars_dtype",
         "value": "Polars::Float64"
       }
-    }
-  },
-  "annual_revenue": {
-    "median": {
-      "value": 2700.0,
+    },
+    "clip": {
       "original_dtype": {
         "__type__": "polars_dtype",
         "value": "Polars::Float64"

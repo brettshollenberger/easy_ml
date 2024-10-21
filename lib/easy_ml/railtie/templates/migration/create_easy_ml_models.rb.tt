@@ -9,6 +9,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.string :task
       t.json :metrics, default: []
       t.json :file, null: false
+      t.bigint :easy_ml_dataset_statistics_id
 
       t.timestamps
 
@@ -18,6 +19,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.index :is_live
       t.index [:name, :version], unique: true
       t.index [:name, :version, :is_live]
+      t.index :easy_ml_dataset_statistics_id
     end
   end
 end

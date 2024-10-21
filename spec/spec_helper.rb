@@ -10,26 +10,33 @@ require "easy_ml/engine"
 
 # Initialize Combustion only for app directory specs
 running_rails_specs = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
+PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
+SPEC_ROOT = PROJECT_ROOT.join("spec")
+
 if running_rails_specs
   Combustion.initialize! :all
   require "rspec/rails"
 
-  # ActiveRecord::Base.establish_connection(adapter: "postgresql", database: "easy_ml_test")
+  if Dir.glob(Rails.root.join("db/migrate/**/*")).none?
+    # Run your generator and apply the generated migration
+    Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
 
-  # ActiveRecord::Schema.define do
-  #   create_table :easy_ml_models do |t|
-  #     t.string :version
-  #     t.string :ml_model
-  #     t.string :task
-  #     t.json :metrics, default: []
-  #     t.json :file, null: false
-  #     t.timestamps
-  #   end
-  # end
+    # Ensure the correct migration paths are set
+    migration_paths = ActiveRecord::Migrator.migrations_paths
+    migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
+
+    # Apply migrations based on Rails version
+    case Rails::VERSION::MAJOR
+    when 7
+      ActiveRecord::MigrationContext.new(migration_paths).migrate
+    when 6
+      migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
+      migration_context.migrate
+    else
+      ActiveRecord::Migrator.migrate(migration_paths)
+    end
+  end
 end
-
-PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
-SPEC_ROOT = PROJECT_ROOT.join("spec")
 
 # Load support files
 Dir[Rails.root.join("spec/support/**/*.rb")].each { |f| require f }
@@ -56,28 +63,6 @@ RSpec.configure do |config|
 
   config.after(:suite) do
     FileUtils.rm_rf(Rails.root.join("tmp/"))
-  end
-
-  config.before(:suite) do
-    if running_rails_specs && Dir.glob(Rails.root.join("db/migrate/**/*")).none?
-      # Run your generator and apply the generated migration
-      Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
-
-      # Ensure the correct migration paths are set
-      migration_paths = ActiveRecord::Migrator.migrations_paths
-      migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
-
-      # Apply migrations based on Rails version
-      case Rails::VERSION::MAJOR
-      when 7
-        ActiveRecord::MigrationContext.new(migration_paths).migrate
-      when 6
-        migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
-        migration_context.migrate
-      else
-        ActiveRecord::Migrator.migrate(migration_paths)
-      end
-    end
   end
 
   # Configure CarrierWave storage based on environment variable or RSpec metadata

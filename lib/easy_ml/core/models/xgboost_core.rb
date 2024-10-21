@@ -100,7 +100,6 @@ module EasyML
 
         def prepare_data
           if @d_train.nil?
-            binding.pry
             x_train, y_train = dataset.train(split_ys: true)
             x_valid, y_valid = dataset.valid(split_ys: true)
             x_test, y_test = dataset.test(split_ys: true)

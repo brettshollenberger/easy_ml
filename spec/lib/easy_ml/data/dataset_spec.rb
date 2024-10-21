@@ -42,25 +42,6 @@ RSpec.describe EasyML::Data::Dataset do
           }
         }
       )
-      EasyML::Data::Dataset.new(
-        target: "rev",
-        datasource: df,
-        preprocessing_steps: {
-          training: {
-            annual_revenue: {
-              median: true
-            }
-          }
-        },
-        splitter: {
-          date: {
-            today: EST.parse("2024-10-01"),
-            date_col: "created_date",
-            months_test: 2,
-            months_valid: 2
-          }
-        }
-      )
     end
 
     describe "#initialize" do

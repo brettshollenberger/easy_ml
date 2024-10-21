@@ -105,6 +105,8 @@ module EasyML
         def prepare_data
           if @d_train.nil?
             x_train, y_train = dataset.train(split_ys: true)
+            x_train = x_train[0..1000]
+            y_train = y_train[0..1000]
             x_valid, y_valid = dataset.valid(split_ys: true)
             x_test, y_test = dataset.test(split_ys: true)
             @d_train = preprocess(x_train, y_train)

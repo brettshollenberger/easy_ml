@@ -20,4 +20,5 @@ module EasyML
   require_relative "easy_ml/data"
   require_relative "easy_ml/transforms"
   require_relative "easy_ml/core"
+  require_relative "easy_ml/trainer"
 end

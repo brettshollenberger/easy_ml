@@ -1,4 +1,10 @@
 require_relative "../../../lib/easy_ml/core/model"
+# t.string :ml_model
+# t.string :task
+# t.string :metrics, array: true
+# t.json :file, null: false
+# t.json :statistics
+# t.json :hyperparameters
 module EasyML
   class Model < ActiveRecord::Base
     include EasyML::Core::ModelCore
@@ -8,16 +14,24 @@ module EasyML
     attribute :root_dir, :string
     after_initialize :apply_defaults
     validate :only_one_model_is_live?
-    before_save :save_statistics
-    before_save :save_hyperparameters
+    # before_save :save_statistics
+    # before_save :save_hyperparameters
 
-    def save_statistics
-      write_attribute(:statistics, dataset.statistics.deep_symbolize_keys)
-    end
+    # validates :task, inclusion: { in: %i[regression classification] }
+    # validates :task, presence: true
+    # validate :dataset_is_a_dataset?
+    # validate :validate_any_metrics?
+    # validate :validate_metrics_for_task
+    # before_validation :save_model_file, if: -> { fit? }
 
-    def save_hyperparameters
-      write_attribute(:hyperparameters, hyperparameters.to_h)
-    end
+    # def save_statistics
+    #   write_attribute(:statistics, dataset.statistics.deep_symbolize_keys)
+    # end
+
+    # def save_hyperparameters
+    #   binding.pry
+    #   write_attribute(:hyperparameters, hyperparameters.to_h)
+    # end
 
     def only_one_model_is_live?
       return if @marking_live

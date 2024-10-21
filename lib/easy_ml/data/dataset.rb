@@ -373,8 +373,8 @@ module EasyML
       end
 
       def split_data(force: false)
-        puts "Should split? #{!force && !should_split?}"
-        return if !force && !should_split?
+        puts "Should split? #{force || should_split?}"
+        return unless force || should_split?
 
         cleanup
         raw.save_schema(datasource.files)
@@ -389,7 +389,7 @@ module EasyML
 
       def should_split?
         split_timestamp = raw.split_at
-        split_timestamp.nil? || split_timestamp < datasource.last_updated_at
+        processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at
       end
 
       def apply_transforms(df)

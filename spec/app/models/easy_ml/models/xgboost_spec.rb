@@ -40,22 +40,84 @@ RSpec.describe EasyML::Models::XGBoost do
       expect(other_model.reload.is_live).to be true
     end
 
-    it "saves and reuses statistics for inference", :focus do
+    def make_trainer
+      dataset = EasyML::Data::Dataset.new(
+        {
+          verbose: false,
+          drop_if_null: ["loan_purpose"],
+          drop_cols: %w[business_name state id date],
+          datasource: df,
+          target: target,
+          preprocessing_steps: preprocessing_steps,
+          splitter: {
+            date: {
+              today: today,
+              date_col: date_col,
+              months_test: months_test,
+              months_valid: months_valid
+            }
+          }
+        }
+      )
+      model = EasyML::Models::XGBoost.new({
+                                            name: "My model",
+                                            root_dir: root_dir,
+                                            task: task,
+                                            dataset: dataset,
+                                            hyperparameters: {
+                                              learning_rate: learning_rate,
+                                              max_depth: max_depth,
+                                              objective: objective
+                                            }
+                                          })
+
+      EasyML::Trainer.new(
+        model: model,
+        dataset: model.dataset,
+        tuner: EasyML::Core::Tuner.new(
+          n_trials: 1,
+          model: model,
+          objective: :mean_absolute_error,
+          config: {
+            learning_rate: { min: 0.01, max: 0.1 },
+            n_estimators: { min: 1, max: 100 },
+            max_depth: { min: 1, max: 8 }
+          }
+        )
+      )
+    end
+
+    def new_df
+      Polars::DataFrame.new({
+                              business_name: ["Business X"],
+                              annual_revenue: [nil],
+                              loan_purpose: ["payroll"],
+                              state: ["VIRGINIA"],
+                              rev: [0],
+                              date: "2024-01-01"
+                            })
+    end
+
+    it "saves and reuses statistics for inference" do
       @time = EST.now
       Timecop.freeze(@time)
 
-      model1 = build_model(name: "Test Model", is_live: true)
-      binding.pry
-      model2 = build_model(name: "Test Model", is_live: false)
-      model3 = build_model(name: "Test Model", is_live: false)
-      other_model = build_model(name: "Other Model", is_live: true)
+      trainer = make_trainer
+      trainer.train # Model is now saved
+      trainer.model.mark_live
 
-      model3.mark_live
+      # Simulate another request, after the model has been marked live
+      trainer2 = make_trainer
 
-      expect(model1.reload.is_live).to be false
-      expect(model2.reload.is_live).to be false
-      expect(model3.reload.is_live).to be true
-      expect(other_model.reload.is_live).to be true
+      df1 = trainer.features(new_df)
+      df2 = trainer2.features(new_df)
+      df1.columns.each do |col|
+        expect(df1[col][0]).to eq(df2[col][0])
+      end
+      expect(df1["annual_revenue"]).to eq 3_000 # Median revenue
+      expect(df1["loan_purpose_payroll"]).to eq 1
+
+      expect(trainer.predict(new_df).first).to be_within(0.001).of(trainer2.predict(new_df).first)
     end
   end
 

@@ -21,6 +21,10 @@ module EasyML
         end
       end
 
+      def root_dir
+        @root_dir ||= detect_root_dir
+      end
+
       def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
         if x_train.nil?
           dataset.refresh

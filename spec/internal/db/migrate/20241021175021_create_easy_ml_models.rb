@@ -10,6 +10,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.json :metrics, default: []
       t.json :file, null: false
       t.json :statistics
+      t.json :hyperparameters
 
       t.timestamps
 

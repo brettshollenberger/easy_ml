@@ -84,8 +84,6 @@ module EasyML
             raise NotImplementedError, "Subclasses must implement #split_at"
           end
 
-          protected
-
           def split_features_targets(df, split_ys, target)
             raise ArgumentError, "Target column must be specified when split_ys is true" if split_ys && target.nil?
 
@@ -97,6 +95,8 @@ module EasyML
               df
             end
           end
+
+          protected
 
           def create_progress_bar(segment, total_rows)
             ProgressBar.create(

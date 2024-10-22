@@ -3,13 +3,26 @@ require_relative "uploaders/model_uploader"
 
 module EasyML
   module Core
-    module ModelCore
+    class ModelService
+      include GlueGun::DSL
+
       attr_accessor :dataset
 
-      def self.included(base)
-        base.send(:include, GlueGun::DSL)
-        base.send(:extend, CarrierWave::Mount)
-        base.send(:mount_uploader, :file, EasyML::Core::Uploaders::ModelUploader)
+      attribute :name, :string
+      attribute :version, :string
+      attribute :verbose, :boolean, default: false
+      attribute :task, :string, default: "regression"
+      attribute :metrics, :array
+      attribute :ml_model, :string
+      attribute :file, :string
+      attribute :root_dir, :string
+      attribute :objective
+      attribute :evaluator
+      attribute :evaluator_metric
+
+      def initialize(options = {})
+        super
+        apply_defaults
       end
 
       def root_dir
@@ -105,7 +118,7 @@ module EasyML
       private
 
       def carrierwave_dir
-        return unless file.path.present?
+        return unless file&.path.present?
 
         File.dirname(file.path).split("/")[0..-2].join("/")
       end

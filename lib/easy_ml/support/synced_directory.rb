@@ -65,7 +65,7 @@ module EasyML
       end
 
       def clean_dir!
-        FileUtils.rm_rf(root_dir)
+        # FileUtils.rm_rf(root_dir)
       end
 
       def s3

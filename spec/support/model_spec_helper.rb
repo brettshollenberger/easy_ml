@@ -71,6 +71,7 @@ module ModelSpecHelper
     base.let(:model_config) do
       {
         root_dir: root_dir,
+        model: :xgboost,
         task: task,
         dataset: dataset,
         hyperparameters: {
@@ -99,7 +100,7 @@ module ModelSpecHelper
     end
 
     base.let(:model) do
-      model_class.new(model_config)
+      EasyML::Model.new(model_config)
     end
 
     base.before(:each) do
@@ -116,11 +117,11 @@ module ModelSpecHelper
 
   def build_model(params)
     Timecop.freeze(incr_time)
-    model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
-                                          task: :regression,
-                                          hyperparameters: {
-                                            objective: "reg:squarederror"
-                                          })).tap do |model|
+    EasyML::Model.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
+                                            task: :regression,
+                                            hyperparameters: {
+                                              objective: "reg:squarederror"
+                                            })).tap do |model|
       model.fit
       model.save
     end

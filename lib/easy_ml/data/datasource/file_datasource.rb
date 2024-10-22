@@ -6,7 +6,10 @@ module EasyML::Data
       attribute :root_dir, :string
       attribute :polars_args, :hash, default: {}
 
-      validates :root_dir, presence: true
+      def polars_args=(args)
+        args[:dtypes] = args[:dtypes].stringify_keys if args.key?(:dtypes)
+        super(args)
+      end
 
       def in_batches(of: 10_000)
         files.each do |file|
@@ -38,6 +41,10 @@ module EasyML::Data
           combined_df = combined_df.nil? ? df : combined_df.vstack(df)
         end
         combined_df
+      end
+
+      def serialize
+        attributes
       end
     end
   end

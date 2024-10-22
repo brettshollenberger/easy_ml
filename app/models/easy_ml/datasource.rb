@@ -12,7 +12,7 @@ module EasyML
       end
     end
 
-    delegate :data, :in_batches, :df, :refresh!, :refresh, :last_updated_at,
-             to: :datasource_service
+    # delegate :data, :in_batches, :df, :refresh!, :refresh, :last_updated_at,
+    #          to: :datasource_service
   end
 end

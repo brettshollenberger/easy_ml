@@ -43,8 +43,9 @@ module EasyML
       # Dataset.new(target: "REV")
       #
       attribute :verbose, :boolean, default: false
-      attribute :today, :date, default: -> { UTC.now }
+      attribute :today, :date
       def today=(value)
+        value ||= UTC.now
         super(value.in_time_zone(UTC).to_date)
       end
       attribute :target, :string
@@ -164,7 +165,7 @@ module EasyML
         end
 
         dependency.when do |_dep|
-          { option: :memory } if datasource.is_a?(EasyML::Data::Datasource::PolarsDatasource)
+          { option: :memory } if datasource.respond_to?(:df)
         end
       end
 
@@ -190,7 +191,7 @@ module EasyML
         end
 
         dependency.when do |_dep|
-          { option: :memory } if datasource.is_a?(EasyML::Data::Datasource::PolarsDatasource)
+          { option: :memory } if datasource.respond_to?(:df)
         end
       end
 

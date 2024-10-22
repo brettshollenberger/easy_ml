@@ -10,7 +10,9 @@ module EasyML
       build_datasource_service(options)
     end
 
-    delegate :data, :in_batches, to: :datasource_service
+    # This is the main issue to figure out... which methods to delegate & how to figure this out programmatically
+    delegate :data, :in_batches, :df, :refresh!, :refresh, :last_updated_at,
+             to: :datasource_service
 
     attr_accessor :datasource_service
 

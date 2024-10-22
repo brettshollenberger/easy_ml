@@ -45,12 +45,10 @@ RSpec.describe EasyML::Datasource do
       s3_datasource = EasyML::Datasource.create!(
         name: "s3 Datasource",
         root_dir: path,
-        s3: {
-          s3_bucket: "bucket",
-          s3_prefix: "raw",
-          s3_access_key_id: "12345",
-          s3_secret_access_key: "12345"
-        }
+        s3_bucket: "bucket",
+        s3_prefix: "raw",
+        s3_access_key_id: "12345",
+        s3_secret_access_key: "12345"
       )
 
       datasource = EasyML::Datasource.find(s3_datasource.id)

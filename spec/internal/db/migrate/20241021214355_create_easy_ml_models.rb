@@ -3,14 +3,10 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
   def change
     create_table :easy_ml_models do |t|
       t.string :name, null: false
+      t.string :model_type
+      t.json :configuration
       t.boolean :is_live, default: false
       t.string :version, null: false
-      t.string :ml_model
-      t.string :task
-      t.json :metrics, default: []
-      t.json :file, null: false
-      t.json :statistics
-      t.json :hyperparameters
 
       t.timestamps
 

@@ -1,8 +1,9 @@
 require "wandb"
+
 module EasyML
   module Core
     module Models
-      module XGBoostCore
+      class XGBoostService < EasyML::Core::ModelService
         OBJECTIVES = {
           classification: {
             binary: %w[binary:logistic binary:hinge],
@@ -11,34 +12,29 @@ module EasyML
           regression: %w[reg:squarederror reg:logistic]
         }
 
-        def self.included(base)
-          base.class_eval do
-            attribute :evaluator
+        attribute :evaluator
+        attr_accessor :model, :booster
 
-            dependency :callbacks, { array: true } do |dep|
-              dep.option :wandb do |opt|
-                opt.set_class Wandb::XGBoostCallback
-                opt.bind_attribute :log_model, default: false
-                opt.bind_attribute :log_feature_importance, default: true
-                opt.bind_attribute :importance_type, default: "gain"
-                opt.bind_attribute :define_metric, default: true
-                opt.bind_attribute :project_name
-              end
-            end
-
-            dependency :hyperparameters do |dep|
-              dep.set_class EasyML::Models::Hyperparameters::XGBoost
-              dep.bind_attribute :batch_size, default: 32
-              dep.bind_attribute :learning_rate, default: 1.1
-              dep.bind_attribute :max_depth, default: 6
-              dep.bind_attribute :n_estimators, default: 100
-              dep.bind_attribute :booster, default: "gbtree"
-              dep.bind_attribute :objective, default: "reg:squarederror"
-            end
+        dependency :callbacks, { array: true } do |dep|
+          dep.option :wandb do |opt|
+            opt.set_class Wandb::XGBoostCallback
+            opt.bind_attribute :log_model, default: false
+            opt.bind_attribute :log_feature_importance, default: true
+            opt.bind_attribute :importance_type, default: "gain"
+            opt.bind_attribute :define_metric, default: true
+            opt.bind_attribute :project_name
           end
         end
 
-        attr_accessor :model, :booster
+        dependency :hyperparameters do |dep|
+          dep.set_class EasyML::Models::Hyperparameters::XGBoost
+          dep.bind_attribute :batch_size, default: 32
+          dep.bind_attribute :learning_rate, default: 1.1
+          dep.bind_attribute :max_depth, default: 6
+          dep.bind_attribute :n_estimators, default: 100
+          dep.bind_attribute :booster, default: "gbtree"
+          dep.bind_attribute :objective, default: "reg:squarederror"
+        end
 
         def predict(xs)
           raise "No trained model! Train a model before calling predict" unless @booster.present?

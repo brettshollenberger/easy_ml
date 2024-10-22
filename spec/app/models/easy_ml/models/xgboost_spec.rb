@@ -59,17 +59,18 @@ RSpec.describe EasyML::Models::XGBoost do
           }
         }
       )
-      model = EasyML::Models::XGBoost.new({
-                                            name: "My model",
-                                            root_dir: root_dir,
-                                            task: task,
-                                            dataset: dataset,
-                                            hyperparameters: {
-                                              learning_rate: learning_rate,
-                                              max_depth: max_depth,
-                                              objective: objective
-                                            }
-                                          })
+      model = EasyML::Model.new({
+                                  name: "My model",
+                                  model: :xgboost,
+                                  root_dir: root_dir,
+                                  task: task,
+                                  dataset: dataset,
+                                  hyperparameters: {
+                                    learning_rate: learning_rate,
+                                    max_depth: max_depth,
+                                    objective: objective
+                                  }
+                                })
 
       EasyML::Trainer.new(
         model: model,
@@ -98,7 +99,7 @@ RSpec.describe EasyML::Models::XGBoost do
                             })
     end
 
-    it "saves and reuses statistics for inference" do
+    it "saves and reuses statistics for inference", :focus do
       @time = EST.now
       Timecop.freeze(@time)
 

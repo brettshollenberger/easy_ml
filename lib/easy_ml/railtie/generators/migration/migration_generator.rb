@@ -28,6 +28,8 @@ module EasyML
 
         # Generate the migration files using the templates
         def create_migration_files
+          create_easy_ml_datasource_migration
+          create_easy_ml_datasets_migration
           create_easy_ml_models_migration
         end
 
@@ -38,6 +40,13 @@ module EasyML
           migration_template(
             "create_easy_ml_models.rb.tt",
             "db/migrate/create_easy_ml_models.rb"
+          )
+        end
+
+        def create_easy_ml_datasource_migration
+          migration_template(
+            "create_easy_ml_datasources.rb.tt",
+            "db/migrate/create_easy_ml_datasources.rb"
           )
         end
 

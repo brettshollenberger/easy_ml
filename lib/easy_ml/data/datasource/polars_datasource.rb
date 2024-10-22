@@ -40,6 +40,12 @@ module EasyML::Data
       def data
         df
       end
+
+      def serialize
+        {
+          df: JSON.parse(df.write_json)
+        }
+      end
     end
   end
 end

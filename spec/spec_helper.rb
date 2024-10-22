@@ -3,10 +3,17 @@
 require "bundler/setup"
 require "timecop"
 require "combustion"
+require "benchmark" # Add this to measure time
 Bundler.require :default, :development
 
 # Require the engine file
 require "easy_ml/engine"
+
+# Timing instrumentation
+def log_time(label, &block)
+  time = Benchmark.measure(&block)
+  puts "#{label} took #{time.real.round(2)} seconds"
+end
 
 # Initialize Combustion only for app directory specs
 running_rails_specs = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
@@ -14,18 +21,15 @@ PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")
 
 if running_rails_specs
-  Combustion.initialize! :all
+  Combustion.initialize! :active_record
   require "rspec/rails"
 
   if Dir.glob(Rails.root.join("db/migrate/**/*")).none?
-    # Run your generator and apply the generated migration
     Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
 
-    # Ensure the correct migration paths are set
     migration_paths = ActiveRecord::Migrator.migrations_paths
     migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
 
-    # Apply migrations based on Rails version
     case Rails::VERSION::MAJOR
     when 7
       ActiveRecord::MigrationContext.new(migration_paths).migrate
@@ -38,14 +42,12 @@ if running_rails_specs
   end
 end
 
-# Load support files
 Dir[Rails.root.join("spec/support/**/*.rb")].each { |f| require f }
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
 
-  # Disable RSpec exposing methods globally on `Module` and `main`
   config.disable_monkey_patching!
 
   config.expect_with :rspec do |c|
@@ -65,7 +67,6 @@ RSpec.configure do |config|
     FileUtils.rm_rf(Rails.root.join("tmp/"))
   end
 
-  # Configure CarrierWave storage based on environment variable or RSpec metadata
   config.before(:each) do |example|
     if example.metadata[:fog]
       CarrierWave.configure do |carrierwave_config|

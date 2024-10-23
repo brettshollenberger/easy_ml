@@ -20,7 +20,8 @@ module EasyML
     # validate :dataset_is_a_dataset?
     # validate :validate_any_metrics?
     # validate :validate_metrics_for_task
-    # before_validation :save_model_file, if: -> { fit? }
+    after_initialize :generate_version_string
+    before_validation :save_model_file, if: -> { fit? }
 
     # def save_statistics
     #   write_attribute(:statistics, dataset.statistics.deep_symbolize_keys)
@@ -55,12 +56,29 @@ module EasyML
       EasyML::Model.where(name: name).order(id: :desc)
     end
 
+    def save_model_file
+      raise "No trained model! Need to train model before saving (call model.fit)" unless fit?
+
+      path = model_service.save_model_file(version)
+
+      File.open(path) do |f|
+        self.file = f
+      end
+      file.store!
+
+      cleanup
+    end
+
     after_find :load_model
 
     private
 
     def load_model
-      load if persisted?
+      return unless persisted?
+
+      binding.pry
+      file.retrieve_from_store!(file.identifier) unless File.exist?(file.path)
+      model_service.load(file.path)
     end
 
     def files_to_keep
@@ -81,6 +99,13 @@ module EasyML
                             .flat_map { |_, models| models.take(5) }
 
       ([self] + recent_versions + recent_copies + live_models).compact.map(&:file).map(&:path).uniq
+    end
+
+    def generate_version_string
+      return version if version.present?
+
+      timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
+      self.version = "#{model_type}_#{timestamp}"
     end
   end
 end

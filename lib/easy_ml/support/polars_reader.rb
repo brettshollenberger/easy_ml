@@ -14,6 +14,8 @@ module EasyML
     end
 
     def in_batches
+      normalize
+
       files.each do |file|
         yield read_file(file)
       end

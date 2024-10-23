@@ -23,6 +23,7 @@ RSpec.describe EasyML::Datasource do
       # Save the serialized DataFrame to the database
       datasource = EasyML::Datasource.create!(
         name: "My Polars Df",
+        datasource_type: :polars,
         df: df
       )
 
@@ -44,6 +45,7 @@ RSpec.describe EasyML::Datasource do
 
       s3_datasource = EasyML::Datasource.create!(
         name: "s3 Datasource",
+        datasource_type: :s3,
         root_dir: path,
         s3_bucket: "bucket",
         s3_prefix: "raw",
@@ -72,6 +74,7 @@ RSpec.describe EasyML::Datasource do
 
       file_datasource = EasyML::Datasource.create!(
         name: "File Datasource",
+        datasource_type: :file,
         root_dir: path,
         polars_args: polars_args
       )

@@ -3,7 +3,7 @@ require "wandb"
 module EasyML
   module Core
     module Models
-      class XGBoostService < EasyML::Core::ModelService
+      class XGBoost < EasyML::Core::Model
         OBJECTIVES = {
           classification: {
             binary: %w[binary:logistic binary:hinge],
@@ -40,7 +40,22 @@ module EasyML
           raise "No trained model! Train a model before calling predict" unless @booster.present?
           raise "Cannot predict on nil — XGBoost" if xs.nil?
 
-          y_pred = @booster.predict(preprocess(xs))
+          begin
+            y_pred = @booster.predict(preprocess(xs))
+          rescue StandardError => e
+            raise e unless e.message.match?(/Number of columns does not match/)
+
+            raise %(
+                >>>>><<<<<
+                XGBoost received predict with unexpected features!
+                >>>>><<<<<
+
+                Model expects features:
+                #{feature_names}
+                Model received features:
+                #{xs.columns}
+              )
+          end
 
           case task.to_sym
           when :classification
@@ -63,23 +78,21 @@ module EasyML
         end
 
         def load(path = nil)
-          path ||= file
-          path = path&.file&.file if path.class.ancestors.include?(CarrierWave::Uploader::Base)
-
-          unless File.exist?(path)
-            file.retrieve_from_store!(file_identifier)
-            file.cache_stored_file!
-            path = file.full_cache_path
-          end
-
           initialize_model do
             booster_class.new(params: hyperparameters.to_h, model_file: path)
           end
         end
 
-        def _save_model_file(path)
-          puts "XGBoost received path #{path}"
+        def save_model_file(version)
+          path = File.join(model_dir, "#{version}.json")
+          ensure_directory_exists(File.dirname(path))
+
           @booster.save_model(path)
+          path
+        end
+
+        def feature_names
+          @booster.feature_names
         end
 
         def feature_importances
@@ -101,8 +114,6 @@ module EasyML
         def prepare_data
           if @d_train.nil?
             x_train, y_train = dataset.train(split_ys: true)
-            x_train = x_train[0..1000]
-            y_train = y_train[0..1000]
             x_valid, y_valid = dataset.valid(split_ys: true)
             x_test, y_test = dataset.test(split_ys: true)
             @d_train = preprocess(x_train, y_train)
@@ -207,12 +218,27 @@ module EasyML
         end
 
         def preprocess(xs, ys = nil)
+          orig_xs = xs.dup
           column_names = xs.columns
           xs = _preprocess(xs)
           ys = ys.nil? ? nil : _preprocess(ys).flatten
           kwargs = { label: ys }.compact
-          ::XGBoost::DMatrix.new(xs, **kwargs).tap do |dmat|
-            dmat.feature_names = column_names
+          begin
+            ::XGBoost::DMatrix.new(xs, **kwargs).tap do |dmat|
+              dmat.feature_names = column_names
+            end
+          rescue StandardError => e
+            raise %(
+              Error building data for XGBoost. Consider preprocessing your
+              features. The error is:
+              >>>>><<<<<
+              #{e.message}
+              >>>>><<<<<
+              A sample of your dataset:
+              #{orig_xs[0..5]}
+              Which was normalized to:
+              #{xs[0..5]}
+            )
           end
         end
 

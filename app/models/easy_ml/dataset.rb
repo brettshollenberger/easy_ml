@@ -1,7 +1,7 @@
 module EasyML
   class Dataset < ActiveRecord::Base
     include GlueGun::Model
-    service EasyML::Data::Dataset
+    service :dataset, EasyML::Data::Dataset
 
     validates :name, presence: true
     belongs_to :datasource,

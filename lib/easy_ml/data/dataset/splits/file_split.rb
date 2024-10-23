@@ -66,11 +66,6 @@ module EasyML
 
           private
 
-          def read_parquet_batched(path)
-            filtered_args = filter_polars_args(Polars.method(:read_parquet_batched))
-            Polars.read_parquet_batched(path, batch_size: batch_size, **filtered_args)
-          end
-
           def df(path)
             filtered_args = filter_polars_args(Polars.method(:read_parquet))
             Polars.read_parquet(path, **filtered_args)

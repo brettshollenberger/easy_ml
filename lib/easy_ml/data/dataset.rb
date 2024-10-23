@@ -242,20 +242,20 @@ module EasyML
       # Filter data using Polars predicates:
       # dataset.data(filter: Polars.col("CREATED_DATE") > EST.now - 2.days)
       #
-      def train(split_ys: false, all_columns: false, filter: nil, &block)
-        load_data(:train, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      def train(split_ys: false, all_columns: false, filter: nil)
+        load_data(:train, split_ys: split_ys, filter: filter, all_columns: all_columns)
       end
 
-      def valid(split_ys: false, all_columns: false, filter: nil, &block)
-        load_data(:valid, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      def valid(split_ys: false, all_columns: false, filter: nil)
+        load_data(:valid, split_ys: split_ys, filter: filter, all_columns: all_columns)
       end
 
-      def test(split_ys: false, all_columns: false, filter: nil, &block)
-        load_data(:test, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      def test(split_ys: false, all_columns: false, filter: nil)
+        load_data(:test, split_ys: split_ys, filter: filter, all_columns: all_columns)
       end
 
-      def data(split_ys: false, all_columns: false, filter: nil, &block)
-        load_data(:all, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      def data(split_ys: false, all_columns: false, filter: nil)
+        load_data(:all, split_ys: split_ys, filter: filter, all_columns: all_columns)
       end
 
       def num_batches(segment)
@@ -318,6 +318,7 @@ module EasyML
 
       def normalize_all
         processed.cleanup
+        processed.polars_args = raw.polars_args # These were learned during learn_schema
 
         %i[train test valid].each do |segment|
           df = raw.read(segment)
@@ -377,7 +378,7 @@ module EasyML
         return unless force || should_split?
 
         cleanup
-        raw.save_schema(datasource.files)
+        raw.learn_schema(datasource.files)
         datasource.in_batches do |df|
           train_df, valid_df, test_df = splitter.split(df)
           raw.save(:train, train_df)

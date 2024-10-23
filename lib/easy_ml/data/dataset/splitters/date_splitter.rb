@@ -18,6 +18,8 @@ module EasyML::Data::Dataset::Splitters
     end
 
     def split(df)
+      raise "Split by date requires argument: date_col" unless date_col.present?
+
       if df[date_col].dtype.is_a?(Polars::String)
         df = df.with_column(
           Polars.col(date_col).str.strptime(Polars::Datetime, date_format).alias(date_col)

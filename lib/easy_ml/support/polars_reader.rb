@@ -2,17 +2,67 @@ module EasyML
   class PolarsReader
     include GlueGun::DSL
 
-    attribute :files
+    attribute :root_dir
     attribute :polars_args, :hash, default: {}
 
     def normalize
-      # Learn schema
-      # Update raw files with schema / transform to Parquet files which maintain this schema?
-      # Send back the raw data / not CSVs
-      binding.pry
+      return files if all_parquet?
+
+      learn_schema
+      convert_to_parquet
+      files
+    end
+
+    def in_batches
+      files.each do |file|
+        yield read_file(file)
+      end
+    end
+
+    def files
+      Dir.glob(File.join(root_dir, "*.{csv,parquet}"))
     end
 
     private
+
+    def read_file(file)
+      ext = Pathname.new(file).extname.gsub(/\./, "")
+      case ext
+      when "csv"
+        filtered_args = filter_polars_args(Polars.method(:read_csv))
+        df = Polars.read_csv(file, **filtered_args)
+      when "parquet"
+        filtered_args = filter_polars_args(Polars.method(:read_parquet))
+        df = Polars.read_parquet(file, **filtered_args)
+      end
+      df
+    end
+
+    def all_parquet?
+      files.all? { |f| f.match?(/\.parquet$/) }
+    end
+
+    def filter_polars_args(method)
+      supported_params = method.parameters.map { |_, name| name }
+      polars_args.select { |k, _| supported_params.include?(k) }
+    end
+
+    def convert_to_parquet
+      return files if all_parquet?
+
+      puts "Converting to Parquet..."
+
+      Parallel.each(files, in_threads: 8) do |path|
+        puts path
+        df = read_file(path)
+        df = cast(df)
+        orig_path = path.dup
+        ext = Pathname.new(path).extname.gsub(/\./, "")
+        path = path.gsub(Regexp.new(ext), "parquet")
+        df.write_parquet(path)
+        FileUtils.rm(orig_path)
+      end
+    end
 
     def schema
       polars_args[:dtypes]
@@ -28,13 +78,12 @@ module EasyML
       )
     end
 
-    # List of file paths, these will be csvs
-    def learn_schema(files)
+    def learn_schema
+      puts "Normalizing schema..."
       combined_schema = {}
 
-      files.each do |file|
-        df = Polars.read_csv(file, **polars_args)
-
+      files.each do |path|
+        df = read_file(path)
         df.schema.each do |column, dtype|
           combined_schema[column] = if combined_schema.key?(column)
                                       resolve_dtype(combined_schema[column], dtype)

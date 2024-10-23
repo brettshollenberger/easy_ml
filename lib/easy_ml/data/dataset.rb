@@ -318,7 +318,6 @@ module EasyML
 
       def normalize_all
         processed.cleanup
-        processed.polars_args = raw.polars_args # These were learned during learn_schema
 
         %i[train test valid].each do |segment|
           df = raw.read(segment)
@@ -378,7 +377,6 @@ module EasyML
         return unless force || should_split?
 
         cleanup
-        raw.learn_schema(datasource.files)
         datasource.in_batches do |df|
           train_df, valid_df, test_df = splitter.split(df)
           raw.save(:train, train_df)

@@ -28,8 +28,12 @@ module EasyML
         true
       end
 
+      def in_batches(&block)
+        reader.in_batches(&block)
+      end
+
       def files
-        Dir.glob(File.join(root_dir, File.join(s3_prefix, "*.csv")))
+        reader.files
       end
 
       def age(format: "human")
@@ -64,11 +68,17 @@ module EasyML
 
       private
 
-      def normalize
-        EasyML::PolarsReader.new(
-          files: files,
+      def reader
+        return @reader if @reader
+
+        @reader = EasyML::PolarsReader.new(
+          root_dir: File.join(root_dir, s3_prefix),
           polars_args: polars_args
-        ).normalize
+        )
+      end
+
+      def normalize
+        reader.normalize
       end
 
       def mk_dir
@@ -76,7 +86,11 @@ module EasyML
       end
 
       def clean_dir!
-        # FileUtils.rm_rf(root_dir)
+        unless root_dir.start_with?(Rails.root.to_s)
+          raise "Refusing to wipe directory #{root_dir}, as it is not in the scope of #{Rails.root}"
+        end
+
+        FileUtils.rm_rf(root_dir)
       end
 
       def s3
@@ -87,9 +101,12 @@ module EasyML
       end
 
       def download
-        s3.list_objects_v2(bucket: s3_bucket, prefix: s3_prefix).contents.each do |object|
-          next if object.key.end_with?("/") # skip folders
+        objects = s3.list_objects_v2(bucket: s3_bucket, prefix: s3_prefix).contents
 
+        # Filter out folders
+        files = objects.reject { |object| object.key.end_with?("/") }
+
+        Parallel.each(files, in_threads: 8) do |object|
           gzipped_file_path = File.join(root_dir, object.key)
           FileUtils.mkdir_p(File.dirname(gzipped_file_path))
 
@@ -104,6 +121,8 @@ module EasyML
           # Ungzip the file
           ungzipped_file_path = ungzip_file(gzipped_file_path)
           puts "Ungzipped to #{ungzipped_file_path}"
+        rescue StandardError => e
+          puts "Failed to process #{object.key}: #{e.message}"
         end
       end
 

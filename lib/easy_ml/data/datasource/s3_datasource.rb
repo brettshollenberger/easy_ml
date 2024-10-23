@@ -31,19 +31,11 @@ module EasyML::Data
         dependency.bind_attribute :s3_prefix
         dependency.bind_attribute :s3_access_key_id, required: true
         dependency.bind_attribute :s3_secret_access_key, required: true
+        dependency.bind_attribute :polars_args
         dependency.bind_attribute :cache_for
       end
 
-      delegate :files, :last_updated_at, to: :synced_directory
-
-      def in_batches(of: 10_000)
-        # Currently ignores batch size, TODO: implement
-        pull
-        files.each do |file|
-          csv = Polars.read_csv(file, **polars_args)
-          yield csv
-        end
-      end
+      delegate :files, :last_updated_at, :in_batches, to: :synced_directory
 
       def refresh
         synced_directory.sync
@@ -54,7 +46,6 @@ module EasyML::Data
       end
 
       def data
-        pull
         output_path = File.join(root_dir, "combined_data.csv")
         dfs = []
         unless File.exist?(output_path)

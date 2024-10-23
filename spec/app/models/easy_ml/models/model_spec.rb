@@ -1,11 +1,159 @@
 require "spec_helper"
-require "support/model_spec_helper"
 
-RSpec.describe EasyML::Models::XGBoost do
-  let(:model_class) do
-    EasyML::Models::XGBoost
+RSpec.describe EasyML::Models do
+  let(:root_dir) do
+    SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
   end
-  include ModelSpecHelper
+
+  let(:datasource) do
+    EasyML::Datasource.create(
+      name: "dataset",
+      datasource_type: :file,
+      root_dir: root_dir
+    )
+  end
+
+  let(:preprocessing_steps) do
+    {
+      training: {
+        annual_revenue: {
+          median: true,
+          clip: { min: 0, max: 1_000_000 }
+        },
+        loan_purpose: {
+          categorical: {
+            categorical_min: 2,
+            one_hot: true
+          }
+        }
+      }
+    }
+  end
+  let(:target) { "rev" }
+  let(:date_col) { "created_date" }
+  let(:months_test) { 2 }
+  let(:months_valid) { 2 }
+  let(:today) { EST.parse("2024-06-01") }
+
+  let(:dataset_config) do
+    {
+      verbose: false,
+      name: "My Dataset",
+      datasource: datasource,
+      drop_if_null: ["loan_purpose"],
+      drop_cols: %w[business_name state drop_me created_date],
+      target: target,
+      preprocessing_steps: preprocessing_steps,
+      splitter: {
+        date: {
+          today: today,
+          date_col: date_col,
+          months_test: months_test,
+          months_valid: months_valid
+        }
+      }
+    }
+  end
+
+  let(:dataset) { EasyML::Dataset.create(**dataset_config) }
+
+  let(:hyperparameters) do
+    {
+      learning_rate: 0.05,
+      max_depth: 8,
+      n_estimators: 150,
+      booster: "gbtree",
+      objective: "reg:squarederror"
+    }
+  end
+
+  let(:config) do
+    {
+      root_dir: root_dir,
+      verbose: false,
+      hyperparameters: hyperparameters
+    }
+  end
+
+  let(:learning_rate) { 0.05 }
+  let(:max_depth) { 8 }
+  let(:task) { :regression }
+  let(:objective) { "reg:squarederror" }
+  let(:model_config) do
+    {
+      root_dir: root_dir,
+      model_type: :xgboost,
+      task: task,
+      dataset: dataset,
+      hyperparameters: {
+        learning_rate: learning_rate,
+        max_depth: max_depth,
+        objective: objective
+      }
+    }
+  end
+
+  let(:df) do
+    Polars::DataFrame.new({
+                            "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                            "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
+                                                "Business G", "Business H", "Business I", "Business J"],
+                            "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
+                            "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
+                                                 marketing equipment marketing],
+                            "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
+                            "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
+                            "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
+                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
+                          }).with_column(
+                            Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
+                          )
+  end
+
+  let(:model) do
+    EasyML::Model.new(model_config)
+  end
+
+  before(:each) do
+    dataset.cleanup
+    dataset.refresh!
+    model.cleanup!
+  end
+
+  after(:each) do
+    dataset.cleanup
+    model.cleanup!
+  end
+
+  def build_model(params)
+    Timecop.freeze(incr_time)
+    EasyML::Model.new(params.reverse_merge!(
+                        dataset: dataset,
+                        metrics: %w[mean_absolute_error],
+                        task: :regression,
+                        model_type: :xgboost,
+                        hyperparameters: {
+                          objective: "reg:squarederror"
+                        }
+                      )).tap do |model|
+      model.fit
+      model.save
+    end
+  end
+
+  def incr_time
+    @time += 1.second
+  end
+
+  def cleanup
+    paths = [
+      File.join(root_dir, "xgboost_model.json"),
+      File.join(root_dir, "xg_boost.bin")
+    ]
+    paths.each do |path|
+      FileUtils.rm(path) if File.exist?(path)
+    end
+  end
 
   describe "#load" do
     it "loads the model from a file" do
@@ -13,12 +161,14 @@ RSpec.describe EasyML::Models::XGBoost do
       model.metrics = ["mean_absolute_error"]
       model.fit
       model.save
-      expect(model.ml_model).to eq "xg_boost"
+      expect(model.model_type).to eq "xgboost"
 
-      loaded_model = EasyML::Models::XGBoost.find(model.id)
-      loaded_model.load
+      loaded_model = EasyML::Model.find(model.id)
 
       expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
+      expect(model.version).to eq loaded_model.version
+      expect(loaded_model.feature_names).to eq model.feature_names
+      expect(loaded_model.feature_names).to_not include(dataset.target)
     end
   end
 
@@ -30,14 +180,34 @@ RSpec.describe EasyML::Models::XGBoost do
       model1 = build_model(name: "Test Model", is_live: true)
       model2 = build_model(name: "Test Model", is_live: false)
       model3 = build_model(name: "Test Model", is_live: false)
+      model4 = build_model(name: "Test Model", is_live: false)
+      model5 = build_model(name: "Test Model", is_live: false)
+      model6 = build_model(name: "Test Model", is_live: false)
       other_model = build_model(name: "Other Model", is_live: true)
 
       model3.mark_live
 
+      # Old model can still download its model file and make predictions, even though it is NO longer on the machine
+      # when we call this method.
+      expect_any_instance_of(EasyML::Core::Uploaders::ModelUploader).to receive(:cache_stored_file!)
+      expect_any_instance_of(EasyML::Core::Uploaders::ModelUploader).to receive(:full_cache_path!)
+
       expect(model1.reload.is_live).to be false
       expect(model2.reload.is_live).to be false
-      expect(model3.reload.is_live).to be true
+      expect(model3.reload.is_live).to be false
+      expect(model4.reload.is_live).to be false
+      expect(model5.reload.is_live).to be false
+      expect(model6.reload.is_live).to be true
       expect(other_model.reload.is_live).to be true
+      preds = other_model.predict(
+        model1.dataset.test(split_ys: true).first
+      )
+      expect(preds.to_a).to all(be > 0)
+
+      preds = model1.predict(
+        model1.dataset.test(split_ys: true).first
+      )
+      expect(preds.to_a).to all(be > 0)
     end
 
     def make_trainer
@@ -99,7 +269,7 @@ RSpec.describe EasyML::Models::XGBoost do
                             })
     end
 
-    it "saves and reuses statistics for inference", :focus do
+    it "saves and reuses statistics for inference" do
       @time = EST.now
       Timecop.freeze(@time)
 

@@ -22,8 +22,11 @@ module EasyML
 
     unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate].include?(ARGV.first)
       config.after_initialize do
-        require File.expand_path("app/models/easy_ml/model", EasyML::Engine.root)
-        require File.expand_path("app/models/easy_ml/models", EasyML::Engine.root)
+        Dir.glob(
+          File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)
+        ).each do |file|
+          require file
+        end
       end
     end
   end

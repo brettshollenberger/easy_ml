@@ -1,13 +1,9 @@
-require_relative "../../../lib/easy_ml/core/model_service"
-# t.string :ml_model
-# t.string :task
-# t.string :metrics, array: true
-# t.json :file, null: false
-# t.json :statistics
-# t.json :hyperparameters
 module EasyML
   class Model < ActiveRecord::Base
     self.table_name = "easy_ml_models"
+
+    include GlueGun::Model
+    service :xgboost, EasyML::Core::Models::XGBoost
 
     extend CarrierWave::Mount
     mount_uploader :file, EasyML::Core::Uploaders::ModelUploader
@@ -16,32 +12,6 @@ module EasyML
     attribute :root_dir, :string
     validate :only_one_model_is_live?
 
-    def initialize(options = {})
-      options.deep_symbolize_keys!
-      db_options = options.slice(*(options.keys & self.class.column_names.map(&:to_sym)))
-      super(db_options)
-      build_model_service(options)
-    end
-
-    def self.models
-      {
-        xgboost: EasyML::Core::Models::XGBoostService
-      }
-    end
-
-    attr_accessor :model_service
-
-    def build_model_service(options)
-      unless options.key?(:model) && EasyML::Model.models[options[:model]].present?
-        raise "Must specify one of allowed models: #{models.join(", ")}"
-      end
-
-      service_klass = EasyML::Model.models[options[:model]]
-
-      @model_service ||= service_klass.new(options)
-    end
-
-    delegate :cleanup!, to: :model_service
     # before_save :save_statistics
     # before_save :save_hyperparameters
 

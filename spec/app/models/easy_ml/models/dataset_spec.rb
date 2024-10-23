@@ -40,7 +40,8 @@ RSpec.describe EasyML::Datasource do
 
     let(:datasource) do
       EasyML::Datasource.create(
-        name: "dataset",
+        name: "Local dir",
+        datasource_type: :file,
         root_dir: dir
       )
     end
@@ -83,6 +84,7 @@ RSpec.describe EasyML::Datasource do
     let(:datasource) do
       EasyML::Datasource.create(
         name: "dataset",
+        datasource_type: :polars,
         df: df
       )
     end

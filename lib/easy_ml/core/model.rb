@@ -3,22 +3,21 @@ require_relative "uploaders/model_uploader"
 
 module EasyML
   module Core
-    class ModelService
+    class Model
       include GlueGun::DSL
-
-      attr_accessor :dataset
 
       attribute :name, :string
       attribute :version, :string
       attribute :verbose, :boolean, default: false
       attribute :task, :string, default: "regression"
+      attribute :model_type, :string
       attribute :metrics, :array
-      attribute :ml_model, :string
       attribute :file, :string
       attribute :root_dir, :string
       attribute :objective
       attribute :evaluator
       attribute :evaluator_metric
+      attribute :dataset
 
       def initialize(options = {})
         super
@@ -47,13 +46,8 @@ module EasyML
         raise NotImplementedError, "Subclasses must implement load method"
       end
 
-      def _save_model_file
-        raise NotImplementedError, "Subclasses must implement _save_model_file method"
-      end
-
-      def save
-        super if defined?(super) && self.class.superclass.method_defined?(:save)
-        save_model_file
+      def save_model_file
+        raise NotImplementedError, "Subclasses must implement save_model_file method"
       end
 
       def decode_labels(ys, col: nil)
@@ -64,22 +58,6 @@ module EasyML
         evaluator ||= self.evaluator
         EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true,
                                               evaluator: evaluator)
-      end
-
-      def save_model_file
-        raise "No trained model! Need to train model before saving (call model.fit)" unless fit?
-
-        path = File.join(model_dir, "#{version}.json")
-        ensure_directory_exists(File.dirname(path))
-
-        _save_model_file(path)
-
-        File.open(path) do |f|
-          self.file = f
-        end
-        file.store!
-
-        cleanup
       end
 
       def get_params
@@ -118,17 +96,16 @@ module EasyML
       private
 
       def carrierwave_dir
-        return unless file&.path.present?
+        return unless file.present?
 
-        File.dirname(file.path).split("/")[0..-2].join("/")
+        dir = File.dirname(file).split("/")[0..-2].join("/")
+        return unless dir.start_with?(Rails.root.to_s)
+
+        dir
       end
 
       def extension_allowlist
         EasyML::Core::Uploaders::ModelUploader.new.extension_allowlist
-      end
-
-      def _save_model_file(path = nil)
-        raise NotImplementedError, "Subclasses must implement _save_model_file method"
       end
 
       def ensure_directory_exists(dir)
@@ -136,19 +113,7 @@ module EasyML
       end
 
       def apply_defaults
-        self.version ||= generate_version_string
         self.metrics ||= allowed_metrics
-        self.ml_model ||= get_ml_model
-      end
-
-      def get_ml_model
-        self.class.name.split("::").last.underscore
-      end
-
-      def generate_version_string
-        timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
-        model_name = self.class.name.split("::").last.underscore
-        "#{model_name}_#{timestamp}"
       end
 
       def model_dir
@@ -169,14 +134,12 @@ module EasyML
       end
 
       def validate_any_metrics?
-        binding.pry
         return if metrics.any?
 
         errors.add(:metrics, "Must include at least one metric. Allowed metrics are #{allowed_metrics.join(", ")}")
       end
 
       def validate_metrics_for_task
-        binding.pry
         nonsensical_metrics = metrics.select do |metric|
           allowed_metrics.exclude?(metric)
         end

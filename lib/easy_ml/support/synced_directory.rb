@@ -1,4 +1,5 @@
 require "glue_gun"
+require_relative "polars_reader"
 
 module EasyML
   module Support
@@ -11,6 +12,7 @@ module EasyML
       attribute :s3_access_key_id, :string
       attribute :s3_secret_access_key, :string
       attribute :cache_for, default: nil
+      attribute :polars_args, :hash, default: {}
 
       def sync!
         sync(force: true)
@@ -22,6 +24,7 @@ module EasyML
         mk_dir
         clean_dir!
         download
+        normalize
         true
       end
 
@@ -47,6 +50,7 @@ module EasyML
 
       def use_cached?
         return false unless cache_for.present?
+        return false if last_updated_at.nil?
 
         age_in_seconds = EasyML::Support::Age.age(last_updated_at, EST.now, format: "integer")
         age_in_seconds < cache_for.to_i
@@ -59,6 +63,13 @@ module EasyML
       end
 
       private
+
+      def normalize
+        EasyML::PolarsReader.new(
+          files: files,
+          polars_args: polars_args
+        ).normalize
+      end
 
       def mk_dir
         FileUtils.mkdir_p(root_dir)

@@ -4,9 +4,11 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
     create_table :easy_ml_models do |t|
       t.string :name, null: false
       t.string :model_type
+      t.bigint :dataset_id
       t.json :configuration
       t.boolean :is_live, default: false
       t.string :version, null: false
+      t.json :file, null: false
 
       t.timestamps
 
@@ -16,6 +18,8 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.index :is_live
       t.index [:name, :version], unique: true
       t.index [:name, :version, :is_live]
+      t.index :dataset_id
+      t.index :model_type
     end
   end
 end

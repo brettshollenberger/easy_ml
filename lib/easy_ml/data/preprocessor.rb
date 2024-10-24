@@ -15,14 +15,11 @@ module EasyML::Data
     attribute :verbose
     attribute :imputers
     attribute :preprocessing_steps
+
     attr_reader :statistics
 
     def statistics=(stats)
       @statistics = stats.deep_symbolize_keys
-    end
-
-    def statistics
-      serialize_statistics(@statistics || {})
     end
 
     def fit(df)
@@ -32,9 +29,7 @@ module EasyML::Data
       preprocessing_steps.deep_symbolize_keys!
 
       puts "Preprocessing..." if verbose
-      imputers = initialize_imputers(
-        preprocessing_steps[:training].merge!(preprocessing_steps[:inference] || {})
-      )
+      imputers = initialize_imputers(preprocessing_steps[:training])
 
       stats = {}
       imputers.each do |col, imputers|
@@ -80,6 +75,12 @@ module EasyML::Data
       return unless File.directory?(@directory)
 
       FileUtils.rm_rf(@directory)
+    end
+
+    def serialize
+      attributes.merge!(
+        statistics: serialize_statistics(statistics || {})
+      )
     end
 
     private

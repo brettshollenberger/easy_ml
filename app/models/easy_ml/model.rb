@@ -1,5 +1,9 @@
+require_relative "concerns/statuses"
+
 module EasyML
   class Model < ActiveRecord::Base
+    include EasyML::Concerns::Statuses
+
     self.filter_attributes += [:configuration]
 
     self.table_name = "easy_ml_models"
@@ -10,9 +14,7 @@ module EasyML
     extend CarrierWave::Mount
     mount_uploader :file, EasyML::Core::Uploaders::ModelUploader
 
-    scope :live, -> { where(is_live: true) }
     attribute :root_dir, :string
-    validate :only_one_model_is_live?
 
     # before_save :save_statistics
     # before_save :save_hyperparameters
@@ -33,30 +35,6 @@ module EasyML
     #   binding.pry
     #   write_attribute(:hyperparameters, hyperparameters.to_h)
     # end
-
-    def only_one_model_is_live?
-      return if @marking_live
-
-      if previous_versions.live.count > 1
-        raise "Multiple previous versions of #{name} are live! This should never happen. Update previous versions to is_live=false before proceeding"
-      end
-
-      return unless previous_versions.live.any? && is_live
-
-      errors.add(:is_live,
-                 "cannot mark mode      path ||= file.pathl live when previous version is live. Explicitly use the mark_live method to mark this as the live version")
-    end
-
-    def mark_live
-      transaction do
-        self.class.where(name: name).where.not(id: id).update_all(is_live: false)
-        self.class.where(id: id).update_all(is_live: true)
-      end
-    end
-
-    def previous_versions
-      EasyML::Model.where(name: name).order(id: :desc)
-    end
 
     def save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless fit?

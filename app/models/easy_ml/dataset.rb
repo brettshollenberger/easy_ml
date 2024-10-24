@@ -1,5 +1,7 @@
 module EasyML
   class Dataset < ActiveRecord::Base
+    include EasyML::Concerns::Statuses
+
     self.filter_attributes += [:configuration]
 
     include GlueGun::Model
@@ -10,7 +12,6 @@ module EasyML
                foreign_key: :datasource_id,
                class_name: "EasyML::Datasource"
 
-    # We gotta do this... dang
     # Maybe copy attrs over from training to prod when marking is_live, so we keep 1 for training and one for live?
     #
     # def fit

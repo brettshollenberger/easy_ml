@@ -1,5 +1,6 @@
 module EasyML
   class Datasource < ActiveRecord::Base
+    self.filter_attributes += [:configuration]
     include GlueGun::Model
 
     service :polars, EasyML::Data::Datasource::PolarsDatasource

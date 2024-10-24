@@ -1,5 +1,7 @@
 module EasyML
   class Model < ActiveRecord::Base
+    self.filter_attributes += [:configuration]
+
     self.table_name = "easy_ml_models"
 
     include GlueGun::Model
@@ -42,7 +44,7 @@ module EasyML
       return unless previous_versions.live.any? && is_live
 
       errors.add(:is_live,
-                 "cannot mark model live when previous version is live. Explicitly use the mark_live method to mark this as the live version")
+                 "cannot mark mode      path ||= file.pathl live when previous version is live. Explicitly use the mark_live method to mark this as the live version")
     end
 
     def mark_live

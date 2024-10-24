@@ -24,7 +24,6 @@ module EasyML
             FileUtils.mkdir_p(segment_dir)
 
             file_path = new_file_path_for_segment(segment)
-            df = cast(df)
             df.write_parquet(file_path)
           end
 
@@ -65,11 +64,6 @@ module EasyML
           end
 
           private
-
-          def read_parquet_batched(path)
-            filtered_args = filter_polars_args(Polars.method(:read_parquet_batched))
-            Polars.read_parquet_batched(path, batch_size: batch_size, **filtered_args)
-          end
 
           def df(path)
             filtered_args = filter_polars_args(Polars.method(:read_parquet))

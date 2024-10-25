@@ -223,14 +223,7 @@ module EasyML
         df = drop_nulls(df)
         df = apply_transforms(df)
         df = preprocessor.postprocess(df)
-        df = apply_drop_columns(df)
         df, = processed.split_features_targets(df, true, target) if split_ys
-        df
-      end
-
-      def apply_drop_columns(df)
-        drop_cols = df.columns & drop_columns
-        df = df.drop(drop_cols) if drop_cols.any?
         df
       end
 
@@ -347,6 +340,7 @@ module EasyML
 
       def load_data(segment, **kwargs)
         drop_cols = drop_columns(all_columns: kwargs[:all_columns] || false)
+        kwargs.delete(:all_columns)
         kwargs = kwargs.merge!(drop_cols: drop_cols, target: target)
         if processed?
           processed.read(segment, **kwargs)

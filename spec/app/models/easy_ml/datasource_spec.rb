@@ -1,5 +1,6 @@
 require "spec_helper"
 require "support/model_spec_helper"
+require "support/file_spec_helper"
 
 RSpec.describe EasyML::Datasource do
   include FileSpecHelper

@@ -2,6 +2,8 @@ require "spec_helper"
 require "support/model_spec_helper"
 
 RSpec.describe EasyML::Datasource do
+  include FileSpecHelper
+
   describe "Polars Datasource" do
     let(:df) do
       df = Polars::DataFrame.new({
@@ -61,40 +63,33 @@ RSpec.describe EasyML::Datasource do
 
   describe "File Datasource" do
     it "saves and loads the file datasource" do
-      path = SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
-      csv_file = path.join("file.csv")
-      parquet_file = path.join("file.parquet")
-
-      FileUtils.cp(csv_file, SPEC_ROOT.join("file.csv")) # This gets wiped by PolarsReader
-
-      polars_args = {
-        dtypes: {
-          'id': "i64",
-          'business_name': "str",
-          'annual_revenue': "f64",
-          'rev': "f64",
-          'created_date': "datetime"
+      file_spec do |_csv_file, parquet_file|
+        polars_args = {
+          dtypes: {
+            'id': "i64",
+            'business_name': "str",
+            'annual_revenue': "f64",
+            'rev': "f64",
+            'created_date': "datetime"
+          }
         }
-      }
 
-      file_datasource = EasyML::Datasource.create!(
-        name: "File Datasource",
-        datasource_type: :file,
-        root_dir: path,
-        polars_args: polars_args
-      )
+        file_datasource = EasyML::Datasource.create!(
+          name: "File Datasource",
+          datasource_type: :file,
+          root_dir: path,
+          polars_args: polars_args
+        )
 
-      # Invoking this splits the file
-      file_datasource.data
+        # Invoking this splits the file
+        file_datasource.data
 
-      df = Polars.read_parquet(parquet_file)
+        df = Polars.read_parquet(parquet_file)
 
-      datasource = EasyML::Datasource.find(file_datasource.id)
-      expect(datasource.datasource_service.root_dir).to eq path.to_s
-      expect(datasource.data).to eq df
-    ensure
-      FileUtils.rm(path.join("file.parquet")) if File.exist?(path.join("file.parquet"))
-      FileUtils.mv(SPEC_ROOT.join("file.csv"), csv_file)
+        datasource = EasyML::Datasource.find(file_datasource.id)
+        expect(datasource.datasource_service.root_dir).to eq path.to_s
+        expect(datasource.data).to eq df
+      end
     end
   end
 end

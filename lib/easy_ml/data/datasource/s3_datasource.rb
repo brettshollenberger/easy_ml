@@ -46,16 +46,11 @@ module EasyML::Data
       end
 
       def data
-        output_path = File.join(root_dir, "combined_data.csv")
         dfs = []
-        unless File.exist?(output_path)
-          in_batches do |df|
-            dfs.push(df)
-          end
-          df = Polars.concat(dfs)
-          df.write_csv(output_path)
+        in_batches do |df|
+          dfs.push(df)
         end
-        Polars.read_csv(output_path, **polars_args)
+        Polars.concat(dfs)
       end
 
       private

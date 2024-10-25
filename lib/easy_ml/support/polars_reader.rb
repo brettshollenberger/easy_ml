@@ -22,7 +22,7 @@ module EasyML
     end
 
     def files
-      Dir.glob(File.join(root_dir, "*.{csv,parquet}"))
+      Dir.glob(File.join(root_dir, "**/*.{csv,parquet}"))
     end
 
     private

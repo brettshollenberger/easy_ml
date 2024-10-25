@@ -67,6 +67,12 @@ RSpec.configure do |config|
     FileUtils.rm_rf(Rails.root.join("tmp/"))
   end
 
+  config.before(:all) do
+    EasyML::Configuration.configure do |config|
+      config.s3_bucket = "my-bucket"
+    end
+  end
+
   config.before(:each) do |example|
     if example.metadata[:fog]
       CarrierWave.configure do |carrierwave_config|

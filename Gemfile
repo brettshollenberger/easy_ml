@@ -5,6 +5,8 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in easy_ml.gemspec
 gemspec
 
+gem "annotate"
+gem "awesome_print"
 gem "aws-sdk", "~> 3.1"
 gem "glue_gun_dsl", path: "/Users/brettshollenberger/programming/glue_gun_dsl"
 gem "rake", "~> 13.0"

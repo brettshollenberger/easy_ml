@@ -4,11 +4,13 @@ PATH
     easy_ml (0.1.6)
       activerecord
       activesupport
+      awesome_print
       carrierwave (>= 2.0, < 4)
       fog (~> 1.42)
       fog-aws (~> 2.0)
       glue_gun_dsl (~> 0.1.19)
       numo-narray
+      parallel
       polars-df
       pycall
       rails
@@ -19,7 +21,7 @@ PATH
 PATH
   remote: /Users/brettshollenberger/programming/glue_gun_dsl
   specs:
-    glue_gun_dsl (0.1.25)
+    glue_gun_dsl (0.1.29)
       activemodel (>= 6, < 8)
       activerecord (>= 6, < 8)
       activesupport (>= 6, < 8)
@@ -2111,6 +2113,7 @@ DEPENDENCIES
   activerecord
   annotate
   appraisal
+  awesome_print
   aws-sdk (~> 3.1)
   combustion
   database_cleaner-active_record

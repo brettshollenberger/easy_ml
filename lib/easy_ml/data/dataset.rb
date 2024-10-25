@@ -234,28 +234,29 @@ module EasyML
         df
       end
 
-      # A "production" preprocessor is predicting live values (e.g. used on live webservers)
-      # A "development" preprocessor is used during training (e.g. we're learning new values for the dataset)
-      #
       delegate :statistics, to: :preprocessor
 
       # Filter data using Polars predicates:
       # dataset.data(filter: Polars.col("CREATED_DATE") > EST.now - 2.days)
+      # dataset.data(limit: 10)
+      # dataset.data(select: ["column1", "column2", "column3"], limit: 10)
+      # dataset.data(split_ys: true)
+      # dataset.data(all_columns: true) # Include all columns, even ones we SHOULDN'T train on (e.g. drop_cols). Be very careful! This is for data analysis purposes ONLY!
       #
-      def train(split_ys: false, all_columns: false, filter: nil)
-        load_data(:train, split_ys: split_ys, filter: filter, all_columns: all_columns)
+      def train(**kwargs)
+        load_data(:train, **kwargs)
       end
 
-      def valid(split_ys: false, all_columns: false, filter: nil)
-        load_data(:valid, split_ys: split_ys, filter: filter, all_columns: all_columns)
+      def valid(**kwargs)
+        load_data(:valid, **kwargs)
       end
 
-      def test(split_ys: false, all_columns: false, filter: nil)
-        load_data(:test, split_ys: split_ys, filter: filter, all_columns: all_columns)
+      def test(**kwargs)
+        load_data(:test, **kwargs)
       end
 
-      def data(split_ys: false, all_columns: false, filter: nil)
-        load_data(:all, split_ys: split_ys, filter: filter, all_columns: all_columns)
+      def data(**kwargs)
+        load_data(:all, **kwargs)
       end
 
       def num_batches(segment)
@@ -344,12 +345,13 @@ module EasyML
         end
       end
 
-      def load_data(segment, split_ys: false, all_columns: false, filter: nil)
-        drop_cols = drop_columns(all_columns: all_columns)
+      def load_data(segment, **kwargs)
+        drop_cols = drop_columns(all_columns: kwargs[:all_columns] || false)
+        kwargs = kwargs.merge!(drop_cols: drop_cols, target: target)
         if processed?
-          processed.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter)
+          processed.read(segment, **kwargs)
         else
-          raw.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter)
+          raw.read(segment, **kwargs)
         end
       end
 

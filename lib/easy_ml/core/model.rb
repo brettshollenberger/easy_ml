@@ -24,13 +24,11 @@ module EasyML
         apply_defaults
       end
 
-      def root_dir
-        @root_dir ||= detect_root_dir
-      end
-
       def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
         if x_train.nil?
+          puts "Refreshing dataset"
           dataset.refresh
+          puts "Train"
           train
         else
           train(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid)
@@ -77,53 +75,14 @@ module EasyML
         end
       end
 
-      def cleanup!
-        [carrierwave_dir, model_dir].each do |dir|
-          EasyML::FileRotate.new(dir, []).cleanup(extension_allowlist)
-        end
-      end
-
-      def cleanup
-        [carrierwave_dir, model_dir].each do |dir|
-          EasyML::FileRotate.new(dir, files_to_keep).cleanup(extension_allowlist)
-        end
-      end
-
       def fit?
         @is_fit == true
       end
 
       private
 
-      def carrierwave_dir
-        return unless file.present?
-
-        dir = File.dirname(file).split("/")[0..-2].join("/")
-        return unless dir.start_with?(Rails.root.to_s)
-
-        dir
-      end
-
-      def extension_allowlist
-        EasyML::Core::Uploaders::ModelUploader.new.extension_allowlist
-      end
-
-      def ensure_directory_exists(dir)
-        FileUtils.mkdir_p(dir) unless File.directory?(dir)
-      end
-
       def apply_defaults
         self.metrics ||= allowed_metrics
-      end
-
-      def model_dir
-        File.join(root_dir, "easy_ml_models", name.present? ? name.split.join.underscore : "")
-      end
-
-      def files_to_keep
-        Dir.glob(File.join(carrierwave_dir, "**/*")).select { |f| File.file?(f) }.sort_by do |filename|
-          Time.parse(filename.split("/").last.gsub(/\D/, ""))
-        end.reverse.take(5)
       end
 
       def dataset_is_a_dataset?

@@ -5,13 +5,12 @@ module EasyML
     module Statuses
       extend ActiveSupport::Concern
 
+      STATUSES = %w[
+        training
+        inference
+        retired
+      ]
       included do
-        STATUSES = %w[
-          training
-          inference
-          retired
-        ]
-
         scope :inference, -> { where(status: :inference) }
         scope :retired, -> { where(status: :retired) }
         scope :training, -> { where(status: :training) }

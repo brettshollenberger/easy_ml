@@ -1,8 +1,26 @@
+# == Schema Information
+#
+# Table name: easy_ml_models
+#
+#  id            :bigint           not null, primary key
+#  name          :string           not null
+#  model_type    :string
+#  status        :string
+#  dataset_id    :bigint
+#  model_file_id :bigint
+#  configuration :json
+#  version       :string           not null
+#  root_dir      :string
+#  file          :json
+#  created_at    :datetime         not null
+#  updated_at    :datetime         not null
+#
 require_relative "concerns/statuses"
 
 module EasyML
   class Model < ActiveRecord::Base
     include EasyML::Concerns::Statuses
+    include EasyML::FileSupport
 
     self.filter_attributes += [:configuration]
 
@@ -11,10 +29,13 @@ module EasyML
     include GlueGun::Model
     service :xgboost, EasyML::Core::Models::XGBoost
 
-    extend CarrierWave::Mount
-    mount_uploader :file, EasyML::Core::Uploaders::ModelUploader
+    belongs_to :dataset
+    has_one :model_file,
+            class_name: "EasyML::ModelFile"
 
-    attribute :root_dir, :string
+    after_find :load_model
+    after_initialize :generate_version_string
+    around_save :save_model_file, if: -> { fit? }
 
     # before_save :save_statistics
     # before_save :save_hyperparameters
@@ -24,8 +45,6 @@ module EasyML
     # validate :dataset_is_a_dataset?
     # validate :validate_any_metrics?
     # validate :validate_metrics_for_task
-    after_initialize :generate_version_string
-    before_validation :save_model_file, if: -> { fit? }
 
     # def save_statistics
     #   write_attribute(:statistics, dataset.statistics.deep_symbolize_keys)
@@ -39,26 +58,49 @@ module EasyML
     def save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless fit?
 
-      path = model_service.save_model_file(version)
+      self.model_file = get_model_file
+      full_path = model_file.full_path(version)
+      full_path = model_service.save_model_file(full_path)
+      model_file.upload(full_path)
 
-      File.open(path) do |f|
-        self.file = f
-      end
-      file.store!
+      yield
 
+      model_file.save
       cleanup
     end
 
-    after_find :load_model
+    def cleanup!
+      get_model_file&.cleanup!
+    end
+
+    def cleanup
+      get_model_file&.cleanup
+    end
 
     private
+
+    def get_model_file
+      model_file || build_model_file(
+        root_dir: root_dir,
+        model: self,
+        s3_bucket: EasyML::Configuration.s3_bucket,
+        s3_region: EasyML::Configuration.s3_region,
+        s3_access_key_id: EasyML::Configuration.s3_access_key_id,
+        s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
+        s3_prefix: prefix
+      )
+    end
+
+    def prefix
+      s3_prefix = EasyML::Configuration.s3_prefix
+      s3_prefix.present? ? File.join(s3_prefix, name) : name
+    end
 
     def load_model
       return unless persisted?
 
-      binding.pry
-      file.retrieve_from_store!(file.identifier) unless File.exist?(file.path)
-      model_service.load(file.path)
+      get_model_file.download
+      model_service.load(get_model_file.full_path.to_s)
     end
 
     def files_to_keep

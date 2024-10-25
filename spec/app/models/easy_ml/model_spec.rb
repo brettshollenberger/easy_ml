@@ -2,7 +2,7 @@ require "spec_helper"
 
 RSpec.describe EasyML::Models do
   let(:root_dir) do
-    SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
+    SPEC_ROOT.join("internal/app/data")
   end
 
   let(:datasource) do
@@ -114,15 +114,21 @@ RSpec.describe EasyML::Models do
     EasyML::Model.new(model_config)
   end
 
+  before(:all) do
+    EasyML::Configuration.configure do |config|
+      config.s3_bucket = "my-bucket"
+    end
+  end
+
   before(:each) do
     dataset.cleanup
     dataset.refresh!
-    model.cleanup!
+    # model.cleanup!
   end
 
   after(:each) do
     dataset.cleanup
-    model.cleanup!
+    # model.cleanup!
   end
 
   def build_model(params)
@@ -155,8 +161,17 @@ RSpec.describe EasyML::Models do
     end
   end
 
+  def mock_file_upload
+    allow_any_instance_of(Aws::S3::Client).to receive(:put_object) do |_s3_client, args|
+      expect(args[:bucket]).to eq "my-bucket"
+      expect(args[:key]).to match(%r{easy_ml_models/My Model/xgboost_})
+    end.and_return(true)
+  end
+
   describe "#load" do
-    it "loads the model from a file" do
+    it "loads the model from a file", :focus do
+      mock_file_upload
+
       model.name = "My Model" # Model name + version must be unique
       model.metrics = ["mean_absolute_error"]
       model.fit
@@ -210,7 +225,7 @@ RSpec.describe EasyML::Models do
       expect(preds.to_a).to all(be > 0)
     end
 
-    def make_trainer
+    def make_orchestrator
       dataset = EasyML::Data::Dataset.new(
         {
           verbose: false,
@@ -242,7 +257,7 @@ RSpec.describe EasyML::Models do
                                   }
                                 })
 
-      EasyML::Trainer.new(
+      EasyML::Orchestrator.new(
         model: model,
         dataset: model.dataset,
         tuner: EasyML::Core::Tuner.new(
@@ -273,22 +288,22 @@ RSpec.describe EasyML::Models do
       @time = EST.now
       Timecop.freeze(@time)
 
-      trainer = make_trainer
-      trainer.train # Model is now saved
-      trainer.model.mark_live
+      orchestrator = make_orchestrator
+      orchestrator.train # Model is now saved
+      orchestrator.model.mark_live
 
       # Simulate another request, after the model has been marked live
-      trainer2 = make_trainer
+      orchestrator2 = make_orchestrator
 
-      df1 = trainer.features(new_df)
-      df2 = trainer2.features(new_df)
+      df1 = orchestrator.features(new_df)
+      df2 = orchestrator2.features(new_df)
       df1.columns.each do |col|
         expect(df1[col][0]).to eq(df2[col][0])
       end
       expect(df1["annual_revenue"]).to eq 3_000 # Median revenue
       expect(df1["loan_purpose_payroll"]).to eq 1
 
-      expect(trainer.predict(new_df).first).to be_within(0.001).of(trainer2.predict(new_df).first)
+      expect(orchestrator.predict(new_df).first).to be_within(0.001).of(orchestrator2.predict(new_df).first)
     end
   end
 

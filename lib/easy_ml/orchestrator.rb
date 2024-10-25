@@ -1,5 +1,5 @@
 module EasyML
-  class Trainer
+  class Orchestrator
     attr_accessor :model, :tuner, :dataset, :tune_every
 
     def initialize(options = {})

@@ -4,6 +4,8 @@ module EasyML
   module Core
     module Models
       class XGBoost < EasyML::Core::Model
+        include EasyML::FileSupport
+
         OBJECTIVES = {
           classification: {
             binary: %w[binary:logistic binary:hinge],
@@ -83,9 +85,11 @@ module EasyML
           end
         end
 
-        def save_model_file(version)
-          path = File.join(model_dir, "#{version}.json")
+        def save_model_file(path)
+          path = path.to_s
           ensure_directory_exists(File.dirname(path))
+          extension = Pathname.new(path).extname.gsub("\.", "")
+          path = "#{path}.json" unless extension == "json"
 
           @booster.save_model(path)
           path
@@ -113,7 +117,7 @@ module EasyML
 
         def prepare_data
           if @d_train.nil?
-            x_train, y_train = dataset.train(split_ys: true)
+            x_train, y_train = dataset.train(split_ys: true, limit: 1000)
             x_valid, y_valid = dataset.valid(split_ys: true)
             x_test, y_test = dataset.test(split_ys: true)
             @d_train = preprocess(x_train, y_train)

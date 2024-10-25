@@ -79,6 +79,10 @@ module EasyML
           end
         end
 
+        def loaded?
+          @booster.present?
+        end
+
         def load(path = nil)
           initialize_model do
             booster_class.new(params: hyperparameters.to_h, model_file: path)

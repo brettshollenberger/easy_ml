@@ -40,6 +40,10 @@ module EasyML
         raise NotImplementedError, "Subclasses must implement predict method"
       end
 
+      def loaded?
+        raise NotImplementedError, "Subclasses must implement loaded? method"
+      end
+
       def load
         raise NotImplementedError, "Subclasses must implement load method"
       end

@@ -36,7 +36,7 @@ module EasyML
 
     def full_path(filename = nil)
       filename = self.filename if filename.nil?
-      Rails.root.join(relative_dir, filename)
+      Rails.root.join(relative_dir, filename).to_s
     end
 
     def relative_dir
@@ -48,22 +48,13 @@ module EasyML
       Rails.root.join(relative_dir)
     end
 
-    # def relative_path(filename)
-    #   File.join(relative_dir, filename)
-    # end
-
-    # def relative_dir
-    # base_path = root_dir.split(Regexp.new(Rails.root.to_s)).last.split("/").reject(&:empty?).join("/")
-    #   File.join(base_path, store_dir)
-    # end
-
     def cleanup!
       [full_dir].each do |dir|
         EasyML::FileRotate.new(dir, []).cleanup(extension_allowlist)
       end
     end
 
-    def cleanup
+    def cleanup(files_to_keep)
       [full_dir].each do |dir|
         EasyML::FileRotate.new(dir, files_to_keep).cleanup(extension_allowlist)
       end
@@ -78,14 +69,6 @@ module EasyML
       return base unless model.present?
 
       File.join(base, model.name)
-    end
-
-    def files_to_keep
-      return [] if full_dir.nil?
-
-      Dir.glob(File.join(full_dir, "**/*")).select { |f| File.file?(f) }.sort_by do |filename|
-        Time.parse(filename.split("/").last.gsub(/\D/, ""))
-      end.reverse.take(5)
     end
   end
 end

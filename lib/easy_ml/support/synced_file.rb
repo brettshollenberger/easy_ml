@@ -36,18 +36,17 @@ module EasyML
         file_path
       end
 
-      def download
+      def download(full_path)
         base_path = File.join(s3_prefix, filename)
-        file_path = File.join(root_dir, base_path)
-        FileUtils.mkdir_p(File.dirname(file_path))
+        FileUtils.mkdir_p(File.dirname(full_path))
 
         s3.get_object(
-          response_target: file_path,
+          response_target: full_path,
           bucket: s3_bucket,
           key: base_path
         )
 
-        file_path
+        full_path
       end
 
       def path

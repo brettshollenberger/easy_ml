@@ -27,7 +27,7 @@ module EasyML
             df.write_parquet(file_path)
           end
 
-          def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil)
+          def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil)
             files = files_for_segment(segment)
             return split_ys ? [nil, nil] : nil if files.empty?
 
@@ -37,6 +37,8 @@ module EasyML
 
             # Apply the predicate filter if given
             combined_lazy_df = combined_lazy_df.filter(filter) if filter
+            # Apply select columns if provided
+            combined_lazy_df = combined_lazy_df.select(select) if select.present?
 
             # Apply drop columns
             drop_cols &= combined_lazy_df.columns
@@ -44,6 +46,7 @@ module EasyML
 
             # Collect the DataFrame (execute the lazy operations)
             df = combined_lazy_df.collect
+            df = df.limit(limit) if limit
 
             split_features_targets(df, split_ys, target)
           end

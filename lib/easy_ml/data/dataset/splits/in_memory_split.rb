@@ -14,7 +14,7 @@ module EasyML
             @data[segment] = df
           end
 
-          def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil)
+          def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil)
             df = if segment.to_s == "all"
                    Polars.concat(%i[train test valid].map { |segment| @data[segment] })
                  else

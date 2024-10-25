@@ -33,7 +33,7 @@ RSpec.describe EasyML::Core::Tuner do
       verbose: false,
       drop_if_null: ["loan_purpose"],
       drop_cols: %w[business_name state],
-      datasource: df,
+      datasource: EasyML::Data::Datasource::PolarsDatasource.new(df: df),
       target: target,
       preprocessing_steps: preprocessing_steps,
       splitter: {
@@ -108,12 +108,10 @@ RSpec.describe EasyML::Core::Tuner do
   before(:each) do
     dataset.cleanup
     dataset.refresh!
-    model.cleanup!
   end
 
   after(:each) do
     dataset.cleanup
-    model.cleanup!
   end
 
   let(:n_trials) do

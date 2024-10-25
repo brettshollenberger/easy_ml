@@ -115,12 +115,6 @@ RSpec.describe EasyML::Models do
     EasyML::Model.new(model_config)
   end
 
-  before(:all) do
-    EasyML::Configuration.configure do |config|
-      config.s3_bucket = "my-bucket"
-    end
-  end
-
   before(:each) do
     dataset.cleanup
     dataset.refresh!

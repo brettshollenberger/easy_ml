@@ -58,12 +58,6 @@ module EasyML::Data
         Polars.read_csv(output_path, **polars_args)
       end
 
-      def serialize
-        {
-          s3: attributes
-        }
-      end
-
       private
 
       def pull

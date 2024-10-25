@@ -62,6 +62,11 @@ RSpec.describe EasyML::Datasource do
   describe "File Datasource" do
     it "saves and loads the file datasource" do
       path = SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
+      csv_file = path.join("file.csv")
+      parquet_file = path.join("file.parquet")
+
+      FileUtils.cp(csv_file, SPEC_ROOT.join("file.csv")) # This gets wiped by PolarsReader
+
       polars_args = {
         dtypes: {
           'id': "i64",
@@ -79,13 +84,17 @@ RSpec.describe EasyML::Datasource do
         polars_args: polars_args
       )
 
-      polars_args[:dtypes] = polars_args[:dtypes].stringify_keys
-      file = path.glob("**/*.csv").first
-      df = Polars.read_csv(file, **polars_args)
+      # Invoking this splits the file
+      file_datasource.data
+
+      df = Polars.read_parquet(parquet_file)
 
       datasource = EasyML::Datasource.find(file_datasource.id)
       expect(datasource.datasource_service.root_dir).to eq path.to_s
       expect(datasource.data).to eq df
+    ensure
+      FileUtils.rm(path.join("file.parquet")) if File.exist?(path.join("file.parquet"))
+      FileUtils.mv(SPEC_ROOT.join("file.csv"), csv_file)
     end
   end
 end

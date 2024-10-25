@@ -43,7 +43,7 @@ module EasyML::Data
 
       def serialize
         {
-          df: JSON.parse(datasource.df.write_json)
+          df: JSON.parse(df.write_json)
         }
       end
 

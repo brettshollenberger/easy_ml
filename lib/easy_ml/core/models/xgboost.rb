@@ -246,6 +246,9 @@ module EasyML
               #{orig_xs[0..5]}
               Which was normalized to:
               #{xs[0..5]}
+
+              This may also be due to string-based targets, your targets:
+              #{ys[0..5]}
             )
           end
         end

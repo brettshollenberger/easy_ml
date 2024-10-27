@@ -67,6 +67,19 @@ module EasyML::Data
       df
     end
 
+    def decode_labels(values, col: nil)
+      imputers = initialize_imputers(preprocessing_steps[:training])
+      imputer = imputers.dig(col.to_sym, :categorical)
+      decoder = imputer.statistics.dig(:categorical, :label_decoder)
+      other_value = decoder.keys.map(&:to_s).map(&:to_i).max + 1
+      decoder[other_value] = "other"
+      decoder.stringify_keys!
+
+      values.map do |value|
+        decoder[value.to_s]
+      end
+    end
+
     def is_fit?
       statistics.any? { |_, col_stats| col_stats.any? { |_, strategy_stats| strategy_stats.present? } }
     end
@@ -128,6 +141,8 @@ module EasyML::Data
             conf = strategies[strategy.to_sym]
             if conf.is_a?(Hash) && conf.key?(:one_hot)
               df = apply_one_hot(df, col, imputers)
+            elsif imputers.dig(col, strategy).options.dig(:encode_labels)
+              df = apply_encode_labels(df, col, imputers)
             else
               imputer = imputers.dig(col, strategy)
               df[actual_col] = imputer.transform(df[actual_col]) if imputer
@@ -164,10 +179,27 @@ module EasyML::Data
       df[other_col_name] = df[col].map_elements do |value|
         approved_values.map(&:to_s).exclude?(value)
       end.cast(Polars::Int64)
-      df = df.drop([col.to_s])
-      print df.columns
-      puts
-      df
+      df.drop([col.to_s])
+    end
+
+    def apply_encode_labels(df, col, imputers)
+      cat_imputer = imputers.dig(col, :categorical)
+      approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
+        v >= cat_imputer.options[:categorical_min]
+      end.keys
+
+      df.with_column(
+        df[col].map_elements do |value|
+          approved_values.map(&:to_s).exclude?(value) ? "other" : value
+        end.alias(col.to_s)
+      )
+
+      label_encoder = cat_imputer.statistics[:categorical][:label_encoder].stringify_keys
+      other_value = label_encoder.values.max + 1
+      label_encoder["other"] = other_value
+      df.with_column(
+        df[col].map { |v| label_encoder[v.to_s] }.alias(col.to_s)
+      )
     end
 
     def sorted_strategies(strategies)

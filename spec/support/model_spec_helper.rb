@@ -29,8 +29,8 @@ module ModelSpecHelper
       {
         verbose: false,
         drop_if_null: ["loan_purpose"],
-        drop_cols: %w[business_name state],
-        datasource: df,
+        drop_cols: %w[business_name state date id],
+        datasource: EasyML::Data::Datasource::PolarsDatasource.new(df: df),
         target: target,
         preprocessing_steps: preprocessing_steps,
         splitter: {
@@ -106,12 +106,12 @@ module ModelSpecHelper
     base.before(:each) do
       dataset.cleanup
       dataset.refresh!
-      model.cleanup!
+      # model.cleanup!
     end
 
     base.after(:each) do
       dataset.cleanup
-      model.cleanup!
+      # model.cleanup!
     end
   end
 

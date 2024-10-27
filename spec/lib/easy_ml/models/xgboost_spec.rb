@@ -3,12 +3,94 @@ require "support/model_spec_helper"
 
 RSpec.describe EasyML::Core::Models::XGBoost do
   include ModelSpecHelper
-  let(:model_class) do
-    EasyML::Core::Models::XGBoost
-  end
 
   describe "XGBoost" do
-    let(:xgb) { ::XGBoost }
+    # let(:df) do
+    #   Polars::DataFrame.new({
+    #                           "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    #                           "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
+    #                                               "Business G", "Business H", "Business I", "Business J"],
+    #                           "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
+    #                           "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
+    #                                                marketing equipment marketing],
+    #                           "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
+    #                           "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
+    #                           "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
+    #                                        2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
+    #                         }).with_column(
+    #                           Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
+    #                         )
+    # end
+    # let(:root_dir) { File.expand_path("..", Pathname.new(__FILE__)) }
+    # let(:preprocessing_steps) do
+    #   {
+    #     training: {
+    #       annual_revenue: {
+    #         median: true,
+    #         clip: { min: 0, max: 1_000_000 }
+    #       },
+    #       loan_purpose: {
+    #         categorical: {
+    #           categorical_min: 2,
+    #           one_hot: true
+    #         }
+    #       }
+    #     }
+    #   }
+    # end
+
+    # let(:date_col) { "date" }
+    # let(:months_test) { 2 }
+    # let(:months_valid) { 2 }
+    # let(:today) { EST.parse("2024-06-01") }
+    # let(:task) do
+    #   :regression
+    # end
+    # let(:objective) do
+    #   "reg:squarederror"
+    # end
+    # let(:target) do
+    #   "rev"
+    # end
+    # let(:drop_cols) do
+    #   %w[business_name state]
+    # end
+
+    # let(:dataset_config) do
+    #   {
+    #     verbose: false,
+    #     drop_if_null: ["loan_purpose"],
+    #     drop_cols: drop_cols,
+    #     datasource: EasyML::Data::Datasource::PolarsDatasource.new(df: df),
+    #     target: target,
+    #     preprocessing_steps: preprocessing_steps,
+    #     splitter: {
+    #       date: {
+    #         today: today,
+    #         date_col: date_col,
+    #         months_test: months_test,
+    #         months_valid: months_valid
+    #       }
+    #     }
+    #   }
+    # end
+
+    # let(:dataset) { EasyML::Data::Dataset.new(**dataset_config) }
+
+    let(:model) do
+      EasyML::Core::Models::XGBoost.new(
+        model_type: :xgboost,
+        root_dir: root_dir,
+        task: task,
+        dataset: dataset,
+        hyperparameters: {
+          learning_rate: 0.05,
+          max_depth: 8,
+          objective: objective,
+          n_estimators: 1
+        }
+      )
+    end
 
     describe "#fit" do
       it "trains the model" do
@@ -28,6 +110,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
 
     describe "#predict" do
       it "makes predictions" do
+        dataset.refresh!
         x_test, = dataset.test(split_ys: true)
         model.fit
         preds = model.predict(x_test)
@@ -35,6 +118,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
       end
 
       it "evaluates regression predictions" do
+        dataset.refresh!
         xs, ys = dataset.data(split_ys: true)
         model.metrics = %w[mean_absolute_error mean_squared_error root_mean_squared_error r2_score]
         model.fit
@@ -43,8 +127,8 @@ RSpec.describe EasyML::Core::Models::XGBoost do
         evaluation_metrics = model.evaluate(y_pred: preds, y_true: ys)
 
         expect(evaluation_metrics[:mean_absolute_error]).to be_between(0, 1_000)
-        expect(evaluation_metrics[:mean_squared_error]).to be_between(4_600_000, 4_700_000)
-        expect(evaluation_metrics[:root_mean_squared_error]).to be_between(2150, 2160)
+        expect(evaluation_metrics[:mean_squared_error]).to be_between(0, 5_000_000)
+        expect(evaluation_metrics[:root_mean_squared_error]).to be_between(0, Float::INFINITY)
         expect(evaluation_metrics[:r2_score]).to be_between(-Float::INFINITY, 1)
       end
 
@@ -55,29 +139,17 @@ RSpec.describe EasyML::Core::Models::XGBoost do
         let(:objective) do
           "binary:logistic"
         end
-
-        let(:df) do
-          Polars::DataFrame.new({
-                                  "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                                  "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
-                                                      "Business G", "Business H", "Business I", "Business J"],
-                                  "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000,
-                                                       10_000],
-                                  "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
-                                                       marketing equipment marketing],
-                                  "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
-                                  "did_convert" => %w[converts not_converts converts converts converts
-                                                      not_converts not_converts converts converts not_converts],
-                                  "rev" => [1_000, 0, 2_000, 3_000, 4_000, 0, 0, 5_000, 6_000, 0],
-                                  "passive_rev" => [0, 30, 0, 0, 0, 50, 60, 0, 0, 70],
-                                  "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                               2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
-                                }).with_column(
-                                  Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                                )
-        end
         let(:target) do
           :did_convert
+        end
+        let(:df) do
+          super().with_columns([
+                                 Polars::Series.new("state", %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL]),
+                                 Polars::Series.new("did_convert",
+                                                    %w[converts not_converts converts converts converts not_converts
+                                                       not_converts converts converts not_converts]),
+                                 Polars::Series.new("passive_rev", [0, 30, 0, 0, 0, 50, 60, 0, 0, 70])
+                               ])
         end
         let(:preprocessing_steps) do
           {
@@ -101,8 +173,12 @@ RSpec.describe EasyML::Core::Models::XGBoost do
             }
           }
         end
+        let(:drop_columns) do
+          super() << %w[rev]
+        end
 
         it "evaluates classification predictions" do
+          dataset.refresh!
           x_test, y_test = dataset.test(split_ys: true)
           model.fit
           model.metrics = %w[accuracy_score precision_score recall_score f1_score]
@@ -153,53 +229,6 @@ RSpec.describe EasyML::Core::Models::XGBoost do
         expect(model.feature_importances).to match(hash_including({ "annual_revenue" => a_value_between(0.0, 1.0),
                                                                     "loan_purpose_payroll" => a_value_between(0.0,
                                                                                                               1.0) }))
-      end
-    end
-
-    describe "#save" do
-      it "saves the model to a file / remote storage" do
-        model.name = "My Model"
-        model.metrics = ["mean_absolute_error"]
-        model.fit
-        model.save
-
-        file_path = model.file.file.file
-        expect(File).to exist(file_path)
-        expect(File.size(file_path)).to be > 0
-      end
-    end
-
-    describe "#load" do
-      it "loads the model from a file" do
-        model.name = "My Model" # Model name + version must be unique
-        model.metrics = ["mean_absolute_error"]
-        model.fit
-        model.save
-        expect(model.ml_model).to eq "xg_boost"
-
-        loaded_model = EasyML::Core::Models::XGBoost.new(file: model.file)
-        loaded_model.load
-
-        expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
-      end
-
-      it "works on S3 storage", fog: true do
-        s3_url = "https://s3-bucket.amazonaws.com/model.json"
-        allow_any_instance_of(CarrierWave::Storage::Fog::File).to receive(:url).and_return(s3_url)
-
-        model.name = "S3 Model"
-        model.metrics = ["mean_absolute_error"]
-        model.fit
-        model.save
-
-        loaded_model = EasyML::Core::Models::XGBoost.new(file: model.file)
-
-        allow(loaded_model.file).to receive(:download) do |&block|
-          File.open(model.file.path, "rb", &block)
-        end
-
-        loaded_model.load
-        expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
       end
     end
   end

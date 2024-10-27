@@ -40,6 +40,35 @@ module EasyML::Data
       def data
         df
       end
+
+      def serialize
+        {
+          df: JSON.parse(df.write_json)
+        }
+      end
+
+      def self.deserialize(options)
+        df = options[:df]
+        columns = df[:columns].map do |col|
+          # Determine the correct data type
+          dtype = case col[:datatype]
+                  when Hash
+                    if col[:datatype][:Datetime]
+                      Polars::Datetime.new(col[:datatype][:Datetime][0].downcase.to_sym).class
+                    else
+                      Polars::Utf8
+                    end
+                  else
+                    Polars.const_get(col[:datatype])
+                  end
+          # Create a Series for each column
+          Polars::Series.new(col[:name], col[:values], dtype: dtype)
+        end
+
+        # Create the DataFrame
+        options[:df] = Polars::DataFrame.new(columns)
+        options
+      end
     end
   end
 end

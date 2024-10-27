@@ -2,44 +2,44 @@ require "fileutils"
 require "polars"
 require "date"
 require "json"
-require_relative "preprocessor/utils"
-require_relative "preprocessor/simple_imputer"
+require_relative "simple_imputer"
 
 module EasyML::Data
   class Preprocessor
     include GlueGun::DSL
-    include EasyML::Data::Preprocessor::Utils
 
     CATEGORICAL_COMMON_MIN = 50
     PREPROCESSING_ORDER = %w[clip mean median constant categorical one_hot ffill custom fill_date add_datepart]
 
-    attribute :directory, :string
-    attribute :verbose, :boolean, default: false
-    attribute :preprocessing_steps, :hash, default: {}
-    def preprocessing_steps=(preprocessing_steps)
-      super(standardize_config(preprocessing_steps).with_indifferent_access)
+    attribute :directory
+    attribute :verbose
+    attribute :imputers
+    attribute :preprocessing_steps
+
+    attr_reader :statistics
+
+    def statistics=(stats)
+      @statistics = stats.deep_symbolize_keys
     end
 
     def fit(df)
       return if df.nil?
-      return if preprocessing_steps.keys.none?
+      return if preprocessing_steps.nil? || preprocessing_steps.keys.none?
+
+      preprocessing_steps.deep_symbolize_keys!
 
       puts "Preprocessing..." if verbose
-      imputers = initialize_imputers(
-        preprocessing_steps[:training].merge!(preprocessing_steps[:inference] || {})
-      )
+      imputers = initialize_imputers(preprocessing_steps[:training])
 
-      did_cleanup = false
+      stats = {}
       imputers.each do |col, imputers|
         sorted_strategies(imputers).each do |strategy|
           imputer = imputers[strategy]
-          unless did_cleanup
-            imputer.cleanup
-            did_cleanup = true
-          end
-          if df.columns.map(&:downcase).include?(col.downcase)
-            actual_col = df.columns.find { |c| c.downcase == imputer.attribute.downcase }
-            imputer.fit(df[actual_col], df)
+          if df.columns.map(&:downcase).map(&:to_s).include?(col.downcase.to_s)
+            actual_col = df.columns.map(&:to_s).find { |c| c.to_s.downcase == imputer.attribute.downcase.to_s }
+            stats.deep_merge!(
+              imputer.fit(df[actual_col], df)
+            )
             if strategy == "clip" # This is the only one to transform during fit
               df[actual_col] = imputer.transform(df[actual_col])
             end
@@ -48,6 +48,7 @@ module EasyML::Data
           end
         end
       end
+      self.statistics = stats
     end
 
     def postprocess(df, inference: false)
@@ -66,11 +67,16 @@ module EasyML::Data
       df
     end
 
-    def statistics
-      initialize_imputers(preprocessing_steps[:training]).each_with_object({}) do |(col, strategies), result|
-        result[col] = strategies.each_with_object({}) do |(strategy, imputer), col_result|
-          col_result[strategy] = imputer.statistics
-        end
+    def decode_labels(values, col: nil)
+      imputers = initialize_imputers(preprocessing_steps[:training])
+      imputer = imputers.dig(col.to_sym, :categorical)
+      decoder = imputer.statistics.dig(:categorical, :label_decoder)
+      other_value = decoder.keys.map(&:to_s).map(&:to_i).max + 1
+      decoder[other_value] = "other"
+      decoder.stringify_keys!
+
+      values.map do |value|
+        decoder[value.to_s]
       end
     end
 
@@ -84,43 +90,41 @@ module EasyML::Data
       FileUtils.rm_rf(@directory)
     end
 
-    def move(to)
-      old_dir = directory
-      current_env = directory.split("/")[-1]
-      new_dir = directory.gsub(Regexp.new(current_env), to)
-
-      puts "Moving #{old_dir} to #{new_dir}"
-      FileUtils.mv(old_dir, new_dir)
-      @directory = new_dir
-    end
-
-    def decode_labels(values, col: nil)
-      imputers = initialize_imputers(preprocessing_steps[:training], dumb: true)
-      imputer = imputers.dig(col, "categorical")
-      decoder = imputer.statistics.dig(:categorical, :label_decoder)
-
-      other_value = decoder.keys.map(&:to_s).map(&:to_i).max + 1
-      decoder[other_value] = "other"
-      decoder.stringify_keys!
-
-      values.map do |value|
-        decoder[value.to_s]
-      end
+    def serialize
+      attributes.merge!(
+        statistics: serialize_statistics(statistics || {})
+      )
     end
 
     private
 
-    def initialize_imputers(config, dumb: false)
+    def standardize_config(config)
+      config.each do |column, strategies|
+        next unless strategies.is_a?(Array)
+
+        config[column] = strategies.reduce({}) do |hash, strategy|
+          hash.tap do
+            hash[strategy] = true
+          end
+        end
+      end
+    end
+
+    def initialize_imputers(config)
       standardize_config(config).each_with_object({}) do |(col, strategies), hash|
         hash[col] ||= {}
         strategies.each do |strategy, options|
+          next if strategy.to_sym == :one_hot
+
           options = {} if options == true
 
-          hash[col][strategy] = EasyML::Data::Preprocessor::SimpleImputer.new(
+          imputer_stats = deserialize_statistics((statistics || {}).deep_stringify_keys.dig(col.to_s))
+          hash[col][strategy] = EasyML::Data::SimpleImputer.new(
             strategy: strategy,
             path: directory,
             attribute: col,
-            options: options
+            options: options,
+            statistics: imputer_stats
           )
         end
       end
@@ -130,16 +134,15 @@ module EasyML::Data
       imputers = initialize_imputers(config)
 
       standardize_config(config).each do |col, strategies|
-        if df.columns.map(&:downcase).include?(col.downcase)
-          actual_col = df.columns.find { |c| c.downcase == col.downcase }
+        if df.columns.map(&:downcase).map(&:to_s).include?(col.downcase.to_s)
+          actual_col = df.columns.map(&:to_s).find { |c| c.to_s.downcase == col.to_s.downcase }
 
           sorted_strategies(strategies).each do |strategy|
-            if strategy.to_sym == :categorical
-              if imputers.dig(col, strategy).options.dig("one_hot")
-                df = apply_one_hot(df, col, imputers)
-              elsif imputers.dig(col, strategy).options.dig("encode_labels")
-                df = apply_encode_labels(df, col, imputers)
-              end
+            conf = strategies[strategy.to_sym]
+            if conf.is_a?(Hash) && conf.key?(:one_hot)
+              df = apply_one_hot(df, col, imputers)
+            elsif imputers.dig(col, strategy).options.dig(:encode_labels)
+              df = apply_encode_labels(df, col, imputers)
             else
               imputer = imputers.dig(col, strategy)
               df[actual_col] = imputer.transform(df[actual_col]) if imputer
@@ -154,14 +157,18 @@ module EasyML::Data
     end
 
     def apply_one_hot(df, col, imputers)
-      cat_imputer = imputers.dig(col, "categorical")
-      approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
-        v >= cat_imputer.options["categorical_min"]
-      end.keys
+      imputers = imputers.deep_symbolize_keys
+      approved_values = if (cat_imputer = imputers.dig(col, :categorical)).present?
+                          cat_imputer.statistics[:categorical][:value].select do |_k, v|
+                            v >= cat_imputer.options[:categorical_min]
+                          end.keys
+                        else
+                          df[col].uniq.to_a
+                        end
 
       # Create one-hot encoded columns
       approved_values.each do |value|
-        new_col_name = "#{col}_#{value}".tr("-", "_")
+        new_col_name = "#{col}_#{value}".gsub(/-/, "_")
         df = df.with_column(
           df[col].eq(value.to_s).cast(Polars::Int64).alias(new_col_name)
         )
@@ -172,27 +179,26 @@ module EasyML::Data
       df[other_col_name] = df[col].map_elements do |value|
         approved_values.map(&:to_s).exclude?(value)
       end.cast(Polars::Int64)
-      df.drop([col])
+      df.drop([col.to_s])
     end
 
     def apply_encode_labels(df, col, imputers)
-      cat_imputer = imputers.dig(col, "categorical")
+      cat_imputer = imputers.dig(col, :categorical)
       approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
-        v >= cat_imputer.options["categorical_min"]
+        v >= cat_imputer.options[:categorical_min]
       end.keys
 
       df.with_column(
         df[col].map_elements do |value|
           approved_values.map(&:to_s).exclude?(value) ? "other" : value
-        end.alias(col)
+        end.alias(col.to_s)
       )
 
       label_encoder = cat_imputer.statistics[:categorical][:label_encoder].stringify_keys
       other_value = label_encoder.values.max + 1
       label_encoder["other"] = other_value
-
       df.with_column(
-        df[col].map { |v| label_encoder[v.to_s] }.alias(col)
+        df[col].map { |v| label_encoder[v.to_s] }.alias(col.to_s)
       )
     end
 
@@ -206,33 +212,93 @@ module EasyML::Data
       df = df.with_column(Polars.col(col).cast(Polars::Float64))
       df.with_column(Polars.when(Polars.col(col).is_null).then(Float::NAN).otherwise(Polars.col(col)).alias(col))
     end
+
+    def serialize_statistics(stats)
+      stats.deep_transform_values do |value|
+        case value
+        when Time, DateTime
+          { "__type__" => "datetime", "value" => value.iso8601 }
+        when Date
+          { "__type__" => "date", "value" => value.iso8601 }
+        when BigDecimal
+          { "__type__" => "bigdecimal", "value" => value.to_s }
+        when Polars::DataType
+          { "__type__" => "polars_dtype", "value" => value.to_s }
+        when Symbol
+          { "__type__" => "symbol", "value" => value.to_s }
+        else
+          value
+        end
+      end
+    end
+
+    def deserialize_statistics(stats)
+      return nil if stats.nil?
+
+      stats.transform_values do |value|
+        recursive_deserialize(value)
+      end
+    end
+
+    def recursive_deserialize(value)
+      case value
+      when Hash
+        if value["__type__"]
+          deserialize_special_type(value)
+        else
+          value.transform_values { |v| recursive_deserialize(v) }
+        end
+      when Array
+        value.map { |v| recursive_deserialize(v) }
+      else
+        value
+      end
+    end
+
+    def deserialize_special_type(value)
+      case value["__type__"]
+      when "datetime"
+        DateTime.parse(value["value"])
+      when "date"
+        Date.parse(value["value"])
+      when "bigdecimal"
+        BigDecimal(value["value"])
+      when "polars_dtype"
+        parse_polars_dtype(value["value"])
+      when "symbol"
+        value["value"].to_sym
+      else
+        value["value"]
+      end
+    end
+
+    def parse_polars_dtype(dtype_string)
+      case dtype_string
+      when /^Polars::Datetime/
+        time_unit = dtype_string[/time_unit: "(.*?)"/, 1]
+        time_zone = dtype_string[/time_zone: (.*)?\)/, 1]
+        time_zone = time_zone == "nil" ? nil : time_zone&.delete('"')
+        Polars::Datetime.new(time_unit: time_unit, time_zone: time_zone).class
+      when /^Polars::/
+        Polars.const_get(dtype_string.split("::").last)
+      else
+        raise ArgumentError, "Unknown Polars data type: #{dtype_string}"
+      end
+    end
+
+    def cast_to_dtype(value, dtype)
+      case dtype
+      when Polars::Int64
+        value.to_i
+      when Polars::Float64
+        value.to_f
+      when Polars::Boolean
+        !!value
+      when Polars::Utf8
+        value.to_s
+      else
+        value
+      end
+    end
   end
 end
-
-# Where to put this???
-#
-# def self.stage_required_files
-#   required_files.each do |file|
-#     git_add(file)
-#   end
-# end
-
-# def self.git_add(path)
-#   command = "git add #{path}"
-#   puts command if verbose
-#   result = `#{command}`
-#   puts result if verbose
-# end
-
-# def self.set_verbose(verbose)
-#   @verbose = verbose
-# end
-
-# def required_files
-#   files = Dir.entries(@directory) - %w[. ..]
-#   required_file_types = %w[bin]
-
-#   files.select { |file| required_file_types.any? { |ext| file.include?(ext) } }.map do |file|
-#     File.join(@directory, file)
-#   end
-# end

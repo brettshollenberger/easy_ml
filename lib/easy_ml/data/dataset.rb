@@ -43,8 +43,9 @@ module EasyML
       # Dataset.new(target: "REV")
       #
       attribute :verbose, :boolean, default: false
-      attribute :today, :date, default: -> { UTC.now }
+      attribute :today, :date
       def today=(value)
+        value ||= UTC.now
         super(value.in_time_zone(UTC).to_date)
       end
       attribute :target, :string
@@ -80,8 +81,7 @@ module EasyML
       end
 
       attribute :drop_cols, :array, default: []
-
-      dependency :datasource, EasyML::Data::Datasource::DatasourceFactory
+      attribute :datasource
 
       # dependency defines a configurable dependency, with optional args,
       # for example, here we define a datasource:
@@ -165,7 +165,7 @@ module EasyML
         end
 
         dependency.when do |_dep|
-          { option: :memory } if datasource.is_a?(EasyML::Data::Datasource::PolarsDatasource)
+          { option: :memory } if datasource.respond_to?(:df)
         end
       end
 
@@ -191,7 +191,7 @@ module EasyML
         end
 
         dependency.when do |_dep|
-          { option: :memory } if datasource.is_a?(EasyML::Data::Datasource::PolarsDatasource)
+          { option: :memory } if datasource.respond_to?(:df)
         end
       end
 
@@ -219,34 +219,37 @@ module EasyML
         process_data
       end
 
-      def normalize(df = nil)
+      def normalize(df = nil, split_ys: false)
         df = drop_nulls(df)
         df = apply_transforms(df)
-        preprocessor.postprocess(df)
+        df = preprocessor.postprocess(df)
+        df, = processed.split_features_targets(df, true, target) if split_ys
+        df
       end
 
-      # A "production" preprocessor is predicting live values (e.g. used on live webservers)
-      # A "development" preprocessor is used during training (e.g. we're learning new values for the dataset)
-      #
       delegate :statistics, to: :preprocessor
 
       # Filter data using Polars predicates:
       # dataset.data(filter: Polars.col("CREATED_DATE") > EST.now - 2.days)
+      # dataset.data(limit: 10)
+      # dataset.data(select: ["column1", "column2", "column3"], limit: 10)
+      # dataset.data(split_ys: true)
+      # dataset.data(all_columns: true) # Include all columns, even ones we SHOULDN'T train on (e.g. drop_cols). Be very careful! This is for data analysis purposes ONLY!
       #
-      def train(split_ys: false, all_columns: false, filter: nil, &block)
-        load_data(:train, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      def train(**kwargs)
+        load_data(:train, **kwargs)
       end
 
-      def valid(split_ys: false, all_columns: false, filter: nil, &block)
-        load_data(:valid, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      def valid(**kwargs)
+        load_data(:valid, **kwargs)
       end
 
-      def test(split_ys: false, all_columns: false, filter: nil, &block)
-        load_data(:test, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      def test(**kwargs)
+        load_data(:test, **kwargs)
       end
 
-      def data(split_ys: false, all_columns: false, filter: nil, &block)
-        load_data(:all, split_ys: split_ys, filter: filter, all_columns: all_columns, &block)
+      def data(**kwargs)
+        load_data(:all, **kwargs)
       end
 
       def num_batches(segment)
@@ -321,7 +324,10 @@ module EasyML
       def drop_nulls(df)
         return df if drop_if_null.nil? || drop_if_null.empty?
 
-        df.drop_nulls(subset: drop_if_null)
+        drop = (df.columns & drop_if_null)
+        return df if drop.empty?
+
+        df.drop_nulls(subset: drop)
       end
 
       def drop_columns(all_columns: false)
@@ -332,12 +338,14 @@ module EasyML
         end
       end
 
-      def load_data(segment, split_ys: false, all_columns: false, filter: nil)
-        drop_cols = drop_columns(all_columns: all_columns)
+      def load_data(segment, **kwargs)
+        drop_cols = drop_columns(all_columns: kwargs[:all_columns] || false)
+        kwargs.delete(:all_columns)
+        kwargs = kwargs.merge!(drop_cols: drop_cols, target: target)
         if processed?
-          processed.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter)
+          processed.read(segment, **kwargs)
         else
-          raw.read(segment, split_ys: split_ys, target: target, drop_cols: drop_cols, filter: filter)
+          raw.read(segment, **kwargs)
         end
       end
 
@@ -361,11 +369,10 @@ module EasyML
       end
 
       def split_data(force: false)
-        puts "Should split? #{!force && !should_split?}"
-        return if !force && !should_split?
+        puts "Should split? #{force || should_split?}"
+        return unless force || should_split?
 
         cleanup
-        raw.save_schema(datasource.files)
         datasource.in_batches do |df|
           train_df, valid_df, test_df = splitter.split(df)
           raw.save(:train, train_df)
@@ -377,7 +384,7 @@ module EasyML
 
       def should_split?
         split_timestamp = raw.split_at
-        split_timestamp.nil? || split_timestamp < datasource.last_updated_at
+        processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at
       end
 
       def apply_transforms(df)

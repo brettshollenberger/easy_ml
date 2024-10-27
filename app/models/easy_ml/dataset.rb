@@ -28,6 +28,8 @@ module EasyML
                foreign_key: :datasource_id,
                class_name: "EasyML::Datasource"
 
+    has_many :models, class_name: "EasyML::Model"
+
     # Maybe copy attrs over from training to prod when marking is_live, so we keep 1 for training and one for live?
     #
     # def fit

@@ -6,29 +6,22 @@ module EasyML::Data
       include GlueGun::DSL
 
       attribute :verbose, default: false
-      attribute :root_dir, :string
-      validates :root_dir, presence: true
-
-      attribute :polars_args, :hash, default: {} do |args|
-        super(args.deep_stringify_keys)
-      end
-      validates :polars_args, presence: true
-
       attribute :s3_bucket, :string
-      validates :s3_bucket, presence: true
-
       attribute :s3_prefix, :string
-      validates :s3_prefix, presence: true
+      attribute :root_dir, :string
+      attribute :polars_args, :hash, default: {}
+
+      def polars_args=(args)
+        args[:dtypes] = args[:dtypes].stringify_keys if args.key?(:dtypes)
+        super(args)
+      end
+
       def s3_prefix=(arg)
         super(arg.to_s.gsub(%r{^/|/$}, ""))
       end
 
       attribute :s3_access_key_id, :string
-      validates :s3_access_key_id, presence: true
-
       attribute :s3_secret_access_key, :string
-      validates :s3_secret_access_key, presence: true
-
       attribute :cache_for
 
       dependency :synced_directory do |dependency|
@@ -38,19 +31,11 @@ module EasyML::Data
         dependency.bind_attribute :s3_prefix
         dependency.bind_attribute :s3_access_key_id, required: true
         dependency.bind_attribute :s3_secret_access_key, required: true
+        dependency.bind_attribute :polars_args
         dependency.bind_attribute :cache_for
       end
 
-      delegate :files, :last_updated_at, to: :synced_directory
-
-      def in_batches(of: 10_000)
-        # Currently ignores batch size, TODO: implement
-        pull
-        files.each do |file|
-          csv = Polars.read_csv(file, **polars_args)
-          yield csv
-        end
-      end
+      delegate :files, :last_updated_at, :in_batches, to: :synced_directory
 
       def refresh
         synced_directory.sync
@@ -61,17 +46,11 @@ module EasyML::Data
       end
 
       def data
-        pull do |did_sync|
-          output_path = File.join(root_dir, "combined_data.csv")
-
-          if did_sync
-            combined_df = merge_data
-            combined_df.write_csv(output_path)
-          else
-            Polars.read_csv(output_path, **polars_args)
-          end
+        dfs = []
+        in_batches do |df|
+          dfs.push(df)
         end
-        combined_df
+        Polars.concat(dfs)
       end
 
       private

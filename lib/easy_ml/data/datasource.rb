@@ -1,8 +1,6 @@
 module ML
   module Data
     class Datasource
-      attr_reader :root_dir, :polars_args
-
       def in_batches(of: 10_000)
         raise NotImplementedError, "Subclasses must implement #in_batches"
       end
@@ -31,7 +29,6 @@ module ML
       require_relative "datasource/file_datasource"
       require_relative "datasource/polars_datasource"
       require_relative "datasource/merged_datasource"
-      require_relative "datasource/datasource_factory"
     end
   end
 end

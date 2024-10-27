@@ -29,8 +29,8 @@ module ModelSpecHelper
       {
         verbose: false,
         drop_if_null: ["loan_purpose"],
-        drop_cols: %w[business_name state],
-        datasource: df,
+        drop_cols: %w[business_name state date id],
+        datasource: EasyML::Data::Datasource::PolarsDatasource.new(df: df),
         target: target,
         preprocessing_steps: preprocessing_steps,
         splitter: {
@@ -71,6 +71,7 @@ module ModelSpecHelper
     base.let(:model_config) do
       {
         root_dir: root_dir,
+        model: :xgboost,
         task: task,
         dataset: dataset,
         hyperparameters: {
@@ -99,28 +100,28 @@ module ModelSpecHelper
     end
 
     base.let(:model) do
-      model_class.new(model_config)
+      EasyML::Model.new(model_config)
     end
 
     base.before(:each) do
       dataset.cleanup
       dataset.refresh!
-      model.cleanup!
+      # model.cleanup!
     end
 
     base.after(:each) do
       dataset.cleanup
-      model.cleanup!
+      # model.cleanup!
     end
   end
 
   def build_model(params)
     Timecop.freeze(incr_time)
-    model_class.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
-                                          task: :regression,
-                                          hyperparameters: {
-                                            objective: "reg:squarederror"
-                                          })).tap do |model|
+    EasyML::Model.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
+                                            task: :regression,
+                                            hyperparameters: {
+                                              objective: "reg:squarederror"
+                                            })).tap do |model|
       model.fit
       model.save
     end

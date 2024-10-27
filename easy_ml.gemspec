@@ -27,11 +27,13 @@ Gem::Specification.new do |spec|
 
   spec.add_runtime_dependency "activerecord"
   spec.add_runtime_dependency "activesupport"
+  spec.add_runtime_dependency "awesome_print"
   spec.add_runtime_dependency "carrierwave", ">= 2.0", "< 4"
   spec.add_runtime_dependency "fog", "~> 1.42"
   spec.add_runtime_dependency "fog-aws", "~> 2.0"
   spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.19"
   spec.add_runtime_dependency "numo-narray"
+  spec.add_runtime_dependency "parallel"
   spec.add_runtime_dependency "polars-df"
   spec.add_runtime_dependency "pycall"
   spec.add_runtime_dependency "rails"

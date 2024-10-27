@@ -85,7 +85,7 @@ module EasyML
 
       def tune_once(trial, x_true, y_true, adapter)
         adapter.run_trial(trial) do |model|
-          y_pred = model.predict(y_true)
+          y_pred = model.predict(x_true)
           model.metrics = metrics
           model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
         end

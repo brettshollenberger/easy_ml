@@ -1,1 +1,1 @@
-EST = ActiveSupport::TimeZone.new("America/New_York")
+EST = ActiveSupport::TimeZone.new("America/New_York") unless defined?(EST)

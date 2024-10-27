@@ -16,14 +16,27 @@ module EasyML
       end
     end
 
+    initializer "easy_ml.configure" do |_app|
+      EasyML::Configuration.configure do |config|
+        config.s3_access_key_id ||= ENV["S3_ACCESS_KEY_ID"]
+        config.s3_secret_access_key ||= ENV["S3_SECRET_ACCESS_KEY"]
+        config.s3_bucket ||= ENV["S3_BUCKET"]
+        config.s3_region ||= ENV["S3_REGION"]
+        config.s3_prefix ||= "easy_ml_models"
+      end
+    end
+
     generators_path = File.expand_path("railtie/generators", __dir__)
     generators_dirs = Dir[File.join(generators_path, "**", "*.rb")]
     generators_dirs.each { |file| require file }
 
     unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate].include?(ARGV.first)
       config.after_initialize do
-        require File.expand_path("app/models/easy_ml/model", EasyML::Engine.root)
-        require File.expand_path("app/models/easy_ml/models", EasyML::Engine.root)
+        Dir.glob(
+          File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)
+        ).each do |file|
+          require file
+        end
       end
     end
   end

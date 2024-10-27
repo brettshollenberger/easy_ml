@@ -29,7 +29,7 @@ RSpec.describe EasyML::Models do
       verbose: false,
       drop_if_null: ["loan_purpose"],
       drop_cols: %w[business_name state],
-      datasource: df,
+      datasource: EasyML::Data::Datasource::PolarsDatasource.new(df: df),
       target: target,
       preprocessing_steps: preprocessing_steps,
       splitter: {

@@ -112,7 +112,7 @@ RSpec.describe EasyML::Data::Dataset do
 
     describe "#initialize" do
       it "sets up the dataset with correct attributes" do
-        file_spec do |_csv_file, _parquet_file|
+        file_spec do |_, _csv_file, _parquet_file|
           dataset.cleanup
           dataset.refresh!
 
@@ -320,7 +320,7 @@ RSpec.describe EasyML::Data::Dataset do
       describe "Splitting raw data into files" do
         describe "#refresh!" do
           it "splits the data into train, valid, and test chunks" do
-            file_spec do |_csv_file, parquet_file|
+            file_spec do |_, _csv_file, parquet_file|
               expect(dataset).to receive(:split_data).and_call_original
               dataset.refresh!
               expect(dataset.datasource.files.map(&:to_s)).to eq([parquet_file.to_s])
@@ -336,7 +336,7 @@ RSpec.describe EasyML::Data::Dataset do
           end
 
           it "normalizes the final dataset (including removing rows w/ columns that can't be null)" do
-            file_spec do |_csv_file, _parquet_file|
+            file_spec do |_, _csv_file, _parquet_file|
               dataset.refresh!
 
               train_df = dataset.train
@@ -352,7 +352,7 @@ RSpec.describe EasyML::Data::Dataset do
 
         describe "#sync" do
           it "syncs the s3 directory before returning data" do
-            file_spec do |_csv_file, _parquet_file|
+            file_spec do |_, _csv_file, _parquet_file|
               allow_any_instance_of(s3_datasource).to receive(:refresh!).and_call_original
               expect(dataset.datasource.synced_directory).to receive(:sync!)
               dataset.refresh!
@@ -363,7 +363,7 @@ RSpec.describe EasyML::Data::Dataset do
 
       describe "Preprocessing steps" do
         it "Automatically manages preprocessing steps, and separates raw from processed data" do
-          file_spec do |_csv_file, _parquet_file|
+          file_spec do |_, _csv_file, _parquet_file|
             dataset.refresh!
 
             dataset.train

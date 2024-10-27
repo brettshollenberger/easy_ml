@@ -38,33 +38,35 @@ RSpec.describe EasyML::Datasource do
   describe "S3 Datasource" do
     it "saves and loads the s3 datasource" do
       path = SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files")
-      synced_directory = EasyML::Support::SyncedDirectory
-      s3_datasource = EasyML::Data::Datasource::S3Datasource
+      file_spec do |_, csv_file, _|
+        synced_directory = EasyML::Support::SyncedDirectory
+        s3_datasource = EasyML::Data::Datasource::S3Datasource
 
-      allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
-      allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
-      allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
-      allow_any_instance_of(s3_datasource).to receive(:refresh!).and_return(true)
+        allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
+        allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
+        allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
+        allow_any_instance_of(s3_datasource).to receive(:refresh!).and_return(true)
 
-      s3_datasource = EasyML::Datasource.create!(
-        name: "s3 Datasource",
-        datasource_type: :s3,
-        root_dir: path,
-        s3_bucket: "bucket",
-        s3_prefix: "raw",
-        s3_access_key_id: "12345",
-        s3_secret_access_key: "12345"
-      )
+        s3_datasource = EasyML::Datasource.create!(
+          name: "s3 Datasource",
+          datasource_type: :s3,
+          root_dir: path,
+          s3_bucket: "bucket",
+          s3_prefix: "raw",
+          s3_access_key_id: "12345",
+          s3_secret_access_key: "12345"
+        )
 
-      datasource = EasyML::Datasource.find(s3_datasource.id)
-      expect(datasource.datasource_service.s3_bucket).to eq "bucket"
-      expect(datasource.data).to eq(Polars.read_csv(path.join("raw/file.csv")))
+        datasource = EasyML::Datasource.find(s3_datasource.id)
+        expect(datasource.datasource_service.s3_bucket).to eq "bucket"
+        expect(datasource.data).to eq(Polars.read_csv(csv_file))
+      end
     end
   end
 
   describe "File Datasource" do
     it "saves and loads the file datasource" do
-      file_spec do |_csv_file, parquet_file|
+      file_spec do |root_dir, _csv_file, parquet_file|
         polars_args = {
           dtypes: {
             'id': "i64",
@@ -78,7 +80,7 @@ RSpec.describe EasyML::Datasource do
         file_datasource = EasyML::Datasource.create!(
           name: "File Datasource",
           datasource_type: :file,
-          root_dir: path,
+          root_dir: root_dir,
           polars_args: polars_args
         )
 
@@ -88,7 +90,7 @@ RSpec.describe EasyML::Datasource do
         df = Polars.read_parquet(parquet_file)
 
         datasource = EasyML::Datasource.find(file_datasource.id)
-        expect(datasource.datasource_service.root_dir).to eq path.to_s
+        expect(datasource.datasource_service.root_dir).to eq root_dir.to_s
         expect(datasource.data).to eq df
       end
     end

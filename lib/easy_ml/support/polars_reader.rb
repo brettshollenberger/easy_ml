@@ -22,7 +22,11 @@ module EasyML
     end
 
     def files
-      Dir.glob(File.join(root_dir, "**/*.{csv,parquet}"))
+      if parquet_files.any?
+        parquet_files
+      else
+        csv_files
+      end
     end
 
     private
@@ -49,20 +53,36 @@ module EasyML
       polars_args.select { |k, _| supported_params.include?(k) }
     end
 
+    def csv_files
+      Dir.glob(File.join(root_dir, "**/*.{csv}"))
+    end
+
+    def parquet_files
+      Dir.glob(File.join(parquet_dir, "**/*.{parquet}"))
+    end
+
+    def parquet_dir
+      converted_dir = Pathname.new(root_dir).join("parquet")
+      FileUtils.mkdir_p(converted_dir)
+      converted_dir
+    end
+
     def convert_to_parquet
       return files if all_parquet?
 
       puts "Converting to Parquet..."
 
-      Parallel.each(files, in_threads: 8) do |path|
+      Parallel.each(csv_files, in_threads: 8) do |path|
         puts path
         df = read_file(path)
         df = cast(df)
         orig_path = path.dup
+        filename = Pathname.new(path).basename
         ext = Pathname.new(path).extname.gsub(/\./, "")
-        path = path.gsub(Regexp.new(ext), "parquet")
+        filename = filename.to_s.gsub(Regexp.new(ext), "parquet")
+        path = parquet_dir.join(filename).to_s
         df.write_parquet(path)
-        FileUtils.rm(orig_path)
+        FileUtils.rm(orig_path) unless Rails.env.test?
       end
     end
 

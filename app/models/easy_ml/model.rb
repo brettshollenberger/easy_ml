@@ -7,7 +7,6 @@
 #  model_type    :string
 #  status        :string
 #  dataset_id    :bigint
-#  model_file_id :bigint
 #  configuration :json
 #  version       :string           not null
 #  root_dir      :string

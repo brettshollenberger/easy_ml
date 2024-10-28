@@ -64,6 +64,7 @@ module EasyML
         @study = Optuna::Study.new(direction: direction)
         @results = []
         model.task = task
+        model.dataset.refresh
         x_true, y_true = model.dataset.test(split_ys: true)
         tune_started_at = EST.now
         adapter = pick_adapter.new(model: model, config: config, tune_started_at: tune_started_at, y_true: y_true,

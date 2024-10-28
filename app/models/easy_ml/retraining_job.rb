@@ -1,3 +1,19 @@
+# == Schema Information
+#
+# Table name: easy_ml_retraining_jobs
+#
+#  id           :bigint           not null, primary key
+#  model        :string           not null
+#  frequency    :string           not null
+#  at           :integer          not null
+#  tuner_config :json
+#  active       :boolean          default(TRUE)
+#  status       :string           default("pending")
+#  last_run_at  :datetime
+#  locked_at    :datetime
+#  created_at   :datetime         not null
+#  updated_at   :datetime         not null
+#
 module EasyML
   class RetrainingJob < ActiveRecord::Base
     self.table_name = "easy_ml_retraining_jobs"
@@ -5,7 +21,9 @@ module EasyML
     has_many :retraining_runs, dependent: :destroy
     has_many :tuner_jobs, through: :retraining_runs
 
-    validates :model, presence: true
+    validates :model, presence: true,
+                      uniqueness: { message: "already has a retraining job" }
+    validate :model_must_exist
     validates :frequency, presence: true, inclusion: { in: %w[hour day week month] }
     validates :status, presence: true
     validates :at, presence: true,
@@ -81,5 +99,12 @@ module EasyML
     end
 
     LOCK_TIMEOUT = 6.hours
+
+    def model_must_exist
+      return if model.blank?
+      return if EasyML::Model.where(name: model).inference.exists?
+
+      errors.add(:model, "does not exist or is not in inference state")
+    end
   end
 end

@@ -11,6 +11,7 @@ gem "aws-sdk", "~> 3.1"
 gem "glue_gun_dsl", path: "/Users/brettshollenberger/programming/glue_gun_dsl"
 gem "rake", "~> 13.0"
 gem "rubocop", "~> 1.21"
+gem "sidekiq"
 gem "wandb", "~> 0.1.8"
 gem "xgb", "~> 0.9.0"
 

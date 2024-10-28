@@ -17,7 +17,7 @@ module EasyML
           attribute :x_true
 
           def run_trial(trial)
-            config = deep_merge_defaults(self.config.clone)
+            config = deep_merge_defaults(self.config.clone.deep_symbolize_keys)
             suggest_parameters(trial, config)
             model.fit
             yield model
@@ -38,7 +38,7 @@ module EasyML
           end
 
           def deep_merge_defaults(config)
-            defaults.deep_merge(config) do |_key, default_value, config_value|
+            defaults.deep_symbolize_keys.deep_merge(config.deep_symbolize_keys) do |_key, default_value, config_value|
               if default_value.is_a?(Hash) && config_value.is_a?(Hash)
                 default_value.merge(config_value)
               else

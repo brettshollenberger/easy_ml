@@ -1,65 +1,129 @@
 require "spec_helper"
+require "support/model_spec_helper"
 
 RSpec.describe EasyML::RetrainingRun do
-  let(:retraining_job) do
-    EasyML::RetrainingJob.create!(
-      model: "test_model",
-      frequency: "day",
-      at: 2,
-      active: true
+  include ModelSpecHelper
+  let(:root_dir) do
+    Rails.root
+  end
+
+  let(:datasource) do
+    EasyML::Datasource.create(
+      name: "Polars Datasource",
+      datasource_type: :polars,
+      df: df
     )
   end
 
-  describe "associations" do
-    let(:run) { described_class.new(retraining_job: retraining_job, status: "pending") }
+  let(:dataset) do
+    dataset_config[:datasource] = datasource
+    EasyML::Dataset.create(
+      name: "Dataset",
+      **dataset_config
+    )
+  end
 
-    it "belongs to retraining job" do
-      expect(run.retraining_job).to eq(retraining_job)
-    end
-
-    it "can belong to tuner job" do
-      tuner_job = EasyML::TunerJob.create!(
-        config: { test: true },
-        model_id: 1
-      )
-      run.tuner_job = tuner_job
-      expect(run.tuner_job).to eq(tuner_job)
+  let(:model_name) do
+    "My Model"
+  end
+  let(:model) do
+    model_config[:name] = model_name
+    model_config[:task] = "regression"
+    EasyML::Model.create(**model_config).tap do |model|
+      model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
+      model.save
+      model.promote
     end
   end
 
-  describe "callbacks" do
-    describe "after_create" do
-      it "updates retraining job last_run_at" do
-        Timecop.freeze do
-          expect do
-            described_class.create!(
-              retraining_job: retraining_job,
-              status: "pending"
-            )
-          end.to change { retraining_job.reload.last_run_at }.to(Time.current)
-        end
-      end
+  let(:retraining_job) do
+    EasyML::RetrainingJob.create!(
+      model: model.name,
+      frequency: "day",
+      at: 2,
+      active: true,
+      tuner_config: {
+        n_trials: 5,
+        objective: :mean_absolute_error,
+        config: {
+          learning_rate: { min: 0.01, max: 0.1 },
+          n_estimators: { min: 1, max: 2 },
+          max_depth: { min: 1, max: 5 }
+        }
+      }
+    )
+  end
+
+  let(:retraining_run) do
+    described_class.create!(
+      retraining_job: retraining_job,
+      status: "pending"
+    )
+  end
+
+  describe "validations" do
+    it "validates status inclusion" do
+      run = described_class.new(retraining_job: retraining_job, status: "invalid")
+      expect(run).not_to be_valid
+      expect(run.errors[:status]).to include("is not included in the list")
     end
   end
 
-  describe "status enum" do
-    it "defines the correct statuses" do
-      expect(described_class.statuses).to eq({
-                                               "pending" => "pending",
-                                               "running" => "running",
-                                               "completed" => "completed",
-                                               "failed" => "failed"
-                                             })
+  describe "#perform_retraining!" do
+    it "performs retraining with tuner config" do
+      expect(EasyML::Orchestrator).to receive(:train)
+        .with(model.name, tuner: retraining_job.tuner_config)
+        .and_call_original
+
+      expect(retraining_run.perform_retraining!).to be true
+      expect(retraining_run.reload).to be_completed
+      expect(retraining_run.completed_at).to be_present
+      expect(retraining_job.reload.last_run_at).to be_present
     end
 
-    it "allows setting valid statuses" do
-      run = described_class.new(retraining_job: retraining_job, status: "pending")
-      expect(run).to be_valid
+    it "performs retraining without tuner config" do
+      retraining_job.update!(tuner_config: nil)
 
-      described_class.statuses.each_key do |status|
-        run.status = status
-        expect(run).to be_valid
-      end
+      expect(EasyML::Orchestrator).to receive(:train)
+        .with(model.name)
+        .and_call_original
+
+      expect(retraining_run.perform_retraining!).to be true
+      expect(retraining_run.reload).to be_completed
+    end
+
+    it "handles errors during retraining" do
+      allow(EasyML::Orchestrator).to receive(:train).and_raise("Test error")
+
+      expect(retraining_run.perform_retraining!).to be false
+      expect(retraining_run.reload).to be_failed
+      expect(retraining_run.error_message).to eq("Test error")
+    end
+
+    it "doesn't perform retraining if not pending" do
+      retraining_run.update!(status: "completed")
+      expect(retraining_run.perform_retraining!).to be false
+    end
+  end
+
+  describe "status helpers" do
+    it "provides status helper methods" do
+      run = described_class.new(status: "pending")
+      expect(run).to be_pending
+      expect(run).not_to be_completed
+
+      run.status = "completed"
+      expect(run).to be_completed
+      expect(run).not_to be_pending
+
+      run.status = "failed"
+      expect(run).to be_failed
+      expect(run).not_to be_completed
+
+      run.status = "running"
+      expect(run).to be_running
+      expect(run).not_to be_completed
     end
   end
 end

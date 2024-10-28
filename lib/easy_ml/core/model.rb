@@ -1,5 +1,4 @@
 require "carrierwave"
-require_relative "uploaders/model_uploader"
 
 module EasyML
   module Core

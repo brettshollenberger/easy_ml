@@ -1,8 +1,15 @@
-# test:
-#   adapter:  sqlite3
-#   database: db/easy_ml_test.sqlite
-
-
 test:
   adapter: postgresql
   database: easy_ml_test
+  host: localhost
+  port: 5432
+  pool: 5
+  timeout: 5000
+
+development:
+  adapter: postgresql
+  database: easy_ml_test
+  host: localhost
+  port: 5432
+  pool: 5
+  timeout: 5000

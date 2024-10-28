@@ -18,5 +18,9 @@ module EasyML
     service :polars, EasyML::Data::Datasource::PolarsDatasource
     service :s3, EasyML::Data::Datasource::S3Datasource
     service :file, EasyML::Data::Datasource::FileDatasource
+
+    validates :name, presence: true
+    validates :datasource_type, presence: true
+    validates :datasource_type, inclusion: { in: %w[polars s3 file] }
   end
 end

@@ -1,39 +1,33 @@
+require "singleton"
+
 module EasyML
   class Orchestrator
-    attr_accessor :model, :tuner, :dataset, :tune_every
+    include Singleton
 
-    def initialize(options = {})
-      @tuner = options.dig(:tuner)
-      @model = options.dig(:model)
-      @dataset = options.dig(:dataset)
-      @tune_every = options.dig(:tune_every) || 1.week
+    attr_reader :models
 
-      raise "Tuner required" unless tuner.present?
-      raise "Model required" unless model.present?
-      raise "Dataset required" unless dataset.present?
-
-      @model = @model.class.where(name: @model.name).live&.first || @model
-      @model.dataset = @dataset
-      @model.dataset.preprocessor.statistics = @model.statistics if @model.is_live
+    def initialize
+      @models = {}
     end
 
-    def train
-      dataset.refresh
-      # best_params = tuner.tune
-      # best_params.each do |k, v|
-      #   model.hyperparameters.send("#{k}=", v)
-      # end
-      model.fit
-      binding.pry
-      model.save
+    def self.predict(model_name, df)
+      instance.predict(model_name, df)
     end
 
-    def predict(xs)
-      model.predict(features(xs))
+    def predict(model_name, df)
+      ensure_model_loaded(model_name)
+      models[model_name].predict(df)
     end
 
-    def features(df)
-      dataset.normalize(df, split_ys: true)
+    private
+
+    def ensure_model_loaded(model_name)
+      current_model = EasyML::Model.find_by!(name: model_name, status: :inference)
+
+      # Load new model if not loaded or different version
+      return unless models[model_name].nil? || models[model_name].id != current_model.id
+
+      models[model_name] = current_model
     end
   end
 end

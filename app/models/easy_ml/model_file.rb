@@ -41,7 +41,7 @@ module EasyML
     end
 
     def relative_dir
-      base_path = root_dir.split(Regexp.new(Rails.root.to_s)).last&.split("/")&.reject(&:empty?)&.join("/") || ""
+      base_path = root_dir.gsub(Regexp.new(Rails.root.to_s), "")
       path = File.join(base_path, store_dir)
       path.gsub!(%r{^/}, "")
       path

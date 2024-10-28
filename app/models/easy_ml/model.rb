@@ -69,6 +69,7 @@ module EasyML
       # Only save new model file updates if the file is in training,
       # NO UPDATES to production inference models!
       if training?
+        load_model_file
         full_path = model_file.full_path(version)
         full_path = model_service.save_model_file(full_path)
         model_file.upload(full_path)
@@ -91,8 +92,31 @@ module EasyML
     def loaded?
       return false unless File.exist?(get_model_file.full_path.to_s)
 
-      load_model_file unless model_service.loaded?
+      load_model_file
       model_service.loaded?
+    end
+
+    def fork
+      dup.tap do |new_model|
+        new_model.status = :training
+        new_model.version = generate_version_string
+        new_model.model_file = nil
+        new_model.save
+      end
+    end
+
+    def promotable?
+      cannot_promote_reasons.none?
+    end
+
+    def cannot_promote_reasons
+      [
+        fit? ? nil : "Model has not been trained"
+      ].compact
+    end
+
+    def fit?
+      model_service.fit? || (model_file.present? && model_file.fit?)
     end
 
     private
@@ -125,7 +149,9 @@ module EasyML
     end
 
     def load_model_file
-      model_service.load(get_model_file.full_path.to_s)
+      return if model_service.loaded?
+
+      model_service.load(get_model_file.full_path.to_s) if File.exist?(get_model_file.full_path.to_s)
     end
 
     def download_model_file(force: false)
@@ -135,13 +161,6 @@ module EasyML
 
       get_model_file.download
     end
-
-    # def self.without_file_download
-    #   skip_callback(:find, :after, :load_model)
-    #   result = yield
-    #   set_callback(:find, :after, :load_model, prepend: true) # Prepend ensures we run GlueGun::Model#deserialize_service_object first!
-    #   result
-    # end
 
     def files_to_keep
       live_models = self.class.inference
@@ -160,8 +179,7 @@ module EasyML
                             .order(created_at: :desc)
                             .group_by(&:name)
                             .flat_map { |_, models| models.take(5) }
-
-      ([self] + recent_versions + recent_copies + live_models).compact.map(&:model_file).map(&:full_path).uniq
+      ([self] + recent_versions + recent_copies + live_models).compact.map(&:model_file).compact.map(&:full_path).uniq
     end
 
     def generate_version_string

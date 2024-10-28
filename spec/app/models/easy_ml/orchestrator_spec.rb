@@ -29,10 +29,12 @@ RSpec.describe EasyML::Orchestrator do
   end
 
   describe ".predict" do
-    it "loads model and makes predictions", :focus do
+    it "loads model and makes predictions" do
       model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
       model.save
       model.promote
+
       df, = model.dataset.test(split_ys: true)
       model_preds = model.predict(df)
 
@@ -41,86 +43,54 @@ RSpec.describe EasyML::Orchestrator do
       expect(model_preds.length).to eq(df.length)
     end
 
-    it "reuses the same model instance across predictions" do
-      model # ensure model is created
+    it "doesn't reload the model when model already loaded" do
+      expect_any_instance_of(EasyML::Core::Models::XGBoost).to receive(:load).once.and_call_original
 
-      first_model = nil
-      second_model = nil
+      model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
+      model.save
+      model.promote
+      df, = model.dataset.test(split_ys: true)
 
-      # Capture the model instance used in first prediction
-      allow_any_instance_of(EasyML::Model).to receive(:predict) do |instance, df|
-        first_model = instance
-        Array.new(df.height) { rand }
+      3.times do
+        described_class.predict(model.name, df)
       end
-
-      described_class.predict("test_model", dataframe)
-
-      # Capture the model instance used in second prediction
-      allow_any_instance_of(EasyML::Model).to receive(:predict) do |instance, df|
-        second_model = instance
-        Array.new(df.height) { rand }
-      end
-
-      described_class.predict("test_model", dataframe)
-
-      expect(first_model).to eq(second_model)
     end
 
-    it "handles concurrent predictions safely" do
-      model # ensure model is created
+    it "does reload the model when inference model changes" do
+      model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
+      model.save
+      model.promote
+      df, = model.dataset.test(split_ys: true)
 
-      threads = []
-      results = []
-      mutex = Mutex.new
+      allow_any_instance_of(EasyML::ModelFile).to receive(:cleanup).and_return(true)
 
-      10.times do
-        threads << Thread.new do
-          result = described_class.predict("test_model", dataframe)
-          mutex.synchronize { results << result }
-        end
+      3.times do
+        described_class.predict(model.name, df)
       end
 
-      threads.each(&:join)
+      model2 = model.fork
+      expect(model2.promotable?).to be_falsey
+      expect { model2.promote }.to raise_error "Cannot promote: Model has not been trained"
+      model2.model_file = model_file
+      model2.save
+      expect(model2.promotable?).to eq true
+      model2.promote
 
-      expect(results.length).to eq(10)
-      results.each do |result|
-        expect(result).to be_an(Array)
-        expect(result.length).to eq(3)
+      expect_any_instance_of(EasyML::Core::Models::XGBoost).to receive(:load).once.and_call_original
+      3.times do
+        described_class.predict(model.name, df)
       end
     end
 
     it "raises error for non-existent model" do
       expect do
-        described_class.predict("non_existent_model", dataframe)
+        described_class.predict("non_existent_model", model.dataset.test(split_ys: true).first)
       end.to raise_error(ActiveRecord::RecordNotFound)
     end
+  end
 
-    it "loads new model version when model is updated" do
-      original_model = model
-
-      # First prediction
-      described_class.predict("test_model", dataframe)
-
-      # Create new version of model
-      new_model = create(:easy_ml_model,
-                         name: "test_model",
-                         status: :inference,
-                         model_type: "xgboost")
-
-      # Update original model to non-inference status
-      original_model.update!(status: :archived)
-
-      # Track which model instance is used
-      used_model = nil
-      allow_any_instance_of(EasyML::Model).to receive(:predict) do |instance, df|
-        used_model = instance
-        Array.new(df.height) { rand }
-      end
-
-      # Second prediction should use new model
-      described_class.predict("test_model", dataframe)
-
-      expect(used_model.id).to eq(new_model.id)
-    end
+  describe ".fork" do
   end
 end

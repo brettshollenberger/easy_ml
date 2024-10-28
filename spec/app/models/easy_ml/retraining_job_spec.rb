@@ -21,6 +21,13 @@ RSpec.describe EasyML::RetrainingJob do
   end
 
   describe "validations" do
+    before do
+      # Mock the model existence check
+      allow(EasyML::Model).to receive_message_chain(:where, :inference, :exists?)
+        .with(name: "test_model")
+        .and_return(true)
+    end
+
     it "requires model" do
       job = described_class.new(valid_attributes.except(:model))
       expect(job).not_to be_valid
@@ -53,6 +60,33 @@ RSpec.describe EasyML::RetrainingJob do
       job = described_class.new(valid_attributes.merge(at: -1))
       expect(job).not_to be_valid
       expect(job.errors[:at]).to include("must be greater than or equal to 0")
+    end
+
+    it "validates model uniqueness" do
+      described_class.create!(valid_attributes)
+      duplicate_job = described_class.new(valid_attributes)
+
+      expect(duplicate_job).not_to be_valid
+      expect(duplicate_job.errors[:model]).to include("already has a retraining job")
+    end
+
+    it "validates model existence and state" do
+      allow(EasyML::Model).to receive_message_chain(:where, :inference, :exists?)
+        .with(name: "nonexistent_model")
+        .and_return(false)
+
+      job = described_class.new(valid_attributes.merge(model: "nonexistent_model"))
+      expect(job).not_to be_valid
+      expect(job.errors[:model]).to include("does not exist or is not in inference state")
+    end
+
+    it "is valid when model exists and is in inference state" do
+      allow(EasyML::Model).to receive_message_chain(:where, :inference, :exists?)
+        .with(name: "test_model")
+        .and_return(true)
+
+      job = described_class.new(valid_attributes)
+      expect(job).to be_valid
     end
   end
 

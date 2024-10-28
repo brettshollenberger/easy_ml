@@ -1,3 +1,18 @@
+# == Schema Information
+#
+# Table name: easy_ml_tuner_jobs
+#
+#  id                :bigint           not null, primary key
+#  config            :json             not null
+#  best_tuner_run_id :bigint
+#  model_id          :bigint           not null
+#  status            :string
+#  direction         :string           default("minimize")
+#  started_at        :datetime
+#  completed_at      :datetime
+#  created_at        :datetime         not null
+#  updated_at        :datetime         not null
+#
 module EasyML
   class TunerJob < ActiveRecord::Base
     self.table_name = "easy_ml_tuner_jobs"

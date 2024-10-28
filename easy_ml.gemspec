@@ -36,6 +36,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "pycall"
   spec.add_runtime_dependency "rails"
   spec.add_runtime_dependency "red-optuna"
+  spec.add_runtime_dependency "sidekiq"
   spec.add_runtime_dependency "wandb", "~> 0.1.6"
   spec.add_runtime_dependency "xgb"
 
@@ -47,5 +48,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "ostruct"
   spec.add_development_dependency "pry"
   spec.add_development_dependency "rspec", "~> 3.0"
+  spec.add_development_dependency "rspec-sidekiq"
   spec.add_development_dependency "timecop"
 end

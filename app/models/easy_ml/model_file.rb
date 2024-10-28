@@ -2,12 +2,14 @@
 #
 # Table name: easy_ml_model_files
 #
-#  id            :bigint           not null, primary key
-#  filename      :string           not null
-#  path          :string           not null
-#  configuration :json
-#  created_at    :datetime         not null
-#  updated_at    :datetime         not null
+#  id              :bigint           not null, primary key
+#  filename        :string           not null
+#  model_file_type :string           not null
+#  path            :string           not null
+#  model_id        :bigint
+#  configuration   :json
+#  created_at      :datetime         not null
+#  updated_at      :datetime         not null
 #
 require_relative "concerns/statuses"
 

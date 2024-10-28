@@ -17,7 +17,6 @@ module EasyML
     self.table_name = "easy_ml_retraining_runs"
 
     belongs_to :retraining_job
-    has_one :tuner_job, dependent: :destroy
 
     validates :status, presence: true, inclusion: { in: %w[pending running completed failed] }
 
@@ -27,12 +26,13 @@ module EasyML
       begin
         update!(status: "running", started_at: Time.current)
 
-        # Train with tuner config if present
-        training_model = if retraining_job.tuner_config.present?
-                           Orchestrator.train(retraining_job.model, tuner: retraining_job.tuner_config)
-                         else
-                           Orchestrator.train(retraining_job.model)
-                         end
+        # Only use tuner if tuning frequency has been met
+        if should_tune?
+          training_model = Orchestrator.train(retraining_job.model, tuner: retraining_job.tuner_config)
+          retraining_job.update!(last_tuning_at: Time.current)
+        else
+          training_model = Orchestrator.train(retraining_job.model)
+        end
 
         # Promote the model if training was successful
         training_model.promote if training_model.promotable?
@@ -69,6 +69,12 @@ module EasyML
 
     def running?
       status == "running"
+    end
+
+    private
+
+    def should_tune?
+      retraining_job.tuner_config.present? && retraining_job.should_tune?
     end
   end
 end

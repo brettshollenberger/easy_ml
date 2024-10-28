@@ -8,12 +8,14 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
       t.boolean :active, default: true
       t.string :status, default: "pending"
       t.datetime :last_run_at
+      t.datetime :locked_at
 
       t.timestamps
 
       t.index :model
       t.index :active
       t.index :last_run_at
+      t.index :locked_at
     end
 
     create_table :easy_ml_retraining_runs do |t|

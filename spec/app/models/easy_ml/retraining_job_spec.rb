@@ -15,7 +15,8 @@ RSpec.describe EasyML::RetrainingJob do
           n_estimators: { min: 1, max: 2 },
           max_depth: { min: 1, max: 5 }
         }
-      }
+      },
+      locked_at: nil
     }
   end
 
@@ -69,6 +70,44 @@ RSpec.describe EasyML::RetrainingJob do
     end
   end
 
+  describe "locking" do
+    let(:job) { described_class.create!(valid_attributes) }
+
+    describe "#locked?" do
+      it "returns false when not locked" do
+        expect(job.locked?).to be false
+      end
+
+      it "returns true when locked" do
+        job.update!(locked_at: Time.current)
+        expect(job.locked?).to be true
+      end
+
+      it "returns false when lock has expired" do
+        job.update!(locked_at: 7.hours.ago)
+        expect(job.locked?).to be false
+      end
+    end
+
+    describe "#lock!" do
+      it "sets locked_at timestamp" do
+        expect { job.lock! }.to change { job.locked_at }.from(nil)
+      end
+
+      it "returns false if already locked" do
+        job.lock!
+        expect(job.lock!).to be false
+      end
+    end
+
+    describe "#unlock!" do
+      it "clears locked_at timestamp" do
+        job.lock!
+        expect { job.unlock! }.to change { job.locked_at }.to(nil)
+      end
+    end
+  end
+
   describe ".current" do
     let!(:inactive_job) do
       described_class.create!(valid_attributes.merge(active: false))
@@ -91,11 +130,33 @@ RSpec.describe EasyML::RetrainingJob do
       allow_any_instance_of(EasyML::RetrainingJob).to receive(:should_run?).and_return(false)
       expect(described_class.current).not_to include(active_job)
     end
+
+    it "excludes locked jobs" do
+      active_job.update!(locked_at: Time.current)
+      expect(described_class.current).not_to include(active_job)
+    end
+
+    it "includes jobs with expired locks" do
+      active_job.update!(locked_at: 7.hours.ago)
+      allow(active_job).to receive(:should_run?).and_return(true)
+      expect(described_class.current).to include(active_job)
+    end
   end
 
   describe "#should_run?" do
     let(:job) { described_class.create!(valid_attributes.merge(frequency: frequency, at: at)) }
     let(:at) { 2 }
+    let(:frequency) { "day" } # Add this default frequency
+
+    context "when job is locked" do
+      before do
+        job.update!(locked_at: Time.current)
+      end
+
+      it "returns false" do
+        expect(job.should_run?).to be false
+      end
+    end
 
     context "when job has never run" do
       let(:frequency) { "day" }

@@ -14,14 +14,22 @@ module EasyML
                                    less_than: 24 }
 
     scope :active, -> { where(active: true) }
+    scope :locked, lambda {
+      where("locked_at IS NOT NULL AND locked_at > ?", LOCK_TIMEOUT.ago)
+    }
+
+    scope :unlocked, lambda {
+      where("locked_at IS NULL OR locked_at <= ?", LOCK_TIMEOUT.ago)
+    }
 
     def self.current
-      active.select do |job|
+      active.unlocked.select do |job|
         job.should_run?
       end
     end
 
     def should_run?
+      return false if locked?
       return true if last_run_at.nil?
 
       current_time = Time.current
@@ -39,6 +47,23 @@ module EasyML
       end
     end
 
+    def locked?
+      return false if locked_at.nil?
+      return false if locked_at < LOCK_TIMEOUT.ago
+
+      true
+    end
+
+    def lock!
+      return false if locked?
+
+      update!(locked_at: Time.current)
+    end
+
+    def unlock!
+      update!(locked_at: nil)
+    end
+
     private
 
     def current_period_start
@@ -54,5 +79,7 @@ module EasyML
         current_time.beginning_of_month
       end
     end
+
+    LOCK_TIMEOUT = 6.hours
   end
 end

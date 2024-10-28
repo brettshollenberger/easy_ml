@@ -64,7 +64,7 @@ module EasyML
     def save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless fit?
 
-      self.model_file = get_model_file
+      model_file = get_model_file
 
       # Only save new model file updates if the file is in training,
       # NO UPDATES to production inference models!
@@ -101,6 +101,7 @@ module EasyML
       model_file || build_model_file(
         root_dir: root_dir,
         model: self,
+        model_file_type: EasyML::Configuration.storage.to_sym,
         s3_bucket: EasyML::Configuration.s3_bucket,
         s3_region: EasyML::Configuration.s3_region,
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,

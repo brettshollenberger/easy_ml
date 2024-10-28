@@ -29,8 +29,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "activesupport"
   spec.add_runtime_dependency "awesome_print"
   spec.add_runtime_dependency "carrierwave", ">= 2.0", "< 4"
-  spec.add_runtime_dependency "fog", "~> 1.42"
-  spec.add_runtime_dependency "fog-aws", "~> 2.0"
   spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.19"
   spec.add_runtime_dependency "numo-narray"
   spec.add_runtime_dependency "parallel"
@@ -49,4 +47,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "ostruct"
   spec.add_development_dependency "pry"
   spec.add_development_dependency "rspec", "~> 3.0"
+  spec.add_development_dependency "timecop"
 end

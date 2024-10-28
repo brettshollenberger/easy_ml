@@ -14,13 +14,10 @@ gem "rubocop", "~> 1.21"
 gem "wandb", "~> 0.1.8"
 gem "xgb", "~> 0.9.0"
 
-group :test do
-  gem "activerecord"
+group :development, :test do
   gem "combustion"
-  gem "rspec", "~> 3.0"
-  gem "rspec-rails"
-  # gem "sqlite3", "~> 1.4"
   gem "database_cleaner-active_record"
+  gem "factory_bot_rails"
   gem "pg"
-  gem "timecop"
+  gem "rspec-rails"
 end

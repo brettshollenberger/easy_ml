@@ -18,6 +18,10 @@ module EasyML
       instance.fork(model_name)
     end
 
+    def self.train(model_name, tuner: nil)
+      instance.train(model_name, tuner: tuner)
+    end
+
     def predict(model_name, df)
       ensure_model_loaded(model_name)
       models[model_name].predict(df)
@@ -31,6 +35,34 @@ module EasyML
       # If no training model exists, fork the inference model
       inference_model = EasyML::Model.find_by!(name: model_name, status: :inference)
       inference_model.fork
+    end
+
+    def train(model_name, tuner: nil)
+      training_model = fork(model_name)
+
+      if tuner
+        # Configure tuner with model and dataset
+        tuner.model = training_model
+        adapter = case tuner.model.model_type.to_sym
+                  when :xgboost
+                    EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
+                  end
+        tuner.adapter = adapter
+        tuner.dataset = training_model.dataset
+
+        # Run hyperparameter optimization
+        best_params = tuner.tune
+
+        # Update model configuration with best parameters
+        best_params.each do |key, value|
+          training_model.hyperparameters[key] = value
+        end
+        training_model.save
+      end
+
+      training_model.fit
+      training_model.save
+      training_model
     end
 
     private

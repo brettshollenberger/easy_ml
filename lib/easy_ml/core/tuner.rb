@@ -16,7 +16,7 @@ module EasyML
       attribute :n_trials, default: 100
       attr_accessor :study, :results
 
-      dependency :adapter, lazy: false do |dep|
+      dependency :adapter, lazy: true do |dep|
         dep.option :xgboost do |opt|
           opt.set_class Adapters::XGBoostAdapter
           opt.bind_attribute :model
@@ -28,7 +28,7 @@ module EasyML
 
         dep.when do |_dep|
           case model
-          when EasyML::Core::Models::XGBoost, EasyML::Models::XGBoost
+          when EasyML::Core::Models::XGBoost
             { option: :xgboost }
           end
         end

@@ -174,7 +174,7 @@ RSpec.describe EasyML::Orchestrator do
       model.save
       model.promote
 
-      tuner = EasyML::Core::Tuner.new(
+      tuner = {
         n_trials: 5,
         objective: :mean_absolute_error,
         config: {
@@ -182,13 +182,13 @@ RSpec.describe EasyML::Orchestrator do
           n_estimators: { min: 1, max: 2 },
           max_depth: { min: 1, max: 5 }
         }
-      )
+      }
 
-      expect(tuner).to receive(:tune).and_return({
-                                                   "learning_rate" => 0.05,
-                                                   "n_estimators" => 2,
-                                                   "max_depth" => 3
-                                                 })
+      expect_any_instance_of(EasyML::Core::Tuner).to receive(:tune).and_return({
+                                                                                 "learning_rate" => 0.05,
+                                                                                 "n_estimators" => 2,
+                                                                                 "max_depth" => 3
+                                                                               })
 
       training_model = described_class.train(model.name, tuner: tuner)
       expect(training_model.status).to eq "training"

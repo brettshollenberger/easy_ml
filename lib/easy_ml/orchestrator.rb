@@ -14,9 +14,23 @@ module EasyML
       instance.predict(model_name, df)
     end
 
+    def self.fork(model_name)
+      instance.fork(model_name)
+    end
+
     def predict(model_name, df)
       ensure_model_loaded(model_name)
       models[model_name].predict(df)
+    end
+
+    def fork(model_name)
+      # First try to find existing training model
+      training_model = EasyML::Model.find_by(name: model_name, status: :training)
+      return training_model if training_model.present?
+
+      # If no training model exists, fork the inference model
+      inference_model = EasyML::Model.find_by!(name: model_name, status: :inference)
+      inference_model.fork
     end
 
     private

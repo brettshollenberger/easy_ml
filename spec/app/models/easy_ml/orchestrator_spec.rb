@@ -25,6 +25,7 @@ RSpec.describe EasyML::Orchestrator do
 
   let(:model) do
     model_config[:name] = "My Model"
+    model_config[:task] = "regression"
     EasyML::Model.create(**model_config)
   end
 
@@ -134,6 +135,86 @@ RSpec.describe EasyML::Orchestrator do
       expect do
         described_class.fork("non_existent_model")
       end.to raise_error(ActiveRecord::RecordNotFound)
+    end
+  end
+
+  describe ".train" do
+    it "trains a forked model" do
+      model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
+      model.save
+      model.promote
+
+      training_model = described_class.train(model.name)
+      expect(training_model.status).to eq "training"
+      expect(training_model.fit?).to be true
+      expect(training_model.name).to eq model.name
+      expect(training_model.version).not_to eq model.version
+    end
+
+    it "uses existing training model if one exists" do
+      model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
+      model.save
+      model.promote
+
+      # Create a training model
+      training_model = model.fork
+      expect(training_model.status).to eq "training"
+
+      # Train should use existing training model
+      trained_model = described_class.train(model.name)
+      expect(trained_model).to eq training_model
+      expect(trained_model.fit?).to be true
+    end
+
+    it "accepts a tuner for hyperparameter optimization" do
+      model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
+      model.save
+      model.promote
+
+      tuner = EasyML::Core::Tuner.new(
+        n_trials: 5,
+        objective: :mean_absolute_error,
+        config: {
+          learning_rate: { min: 0.01, max: 0.1 },
+          n_estimators: { min: 1, max: 2 },
+          max_depth: { min: 1, max: 5 }
+        }
+      )
+
+      expect(tuner).to receive(:tune).and_return({
+                                                   "learning_rate" => 0.05,
+                                                   "n_estimators" => 2,
+                                                   "max_depth" => 3
+                                                 })
+
+      training_model = described_class.train(model.name, tuner: tuner)
+      expect(training_model.status).to eq "training"
+      expect(training_model.fit?).to be true
+      expect(training_model.hyperparameters["learning_rate"]).to eq 0.05
+      expect(training_model.hyperparameters["n_estimators"]).to eq 2
+      expect(training_model.hyperparameters["max_depth"]).to eq 3
+
+      model.model_file.cleanup([model.model_file.full_path]) # Keep only the original file
+    end
+
+    it "raises error for non-existent model" do
+      expect do
+        described_class.train("non_existent_model")
+      end.to raise_error(ActiveRecord::RecordNotFound)
+    end
+
+    it "raises error when trying to train an inference model directly" do
+      model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
+      model.save
+      model.promote
+
+      expect do
+        model.fit
+      end.to raise_error(RuntimeError, /Cannot train inference model/)
     end
   end
 end

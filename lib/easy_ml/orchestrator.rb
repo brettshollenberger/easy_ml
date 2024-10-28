@@ -41,17 +41,20 @@ module EasyML
       training_model = fork(model_name)
 
       if tuner
+        # Create tuner from config
+        tuner_instance = EasyML::Core::Tuner.new(tuner)
+
         # Configure tuner with model and dataset
-        tuner.model = training_model
-        adapter = case tuner.model.model_type.to_sym
+        tuner_instance.model = training_model
+        adapter = case tuner_instance.model.model_type.to_sym
                   when :xgboost
                     EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
                   end
-        tuner.adapter = adapter
-        tuner.dataset = training_model.dataset
+        tuner_instance.adapter = adapter
+        tuner_instance.dataset = training_model.dataset
 
         # Run hyperparameter optimization
-        best_params = tuner.tune
+        best_params = tuner_instance.tune
 
         # Update model configuration with best parameters
         best_params.each do |key, value|

@@ -216,5 +216,40 @@ RSpec.describe EasyML::Orchestrator do
         model.fit
       end.to raise_error(RuntimeError, /Cannot train inference model/)
     end
+
+    it "accepts tuner configuration for hyperparameter optimization" do
+      model.model_file = model_file
+      model.version = model_file.filename.gsub(/\.json/, "")
+      model.save
+      model.promote
+
+      tuner = {
+        n_trials: 5,
+        objective: :mean_absolute_error,
+        config: {
+          learning_rate: { min: 0.01, max: 0.1 },
+          n_estimators: { min: 1, max: 2 },
+          max_depth: { min: 1, max: 5 }
+        }
+      }
+
+      # Expect the tuner to be created with the config
+      expect(EasyML::Core::Tuner).to receive(:new).with(tuner).and_call_original
+      # Expect tune to be called and return some parameters
+      expect_any_instance_of(EasyML::Core::Tuner).to receive(:tune).and_return({
+                                                                                 "learning_rate" => 0.05,
+                                                                                 "n_estimators" => 2,
+                                                                                 "max_depth" => 3
+                                                                               })
+
+      training_model = described_class.train(model.name, tuner: tuner)
+      expect(training_model.status).to eq "training"
+      expect(training_model.fit?).to be true
+      expect(training_model.hyperparameters["learning_rate"]).to eq 0.05
+      expect(training_model.hyperparameters["n_estimators"]).to eq 2
+      expect(training_model.hyperparameters["max_depth"]).to eq 3
+
+      model.model_file.cleanup([model.model_file.full_path]) # Keep only the original file
+    end
   end
 end

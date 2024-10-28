@@ -132,6 +132,34 @@ module EasyML
           [@d_train, @d_valid, @d_test]
         end
 
+        def preprocess(xs, ys = nil)
+          orig_xs = xs.dup
+          column_names = xs.columns
+          xs = _preprocess(xs)
+          ys = ys.nil? ? nil : _preprocess(ys).flatten
+          kwargs = { label: ys }.compact
+          begin
+            ::XGBoost::DMatrix.new(xs, **kwargs).tap do |dmat|
+              dmat.feature_names = column_names
+            end
+          rescue StandardError => e
+            raise %(
+              Error building data for XGBoost. Consider preprocessing your
+              features. The error is:
+              >>>>><<<<<
+              #{e.message}
+              >>>>><<<<<
+              A sample of your dataset:
+              #{orig_xs[0..5]}
+              Which was normalized to:
+              #{xs[0..5]}
+
+              This may also be due to string-based targets, your targets:
+              #{ys[0..5]}
+            )
+          end
+        end
+
         private
 
         def booster_class
@@ -222,34 +250,6 @@ module EasyML
                 value.to_f # Ensure everything else is converted to a float
               end
             end
-          end
-        end
-
-        def preprocess(xs, ys = nil)
-          orig_xs = xs.dup
-          column_names = xs.columns
-          xs = _preprocess(xs)
-          ys = ys.nil? ? nil : _preprocess(ys).flatten
-          kwargs = { label: ys }.compact
-          begin
-            ::XGBoost::DMatrix.new(xs, **kwargs).tap do |dmat|
-              dmat.feature_names = column_names
-            end
-          rescue StandardError => e
-            raise %(
-              Error building data for XGBoost. Consider preprocessing your
-              features. The error is:
-              >>>>><<<<<
-              #{e.message}
-              >>>>><<<<<
-              A sample of your dataset:
-              #{orig_xs[0..5]}
-              Which was normalized to:
-              #{xs[0..5]}
-
-              This may also be due to string-based targets, your targets:
-              #{ys[0..5]}
-            )
           end
         end
 

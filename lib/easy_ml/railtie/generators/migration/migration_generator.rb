@@ -32,6 +32,7 @@ module EasyML
           create_easy_ml_datasets_migration
           create_easy_ml_models_migration
           create_easy_ml_model_files_migration
+          create_easy_ml_tuner_jobs_migration
         end
 
         private
@@ -62,6 +63,13 @@ module EasyML
           migration_template(
             "create_easy_ml_datasets.rb.tt",
             "db/migrate/create_easy_ml_datasets.rb"
+          )
+        end
+
+        def create_easy_ml_tuner_jobs_migration
+          migration_template(
+            "create_easy_ml_tuner_jobs.rb.tt",
+            "db/migrate/create_easy_ml_tuner_jobs.rb"
           )
         end
 

@@ -28,9 +28,12 @@ module EasyML
           end
 
           def suggest_parameters(trial, config)
-            defaults.keys.each do |param_name|
-              param_value = suggest_parameter(trial, param_name, config)
-              model.hyperparameters.send("#{param_name}=", param_value)
+            defaults.keys.inject({}) do |hash, param_name|
+              hash.tap do
+                param_value = suggest_parameter(trial, param_name, config)
+                model.hyperparameters.send("#{param_name}=", param_value)
+                hash[param_name] = param_value
+              end
             end
           end
 

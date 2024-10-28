@@ -33,28 +33,12 @@ module EasyML
     include GlueGun::Model
     service :xgboost, EasyML::Core::Models::XGBoost
 
-    # after_find :load_model
     after_initialize :check_model_status
     after_initialize :generate_version_string
     around_save :save_model_file, if: -> { fit? }
 
-    # before_save :save_statistics
-    # before_save :save_hyperparameters
-
-    # validates :task, inclusion: { in: %i[regression classification] }
-    # validates :task, presence: true
-    # validate :dataset_is_a_dataset?
-    # validate :validate_any_metrics?
-    # validate :validate_metrics_for_task
-
-    # def save_statistics
-    #   write_attribute(:statistics, dataset.statistics.deep_symbolize_keys)
-    # end
-
-    # def save_hyperparameters
-    #   binding.pry
-    #   write_attribute(:hyperparameters, hyperparameters.to_h)
-    # end
+    validates :task, inclusion: { in: %w[regression classification] }
+    validates :task, presence: true
 
     def predict(xs)
       load_model!
@@ -99,7 +83,7 @@ module EasyML
     def fork
       dup.tap do |new_model|
         new_model.status = :training
-        new_model.version = generate_version_string
+        new_model.version = generate_version_string(force: true)
         new_model.model_file = nil
         new_model.save
       end
@@ -113,6 +97,12 @@ module EasyML
       [
         fit? ? nil : "Model has not been trained"
       ].compact
+    end
+
+    def fit
+      raise "Cannot train #{status} model!" unless training?
+
+      model_service.fit
     end
 
     def fit?
@@ -182,8 +172,8 @@ module EasyML
       ([self] + recent_versions + recent_copies + live_models).compact.map(&:model_file).compact.map(&:full_path).uniq
     end
 
-    def generate_version_string
-      return version if version.present?
+    def generate_version_string(force: false)
+      return version if version.present? && !force
 
       timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
       self.version = "#{model_type}_#{timestamp}"

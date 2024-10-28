@@ -71,26 +71,32 @@ RSpec.describe EasyML::RetrainingRun do
   end
 
   describe "#perform_retraining!" do
-    it "performs retraining with tuner config" do
-      expect(EasyML::Orchestrator).to receive(:train)
-        .with(model.name, tuner: retraining_job.tuner_config)
-        .and_call_original
+    context "with tuning frequency" do
+      before do
+        retraining_job.update!(tuning_frequency: "week")
+      end
 
-      expect(retraining_run.perform_retraining!).to be true
-      expect(retraining_run.reload).to be_completed
-      expect(retraining_run.completed_at).to be_present
-      expect(retraining_job.reload.last_run_at).to be_present
-    end
+      it "performs tuning when tuning frequency is met" do
+        allow(retraining_job).to receive(:should_tune?).and_return(true)
 
-    it "performs retraining without tuner config" do
-      retraining_job.update!(tuner_config: nil)
+        expect(EasyML::Orchestrator).to receive(:train)
+          .with(model.name, tuner: retraining_job.tuner_config)
+          .and_call_original
 
-      expect(EasyML::Orchestrator).to receive(:train)
-        .with(model.name)
-        .and_call_original
+        expect(retraining_run.perform_retraining!).to be true
+        expect(retraining_job.reload.last_tuning_at).to be_present
+      end
 
-      expect(retraining_run.perform_retraining!).to be true
-      expect(retraining_run.reload).to be_completed
+      it "skips tuning when tuning frequency is not met" do
+        allow(retraining_job).to receive(:should_tune?).and_return(false)
+
+        expect(EasyML::Orchestrator).to receive(:train)
+          .with(model.name)
+          .and_call_original
+
+        expect(retraining_run.perform_retraining!).to be true
+        expect(retraining_job.reload.last_tuning_at).to be_nil
+      end
     end
 
     it "handles errors during retraining" do

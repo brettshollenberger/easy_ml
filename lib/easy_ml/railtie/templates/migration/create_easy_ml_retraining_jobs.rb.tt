@@ -5,6 +5,8 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
       t.string :frequency, null: false  # day, week, month, hour
       t.integer :at, null: false        # hour of day (0-23)
       t.json :tuner_config              # configuration for the tuner
+      t.string :tuning_frequency        # day, week, month, hour - when to run with tuner
+      t.datetime :last_tuning_at        # track last tuning run
       t.boolean :active, default: true
       t.string :status, default: "pending"
       t.datetime :last_run_at
@@ -15,6 +17,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
       t.index :model
       t.index :active
       t.index :last_run_at
+      t.index :last_tuning_at
       t.index :locked_at
     end
 

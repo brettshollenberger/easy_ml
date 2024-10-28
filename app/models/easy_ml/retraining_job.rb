@@ -30,6 +30,10 @@ module EasyML
                    numericality: { only_integer: true,
                                    greater_than_or_equal_to: 0,
                                    less_than: 24 }
+    validates :tuning_frequency, inclusion: {
+      in: %w[hour day week month],
+      allow_nil: true
+    }
 
     scope :active, -> { where(active: true) }
     scope :locked, lambda {
@@ -62,6 +66,25 @@ module EasyML
         current_time.hour == at && current_time.wday == 0 && last_run_at < current_time.beginning_of_week
       when "month"
         current_time.hour == at && current_time.day == 1 && last_run_at < current_time.beginning_of_month
+      end
+    end
+
+    def should_tune?
+      return false unless tuning_frequency.present?
+      return true if last_tuning_at.nil?
+
+      case tuning_frequency
+      when "hour"
+        last_tuning_at < Time.current.beginning_of_hour
+      when "day"
+        current_time = Time.current
+        current_time.hour == at && last_tuning_at < current_time.beginning_of_day
+      when "week"
+        current_time = Time.current
+        current_time.hour == at && current_time.wday == 0 && last_tuning_at < current_time.beginning_of_week
+      when "month"
+        current_time = Time.current
+        current_time.hour == at && current_time.day == 1 && last_tuning_at < current_time.beginning_of_month
       end
     end
 

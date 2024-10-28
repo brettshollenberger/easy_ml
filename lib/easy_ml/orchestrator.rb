@@ -25,7 +25,9 @@ module EasyML
       current_model = EasyML::Model.find_by!(name: model_name, status: :inference)
 
       # Load new model if not loaded or different version
-      return unless models[model_name].nil? || models[model_name].id != current_model.id
+      model_not_loaded = models[model_name].nil?
+      model_is_new_model = models[model_name]&.id != current_model&.id
+      return unless model_not_loaded || model_is_new_model
 
       models[model_name] = current_model
     end

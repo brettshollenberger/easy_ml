@@ -22,6 +22,10 @@ module EasyML
     validates :filename, presence: true
     belongs_to :model, class_name: "EasyML::Model"
 
+    def fit?
+      File.exist?(full_path)
+    end
+
     def upload(path)
       model_file_service.upload(path)
 
@@ -52,15 +56,15 @@ module EasyML
     end
 
     def cleanup!
-      [full_dir].each do |dir|
-        EasyML::FileRotate.new(dir, []).cleanup(extension_allowlist)
-      end
+      # [full_dir].each do |dir|
+      #   EasyML::FileRotate.new(dir, []).cleanup(extension_allowlist)
+      # end
     end
 
     def cleanup(files_to_keep)
-      [full_dir].each do |dir|
-        EasyML::FileRotate.new(dir, files_to_keep).cleanup(extension_allowlist)
-      end
+      # [full_dir].each do |dir|
+      #   EasyML::FileRotate.new(dir, files_to_keep).cleanup(extension_allowlist)
+      # end
     end
 
     def extension_allowlist

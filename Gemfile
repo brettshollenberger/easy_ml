@@ -21,3 +21,7 @@ group :development, :test do
   gem "pg"
   gem "rspec-rails"
 end
+
+group :test do
+  gem "timecop"
+end

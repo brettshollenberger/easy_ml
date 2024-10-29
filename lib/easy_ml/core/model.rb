@@ -10,12 +10,11 @@ module EasyML
       attribute :verbose, :boolean, default: false
       attribute :task, :string, default: "regression"
       attribute :model_type, :string
-      attribute :metrics, :array
+      attribute :metrics, :array # These will simply be calculated / logged (e.g. log RMSE, MAE, and R2)
       attribute :file, :string
       attribute :root_dir, :string
       attribute :objective
-      attribute :evaluator
-      attribute :evaluator_metric
+      attribute :evaluator # This determines the actual quality of the model. Whether or not the model can be promoted (e.g. use RMSE)
       attribute :dataset
 
       def initialize(options = {})

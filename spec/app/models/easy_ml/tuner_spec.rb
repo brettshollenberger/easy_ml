@@ -139,8 +139,9 @@ RSpec.describe EasyML::Core::Tuner do
           1
         end
       end
-      model.evaluator = CustomEvaluator
 
+      EasyML::Core::ModelEvaluator.register(:custom, CustomEvaluator)
+      model.evaluator = :custom
       tuner = EasyML::Core::Tuner.new(tuner_params)
       tuner.tune
 

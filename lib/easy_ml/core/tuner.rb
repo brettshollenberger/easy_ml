@@ -66,7 +66,7 @@ module EasyML
         model.task = task
         model.dataset.refresh
         x_true, y_true = model.dataset.test(split_ys: true)
-        tune_started_at = EST.now
+        tune_started_at = UTC.now
         adapter = pick_adapter.new(model: model, config: config, tune_started_at: tune_started_at, y_true: y_true,
                                    x_true: x_true)
         adapter.configure_callbacks
@@ -96,6 +96,8 @@ module EasyML
           end
         end
 
+        return nil if tuner_job.tuner_runs.all?(&:failed?)
+
         best_run = tuner_job.best_run
         tuner_job.update!(
           best_tuner_run_id: best_run.id,
@@ -113,10 +115,12 @@ module EasyML
 
       def calculate_result(run_metrics)
         if model.evaluator.present?
-          if model.evaluator_metric.present?
-            run_metrics[model.evaluator_metric]
+          evaluator_class = ModelEvaluator.get(model.evaluator)
+          if evaluator_class
+            evaluator_class.new.calculate_result(run_metrics)
           else
-            run_metrics[:custom]
+            # Fall back to first metric if evaluator not found
+            run_metrics.values.first
           end
         else
           run_metrics[objective.to_sym]

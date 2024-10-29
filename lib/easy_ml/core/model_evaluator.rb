@@ -1,3 +1,4 @@
+require_relative "evaluators/base_evaluator"
 module EasyML
   module Core
     class ModelEvaluator
@@ -72,6 +73,26 @@ module EasyML
       }
 
       class << self
+        def register(metric_name, evaluator)
+          @registry ||= {}
+          unless evaluator.included_modules.include?(Evaluators::BaseEvaluator)
+            evaluator.include(Evaluators::BaseEvaluator)
+          end
+
+          unless evaluator.instance_methods.include?(:metric)
+            evaluator.define_method(:metric) do
+              metric_name
+            end
+          end
+
+          @registry[metric_name.to_sym] = evaluator
+        end
+
+        def get(name)
+          @registry ||= {}
+          @registry[name.to_sym]
+        end
+
         def evaluate(model: nil, y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
           y_pred = normalize_input(y_pred)
           y_true = normalize_input(y_true)
@@ -79,34 +100,25 @@ module EasyML
 
           metrics_results = {}
 
+          # Calculate standard metrics
           model.metrics.each do |metric|
-            if metric.is_a?(Module) || metric.is_a?(Class)
-              unless metric.respond_to?(:evaluate)
-                raise "Metric #{metric} must respond to #evaluate in order to be used as a custom evaluator"
-              end
-
-              metrics_results[metric.name] = metric.evaluate(y_pred, y_true)
-            elsif EVALUATORS.key?(metric.to_sym)
-              metrics_results[metric.to_sym] =
-                EVALUATORS[metric.to_sym].call(y_pred, y_true)
+            if EVALUATORS.key?(metric.to_sym)
+              metrics_results[metric.to_sym] = EVALUATORS[metric.to_sym].call(y_pred, y_true)
             end
           end
 
+          # Handle custom evaluator if present
           if evaluator.present?
-            if evaluator.is_a?(Class)
-              response = evaluator.new.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
-            elsif evaluator.respond_to?(:evaluate)
-              response = evaluator.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
-            elsif evaluator.respond_to?(:call)
-              response = evaluator.call(y_pred: y_pred, y_true: y_true, x_true: x_true)
-            else
-              raise "Don't know how to use CustomEvaluator. Must be a class that responds to evaluate or lambda"
-            end
+            evaluator_class = evaluator.is_a?(Class) ? evaluator : ModelEvaluator.get(evaluator)
+            raise "Unknown evaluator: #{evaluator}" unless evaluator_class
+
+            evaluator_instance = evaluator_class.new
+            response = evaluator_instance.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
 
             if response.is_a?(Hash)
               metrics_results.merge!(response)
             else
-              metrics_results[:custom] = response
+              metrics_results[evaluator_instance.metric] = response
             end
           end
 

@@ -2,18 +2,20 @@
 #
 # Table name: easy_ml_retraining_jobs
 #
-#  id           :bigint           not null, primary key
-#  model        :string           not null
-#  frequency    :string           not null
-#  at           :integer          not null
-#  tuner_config :json
-#  evaluator    :json
-#  active       :boolean          default(TRUE)
-#  status       :string           default("pending")
-#  last_run_at  :datetime
-#  locked_at    :datetime
-#  created_at   :datetime         not null
-#  updated_at   :datetime         not null
+#  id               :bigint           not null, primary key
+#  model            :string           not null
+#  frequency        :string           not null
+#  at               :integer          not null
+#  evaluator        :json
+#  tuner_config     :json
+#  tuning_frequency :string
+#  last_tuning_at   :datetime
+#  active           :boolean          default(TRUE)
+#  status           :string           default("pending")
+#  last_run_at      :datetime
+#  locked_at        :datetime
+#  created_at       :datetime         not null
+#  updated_at       :datetime         not null
 #
 module EasyML
   class RetrainingJob < ActiveRecord::Base
@@ -149,28 +151,18 @@ module EasyML
       end
 
       metric = evaluator["metric"].to_sym
-      valid_metrics = %i[rmse mae mse r2 accuracy precision recall f1 custom]
 
-      unless valid_metrics.include?(metric)
-        errors.add(:evaluator, "contains invalid metric")
+      evaluator = EasyML::Core::ModelEvaluator.get(metric)
+      unless evaluator.present?
+        allowed_metrics = EasyML::Core::ModelEvaluator.metrics
+        errors.add(:evaluator, "contains invalid metric. Allowed metrics are #{allowed_metrics}")
         return
       end
 
-      return unless metric == :custom
+      return unless evaluator.present?
+      return if evaluator.new.respond_to?(:evaluate)
 
-      unless evaluator["evaluator_class"].present?
-        errors.add(:evaluator, "must specify evaluator_class for custom metric")
-        return
-      end
-
-      begin
-        evaluator_class = evaluator["evaluator_class"].constantize
-        unless evaluator_class.respond_to?(:evaluate)
-          errors.add(:evaluator, "evaluator_class must implement evaluate method")
-        end
-      rescue NameError
-        errors.add(:evaluator, "evaluator_class does not exist")
-      end
+      errors.add(:evaluator, "evaluator must implement evaluate method")
     end
   end
 end

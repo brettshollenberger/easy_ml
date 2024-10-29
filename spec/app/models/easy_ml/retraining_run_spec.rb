@@ -43,6 +43,10 @@ RSpec.describe EasyML::RetrainingRun do
       frequency: "day",
       at: 2,
       active: true,
+      evaluator: {
+        metric: :root_mean_squared_error,
+        max: 1000
+      },
       tuner_config: {
         n_trials: 5,
         objective: :mean_absolute_error,
@@ -110,6 +114,110 @@ RSpec.describe EasyML::RetrainingRun do
     it "doesn't perform retraining if not pending" do
       retraining_run.update!(status: "completed")
       expect(retraining_run.perform_retraining!).to be false
+    end
+
+    context "with model evaluation" do
+      def setup_evaluation(y_pred, y_true)
+        # Only stub train to avoid the actual training process
+        allow(EasyML::Orchestrator).to receive(:train) do |model_name|
+          # Let the real fork happen
+          training_model = EasyML::Orchestrator.fork(model_name)
+
+          # Set up our test expectations on the forked model
+          allow(training_model).to receive_message_chain(:dataset, :refresh).and_return(true)
+          allow(training_model).to receive_message_chain(:dataset, :test)
+            .and_return([[1, 2, 3], y_true])
+          allow(training_model).to receive(:predict).and_return(y_pred)
+          allow(training_model).to receive(:promotable?).and_return(true)
+
+          training_model
+        end
+      end
+      let(:custom_evaluator) do
+        Class.new do
+          def metric
+            :custom
+          end
+
+          def evaluate(y_pred:, y_true:, x_true:)
+            # Simple custom metric for testing
+            (y_pred.sum - y_true.sum).abs
+          end
+        end
+      end
+
+      before do
+        # Register the custom evaluator
+        EasyML::Core::ModelEvaluator.register(:custom, custom_evaluator)
+      end
+
+      context "with basic evaluator" do
+        before do
+          retraining_job.update!(
+            evaluator: {
+              metric: :root_mean_squared_error,
+              max: 100
+            }
+          )
+        end
+
+        it "promotes model when RMSE is below threshold" do
+          setup_evaluation([1, 2, 3], [1, 2, 3])
+          original_model = EasyML::Model.find_by(name: model.name, status: :inference)
+          expect(retraining_run.perform_retraining!).to be true
+
+          original_model.reload
+          expect(original_model).to be_retired
+
+          trained_model = EasyML::Model.find_by(name: model.name, status: :inference)
+          expect(trained_model).to be_present
+          expect(trained_model.id).to_not eq original_model.id
+          expect(trained_model).to be_inference # after promotion
+          expect(trained_model.retraining_runs.first).to eq retraining_run
+          expect(retraining_run.reload).to be_completed
+        end
+
+        it "does not promote model when RMSE is above threshold" do
+          setup_evaluation([1, 2, 3], [100, 200, 300])
+          original_model = EasyML::Model.find_by(name: model.name, status: :inference)
+          expect(retraining_run.perform_retraining!).to be true
+
+          original_model.reload
+          expect(original_model).to_not be_retired
+
+          training_model = EasyML::Model.where(name: model.name, status: :training)
+          expect(training_model).to be_present
+          expect(retraining_run.reload).to be_failed
+        end
+      end
+
+      context "with custom evaluator" do
+        before do
+          retraining_job.update!(
+            evaluator: {
+              metric: :custom,
+              max: 1000
+            }
+          )
+        end
+
+        it "uses custom evaluator for promotion decision" do
+          setup_evaluation([1, 2, 3], [2, 3, 4])
+
+          original_model = EasyML::Model.find_by(name: model.name, status: :inference)
+          expect(retraining_run.perform_retraining!).to be true
+          expect(retraining_run.metric_value).to eq 3.0
+          expect(retraining_run.threshold).to eq 1_000
+          expect(retraining_run.threshold_direction).to eq "max"
+          expect(retraining_run.should_promote).to eq true
+          expect(retraining_run).to be_completed
+          expect(original_model.reload).to be_retired
+
+          trained_model = EasyML::Model.find_by(name: model.name, status: :inference)
+          expect(trained_model.id).to_not eq original_model.id
+          expect(trained_model.retraining_runs.first).to eq retraining_run
+        end
+      end
     end
   end
 

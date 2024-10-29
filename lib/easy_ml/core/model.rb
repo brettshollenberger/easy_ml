@@ -81,6 +81,14 @@ module EasyML
         @is_fit == true
       end
 
+      def promotable?
+        cannot_promote_reasons.none?
+      end
+
+      def cannot_promote_reasons
+        []
+      end
+
       private
 
       def apply_defaults

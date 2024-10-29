@@ -6,18 +6,28 @@ module EasyML
   module Core
     class ModelEvaluator
       class << self
-        def register(metric_name, evaluator)
+        def register(metric_name, evaluator, aliases = {})
           @registry ||= {}
           unless evaluator.included_modules.include?(Evaluators::BaseEvaluator)
             evaluator.include(Evaluators::BaseEvaluator)
           end
 
-          @registry[metric_name.to_sym] = evaluator
+          @registry[metric_name.to_sym] = {
+            evaluator: evaluator,
+            aliases: (aliases || []).map(&:to_sym)
+          }
         end
 
         def get(name)
           @registry ||= {}
-          @registry[name.to_sym]
+          option = (@registry[name.to_sym] || @registry.detect do |_k, opts|
+            opts[:aliases].include?(name.to_sym)
+          end) || {}
+          option.dig(:evaluator)
+        end
+
+        def metrics
+          @registry.keys
         end
 
         def evaluate(model:, y_pred:, y_true:, x_true: nil, evaluator: nil)
@@ -40,7 +50,8 @@ module EasyML
           end
 
           if evaluator.present?
-            evaluator_class = evaluator.is_a?(Class) ? evaluator : get(evaluator)
+            evaluator = evaluator.symbolize_keys!
+            evaluator_class = get(evaluator[:metric])
             raise "Unknown evaluator: #{evaluator}" unless evaluator_class
 
             evaluator_instance = evaluator_class.new
@@ -49,11 +60,11 @@ module EasyML
             if response.is_a?(Hash)
               metrics_results.merge!(response)
             else
-              metrics_results[evaluator_instance.metric] = response
+              metrics_results[evaluator[:metric].to_sym] = response
             end
           end
 
-          metrics_results
+          metrics_results.symbolize_keys
         end
 
         private
@@ -82,11 +93,12 @@ module EasyML
 end
 
 # Register default evaluators
-EasyML::Core::ModelEvaluator.register(:mean_absolute_error, EasyML::Core::Evaluators::MeanAbsoluteError)
-EasyML::Core::ModelEvaluator.register(:mean_squared_error, EasyML::Core::Evaluators::MeanSquaredError)
-EasyML::Core::ModelEvaluator.register(:root_mean_squared_error, EasyML::Core::Evaluators::RootMeanSquaredError)
-EasyML::Core::ModelEvaluator.register(:r2_score, EasyML::Core::Evaluators::R2Score)
-EasyML::Core::ModelEvaluator.register(:accuracy_score, EasyML::Core::Evaluators::AccuracyScore)
-EasyML::Core::ModelEvaluator.register(:precision_score, EasyML::Core::Evaluators::PrecisionScore)
-EasyML::Core::ModelEvaluator.register(:recall_score, EasyML::Core::Evaluators::RecallScore)
-EasyML::Core::ModelEvaluator.register(:f1_score, EasyML::Core::Evaluators::F1Score)
+EasyML::Core::ModelEvaluator.register(:mean_absolute_error, EasyML::Core::Evaluators::MeanAbsoluteError, %w[mae])
+EasyML::Core::ModelEvaluator.register(:mean_squared_error, EasyML::Core::Evaluators::MeanSquaredError, %w[mse])
+EasyML::Core::ModelEvaluator.register(:root_mean_squared_error, EasyML::Core::Evaluators::RootMeanSquaredError,
+                                      %w[rmse])
+EasyML::Core::ModelEvaluator.register(:r2_score, EasyML::Core::Evaluators::R2Score, %w[r2])
+EasyML::Core::ModelEvaluator.register(:accuracy_score, EasyML::Core::Evaluators::AccuracyScore, %w[accuracy])
+EasyML::Core::ModelEvaluator.register(:precision_score, EasyML::Core::Evaluators::PrecisionScore, %w[precision])
+EasyML::Core::ModelEvaluator.register(:recall_score, EasyML::Core::Evaluators::RecallScore, %w[recall])
+EasyML::Core::ModelEvaluator.register(:f1_score, EasyML::Core::Evaluators::F1Score, %w[f1])

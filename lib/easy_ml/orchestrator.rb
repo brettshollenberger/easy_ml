@@ -18,8 +18,8 @@ module EasyML
       instance.fork(model_name)
     end
 
-    def self.train(model_name, tuner: nil)
-      instance.train(model_name, tuner: tuner)
+    def self.train(model_name, tuner: nil, evaluator: nil)
+      instance.train(model_name, tuner: tuner, evaluator: evaluator)
     end
 
     def predict(model_name, df)
@@ -37,11 +37,13 @@ module EasyML
       inference_model.fork
     end
 
-    def train(model_name, tuner: nil)
+    def train(model_name, tuner: nil, evaluator: nil)
       training_model = fork(model_name)
+      tuner = tuner.symbolize_keys if tuner.present?
 
       if tuner
         # Create tuner from config
+        tuner.merge!(evaluator: evaluator) if evaluator.present?
         tuner_instance = EasyML::Core::Tuner.new(tuner)
 
         # Configure tuner with model and dataset
@@ -63,6 +65,7 @@ module EasyML
         training_model.save
       end
 
+      training_model.evaluator = evaluator if evaluator.present?
       training_model.fit
       training_model.save
       training_model

@@ -10,6 +10,7 @@
 #  direction         :string           default("minimize")
 #  started_at        :datetime
 #  completed_at      :datetime
+#  metadata          :jsonb
 #  created_at        :datetime         not null
 #  updated_at        :datetime         not null
 #

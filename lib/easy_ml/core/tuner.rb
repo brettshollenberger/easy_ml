@@ -15,6 +15,7 @@ module EasyML
       attribute :objective, :string
       attribute :n_trials, default: 100
       attribute :direction, default: "minimize"
+      attribute :evaluator
       attr_accessor :study, :results
 
       dependency :adapter, lazy: true do |dep|
@@ -63,6 +64,7 @@ module EasyML
 
         @study = Optuna::Study.new(direction: direction)
         @results = []
+        model.evaluator = evaluator if evaluator.present?
         model.task = task
         model.dataset.refresh
         x_true, y_true = model.dataset.test(split_ys: true)

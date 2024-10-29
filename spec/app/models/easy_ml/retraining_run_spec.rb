@@ -29,12 +29,26 @@ RSpec.describe EasyML::RetrainingRun do
   let(:model) do
     model_config[:name] = model_name
     model_config[:task] = "regression"
+    model_config[:callbacks] = [
+      { wandb: { project_name: "Fancy Project" } }
+    ]
     EasyML::Model.create(**model_config).tap do |model|
       model.model_file = model_file
       model.version = model_file.filename.gsub(/\.json/, "")
       model.save
       model.promote
     end
+  end
+  let(:mock_run) { instance_double(Wandb::Run) }
+
+  before do
+    allow(Wandb).to receive(:login).and_return(true)
+    allow(Wandb).to receive(:init).and_return(true)
+    allow(Wandb).to receive(:current_run).and_return(mock_run)
+    allow(Wandb).to receive(:define_metric).and_return(true)
+    allow(mock_run).to receive(:config=)
+    allow(mock_run).to receive(:url).and_return("https://wandb.ai")
+    allow(Wandb).to receive(:log)
   end
 
   let(:retraining_job) do
@@ -84,7 +98,7 @@ RSpec.describe EasyML::RetrainingRun do
         allow(retraining_job).to receive(:should_tune?).and_return(true)
 
         expect(EasyML::Orchestrator).to receive(:train)
-          .with(model.name, tuner: retraining_job.tuner_config)
+          .with(model.name, tuner: retraining_job.tuner_config, evaluator: retraining_job.evaluator)
           .and_call_original
 
         expect(retraining_run.perform_retraining!).to be true
@@ -95,7 +109,7 @@ RSpec.describe EasyML::RetrainingRun do
         allow(retraining_job).to receive(:should_tune?).and_return(false)
 
         expect(EasyML::Orchestrator).to receive(:train)
-          .with(model.name)
+          .with(model.name, evaluator: retraining_job.evaluator)
           .and_call_original
 
         expect(retraining_run.perform_retraining!).to be true
@@ -117,9 +131,9 @@ RSpec.describe EasyML::RetrainingRun do
     end
 
     context "with model evaluation" do
-      def setup_evaluation(y_pred, y_true)
+      def setup_evaluation(y_pred, y_true, call_original = false)
         # Only stub train to avoid the actual training process
-        allow(EasyML::Orchestrator).to receive(:train) do |model_name|
+        a = allow(EasyML::Orchestrator).to receive(:train) do |model_name|
           # Let the real fork happen
           training_model = EasyML::Orchestrator.fork(model_name)
 
@@ -132,6 +146,10 @@ RSpec.describe EasyML::RetrainingRun do
 
           training_model
         end
+
+        return unless call_original
+
+        a.and_call_original
       end
       let(:custom_evaluator) do
         Class.new do
@@ -216,6 +234,18 @@ RSpec.describe EasyML::RetrainingRun do
           trained_model = EasyML::Model.find_by(name: model.name, status: :inference)
           expect(trained_model.id).to_not eq original_model.id
           expect(trained_model.retraining_runs.first).to eq retraining_run
+        end
+      end
+
+      context "With callbacks" do
+        it "passes metadata from the tuner to the retraining_run" do
+          allow(retraining_run).to receive(:should_tune?).and_return(true)
+          setup_evaluation([1, 2, 3], [1, 2, 3], true)
+          m = EasyML::Model.find_by(name: model.name, status: :inference)
+          expect(retraining_run.perform_retraining!).to be true
+
+          expect(retraining_run.metadata["wandb_url"]).to eq "https://wandb.ai"
+          m.model_file.cleanup([m.model_file.full_path]) # Keep only the original file
         end
       end
     end

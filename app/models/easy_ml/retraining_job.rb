@@ -137,20 +137,18 @@ module EasyML
     def evaluator_must_be_valid
       return if evaluator.nil? || evaluator.blank?
 
-      unless evaluator["metric"].present? && (evaluator["min"].present? || evaluator["max"].present?)
+      evaluator = self.evaluator.symbolize_keys
+
+      unless evaluator[:metric].present? && (evaluator[:min].present? || evaluator[:max].present?)
         errors.add(:evaluator, "must specify metric and either min or max value")
         return
       end
 
-      if evaluator["min"].present? && !evaluator["min"].is_a?(Numeric)
-        errors.add(:evaluator, "min value must be numeric")
-      end
+      errors.add(:evaluator, "min value must be numeric") if evaluator[:min].present? && !evaluator[:min].is_a?(Numeric)
 
-      if evaluator["max"].present? && !evaluator["max"].is_a?(Numeric)
-        errors.add(:evaluator, "max value must be numeric")
-      end
+      errors.add(:evaluator, "max value must be numeric") if evaluator[:max].present? && !evaluator[:max].is_a?(Numeric)
 
-      metric = evaluator["metric"].to_sym
+      metric = evaluator[:metric].to_sym
 
       evaluator = EasyML::Core::ModelEvaluator.get(metric)
       unless evaluator.present?

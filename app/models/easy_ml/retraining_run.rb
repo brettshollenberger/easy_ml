@@ -14,6 +14,7 @@
 #  started_at          :datetime
 #  completed_at        :datetime
 #  error_message       :text
+#  metadata            :jsonb
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #
@@ -33,12 +34,18 @@ module EasyML
         update!(status: "running", started_at: Time.current)
 
         # Only use tuner if tuning frequency has been met
-        binding.pry # Merge in retraining_job.evaluator to model, which uses currently a symbol instead of hash
         if should_tune?
-          training_model = Orchestrator.train(retraining_job.model, tuner: retraining_job.tuner_config)
+          training_model = Orchestrator.train(retraining_job.model, tuner: retraining_job.tuner_config,
+                                                                    evaluator: retraining_job.evaluator)
           retraining_job.update!(last_tuning_at: Time.current)
+
+          # Get metadata from the latest tuner job if it exists
+          tuner_metadata = EasyML::TunerJob.where(model: training_model)
+                                           .order(created_at: :desc)
+                                           .first&.metadata || {}
         else
-          training_model = Orchestrator.train(retraining_job.model)
+          training_model = Orchestrator.train(retraining_job.model, evaluator: retraining_job.evaluator)
+          tuner_metadata = {}
         end
 
         results = metric_results(training_model)
@@ -49,16 +56,14 @@ module EasyML
             status: training_model.inference? ? "completed" : "failed",
             completed_at: training_model.inference? ? Time.current : nil,
             error_message: training_model.inference? ? nil : "Did not pass evaluation",
-            model: training_model
+            model: training_model,
+            metadata: tuner_metadata
           )
         )
 
         retraining_job.update!(last_run_at: Time.current)
         true
       rescue StandardError => e
-        30.times do
-          p e
-        end
         update!(
           status: "failed",
           completed_at: Time.current,

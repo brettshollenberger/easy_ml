@@ -17,15 +17,6 @@ PATH
       wandb (~> 0.1.6)
       xgb
 
-PATH
-  remote: /Users/brettshollenberger/programming/glue_gun_dsl
-  specs:
-    glue_gun_dsl (0.1.30)
-      activemodel (>= 6, < 8)
-      activerecord (>= 6, < 8)
-      activesupport (>= 6, < 8)
-      awesome_print
-
 GEM
   remote: https://rubygems.org/
   specs:
@@ -1707,6 +1698,11 @@ GEM
     formatador (0.3.0)
     globalid (1.2.1)
       activesupport (>= 6.1)
+    glue_gun_dsl (0.1.31)
+      activemodel (>= 6, < 8)
+      activerecord (>= 6, < 8)
+      activesupport (>= 6, < 8)
+      awesome_print
     guard (2.18.1)
       formatador (>= 0.2.4)
       listen (>= 2.7, < 4.0)
@@ -1906,7 +1902,7 @@ GEM
       concurrent-ruby (~> 1.0)
     unicode-display_width (2.6.0)
     useragent (0.16.10)
-    wandb (0.1.8)
+    wandb (0.1.9)
       pycall
     webrick (1.8.2)
     websocket-driver (0.7.6)
@@ -1935,7 +1931,7 @@ DEPENDENCIES
   database_cleaner-active_record
   easy_ml!
   factory_bot_rails
-  glue_gun_dsl!
+  glue_gun_dsl (~> 0.1.31)
   guard
   ostruct
   pg
@@ -1947,7 +1943,7 @@ DEPENDENCIES
   rubocop (~> 1.21)
   sidekiq
   timecop
-  wandb (~> 0.1.8)
+  wandb (~> 0.1.9)
   xgb (~> 0.9.0)
 
 BUNDLED WITH

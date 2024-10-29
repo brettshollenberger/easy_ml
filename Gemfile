@@ -8,11 +8,11 @@ gemspec
 gem "annotate"
 gem "awesome_print"
 gem "aws-sdk", "~> 3.1"
-gem "glue_gun_dsl", path: "/Users/brettshollenberger/programming/glue_gun_dsl"
+gem "glue_gun_dsl", "~> 0.1.31"
 gem "rake", "~> 13.0"
 gem "rubocop", "~> 1.21"
 gem "sidekiq"
-gem "wandb", "~> 0.1.8"
+gem "wandb", "~> 0.1.9"
 gem "xgb", "~> 0.9.0"
 
 group :development, :test do

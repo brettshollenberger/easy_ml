@@ -33,6 +33,7 @@ module EasyML
         update!(status: "running", started_at: Time.current)
 
         # Only use tuner if tuning frequency has been met
+        binding.pry # Merge in retraining_job.evaluator to model, which uses currently a symbol instead of hash
         if should_tune?
           training_model = Orchestrator.train(retraining_job.model, tuner: retraining_job.tuner_config)
           retraining_job.update!(last_tuning_at: Time.current)

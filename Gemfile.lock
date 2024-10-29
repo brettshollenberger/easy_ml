@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.1.6)
+    easy_ml (0.1.7)
       activerecord
       activesupport
       awesome_print
@@ -1933,6 +1933,7 @@ DEPENDENCIES
   factory_bot_rails
   glue_gun_dsl (~> 0.1.31)
   guard
+  numpy (~> 0.4.0)
   ostruct
   pg
   pry

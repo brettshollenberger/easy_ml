@@ -2,12 +2,14 @@
 #
 # Table name: easy_ml_model_files
 #
-#  id            :bigint           not null, primary key
-#  filename      :string           not null
-#  path          :string           not null
-#  configuration :json
-#  created_at    :datetime         not null
-#  updated_at    :datetime         not null
+#  id              :bigint           not null, primary key
+#  filename        :string           not null
+#  model_file_type :string           not null
+#  path            :string           not null
+#  model_id        :bigint
+#  configuration   :json
+#  created_at      :datetime         not null
+#  updated_at      :datetime         not null
 #
 require_relative "concerns/statuses"
 
@@ -16,10 +18,15 @@ module EasyML
     self.filter_attributes += [:configuration]
 
     include GlueGun::Model
-    service :synced_file, EasyML::Support::SyncedFile
+    service :s3, EasyML::Support::SyncedFile
+    service :file, EasyML::Support::LocalFile
 
     validates :filename, presence: true
     belongs_to :model, class_name: "EasyML::Model"
+
+    def fit?
+      File.exist?(full_path)
+    end
 
     def upload(path)
       model_file_service.upload(path)
@@ -40,8 +47,10 @@ module EasyML
     end
 
     def relative_dir
-      base_path = root_dir.split(Regexp.new(Rails.root.to_s)).last.split("/").reject(&:empty?).join("/")
-      File.join(base_path, store_dir)
+      base_path = root_dir.gsub(Regexp.new(Rails.root.to_s), "")
+      path = File.join(base_path, store_dir)
+      path.gsub!(%r{^/}, "")
+      path
     end
 
     def full_dir

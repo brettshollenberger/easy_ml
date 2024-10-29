@@ -4,7 +4,7 @@ module EasyML::Data::Dataset::Splitters
 
     attribute :today, :datetime
     def today=(value)
-      value = Time.zone.parse(value) if value.is_a?(String)
+      value = UTC.parse(value) if value.is_a?(String)
       super(value.in_time_zone(UTC).to_datetime)
     end
     attribute :date_col, :string

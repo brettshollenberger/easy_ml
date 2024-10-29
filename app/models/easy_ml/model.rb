@@ -29,6 +29,8 @@ module EasyML
     has_one :model_file,
             class_name: "EasyML::ModelFile"
 
+    has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
+
     include GlueGun::Model
     service :xgboost, EasyML::Core::Models::XGBoost
 
@@ -88,16 +90,6 @@ module EasyML
       end
     end
 
-    def promotable?
-      cannot_promote_reasons.none?
-    end
-
-    def cannot_promote_reasons
-      [
-        fit? ? nil : "Model has not been trained"
-      ].compact
-    end
-
     def fit
       raise "Cannot train #{status} model!" unless training?
 
@@ -106,6 +98,12 @@ module EasyML
 
     def fit?
       model_service.fit? || (model_file.present? && model_file.fit?)
+    end
+
+    def cannot_promote_reasons
+      [
+        fit? ? nil : "Model has not been trained"
+      ].compact
     end
 
     private

@@ -2,21 +2,27 @@
 #
 # Table name: easy_ml_retraining_runs
 #
-#  id                :bigint           not null, primary key
-#  retraining_job_id :bigint           not null
-#  tuner_job_id      :bigint
-#  status            :string           default("pending")
-#  started_at        :datetime
-#  completed_at      :datetime
-#  error_message     :text
-#  created_at        :datetime         not null
-#  updated_at        :datetime         not null
+#  id                  :bigint           not null, primary key
+#  model_id            :bigint
+#  retraining_job_id   :bigint           not null
+#  tuner_job_id        :bigint
+#  status              :string           default("pending")
+#  metric_value        :float
+#  threshold           :float
+#  threshold_direction :string
+#  should_promote      :boolean
+#  started_at          :datetime
+#  completed_at        :datetime
+#  error_message       :text
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
 #
 module EasyML
   class RetrainingRun < ActiveRecord::Base
     self.table_name = "easy_ml_retraining_runs"
 
     belongs_to :retraining_job
+    belongs_to :model, class_name: "EasyML::Model"
 
     validates :status, presence: true, inclusion: { in: %w[pending running completed failed] }
 
@@ -34,18 +40,24 @@ module EasyML
           training_model = Orchestrator.train(retraining_job.model)
         end
 
-        # Only promote if model passes evaluation criteria
-        training_model.promote if should_promote?(training_model)
+        results = metric_results(training_model)
+        training_model.promote if results[:should_promote]
 
         update!(
-          status: "completed",
-          completed_at: Time.current,
-          error_message: nil
+          results.merge!(
+            status: training_model.inference? ? "completed" : "failed",
+            completed_at: training_model.inference? ? Time.current : nil,
+            error_message: training_model.inference? ? nil : "Did not pass evaluation",
+            model: training_model
+          )
         )
 
         retraining_job.update!(last_run_at: Time.current)
         true
       rescue StandardError => e
+        30.times do
+          p e
+        end
         update!(
           status: "failed",
           completed_at: Time.current,
@@ -77,36 +89,40 @@ module EasyML
       retraining_job.tuner_config.present? && retraining_job.should_tune?
     end
 
-    def should_promote?(training_model)
+    def metric_results(training_model)
       return training_model.promotable? unless retraining_job.evaluator.present?
 
-      evaluator = retraining_job.evaluator
+      training_model.dataset.refresh
+      evaluator = retraining_job.evaluator.symbolize_keys
       x_true, y_true = training_model.dataset.test(split_ys: true)
       y_pred = training_model.predict(x_true)
 
-      metric = evaluator["metric"].to_sym
-      metric_value = if metric == :custom
-                       evaluator["evaluator_class"].constantize.evaluate(
-                         y_pred: y_pred,
-                         y_true: y_true,
-                         x_true: x_true
-                       )
-                     else
-                       metrics = EasyML::Core::ModelEvaluator.evaluate(
-                         model: training_model,
-                         y_pred: y_pred,
-                         y_true: y_true
-                       )
-                       metrics[metric]
-                     end
+      metric = evaluator[:metric].to_sym
+      metrics = EasyML::Core::ModelEvaluator.evaluate(
+        model: training_model,
+        y_pred: y_pred,
+        y_true: y_true,
+        evaluator: evaluator
+      )
+      metric_value = metrics[metric]
 
       # Check against min threshold if present
-      return false if evaluator["min"].present? && metric_value < (evaluator["min"])
+      if evaluator[:min].present?
+        threshold = evaluator[:min]
+        threshold_direction = "min"
+        should_promote = metric_value > threshold
+      else
+        threshold = evaluator[:max]
+        threshold_direction = "max"
+        should_promote = metric_value < threshold
+      end
 
-      # Check against max threshold if present
-      return false if evaluator["max"].present? && metric_value > (evaluator["max"])
-
-      true
+      {
+        metric_value: metric_value,
+        threshold: threshold,
+        threshold_direction: threshold_direction,
+        should_promote: should_promote
+      }
     end
   end
 end

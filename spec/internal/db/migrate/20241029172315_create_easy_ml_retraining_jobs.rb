@@ -23,9 +23,14 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
     end
 
     create_table :easy_ml_retraining_runs do |t|
-      t.references :retraining_job, null: false
-      t.references :tuner_job, null: true
+      t.bigint :model_id
+      t.bigint :retraining_job_id, null: false
+      t.bigint :tuner_job_id, null: true
       t.string :status, default: 'pending'
+      t.float :metric_value
+      t.float :threshold
+      t.string :threshold_direction
+      t.boolean :should_promote
       t.datetime :started_at
       t.datetime :completed_at
       t.text :error_message
@@ -36,6 +41,9 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
       t.index :started_at
       t.index :completed_at
       t.index :created_at
+      t.index :tuner_job_id
+      t.index :retraining_job_id
+      t.index :model_id
     end
   end
 end

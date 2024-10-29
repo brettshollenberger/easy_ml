@@ -8,6 +8,7 @@ class CreateEasyMLTunerJobs < ActiveRecord::Migration[6.0]
       t.string :direction, default: 'minimize'
       t.datetime :started_at
       t.datetime :completed_at
+      t.jsonb :metadata
 
       t.timestamps
 

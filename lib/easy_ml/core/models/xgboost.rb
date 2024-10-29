@@ -115,10 +115,6 @@ module EasyML
           ::XGBoost
         end
 
-        def customize_callbacks
-          yield callbacks
-        end
-
         def prepare_data
           if @d_train.nil?
             x_train, y_train = dataset.train(split_ys: true, limit: 1000)

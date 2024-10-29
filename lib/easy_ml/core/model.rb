@@ -14,8 +14,9 @@ module EasyML
       attribute :file, :string
       attribute :root_dir, :string
       attribute :objective
-      attribute :evaluator # This determines the actual quality of the model. Whether or not the model can be promoted (e.g. use RMSE)
+      attribute :evaluator, :hash # This determines the actual quality of the model. Whether or not the model can be promoted (e.g. use RMSE)
       attribute :dataset
+      attribute :callbacks
 
       def initialize(options = {})
         super

@@ -67,9 +67,16 @@ module EasyML
         model.dataset.refresh
         x_true, y_true = model.dataset.test(split_ys: true)
         tune_started_at = UTC.now
-        adapter = pick_adapter.new(model: model, config: config, tune_started_at: tune_started_at, y_true: y_true,
-                                   x_true: x_true)
-        adapter.configure_callbacks
+        adapter = adapter_class.new(
+          model: model,
+          config: config,
+          tune_started_at: tune_started_at,
+          y_true: y_true,
+          x_true: x_true
+        )
+
+        adapter.before_run
+
         model.prepare_data
 
         @study.optimize(n_trials: n_trials, callbacks: [method(:loggers)]) do |trial|
@@ -80,6 +87,7 @@ module EasyML
 
           begin
             run_metrics = tune_once(trial, x_true, y_true, adapter)
+            adapter.after_iteration
             result = calculate_result(run_metrics)
             @results.push(result)
 
@@ -99,7 +107,9 @@ module EasyML
         return nil if tuner_job.tuner_runs.all?(&:failed?)
 
         best_run = tuner_job.best_run
+        adapter.after_run
         tuner_job.update!(
+          metadata: adapter.metadata,
           best_tuner_run_id: best_run.id,
           status: :completed,
           completed_at: Time.current
@@ -115,19 +125,13 @@ module EasyML
 
       def calculate_result(run_metrics)
         if model.evaluator.present?
-          evaluator_class = ModelEvaluator.get(model.evaluator)
-          if evaluator_class
-            evaluator_class.new.calculate_result(run_metrics)
-          else
-            # Fall back to first metric if evaluator not found
-            run_metrics.values.first
-          end
+          run_metrics[model.evaluator[:metric]]
         else
           run_metrics[objective.to_sym]
         end
       end
 
-      def pick_adapter
+      def adapter_class
         case model.model_type.to_sym
         when :xgboost
           Adapters::XGBoostAdapter

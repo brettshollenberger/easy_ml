@@ -76,6 +76,7 @@ RSpec.describe EasyML::Core::Tuner do
     allow(Wandb).to receive(:current_run).and_return(mock_run)
     allow(Wandb).to receive(:define_metric).and_return(true)
     allow(mock_run).to receive(:config=)
+    allow(mock_run).to receive(:url).and_return("https://wandb.ai")
     allow(Wandb).to receive(:log)
   end
 
@@ -131,6 +132,7 @@ RSpec.describe EasyML::Core::Tuner do
       tuner = EasyML::Core::Tuner.new(tuner_params)
       tuner.tune
       expect(tuner.model.callbacks.first.project_name).to match(/my-great-project_\d{4}_\d{2}_\d{2}/)
+      expect(EasyML::TunerJob.last.metadata["wandb_url"]).to eq "https://wandb.ai"
     end
 
     it "accepts custom evaluator" do
@@ -141,7 +143,7 @@ RSpec.describe EasyML::Core::Tuner do
       end
 
       EasyML::Core::ModelEvaluator.register(:custom, CustomEvaluator)
-      model.evaluator = :custom
+      model.evaluator = { metric: :custom, max: 10 }
       tuner = EasyML::Core::Tuner.new(tuner_params)
       tuner.tune
 

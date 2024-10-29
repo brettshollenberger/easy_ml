@@ -1,30 +1,46 @@
+require_relative "callbacks"
 module EasyML
   module Core
     class Tuner
       module Adapters
         class BaseAdapter
           include GlueGun::DSL
+          include EasyML::Core::Tuner::Adapters::Callbacks
+
+          attribute :config, :hash
+          attribute :project_name, :string
+          attribute :tune_started_at
+          attribute :model
+          attribute :x_true
+          attribute :y_true
+          attribute :metadata
+
+          def before_run
+            run_callbacks(:before_run)
+          end
+
+          def after_iteration
+            run_callbacks(:after_iteration)
+          end
+
+          def after_run
+            run_callbacks(:after_run)
+          end
+
+          def metadata
+            @metadata ||= {}
+            @metadata
+          end
 
           def defaults
             {}
           end
-
-          attribute :model
-          attribute :config, :hash
-          attribute :project_name, :string
-          attribute :tune_started_at
-          attribute :y_true
-          attribute :x_true
 
           def run_trial(trial)
             config = deep_merge_defaults(self.config.clone.deep_symbolize_keys)
             suggest_parameters(trial, config)
             model.fit
             yield model
-          end
-
-          def configure_callbacks
-            raise "Subclasses fof Tuner::Adapter::BaseAdapter must define #configure_callbacks"
           end
 
           def suggest_parameters(trial, config)

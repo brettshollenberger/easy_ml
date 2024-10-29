@@ -106,6 +106,10 @@ module EasyML
       ].compact
     end
 
+    def promotable?
+      cannot_promote_reasons.none?
+    end
+
     private
 
     def get_model_file

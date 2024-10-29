@@ -77,7 +77,7 @@ RSpec.describe EasyML::Core::ModelEvaluator do
           model: model,
           y_pred: y_pred,
           y_true: y_true,
-          evaluator: :custom_metric
+          evaluator: { metric: :custom_metric, max: 2 }
         )
 
         expect(result[:custom_metric]).to be_within(0.01).of(1.087)

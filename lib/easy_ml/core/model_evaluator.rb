@@ -1,88 +1,15 @@
+require "numo/narray"
 require_relative "evaluators/base_evaluator"
+require_relative "evaluators/regression_evaluators"
+require_relative "evaluators/classification_evaluators"
 module EasyML
   module Core
     class ModelEvaluator
-      require "numo/narray"
-
-      EVALUATORS = {
-        mean_absolute_error: lambda { |y_pred, y_true|
-          (Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)).abs.mean
-        },
-        mean_squared_error: lambda { |y_pred, y_true|
-          ((Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true))**2).mean
-        },
-        root_mean_squared_error: lambda { |y_pred, y_true|
-          Math.sqrt(((Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true))**2).mean)
-        },
-        r2_score: lambda { |y_pred, y_true|
-          # Convert inputs to Numo::DFloat for numerical operations
-          y_true = Numo::DFloat.cast(y_true)
-          y_pred = Numo::DFloat.cast(y_pred)
-
-          # Calculate the mean of the true values
-          mean_y = y_true.mean
-
-          # Calculate Total Sum of Squares (SS_tot)
-          ss_tot = ((y_true - mean_y)**2).sum
-
-          # Calculate Residual Sum of Squares (SS_res)
-          ss_res = ((y_true - y_pred)**2).sum
-
-          # Handle the edge case where SS_tot is zero
-          if ss_tot.zero?
-            if ss_res.zero?
-              # Perfect prediction when both SS_tot and SS_res are zero
-              1.0
-            else
-              # Undefined R² when SS_tot is zero but SS_res is not
-              Float::NAN
-            end
-          else
-            # Calculate R²
-            1 - (ss_res / ss_tot)
-          end
-        },
-        accuracy_score: lambda { |y_pred, y_true|
-          y_pred = Numo::Int32.cast(y_pred)
-          y_true = Numo::Int32.cast(y_true)
-          y_pred.eq(y_true).count_true.to_f / y_pred.size
-        },
-        precision_score: lambda { |y_pred, y_true|
-          y_pred = Numo::Int32.cast(y_pred)
-          y_true = Numo::Int32.cast(y_true)
-          true_positives = (y_pred.eq(1) & y_true.eq(1)).count_true
-          predicted_positives = y_pred.eq(1).count_true
-          return 0 if predicted_positives == 0
-
-          true_positives.to_f / predicted_positives
-        },
-        recall_score: lambda { |y_pred, y_true|
-          y_pred = Numo::Int32.cast(y_pred)
-          y_true = Numo::Int32.cast(y_true)
-          true_positives = (y_pred.eq(1) & y_true.eq(1)).count_true
-          actual_positives = y_true.eq(1).count_true
-          true_positives.to_f / actual_positives
-        },
-        f1_score: lambda { |y_pred, y_true|
-          precision = EVALUATORS[:precision_score].call(y_pred, y_true) || 0
-          recall = EVALUATORS[:recall_score].call(y_pred, y_true) || 0
-          return 0 unless (precision + recall) > 0
-
-          2 * (precision * recall) / (precision + recall)
-        }
-      }
-
       class << self
         def register(metric_name, evaluator)
           @registry ||= {}
           unless evaluator.included_modules.include?(Evaluators::BaseEvaluator)
             evaluator.include(Evaluators::BaseEvaluator)
-          end
-
-          unless evaluator.instance_methods.include?(:metric)
-            evaluator.define_method(:metric) do
-              metric_name
-            end
           end
 
           @registry[metric_name.to_sym] = evaluator
@@ -93,23 +20,27 @@ module EasyML
           @registry[name.to_sym]
         end
 
-        def evaluate(model: nil, y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
+        def evaluate(model:, y_pred:, y_true:, x_true: nil, evaluator: nil)
           y_pred = normalize_input(y_pred)
           y_true = normalize_input(y_true)
           check_size(y_pred, y_true)
 
           metrics_results = {}
 
-          # Calculate standard metrics
           model.metrics.each do |metric|
-            if EVALUATORS.key?(metric.to_sym)
-              metrics_results[metric.to_sym] = EVALUATORS[metric.to_sym].call(y_pred, y_true)
-            end
+            evaluator_class = get(metric.to_sym)
+            next unless evaluator_class
+
+            evaluator_instance = evaluator_class.new
+            metrics_results[metric.to_sym] = evaluator_instance.evaluate(
+              y_pred: y_pred,
+              y_true: y_true,
+              x_true: x_true
+            )
           end
 
-          # Handle custom evaluator if present
           if evaluator.present?
-            evaluator_class = evaluator.is_a?(Class) ? evaluator : ModelEvaluator.get(evaluator)
+            evaluator_class = evaluator.is_a?(Class) ? evaluator : get(evaluator)
             raise "Unknown evaluator: #{evaluator}" unless evaluator_class
 
             evaluator_instance = evaluator_class.new
@@ -124,6 +55,8 @@ module EasyML
 
           metrics_results
         end
+
+        private
 
         def check_size(y_pred, y_true)
           raise ArgumentError, "Different sizes" if y_true.size != y_pred.size
@@ -147,3 +80,13 @@ module EasyML
     end
   end
 end
+
+# Register default evaluators
+EasyML::Core::ModelEvaluator.register(:mean_absolute_error, EasyML::Core::Evaluators::MeanAbsoluteError)
+EasyML::Core::ModelEvaluator.register(:mean_squared_error, EasyML::Core::Evaluators::MeanSquaredError)
+EasyML::Core::ModelEvaluator.register(:root_mean_squared_error, EasyML::Core::Evaluators::RootMeanSquaredError)
+EasyML::Core::ModelEvaluator.register(:r2_score, EasyML::Core::Evaluators::R2Score)
+EasyML::Core::ModelEvaluator.register(:accuracy_score, EasyML::Core::Evaluators::AccuracyScore)
+EasyML::Core::ModelEvaluator.register(:precision_score, EasyML::Core::Evaluators::PrecisionScore)
+EasyML::Core::ModelEvaluator.register(:recall_score, EasyML::Core::Evaluators::RecallScore)
+EasyML::Core::ModelEvaluator.register(:f1_score, EasyML::Core::Evaluators::F1Score)

@@ -4,6 +4,7 @@ require "bundler/setup"
 require "timecop"
 require "combustion"
 require "benchmark" # Add this to measure time
+require "sidekiq/testing"
 Bundler.require :default, :development
 
 # Require the engine file
@@ -91,6 +92,8 @@ RSpec.configure do |config|
         carrierwave_config.root = "#{Rails.root.join("tmp")}"
       end
     end
+
+    Sidekiq::Worker.clear_all
   end
 
   if running_rails_specs
@@ -106,3 +109,6 @@ RSpec.configure do |config|
     end
   end
 end
+
+# Enable fake mode for Sidekiq testing
+Sidekiq::Testing.fake!

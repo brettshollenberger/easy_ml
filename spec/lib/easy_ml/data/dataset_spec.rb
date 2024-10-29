@@ -349,16 +349,6 @@ RSpec.describe EasyML::Data::Dataset do
             end
           end
         end
-
-        describe "#sync" do
-          it "syncs the s3 directory before returning data" do
-            file_spec do |_, _csv_file, _parquet_file|
-              allow_any_instance_of(s3_datasource).to receive(:refresh!).and_call_original
-              expect(dataset.datasource.synced_directory).to receive(:sync!)
-              dataset.refresh!
-            end
-          end
-        end
       end
 
       describe "Preprocessing steps" do

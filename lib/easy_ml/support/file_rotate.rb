@@ -16,7 +16,10 @@ module EasyML
       files_to_check.each do |file|
         FileUtils.chown_R(`whoami`.chomp, "staff", file)
         FileUtils.chmod_R(0o777, file)
-        File.delete(file) if @files_to_keep.exclude?(file) && File.exist?(file)
+        if @files_to_keep.exclude?(file) && File.exist?(file)
+          puts "Deleting #{file}"
+          File.delete(file)
+        end
       end
     end
   end

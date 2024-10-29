@@ -14,9 +14,11 @@ module EasyML
       attribute :metrics, :array
       attribute :objective, :string
       attribute :n_trials, default: 100
+      attribute :direction, default: "minimize"
+      attribute :evaluator
       attr_accessor :study, :results
 
-      dependency :adapter, lazy: false do |dep|
+      dependency :adapter, lazy: true do |dep|
         dep.option :xgboost do |opt|
           opt.set_class Adapters::XGBoostAdapter
           opt.bind_attribute :model
@@ -28,7 +30,7 @@ module EasyML
 
         dep.when do |_dep|
           case model
-          when EasyML::Core::Models::XGBoost, EasyML::Models::XGBoost
+          when EasyML::Core::Models::XGBoost
             { option: :xgboost }
           end
         end
@@ -43,42 +45,97 @@ module EasyML
       def tune
         set_defaults!
 
-        @study = Optuna::Study.new
+        if model.class.to_s == "EasyML::Model"
+          db_model = model
+          model = db_model.model_service
+        end
+
+        tuner_job = EasyML::TunerJob.create!(
+          model: db_model,
+          config: {
+            n_trials: n_trials,
+            objective: objective,
+            hyperparameter_ranges: config
+          },
+          direction: direction,
+          status: :running,
+          started_at: Time.current
+        )
+
+        @study = Optuna::Study.new(direction: direction)
         @results = []
+        model.evaluator = evaluator if evaluator.present?
         model.task = task
+        model.dataset.refresh
         x_true, y_true = model.dataset.test(split_ys: true)
-        tune_started_at = EST.now
-        adapter = pick_adapter.new(model: model, config: config, tune_started_at: tune_started_at, y_true: y_true,
-                                   x_true: x_true)
-        adapter.configure_callbacks
+        tune_started_at = UTC.now
+        adapter = adapter_class.new(
+          model: model,
+          config: config,
+          tune_started_at: tune_started_at,
+          y_true: y_true,
+          x_true: x_true
+        )
+
+        adapter.before_run
+
         model.prepare_data
 
         @study.optimize(n_trials: n_trials, callbacks: [method(:loggers)]) do |trial|
-          run_metrics = tune_once(trial, x_true, y_true, adapter)
+          tuner_run = tuner_job.tuner_runs.new(
+            trial_number: trial.number,
+            status: :running
+          )
 
-          result = if model.evaluator.present?
-                     if model.evaluator_metric.present?
-                       run_metrics[model.evaluator_metric]
-                     else
-                       run_metrics[:custom]
-                     end
-                   else
-                     run_metrics[objective.to_sym]
-                   end
-          @results.push(result)
-          result
-        rescue StandardError => e
-          puts "Optuna failed with: #{e.message}"
+          begin
+            run_metrics = tune_once(trial, x_true, y_true, adapter)
+            adapter.after_iteration
+            result = calculate_result(run_metrics)
+            @results.push(result)
+
+            tuner_run.update!(
+              hyperparameters: model.hyperparameters.to_h,
+              value: result,
+              status: :completed
+            )
+
+            result
+          rescue StandardError => e
+            tuner_run.update!(status: :failed)
+            puts "Optuna failed with: #{e.message}"
+          end
         end
 
-        raise "Optuna study failed" unless @study.respond_to?(:best_trial)
+        return nil if tuner_job.tuner_runs.all?(&:failed?)
 
-        @study.best_trial.params
+        best_run = tuner_job.best_run
+        adapter.after_run
+        tuner_job.update!(
+          metadata: adapter.metadata,
+          best_tuner_run_id: best_run.id,
+          status: :completed,
+          completed_at: Time.current
+        )
+
+        best_run.hyperparameters
+      rescue StandardError => e
+        tuner_job&.update!(status: :failed, completed_at: Time.current)
+        raise e
       end
 
-      def pick_adapter
-        case model
-        when EasyML::Core::Models::XGBoost, EasyML::Models::XGBoost
+      private
+
+      def calculate_result(run_metrics)
+        if model.evaluator.present?
+          run_metrics[model.evaluator[:metric]]
+        else
+          run_metrics[objective.to_sym]
+        end
+      end
+
+      def adapter_class
+        case model.model_type.to_sym
+        when :xgboost
           Adapters::XGBoostAdapter
         end
       end

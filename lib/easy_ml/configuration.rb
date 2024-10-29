@@ -4,12 +4,16 @@ module EasyML
   class Configuration
     include Singleton
 
-    attr_accessor :s3_access_key_id, :s3_secret_access_key, :s3_bucket, :s3_region, :s3_prefix
+    attr_accessor :storage, :s3_access_key_id, :s3_secret_access_key, :s3_bucket, :s3_region, :s3_prefix
 
     # Class method for configuration block
     class << self
       def configure
         yield instance
+      end
+
+      def storage
+        instance.storage || "file"
       end
 
       def s3_access_key_id

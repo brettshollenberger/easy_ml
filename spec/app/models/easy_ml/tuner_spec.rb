@@ -2,116 +2,31 @@ require "spec_helper"
 require "support/model_spec_helper"
 
 RSpec.describe EasyML::Core::Tuner do
-  let(:model_class) do
-    EasyML::Core::Models::XGBoost
-  end
-  let(:root_dir) { File.expand_path("..", Pathname.new(__FILE__)) }
-  let(:preprocessing_steps) do
-    {
-      training: {
-        annual_revenue: {
-          median: true,
-          clip: { min: 0, max: 1_000_000 }
-        },
-        loan_purpose: {
-          categorical: {
-            categorical_min: 2,
-            one_hot: true
-          }
-        }
-      }
-    }
-  end
-  let(:target) { "rev" }
-  let(:date_col) { "date" }
-  let(:months_test) { 2 }
-  let(:months_valid) { 2 }
-  let(:today) { EST.parse("2024-06-01") }
-
-  let(:dataset_config) do
-    {
-      verbose: false,
-      drop_if_null: ["loan_purpose"],
-      drop_cols: %w[business_name state],
-      datasource: EasyML::Data::Datasource::PolarsDatasource.new(df: df),
-      target: target,
-      preprocessing_steps: preprocessing_steps,
-      splitter: {
-        date: {
-          today: today,
-          date_col: date_col,
-          months_test: months_test,
-          months_valid: months_valid
-        }
-      }
-    }
+  include ModelSpecHelper
+  let(:root_dir) do
+    Rails.root
   end
 
-  let(:dataset) { EasyML::Data::Dataset.new(**dataset_config) }
-
-  let(:hyperparameters) do
-    {
-      learning_rate: 0.05,
-      max_depth: 8,
-      n_estimators: 150,
-      booster: "gbtree",
-      objective: "reg:squarederror"
-    }
+  let(:datasource) do
+    EasyML::Datasource.create(
+      name: "Polars Datasource",
+      datasource_type: :polars,
+      df: df
+    )
   end
 
-  let(:config) do
-    {
-      root_dir: root_dir,
-      verbose: false,
-      hyperparameters: hyperparameters
-    }
-  end
-
-  let(:learning_rate) { 0.05 }
-  let(:max_depth) { 8 }
-  let(:task) { :regression }
-  let(:objective) { "reg:squarederror" }
-  let(:model_config) do
-    {
-      root_dir: root_dir,
-      task: task,
-      dataset: dataset,
-      hyperparameters: {
-        learning_rate: learning_rate,
-        max_depth: max_depth,
-        objective: objective
-      }
-    }
-  end
-
-  let(:df) do
-    Polars::DataFrame.new({
-                            "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                            "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
-                                                "Business G", "Business H", "Business I", "Business J"],
-                            "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
-                            "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
-                                                 marketing equipment marketing],
-                            "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
-                            "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
-                            "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
-                          }).with_column(
-                            Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                          )
+  let(:dataset) do
+    dataset_config[:datasource] = datasource
+    EasyML::Dataset.create(
+      name: "Dataset",
+      **dataset_config
+    )
   end
 
   let(:model) do
-    model_class.new(model_config)
-  end
-
-  before(:each) do
-    dataset.cleanup
-    dataset.refresh!
-  end
-
-  after(:each) do
-    dataset.cleanup
+    model_config[:name] = "My Model"
+    model_config[:task] = "regression"
+    EasyML::Model.create(**model_config)
   end
 
   let(:n_trials) do
@@ -142,10 +57,6 @@ RSpec.describe EasyML::Core::Tuner do
     }
   end
 
-  let(:model) do
-    model_class.new(model_config)
-  end
-
   let(:tuner_params) do
     {
       n_trials: n_trials,
@@ -165,6 +76,7 @@ RSpec.describe EasyML::Core::Tuner do
     allow(Wandb).to receive(:current_run).and_return(mock_run)
     allow(Wandb).to receive(:define_metric).and_return(true)
     allow(mock_run).to receive(:config=)
+    allow(mock_run).to receive(:url).and_return("https://wandb.ai")
     allow(Wandb).to receive(:log)
   end
 
@@ -220,6 +132,7 @@ RSpec.describe EasyML::Core::Tuner do
       tuner = EasyML::Core::Tuner.new(tuner_params)
       tuner.tune
       expect(tuner.model.callbacks.first.project_name).to match(/my-great-project_\d{4}_\d{2}_\d{2}/)
+      expect(EasyML::TunerJob.last.metadata["wandb_url"]).to eq "https://wandb.ai"
     end
 
     it "accepts custom evaluator" do
@@ -228,12 +141,55 @@ RSpec.describe EasyML::Core::Tuner do
           1
         end
       end
-      model.evaluator = CustomEvaluator
 
+      EasyML::Core::ModelEvaluator.register(:custom, CustomEvaluator)
+      model.evaluator = { metric: :custom, max: 10 }
       tuner = EasyML::Core::Tuner.new(tuner_params)
       tuner.tune
 
       expect(tuner.results).to eq([1, 1, 1, 1, 1])
+    end
+
+    describe "Tuning Job Tracking" do
+      it "creates a tuner job" do
+        tuner = EasyML::Core::Tuner.new(tuner_params)
+        expect { tuner.tune }.to change(EasyML::TunerJob, :count).by(1)
+
+        job = EasyML::TunerJob.last
+        expect(job.config).to include(
+          "n_trials" => n_trials,
+          "objective" => "mean_absolute_error",
+          "hyperparameter_ranges" => {
+            "learning_rate" => { "min" => 0.01, "max" => 0.1 },
+            "n_estimators" => { "min" => 1, "max" => 2 },
+            "max_depth" => { "min" => 1, "max" => 5 }
+          }
+        )
+      end
+
+      it "creates tuner runs for each trial" do
+        tuner = EasyML::Core::Tuner.new(tuner_params)
+        expect { tuner.tune }.to change(EasyML::TunerRun, :count).by(n_trials)
+
+        runs = EasyML::TunerRun.last(n_trials)
+        runs.each do |run|
+          expect(run.hyperparameters).to include(
+            "learning_rate",
+            "n_estimators",
+            "max_depth"
+          )
+          expect(run.value).to be_present
+        end
+      end
+
+      it "sets best_tuner_run_id" do
+        tuner = EasyML::Core::Tuner.new(tuner_params)
+        tuner.tune
+
+        job = EasyML::TunerJob.last
+        best_run = job.tuner_runs.order(value: :asc).first
+        expect(job.best_tuner_run_id).to eq(best_run.id)
+      end
     end
   end
 end

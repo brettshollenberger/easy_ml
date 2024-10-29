@@ -70,6 +70,10 @@ module EasyML
       def promote
         raise "Cannot promote without a name! Set name first." if name.nil?
 
+        if respond_to?(:promotable?) && respond_to?(:cannot_promote_reasons) && !promotable?
+          raise "Cannot promote: #{cannot_promote_reasons.join(", ")}"
+        end
+
         transaction do
           self.class.where(name: name).inference.where.not(id: id).update_all(status: :retired)
           update!(status: :inference)

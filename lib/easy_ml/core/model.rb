@@ -1,5 +1,4 @@
 require "carrierwave"
-require_relative "uploaders/model_uploader"
 
 module EasyML
   module Core
@@ -11,13 +10,13 @@ module EasyML
       attribute :verbose, :boolean, default: false
       attribute :task, :string, default: "regression"
       attribute :model_type, :string
-      attribute :metrics, :array
+      attribute :metrics, :array # These will simply be calculated / logged (e.g. log RMSE, MAE, and R2)
       attribute :file, :string
       attribute :root_dir, :string
       attribute :objective
-      attribute :evaluator
-      attribute :evaluator_metric
+      attribute :evaluator, :hash # This determines the actual quality of the model. Whether or not the model can be promoted (e.g. use RMSE)
       attribute :dataset
+      attribute :callbacks
 
       def initialize(options = {})
         super
@@ -81,6 +80,14 @@ module EasyML
 
       def fit?
         @is_fit == true
+      end
+
+      def promotable?
+        cannot_promote_reasons.none?
+      end
+
+      def cannot_promote_reasons
+        []
       end
 
       private

@@ -7,6 +7,7 @@
 #  frequency    :string           not null
 #  at           :integer          not null
 #  tuner_config :json
+#  evaluator    :json
 #  active       :boolean          default(TRUE)
 #  status       :string           default("pending")
 #  last_run_at  :datetime
@@ -34,6 +35,7 @@ module EasyML
       in: %w[hour day week month],
       allow_nil: true
     }
+    validate :evaluator_must_be_valid
 
     scope :active, -> { where(active: true) }
     scope :locked, lambda {
@@ -128,6 +130,47 @@ module EasyML
       return if EasyML::Model.where(name: model).inference.exists?
 
       errors.add(:model, "does not exist or is not in inference state")
+    end
+
+    def evaluator_must_be_valid
+      return if evaluator.nil? || evaluator.blank?
+
+      unless evaluator["metric"].present? && (evaluator["min"].present? || evaluator["max"].present?)
+        errors.add(:evaluator, "must specify metric and either min or max value")
+        return
+      end
+
+      if evaluator["min"].present? && !evaluator["min"].is_a?(Numeric)
+        errors.add(:evaluator, "min value must be numeric")
+      end
+
+      if evaluator["max"].present? && !evaluator["max"].is_a?(Numeric)
+        errors.add(:evaluator, "max value must be numeric")
+      end
+
+      metric = evaluator["metric"].to_sym
+      valid_metrics = %i[rmse mae mse r2 accuracy precision recall f1 custom]
+
+      unless valid_metrics.include?(metric)
+        errors.add(:evaluator, "contains invalid metric")
+        return
+      end
+
+      return unless metric == :custom
+
+      unless evaluator["evaluator_class"].present?
+        errors.add(:evaluator, "must specify evaluator_class for custom metric")
+        return
+      end
+
+      begin
+        evaluator_class = evaluator["evaluator_class"].constantize
+        unless evaluator_class.respond_to?(:evaluate)
+          errors.add(:evaluator, "evaluator_class must implement evaluate method")
+        end
+      rescue NameError
+        errors.add(:evaluator, "evaluator_class does not exist")
+      end
     end
   end
 end

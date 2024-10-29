@@ -34,8 +34,8 @@ module EasyML
           training_model = Orchestrator.train(retraining_job.model)
         end
 
-        # Promote the model if training was successful
-        training_model.promote if training_model.promotable?
+        # Only promote if model passes evaluation criteria
+        training_model.promote if should_promote?(training_model)
 
         update!(
           status: "completed",
@@ -75,6 +75,38 @@ module EasyML
 
     def should_tune?
       retraining_job.tuner_config.present? && retraining_job.should_tune?
+    end
+
+    def should_promote?(training_model)
+      return training_model.promotable? unless retraining_job.evaluator.present?
+
+      evaluator = retraining_job.evaluator
+      x_true, y_true = training_model.dataset.test(split_ys: true)
+      y_pred = training_model.predict(x_true)
+
+      metric = evaluator["metric"].to_sym
+      metric_value = if metric == :custom
+                       evaluator["evaluator_class"].constantize.evaluate(
+                         y_pred: y_pred,
+                         y_true: y_true,
+                         x_true: x_true
+                       )
+                     else
+                       metrics = EasyML::Core::ModelEvaluator.evaluate(
+                         model: training_model,
+                         y_pred: y_pred,
+                         y_true: y_true
+                       )
+                       metrics[metric]
+                     end
+
+      # Check against min threshold if present
+      return false if evaluator["min"].present? && metric_value < (evaluator["min"])
+
+      # Check against max threshold if present
+      return false if evaluator["max"].present? && metric_value > (evaluator["max"])
+
+      true
     end
   end
 end

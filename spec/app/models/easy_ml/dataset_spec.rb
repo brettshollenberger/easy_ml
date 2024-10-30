@@ -47,7 +47,7 @@ RSpec.describe EasyML::Datasource do
       )
     end
 
-    it "saves and reloads the dataset" do
+    it "saves and reloads the dataset", :focus do
       dataset.refresh!
       reloaded = EasyML::Dataset.find(dataset.id)
       expect(reloaded.datasource).to eq datasource

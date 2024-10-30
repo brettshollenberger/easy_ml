@@ -151,9 +151,7 @@ RSpec.describe EasyML::Data::Dataset do
         datasource: EasyML::Data::Datasource::S3Datasource.new(
           root_dir: SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files"),
           s3_bucket: s3_bucket,
-          s3_prefix: s3_prefix,
-          s3_access_key_id: "12345",
-          s3_secret_access_key: "12345"
+          s3_prefix: s3_prefix
         ),
         target: target,
         preprocessing_steps: preprocessing_steps,

@@ -91,6 +91,7 @@ module ModelSpecHelper
         task: task,
         dataset: dataset,
         hyperparameters: {
+          booster: :gbtree,
           learning_rate: learning_rate,
           max_depth: max_depth,
           objective: objective

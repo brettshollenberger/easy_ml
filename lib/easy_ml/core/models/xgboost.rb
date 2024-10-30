@@ -1,20 +1,22 @@
 require "wandb"
-
+require_relative "hyperparameters"
 module EasyML
   module Core
     module Models
       class XGBoost < EasyML::Core::Model
         include EasyML::FileSupport
+        Hyperparameters = EasyML::Models::Hyperparameters::XGBoost
 
         OBJECTIVES = {
           classification: {
             binary: %w[binary:logistic binary:hinge],
-            multi_class: %w[multi:softmax multi:softprob]
+            multiclass: %w[multi:softmax multi:softprob]
           },
           regression: %w[reg:squarederror reg:logistic]
         }
 
         attribute :evaluator
+        attribute :early_stopping_rounds
         attr_accessor :model, :booster
 
         dependency :callbacks, { array: true } do |dep|
@@ -28,14 +30,26 @@ module EasyML
           end
         end
 
-        dependency :hyperparameters do |dep|
-          dep.set_class EasyML::Models::Hyperparameters::XGBoost
-          dep.bind_attribute :batch_size, default: 32
-          dep.bind_attribute :learning_rate, default: 1.1
-          dep.bind_attribute :max_depth, default: 6
-          dep.bind_attribute :n_estimators, default: 100
-          dep.bind_attribute :booster, default: "gbtree"
-          dep.bind_attribute :objective, default: "reg:squarederror"
+        attribute :hyperparameters
+
+        def hyperparameters=(params)
+          return nil unless params.is_a?(Hash)
+
+          params.symbolize_keys!
+
+          raise "Must supply booster type!" unless params.key?(:booster)
+
+          klass = case params[:booster].to_sym
+                  when :gbtree
+                    Hyperparameters::GBTree
+                  when :dart
+                    Hyperparameters::Dart
+                  when :gblinear
+                    Hyperparameters::GBLinear
+                  else
+                    raise "Unknown booster type: #{booster}"
+                  end
+          super(klass.new(params))
         end
 
         def predict(xs)
@@ -85,7 +99,8 @@ module EasyML
 
         def load(path = nil)
           initialize_model do
-            booster_class.new(params: hyperparameters.to_h, model_file: path)
+            booster_class.new(params: hyperparameters.to_h, model_file: path,
+                              early_stopping_rounds: hyperparameters.to_h.dig(:early_stopping_rounds))
           end
         end
 
@@ -177,7 +192,9 @@ module EasyML
           evals = [[d_train, "train"], [d_valid, "eval"]]
           @booster = base_model.train(hyperparameters.to_h, d_train,
                                       evals: evals,
-                                      num_boost_round: hyperparameters["n_estimators"], callbacks: callbacks)
+                                      num_boost_round: hyperparameters["n_estimators"],
+                                      callbacks: callbacks,
+                                      early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
         end
 
         def train_in_batches
@@ -219,7 +236,9 @@ module EasyML
 
         def fit_batch(d_train, current_iteration, evals, cb_container)
           if @booster.nil?
-            @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map { |d| d[0] })
+            @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map do |d|
+              d[0]
+            end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
           end
 
           @booster = cb_container.before_training(@booster)

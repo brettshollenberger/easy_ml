@@ -50,6 +50,7 @@ RSpec.describe EasyML::Core::Tuner do
         { wandb: { project_name: "my-great-project" } }
       ],
       hyperparameters: {
+        booster: :gbtree,
         learning_rate: learning_rate,
         max_depth: max_depth,
         objective: objective

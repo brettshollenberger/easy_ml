@@ -21,25 +21,23 @@ running_rails_specs = RSpec.configuration.files_to_run.any? { |file| file.includ
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")
 
-if running_rails_specs
-  Combustion.initialize! :active_record
-  require "rspec/rails"
+Combustion.initialize! :active_record
+require "rspec/rails"
 
-  if Dir.glob(Rails.root.join("db/migrate/**/*")).none?
-    Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
+if Dir.glob(Rails.root.join("db/migrate/**/*")).none?
+  Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
 
-    migration_paths = ActiveRecord::Migrator.migrations_paths
-    migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
+  migration_paths = ActiveRecord::Migrator.migrations_paths
+  migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
 
-    case Rails::VERSION::MAJOR
-    when 7
-      ActiveRecord::MigrationContext.new(migration_paths).migrate
-    when 6
-      migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
-      migration_context.migrate
-    else
-      ActiveRecord::Migrator.migrate(migration_paths)
-    end
+  case Rails::VERSION::MAJOR
+  when 7
+    ActiveRecord::MigrationContext.new(migration_paths).migrate
+  when 6
+    migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
+    migration_context.migrate
+  else
+    ActiveRecord::Migrator.migrate(migration_paths)
   end
 end
 

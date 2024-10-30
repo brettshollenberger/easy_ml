@@ -5,6 +5,9 @@ RSpec.describe EasyML::Core::Models::XGBoost do
   include ModelSpecHelper
 
   describe "XGBoost" do
+    let(:booster) do
+      :gbtree
+    end
     let(:model) do
       EasyML::Core::Models::XGBoost.new(
         model_type: :xgboost,
@@ -12,6 +15,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
         task: task,
         dataset: dataset,
         hyperparameters: {
+          booster: booster,
           learning_rate: 0.05,
           max_depth: 8,
           objective: objective,
@@ -66,6 +70,9 @@ RSpec.describe EasyML::Core::Models::XGBoost do
         end
         let(:objective) do
           "binary:logistic"
+        end
+        let(:booster) do
+          :gbtree
         end
         let(:target) do
           :did_convert
@@ -130,24 +137,6 @@ RSpec.describe EasyML::Core::Models::XGBoost do
           expect(preds_orig).to eq([0, 0])
           expect(preds).to eq(%w[converts converts])
         end
-
-        describe "Custom evaluators" do
-          xit "uses custom evaluators" do
-            model.metrics = %w[accuracy_score precision_score recall_score f1_score]
-            model.metrics << CustomEvaluator
-            x_test, y_test = dataset.test(split_ys: true)
-            model.fit
-            preds = model.predict(x_test)
-
-            # Evaluate all classification metrics
-            evaluation_metrics = model.evaluate(y_pred: preds, y_true: y_test)
-
-            expect(evaluation_metrics[:accuracy_score]).to be_between(0, 1)
-            expect(evaluation_metrics[:precision_score]).to be_between(0, 1)
-            expect(evaluation_metrics[:recall_score]).to be_between(0, 1)
-            expect(evaluation_metrics[:f1_score]).to be_between(0, 1)
-          end
-        end
       end
     end
 
@@ -157,6 +146,151 @@ RSpec.describe EasyML::Core::Models::XGBoost do
         expect(model.feature_importances).to match(hash_including({ "annual_revenue" => a_value_between(0.0, 1.0),
                                                                     "loan_purpose_payroll" => a_value_between(0.0,
                                                                                                               1.0) }))
+      end
+    end
+  end
+
+  describe "hyperparameter configurations" do
+    describe "gbtree booster" do
+      let(:model) do
+        EasyML::Core::Models::XGBoost.new(
+          model_type: :xgboost,
+          root_dir: root_dir,
+          task: :regression,
+          dataset: dataset,
+          hyperparameters: {
+            early_stopping_rounds: 15,
+            booster: :gbtree,
+            learning_rate: 0.1,
+            max_depth: 6,
+            n_estimators: 100,
+            gamma: 0.1,
+            min_child_weight: 1,
+            subsample: 0.8,
+            colsample_bytree: 0.8,
+            objective: "reg:squarederror"
+          }
+        )
+      end
+
+      it "accepts gbtree-specific parameters" do
+        expect(model.hyperparameters.to_h.symbolize_keys).to match(hash_including({
+                                                                                    gamma: 0.1,
+                                                                                    min_child_weight: 1,
+                                                                                    subsample: 0.8,
+                                                                                    colsample_bytree: 0.8
+                                                                                  }))
+        m = EasyML::Model.create(name: "My Model", model_type: :xgboost, hyperparameters: {
+                                   booster: :gbtree,
+                                   learning_rate: 1.0,
+                                   gamma: 0.01
+                                 })
+        m = EasyML::Model.find(m.id)
+        expect(m.hyperparameters.booster).to eq "gbtree"
+        expect(m.hyperparameters.gamma).to eq 0.01
+        expect(m.hyperparameters.class).to eq EasyML::Models::Hyperparameters::XGBoost::GBTree
+      end
+
+      it "accepts early stopping rounds" do
+        expect(::XGBoost).to receive(:train).with(any_args, hash_including({ early_stopping_rounds: 15 }))
+        model.fit
+      end
+
+      it "trains successfully with gbtree parameters" do
+        expect { model.fit }.not_to raise_error
+      end
+    end
+
+    describe "dart booster" do
+      let(:model) do
+        EasyML::Core::Models::XGBoost.new(
+          model_type: :xgboost,
+          root_dir: root_dir,
+          task: :regression,
+          dataset: dataset,
+          hyperparameters: {
+            booster: :dart,
+            learning_rate: 0.1,
+            max_depth: 6,
+            n_estimators: 100,
+            rate_drop: 0.1,
+            skip_drop: 0.5,
+            sample_type: "uniform",
+            normalize_type: "tree",
+            objective: "reg:squarederror"
+          }
+        )
+      end
+
+      it "accepts dart-specific parameters" do
+        expect(model.hyperparameters.to_h.symbolize_keys).to match(hash_including({
+                                                                                    rate_drop: 0.1,
+                                                                                    skip_drop: 0.5,
+                                                                                    sample_type: "uniform",
+                                                                                    normalize_type: "tree"
+                                                                                  }))
+      end
+
+      it "trains successfully with dart parameters" do
+        expect { model.fit }.not_to raise_error
+      end
+    end
+
+    describe "gblinear booster" do
+      let(:model) do
+        EasyML::Core::Models::XGBoost.new(
+          model_type: :xgboost,
+          root_dir: root_dir,
+          task: :regression,
+          dataset: dataset,
+          hyperparameters: {
+            booster: :gblinear,
+            learning_rate: 0.1,
+            n_estimators: 100,
+            updater: "coord_descent",
+            feature_selector: "cyclic",
+            objective: "reg:squarederror"
+          }
+        )
+      end
+
+      it "accepts gblinear-specific parameters" do
+        expect(model.hyperparameters.to_h.symbolize_keys).to match(hash_including({
+                                                                                    updater: "coord_descent",
+                                                                                    feature_selector: "cyclic"
+                                                                                  }))
+      end
+
+      it "trains successfully with gblinear parameters" do
+        expect { model.fit }.not_to raise_error
+      end
+    end
+
+    describe "parameter validation" do
+      it "raises error for invalid booster type" do
+        expect do
+          EasyML::Core::Models::XGBoost.new(
+            model_type: :xgboost,
+            root_dir: root_dir,
+            task: :regression,
+            dataset: dataset,
+            hyperparameters: { booster: :invalid_booster }
+          )
+        end.to raise_error(/Unknown booster type/)
+      end
+
+      it "raises error for invalid objective" do
+        model = EasyML::Core::Models::XGBoost.new(
+          model_type: :xgboost,
+          root_dir: root_dir,
+          task: :regression,
+          dataset: dataset,
+          hyperparameters: {
+            booster: :gbtree,
+            objective: "invalid_objective"
+          }
+        )
+        expect { model.fit }.to raise_error(ArgumentError, /cannot use invalid_objective for regression task/)
       end
     end
   end

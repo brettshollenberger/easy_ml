@@ -47,6 +47,7 @@ RSpec.describe EasyML::Models do
 
   let(:hyperparameters) do
     {
+      booster: :gbtree,
       learning_rate: 0.05,
       max_depth: 8,
       n_estimators: 150,
@@ -70,6 +71,7 @@ RSpec.describe EasyML::Models do
       root_dir: root_dir,
       dataset: dataset,
       hyperparameters: {
+        booster: :gbtree,
         learning_rate: learning_rate,
         max_depth: max_depth
       }

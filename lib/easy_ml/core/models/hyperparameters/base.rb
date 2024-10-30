@@ -8,6 +8,7 @@ module EasyML
         attribute :max_iterations, :integer, default: 100
         attribute :batch_size, :integer, default: 32
         attribute :regularization, :float, default: 0.0001
+        attribute :early_stopping_rounds
 
         def to_h
           attributes

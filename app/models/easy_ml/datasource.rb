@@ -12,7 +12,7 @@
 #
 module EasyML
   class Datasource < ActiveRecord::Base
-    include ConfigurableSTI
+    include Concerns::ConfigurableSti
 
     type_column :datasource_type
     register_types(

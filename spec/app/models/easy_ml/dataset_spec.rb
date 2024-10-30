@@ -3,6 +3,11 @@ require "support/model_spec_helper"
 require "support/file_spec_helper"
 
 RSpec.describe EasyML::Datasource do
+  include FileSpecHelper
+
+  let(:dir) do
+    SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
+  end
   before(:each) do
     dataset.cleanup
   end
@@ -13,6 +18,7 @@ RSpec.describe EasyML::Datasource do
 
   let(:dataset) do
     EasyML::Dataset.create(
+      root_dir: dir,
       target: "rev",
       name: "My Dataset",
       datasource: datasource,
@@ -24,21 +30,16 @@ RSpec.describe EasyML::Datasource do
         }
       },
       splitter: {
-        date: {
-          today: EST.parse("2024-10-01"),
-          date_col: "created_date",
-          months_test: 2,
-          months_valid: 2
-        }
+        splitter_type: :date,
+        today: EST.parse("2024-10-01"),
+        date_col: "created_date",
+        months_test: 2,
+        months_valid: 2
       }
     )
   end
 
   describe "File datasource" do
-    let(:dir) do
-      SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
-    end
-
     let(:datasource) do
       EasyML::Datasource.create(
         name: "Local dir",
@@ -63,6 +64,29 @@ RSpec.describe EasyML::Datasource do
       # The original dataset was processed, so the reloaded one is
       expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
+    end
+
+    it "sets up the dataset with correct attributes", :focus do
+      file_spec do |_, _csv_file, _parquet_file|
+        dataset.cleanup
+        dataset.refresh!
+
+        expect(dataset.datasource.root_dir).to eq dir.join("data").to_s
+        x_train, = dataset.train(split_ys: true)
+        x_valid, = dataset.valid(split_ys: true)
+        x_test, = dataset.test(split_ys: true)
+
+        expect(x_train.count).to eq 4
+        expect(x_valid.count).to eq 2
+        expect(x_test.count).to eq 2
+
+        expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::FileSplit)
+        expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::FileSplit)
+
+        # Median applied
+        expect(x_test["annual_revenue"].to_a).to all(eq(2_700))
+        dataset.cleanup
+      end
     end
   end
 
@@ -108,6 +132,24 @@ RSpec.describe EasyML::Datasource do
       reloaded.refresh!
       expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
+    end
+
+    it "sets up the dataset with correct attributes" do
+      dataset.refresh!
+      x_train, = dataset.train(split_ys: true)
+      x_test, = dataset.test(split_ys: true)
+      x_valid, = dataset.valid(split_ys: true)
+
+      expect(x_train.count).to eq 4
+      expect(x_valid.count).to eq 2
+      expect(x_test.count).to eq 2
+
+      expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::InMemorySplit)
+      expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::InMemorySplit)
+
+      # Median applied
+      expect(x_test["annual_revenue"].to_a).to all(eq(2_700))
+      dataset.save
     end
   end
 end

@@ -17,6 +17,10 @@ module EasyML::Data::Dataset::Splitters
       super(options)
     end
 
+    def self.required_config
+      %i[today date_col months_test months_valid]
+    end
+
     def split(df)
       raise "Split by date requires argument: date_col" unless date_col.present?
 

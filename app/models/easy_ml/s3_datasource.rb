@@ -1,3 +1,15 @@
+# == Schema Information
+#
+# Table name: easy_ml_datasources
+#
+#  id              :bigint           not null, primary key
+#  name            :string           not null
+#  datasource_type :string
+#  root_dir        :string
+#  configuration   :json
+#  created_at      :datetime         not null
+#  updated_at      :datetime         not null
+#
 module EasyML
   class S3Datasource < Datasource
     attr_accessor :s3_bucket, :s3_prefix, :s3_access_key_id,

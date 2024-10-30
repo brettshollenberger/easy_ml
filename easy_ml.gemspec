@@ -30,6 +30,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "awesome_print"
   spec.add_runtime_dependency "carrierwave", ">= 2.0", "< 4"
   spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.19"
+  spec.add_runtime_dependency "inertia_rails"
   spec.add_runtime_dependency "numo-narray"
   spec.add_runtime_dependency "parallel"
   spec.add_runtime_dependency "polars-df"
@@ -37,6 +38,8 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "rails"
   spec.add_runtime_dependency "red-optuna"
   spec.add_runtime_dependency "sidekiq"
+  spec.add_runtime_dependency "tailwindcss-rails"
+  spec.add_runtime_dependency "vite_rails"
   spec.add_runtime_dependency "wandb", "~> 0.1.6"
   spec.add_runtime_dependency "xgb"
 
@@ -48,6 +51,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "ostruct"
   spec.add_development_dependency "pry"
   spec.add_development_dependency "rspec", "~> 3.0"
+  spec.add_development_dependency "rspec-rails"
   spec.add_development_dependency "rspec-sidekiq"
   spec.add_development_dependency "timecop"
 end

@@ -12,15 +12,42 @@
 #
 module EasyML
   class Datasource < ActiveRecord::Base
-    self.filter_attributes += [:configuration]
-    include GlueGun::Model
+    include ConfigurableSTI
 
-    service :polars, EasyML::Data::Datasource::PolarsDatasource
-    service :s3, EasyML::Data::Datasource::S3Datasource
-    service :file, EasyML::Data::Datasource::FileDatasource
+    type_column :datasource_type
+    register_types(
+      polars: "PolarsDatasource",
+      s3: "S3Datasource",
+      file: "FileDatasource"
+    )
 
     validates :name, presence: true
     validates :datasource_type, presence: true
-    validates :datasource_type, inclusion: { in: %w[polars s3 file] }
+    validates :datasource_type, inclusion: { in: type_map.values }
+
+    # Common interface methods
+    def in_batches(of: 10_000)
+      raise NotImplementedError, "#{self.class} must implement #in_batches"
+    end
+
+    def files
+      raise NotImplementedError, "#{self.class} must implement #files"
+    end
+
+    def last_updated_at
+      raise NotImplementedError, "#{self.class} must implement #last_updated_at"
+    end
+
+    def refresh
+      raise NotImplementedError, "#{self.class} must implement #refresh"
+    end
+
+    def refresh!
+      raise NotImplementedError, "#{self.class} must implement #refresh!"
+    end
+
+    def data
+      raise NotImplementedError, "#{self.class} must implement #data"
+    end
   end
 end

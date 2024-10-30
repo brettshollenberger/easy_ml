@@ -25,7 +25,7 @@ RSpec.describe EasyML::Data::Dataset do
     end
 
     let(:datasource) do
-      EasyML::Data::Datasource::PolarsDatasource.new(df: df)
+      EasyML::Datasource.new(datasource_type: :polars, df: df)
     end
 
     let(:dataset) do
@@ -90,7 +90,7 @@ RSpec.describe EasyML::Data::Dataset do
     let(:dataset) do
       EasyML::Data::Dataset.new(
         target: "rev",
-        datasource: EasyML::Data::Datasource::FileDatasource.new(root_dir: root_dir.join("data")),
+        datasource: EasyML::Datasource.new(datasource_type: :file, root_dir: root_dir.join("data")),
         polars_args: polars_args,
         preprocessing_steps: {
           training: {
@@ -148,12 +148,11 @@ RSpec.describe EasyML::Data::Dataset do
         ],
         transforms: Transforms,
         drop_cols: %w[drop_me],
-        datasource: EasyML::Data::Datasource::S3Datasource.new(
+        datasource: EasyML::Datasource.new(
+          datasource_type: :s3,
           root_dir: SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files"),
           s3_bucket: s3_bucket,
-          s3_prefix: s3_prefix,
-          s3_access_key_id: "12345",
-          s3_secret_access_key: "12345"
+          s3_prefix: s3_prefix
         ),
         target: target,
         preprocessing_steps: preprocessing_steps,
@@ -183,7 +182,7 @@ RSpec.describe EasyML::Data::Dataset do
 
     describe "When passing in args" do
       let(:s3_datasource) do
-        EasyML::Data::Datasource::S3Datasource
+        EasyML::S3Datasource
       end
 
       let(:s3_bucket) { "test-bucket" }
@@ -309,7 +308,7 @@ RSpec.describe EasyML::Data::Dataset do
 
       describe "#initialize" do
         it "sets up the dataset with correct attributes" do
-          expect(dataset.datasource).to be_a(EasyML::Data::Datasource::S3Datasource)
+          expect(dataset.datasource).to be_a(EasyML::S3Datasource)
           expect(dataset.target).to eq(target)
           expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
           expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::Split)

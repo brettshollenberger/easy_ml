@@ -1,5 +1,6 @@
 require "spec_helper"
 require "active_support/core_ext/integer/time"
+require "support/file_spec_helper"
 
 RSpec.describe EasyML::Data::Dataset do
   include FileSpecHelper

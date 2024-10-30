@@ -26,6 +26,3 @@ end
 require_relative "xgboost/gbtree"
 require_relative "xgboost/gblinear"
 require_relative "xgboost/dart"
-require_relative "xgboost/binary_classification"
-require_relative "xgboost/multi_class"
-require_relative "xgboost/regression"

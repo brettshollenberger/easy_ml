@@ -10,7 +10,7 @@ module EasyML
         OBJECTIVES = {
           classification: {
             binary: %w[binary:logistic binary:hinge],
-            multi_class: %w[multi:softmax multi:softprob]
+            multiclass: %w[multi:softmax multi:softprob]
           },
           regression: %w[reg:squarederror reg:logistic]
         }
@@ -30,120 +30,26 @@ module EasyML
           end
         end
 
-        dependency :hyperparameters do |dep|
-          # gbtree option
-          dep.option :gbtree do |option|
-            option.set_class Hyperparameters::GBTree
-            option.bind_attribute :learning_rate      # Common
-            option.bind_attribute :max_depth          # Common
-            option.bind_attribute :n_estimators       # Common
-            option.bind_attribute :booster            # Common
-            option.bind_attribute :objective          # Common
-            option.bind_attribute :gamma              # GBTree-specific
-            option.bind_attribute :min_child_weight   # GBTree-specific
-            option.bind_attribute :subsample          # GBTree-specific
-            option.bind_attribute :colsample_bytree   # GBTree-specific
-            option.bind_attribute :colsample_bylevel  # GBTree-specific
-            option.bind_attribute :colsample_bynode   # GBTree-specific
-            option.bind_attribute :lambda             # Regularization (Common)
-            option.bind_attribute :alpha              # Regularization (Common)
-            option.bind_attribute :tree_method        # GBTree-specific
-            option.bind_attribute :scale_pos_weight   # Class imbalance (Common for classification)
-          end
+        attribute :hyperparameters
 
-          # dart option
-          dep.option :dart do |option|
-            option.set_class Hyperparameters::Dart
-            option.bind_attribute :learning_rate      # Common
-            option.bind_attribute :max_depth          # Common
-            option.bind_attribute :n_estimators       # Common
-            option.bind_attribute :booster            # Common
-            option.bind_attribute :objective          # Common
-            option.bind_attribute :rate_drop          # DART-specific
-            option.bind_attribute :skip_drop          # DART-specific
-            option.bind_attribute :sample_type        # DART-specific
-            option.bind_attribute :normalize_type     # DART-specific
-            option.bind_attribute :subsample          # GBTree-like (shared with gbtree)
-            option.bind_attribute :colsample_bytree   # GBTree-like (shared with gbtree)
-            option.bind_attribute :lambda             # Regularization (Common)
-            option.bind_attribute :alpha              # Regularization (Common)
-          end
+        def hyperparameters=(params)
+          return nil unless params.is_a?(Hash)
 
-          # gblinear option
-          dep.option :gblinear do |option|
-            option.set_class Hyperparameters::GBLinear
-            option.bind_attribute :learning_rate      # Common
-            option.bind_attribute :booster            # Common
-            option.bind_attribute :n_estimators       # Common
-            option.bind_attribute :lambda             # Regularization (Common)
-            option.bind_attribute :alpha              # Regularization (Common)
-            option.bind_attribute :updater            # GBLinear-specific
-            option.bind_attribute :feature_selector   # GBLinear-specific
-          end
+          params.symbolize_keys!
 
-          # multi-class classification option
-          dep.option :multiclass do |option|
-            option.set_class Hyperparameters::MultiClass
-            option.bind_attribute :learning_rate      # Common
-            option.bind_attribute :max_depth          # Common
-            option.bind_attribute :n_estimators       # Common
-            option.bind_attribute :booster            # Common
-            option.bind_attribute :objective          # Multi-class-specific
-            option.bind_attribute :num_class          # Multi-class-specific
-            option.bind_attribute :colsample_bytree   # Common (shared with gbtree)
-            option.bind_attribute :subsample          # Common (shared with gbtree)
-            option.bind_attribute :lambda             # Regularization (Common)
-            option.bind_attribute :alpha              # Regularization (Common)
-          end
+          raise "Must supply booster type!" unless params.key?(:booster)
 
-          # binary classification option
-          dep.option :binary do |option|
-            option.set_class Hyperparameters::BinaryClassification
-            option.bind_attribute :learning_rate      # Common
-            option.bind_attribute :max_depth          # Common
-            option.bind_attribute :n_estimators       # Common
-            option.bind_attribute :booster            # Common
-            option.bind_attribute :objective          # Binary-specific
-            option.bind_attribute :scale_pos_weight   # Class imbalance (Binary-specific)
-            option.bind_attribute :colsample_bytree   # Common (shared with gbtree)
-            option.bind_attribute :subsample          # Common (shared with gbtree)
-            option.bind_attribute :lambda             # Regularization (Common)
-            option.bind_attribute :alpha              # Regularization (Common)
-          end
-
-          # regression option
-          dep.option :regression do |option|
-            option.set_class Hyperparameters::Regression
-            option.bind_attribute :learning_rate      # Common
-            option.bind_attribute :max_depth          # Common
-            option.bind_attribute :n_estimators       # Common
-            option.bind_attribute :booster            # Common
-            option.bind_attribute :objective          # Regression-specific
-            option.bind_attribute :colsample_bytree   # Common (shared with gbtree)
-            option.bind_attribute :subsample          # Common (shared with gbtree)
-            option.bind_attribute :lambda             # Regularization (Common)
-            option.bind_attribute :alpha              # Regularization (Common)
-          end
-
-          # Conditional logic for selecting the class based on the booster
-          dep.when do |dependency|
-            case dependency[:booster].to_sym
-            when :gbtree
-              Hyperparameters::GBTree
-            when :dart
-              Hyperparameters::Dart
-            when :gblinear
-              Hyperparameters::GBLinear
-            when :multiclass
-              Hyperparameters::MultiClass
-            when :binary
-              Hyperparameters::BinaryClassification
-            when :regression
-              Hyperparameters::Regression
-            else
-              raise "Unknown booster type: #{booster}"
-            end
-          end
+          klass = case params[:booster].to_sym
+                  when :gbtree
+                    Hyperparameters::GBTree
+                  when :dart
+                    Hyperparameters::Dart
+                  when :gblinear
+                    Hyperparameters::GBLinear
+                  else
+                    raise "Unknown booster type: #{booster}"
+                  end
+          super(klass.new(params))
         end
 
         def predict(xs)
@@ -193,7 +99,8 @@ module EasyML
 
         def load(path = nil)
           initialize_model do
-            booster_class.new(params: hyperparameters.to_h, model_file: path)
+            booster_class.new(params: hyperparameters.to_h, model_file: path,
+                              early_stopping_rounds: hyperparameters.to_h.dig(:early_stopping_rounds))
           end
         end
 
@@ -285,7 +192,9 @@ module EasyML
           evals = [[d_train, "train"], [d_valid, "eval"]]
           @booster = base_model.train(hyperparameters.to_h, d_train,
                                       evals: evals,
-                                      num_boost_round: hyperparameters["n_estimators"], callbacks: callbacks)
+                                      num_boost_round: hyperparameters["n_estimators"],
+                                      callbacks: callbacks,
+                                      early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
         end
 
         def train_in_batches
@@ -327,7 +236,9 @@ module EasyML
 
         def fit_batch(d_train, current_iteration, evals, cb_container)
           if @booster.nil?
-            @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map { |d| d[0] })
+            @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map do |d|
+              d[0]
+            end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
           end
 
           @booster = cb_container.before_training(@booster)

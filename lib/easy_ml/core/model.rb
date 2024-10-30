@@ -90,6 +90,12 @@ module EasyML
         []
       end
 
+      def attributes
+        super.merge!(
+          hyperparameters: hyperparameters.to_h
+        )
+      end
+
       private
 
       def apply_defaults

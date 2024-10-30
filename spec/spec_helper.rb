@@ -71,6 +71,8 @@ RSpec.configure do |config|
   config.before(:all) do
     EasyML::Configuration.configure do |config|
       config.s3_bucket = "my-bucket"
+      config.s3_access_key_id = "12345"
+      config.s3_secret_access_key = "67890"
     end
   end
 

@@ -46,7 +46,7 @@ module ModelSpecHelper
         verbose: false,
         drop_if_null: ["loan_purpose"],
         drop_cols: %w[business_name state date id],
-        datasource: EasyML::Data::Datasource::PolarsDatasource.new(df: df),
+        datasource: EasyML::Datasource.new(datasource_type: :polars, df: df),
         target: target,
         preprocessing_steps: preprocessing_steps,
         splitter: {

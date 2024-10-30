@@ -3,6 +3,5 @@ module EasyML
     require_relative "data/utils"
     require_relative "data/preprocessor"
     require_relative "data/dataset"
-    require_relative "data/datasource"
   end
 end

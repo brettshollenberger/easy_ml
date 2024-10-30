@@ -40,7 +40,7 @@ RSpec.describe EasyML::Datasource do
       path = SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files")
       file_spec do |_, csv_file, _|
         synced_directory = EasyML::Support::SyncedDirectory
-        s3_datasource = EasyML::Data::Datasource::S3Datasource
+        s3_datasource = EasyML::S3Datasource
 
         allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
         allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
@@ -58,7 +58,7 @@ RSpec.describe EasyML::Datasource do
         )
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
-        expect(datasource.datasource_service.s3_bucket).to eq "bucket"
+        expect(datasource.s3_bucket).to eq "bucket"
         expect(datasource.data).to eq(Polars.read_csv(csv_file))
       end
     end
@@ -90,7 +90,7 @@ RSpec.describe EasyML::Datasource do
         df = Polars.read_parquet(parquet_file)
 
         datasource = EasyML::Datasource.find(file_datasource.id)
-        expect(datasource.datasource_service.root_dir).to eq root_dir.to_s
+        expect(datasource.root_dir).to eq root_dir.to_s
         expect(datasource.data).to eq df
       end
     end

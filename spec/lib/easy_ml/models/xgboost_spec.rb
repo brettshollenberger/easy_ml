@@ -160,4 +160,224 @@ RSpec.describe EasyML::Core::Models::XGBoost do
       end
     end
   end
+
+  describe "hyperparameter configurations" do
+    describe "gbtree booster" do
+      let(:model) do
+        EasyML::Core::Models::XGBoost.new(
+          model_type: :xgboost,
+          root_dir: root_dir,
+          task: :regression,
+          dataset: dataset,
+          hyperparameters: {
+            booster: :gbtree,
+            learning_rate: 0.1,
+            max_depth: 6,
+            n_estimators: 100,
+            gamma: 0.1,
+            min_child_weight: 1,
+            subsample: 0.8,
+            colsample_bytree: 0.8,
+            objective: "reg:squarederror"
+          }
+        )
+      end
+
+      it "accepts gbtree-specific parameters", :focus do
+        binding.pry
+        expect(model.hyperparameters.to_h).to include(
+          gamma: 0.1,
+          min_child_weight: 1,
+          subsample: 0.8,
+          colsample_bytree: 0.8
+        )
+      end
+
+      it "trains successfully with gbtree parameters" do
+        expect { model.fit }.not_to raise_error
+      end
+    end
+
+    describe "dart booster" do
+      let(:model) do
+        EasyML::Core::Models::XGBoost.new(
+          model_type: :xgboost,
+          root_dir: root_dir,
+          task: :regression,
+          dataset: dataset,
+          hyperparameters: {
+            booster: :dart,
+            learning_rate: 0.1,
+            max_depth: 6,
+            n_estimators: 100,
+            rate_drop: 0.1,
+            skip_drop: 0.5,
+            sample_type: "uniform",
+            normalize_type: "tree",
+            objective: "reg:squarederror"
+          }
+        )
+      end
+
+      it "accepts dart-specific parameters" do
+        expect(model.hyperparameters.to_h).to include(
+          rate_drop: 0.1,
+          skip_drop: 0.5,
+          sample_type: "uniform",
+          normalize_type: "tree"
+        )
+      end
+
+      it "trains successfully with dart parameters" do
+        expect { model.fit }.not_to raise_error
+      end
+    end
+
+    describe "gblinear booster" do
+      let(:model) do
+        EasyML::Core::Models::XGBoost.new(
+          model_type: :xgboost,
+          root_dir: root_dir,
+          task: :regression,
+          dataset: dataset,
+          hyperparameters: {
+            booster: :gblinear,
+            learning_rate: 0.1,
+            n_estimators: 100,
+            updater: "coord_descent",
+            feature_selector: "cyclic",
+            objective: "reg:squarederror"
+          }
+        )
+      end
+
+      it "accepts gblinear-specific parameters" do
+        expect(model.hyperparameters.to_h).to include(
+          updater: "coord_descent",
+          feature_selector: "cyclic"
+        )
+      end
+
+      it "trains successfully with gblinear parameters" do
+        expect { model.fit }.not_to raise_error
+      end
+    end
+
+    describe "task-specific configurations" do
+      describe "binary classification" do
+        let(:model) do
+          EasyML::Core::Models::XGBoost.new(
+            model_type: :xgboost,
+            root_dir: root_dir,
+            task: :classification,
+            dataset: dataset,
+            hyperparameters: {
+              booster: :binary,
+              learning_rate: 0.1,
+              max_depth: 6,
+              n_estimators: 100,
+              objective: "binary:logistic",
+              scale_pos_weight: 2.0
+            }
+          )
+        end
+
+        it "accepts binary classification parameters" do
+          expect(model.hyperparameters.to_h).to include(
+            objective: "binary:logistic",
+            scale_pos_weight: 2.0
+          )
+        end
+
+        it "validates binary classification objective" do
+          expect { model.fit }.not_to raise_error
+        end
+      end
+
+      describe "multiclass classification" do
+        let(:model) do
+          EasyML::Core::Models::XGBoost.new(
+            model_type: :xgboost,
+            root_dir: root_dir,
+            task: :classification,
+            dataset: dataset,
+            hyperparameters: {
+              booster: :multiclass,
+              learning_rate: 0.1,
+              max_depth: 6,
+              n_estimators: 100,
+              objective: "multi:softmax",
+              num_class: 3
+            }
+          )
+        end
+
+        it "accepts multiclass parameters" do
+          expect(model.hyperparameters.to_h).to include(
+            objective: "multi:softmax",
+            num_class: 3
+          )
+        end
+
+        it "validates multiclass objective" do
+          expect { model.fit }.not_to raise_error
+        end
+      end
+
+      describe "regression" do
+        let(:model) do
+          EasyML::Core::Models::XGBoost.new(
+            model_type: :xgboost,
+            root_dir: root_dir,
+            task: :regression,
+            dataset: dataset,
+            hyperparameters: {
+              booster: :regression,
+              learning_rate: 0.1,
+              max_depth: 6,
+              n_estimators: 100,
+              objective: "reg:squarederror"
+            }
+          )
+        end
+
+        it "accepts regression parameters" do
+          expect(model.hyperparameters.to_h).to include(
+            objective: "reg:squarederror"
+          )
+        end
+
+        it "validates regression objective" do
+          expect { model.fit }.not_to raise_error
+        end
+      end
+    end
+
+    describe "parameter validation" do
+      it "raises error for invalid booster type" do
+        expect do
+          EasyML::Core::Models::XGBoost.new(
+            model_type: :xgboost,
+            root_dir: root_dir,
+            task: :regression,
+            dataset: dataset,
+            hyperparameters: { booster: :invalid_booster }
+          )
+        end.to raise_error(/Unknown booster type/)
+      end
+
+      it "raises error for invalid objective" do
+        model = EasyML::Core::Models::XGBoost.new(
+          model_type: :xgboost,
+          root_dir: root_dir,
+          task: :regression,
+          dataset: dataset,
+          hyperparameters: {
+            objective: "invalid_objective"
+          }
+        )
+        expect { model.fit }.to raise_error(ArgumentError, /cannot use invalid_objective for regression task/)
+      end
+    end
+  end
 end

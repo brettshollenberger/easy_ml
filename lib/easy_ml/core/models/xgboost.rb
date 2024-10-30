@@ -1,10 +1,11 @@
 require "wandb"
-
+require_relative "hyperparameters"
 module EasyML
   module Core
     module Models
       class XGBoost < EasyML::Core::Model
         include EasyML::FileSupport
+        Hyperparameters = EasyML::Models::Hyperparameters::XGBoost
 
         OBJECTIVES = {
           classification: {
@@ -15,6 +16,7 @@ module EasyML
         }
 
         attribute :evaluator
+        attribute :early_stopping_rounds
         attr_accessor :model, :booster
 
         dependency :callbacks, { array: true } do |dep|
@@ -29,13 +31,119 @@ module EasyML
         end
 
         dependency :hyperparameters do |dep|
-          dep.set_class EasyML::Models::Hyperparameters::XGBoost
-          dep.bind_attribute :batch_size, default: 32
-          dep.bind_attribute :learning_rate, default: 1.1
-          dep.bind_attribute :max_depth, default: 6
-          dep.bind_attribute :n_estimators, default: 100
-          dep.bind_attribute :booster, default: "gbtree"
-          dep.bind_attribute :objective, default: "reg:squarederror"
+          # gbtree option
+          dep.option :gbtree do |option|
+            option.set_class Hyperparameters::GBTree
+            option.bind_attribute :learning_rate      # Common
+            option.bind_attribute :max_depth          # Common
+            option.bind_attribute :n_estimators       # Common
+            option.bind_attribute :booster            # Common
+            option.bind_attribute :objective          # Common
+            option.bind_attribute :gamma              # GBTree-specific
+            option.bind_attribute :min_child_weight   # GBTree-specific
+            option.bind_attribute :subsample          # GBTree-specific
+            option.bind_attribute :colsample_bytree   # GBTree-specific
+            option.bind_attribute :colsample_bylevel  # GBTree-specific
+            option.bind_attribute :colsample_bynode   # GBTree-specific
+            option.bind_attribute :lambda             # Regularization (Common)
+            option.bind_attribute :alpha              # Regularization (Common)
+            option.bind_attribute :tree_method        # GBTree-specific
+            option.bind_attribute :scale_pos_weight   # Class imbalance (Common for classification)
+          end
+
+          # dart option
+          dep.option :dart do |option|
+            option.set_class Hyperparameters::Dart
+            option.bind_attribute :learning_rate      # Common
+            option.bind_attribute :max_depth          # Common
+            option.bind_attribute :n_estimators       # Common
+            option.bind_attribute :booster            # Common
+            option.bind_attribute :objective          # Common
+            option.bind_attribute :rate_drop          # DART-specific
+            option.bind_attribute :skip_drop          # DART-specific
+            option.bind_attribute :sample_type        # DART-specific
+            option.bind_attribute :normalize_type     # DART-specific
+            option.bind_attribute :subsample          # GBTree-like (shared with gbtree)
+            option.bind_attribute :colsample_bytree   # GBTree-like (shared with gbtree)
+            option.bind_attribute :lambda             # Regularization (Common)
+            option.bind_attribute :alpha              # Regularization (Common)
+          end
+
+          # gblinear option
+          dep.option :gblinear do |option|
+            option.set_class Hyperparameters::GBLinear
+            option.bind_attribute :learning_rate      # Common
+            option.bind_attribute :booster            # Common
+            option.bind_attribute :n_estimators       # Common
+            option.bind_attribute :lambda             # Regularization (Common)
+            option.bind_attribute :alpha              # Regularization (Common)
+            option.bind_attribute :updater            # GBLinear-specific
+            option.bind_attribute :feature_selector   # GBLinear-specific
+          end
+
+          # multi-class classification option
+          dep.option :multiclass do |option|
+            option.set_class Hyperparameters::MultiClass
+            option.bind_attribute :learning_rate      # Common
+            option.bind_attribute :max_depth          # Common
+            option.bind_attribute :n_estimators       # Common
+            option.bind_attribute :booster            # Common
+            option.bind_attribute :objective          # Multi-class-specific
+            option.bind_attribute :num_class          # Multi-class-specific
+            option.bind_attribute :colsample_bytree   # Common (shared with gbtree)
+            option.bind_attribute :subsample          # Common (shared with gbtree)
+            option.bind_attribute :lambda             # Regularization (Common)
+            option.bind_attribute :alpha              # Regularization (Common)
+          end
+
+          # binary classification option
+          dep.option :binary do |option|
+            option.set_class Hyperparameters::BinaryClassification
+            option.bind_attribute :learning_rate      # Common
+            option.bind_attribute :max_depth          # Common
+            option.bind_attribute :n_estimators       # Common
+            option.bind_attribute :booster            # Common
+            option.bind_attribute :objective          # Binary-specific
+            option.bind_attribute :scale_pos_weight   # Class imbalance (Binary-specific)
+            option.bind_attribute :colsample_bytree   # Common (shared with gbtree)
+            option.bind_attribute :subsample          # Common (shared with gbtree)
+            option.bind_attribute :lambda             # Regularization (Common)
+            option.bind_attribute :alpha              # Regularization (Common)
+          end
+
+          # regression option
+          dep.option :regression do |option|
+            option.set_class Hyperparameters::Regression
+            option.bind_attribute :learning_rate      # Common
+            option.bind_attribute :max_depth          # Common
+            option.bind_attribute :n_estimators       # Common
+            option.bind_attribute :booster            # Common
+            option.bind_attribute :objective          # Regression-specific
+            option.bind_attribute :colsample_bytree   # Common (shared with gbtree)
+            option.bind_attribute :subsample          # Common (shared with gbtree)
+            option.bind_attribute :lambda             # Regularization (Common)
+            option.bind_attribute :alpha              # Regularization (Common)
+          end
+
+          # Conditional logic for selecting the class based on the booster
+          dep.when do |dependency|
+            case dependency[:booster].to_sym
+            when :gbtree
+              Hyperparameters::GBTree
+            when :dart
+              Hyperparameters::Dart
+            when :gblinear
+              Hyperparameters::GBLinear
+            when :multiclass
+              Hyperparameters::MultiClass
+            when :binary
+              Hyperparameters::BinaryClassification
+            when :regression
+              Hyperparameters::Regression
+            else
+              raise "Unknown booster type: #{booster}"
+            end
+          end
         end
 
         def predict(xs)

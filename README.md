@@ -89,6 +89,14 @@ MyTrainer.predict(customer_data: "I am worth a lot of money")
 # prediction: true!
 ```
 
+## Mount The Engine
+
+```ruby
+Rails.application.routes.draw do
+  mount EasyML::Engine, at: "easy_ml"
+end
+```
+
 ## Data Management
 
 EasyML provides a comprehensive data management system that handles all preprocessing tasks, including splitting data into train, test, and validation sets, and avoiding data leakage. The primary abstraction for data handling is the `Dataset` class, which ensures data is properly managed and prepared for machine learning tasks.

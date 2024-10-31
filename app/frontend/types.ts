@@ -1,5 +1,3 @@
-import type { Model, RetrainingJob, RetrainingRun } from './types';
-
 export type ModelStatus = 'completed' | 'failed';
 export type DeploymentStatus = 'inference' | 'retired';
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
@@ -48,6 +46,78 @@ export interface TransformationGroup {
   name: string;
   description: string;
   transformations: Transformation[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface ModelVersion {
+  id: number;
+  version: string;
+  status: ModelStatus;
+  deploymentStatus: DeploymentStatus;
+  promoted: boolean;
+  configuration: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Model {
+  id: number;
+  name: string;
+  modelType: string;
+  status: ModelStatus;
+  deploymentStatus: DeploymentStatus;
+  promoted: boolean;
+  datasetId: number;
+  configuration: Record<string, unknown>;
+  version: string;
+  rootDir: string;
+  file: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  versions?: ModelVersion[];
+}
+export interface Prediction {
+  id: number;
+  modelId: number;
+  timestamp: string;
+  input: Record<string, any>;
+  output: any;
+  groundTruth?: any;
+  latencyMs: number;
+}
+
+export interface RetrainingJob {
+  id: number;
+  model: string;
+  frequency: Frequency;
+  at: number;
+  evaluator: Record<string, unknown>;
+  tunerConfig: Record<string, unknown>;
+  tuningFrequency: Frequency;
+  lastTuningAt: string | null;
+  active: boolean;
+  status: JobStatus;
+  lastRunAt: string | null;
+  lockedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RetrainingRun {
+  id: number;
+  modelId: number;
+  retrainingJobId: number;
+  tunerJobId: number | null;
+  status: JobStatus;
+  metricValue: number | null;
+  threshold: number | null;
+  thresholdDirection: ThresholdDirection;
+  shouldPromote: boolean;
+  startedAt: string | null;
+  completedAt: string | null;
+  errorMessage: string | null;
+  metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }

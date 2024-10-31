@@ -1,3 +1,4 @@
+require "action_controller"
 module EasyML
   class ApplicationController < ActionController::Base
     helper EasyML::ApplicationHelper
@@ -6,8 +7,6 @@ module EasyML
     layout "easy_ml/application"
 
     protect_from_forgery with: :exception
-
-    private
 
     def inertia_share
       {

@@ -1,6 +1,13 @@
-import type { Model, RetrainingJob, RetrainingRun, TunerJob, TunerRun, Dataset } from './types';
+import type { Model, RetrainingJob, RetrainingRun, Dataset, Prediction } from './types';
 
-export const mockDatasets: Dataset[] = [
+// Helper function to generate dates
+const daysAgo = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString();
+};
+
+export const datasets: Dataset[] = [
   {
     id: 1,
     name: 'Customer Churn Dataset',
@@ -27,7 +34,7 @@ export const mockDatasets: Dataset[] = [
           median: 425.50,
           min: 0,
           max: 2500.00,
-          nullCount: 0
+          nullCount: 1250
         }
       },
       {
@@ -39,7 +46,7 @@ export const mockDatasets: Dataset[] = [
           median: 1,
           min: 0,
           max: 15,
-          nullCount: 0
+          nullCount: 3750
         }
       },
       {
@@ -48,7 +55,15 @@ export const mockDatasets: Dataset[] = [
         description: 'Customer subscription level',
         statistics: {
           uniqueCount: 3,
-          nullCount: 0
+          nullCount: 125
+        }
+      },
+      {
+        name: 'last_login',
+        type: 'datetime',
+        description: 'Last time the customer logged in',
+        statistics: {
+          nullCount: 5000
         }
       }
     ],
@@ -57,190 +72,175 @@ export const mockDatasets: Dataset[] = [
         usage_days: 234,
         total_spend: 567.89,
         support_tickets: 1,
-        subscription_tier: 'premium'
+        subscription_tier: 'premium',
+        last_login: '2024-03-01'
       },
       {
         usage_days: 45,
-        total_spend: 123.45,
-        support_tickets: 3,
-        subscription_tier: 'basic'
-      },
-      {
-        usage_days: 178,
-        total_spend: 890.12,
-        support_tickets: 0,
-        subscription_tier: 'premium'
+        total_spend: null,
+        support_tickets: null,
+        subscription_tier: 'basic',
+        last_login: null
       }
     ],
     rowCount: 25000,
     updatedAt: '2024-03-10T12:00:00Z'
-  },
-  {
-    id: 2,
-    name: 'Customer LTV Dataset',
-    description: 'Customer lifetime value prediction data',
-    columns: [
-      {
-        name: 'historical_spend',
-        type: 'numeric',
-        description: 'Historical spending amount',
-        statistics: {
-          mean: 2456.78,
-          median: 2100.00,
-          min: 0,
-          max: 15000.00,
-          nullCount: 0
-        }
-      },
-      {
-        name: 'engagement_score',
-        type: 'numeric',
-        description: 'Customer engagement metric',
-        statistics: {
-          mean: 7.5,
-          median: 7.8,
-          min: 0,
-          max: 10,
-          nullCount: 0
-        }
-      }
-    ],
-    sampleData: [
-      {
-        historical_spend: 3456.78,
-        engagement_score: 8.5
-      },
-      {
-        historical_spend: 1234.56,
-        engagement_score: 6.7
-      }
-    ],
-    rowCount: 18000,
-    updatedAt: '2024-03-09T15:30:00Z'
   }
 ];
 
-export const mockModels: Model[] = [
+export const models: Model[] = [
   {
     id: 1,
     name: 'Customer Churn Predictor',
     modelType: 'classification',
-    status: 'ready',
+    status: 'completed',
+    deploymentStatus: 'inference',
+    promoted: true,
     datasetId: 1,
     configuration: {
       algorithm: 'xgboost',
       features: ['usage_days', 'total_spend', 'support_tickets'],
+      objective: 'binary:logistic',
+      metrics: ['accuracy', 'f1']
     },
     version: '2.1.0',
     rootDir: '/models/churn_predictor',
     file: { path: 'model.joblib' },
-    createdAt: '2024-02-15T08:00:00Z',
-    updatedAt: '2024-03-10T15:30:00Z',
-  },
-  {
-    id: 2,
-    name: 'Customer LTV Predictor',
-    modelType: 'regression',
-    status: 'ready',
-    datasetId: 2,
-    configuration: {
-      algorithm: 'lightgbm',
-      features: ['historical_spend', 'engagement_score', 'subscription_tier'],
-    },
-    version: '1.2.0',
-    rootDir: '/models/ltv_predictor',
-    file: { path: 'model.joblib' },
-    createdAt: '2024-01-20T09:00:00Z',
-    updatedAt: '2024-03-09T11:20:00Z',
-  },
+    createdAt: daysAgo(30),
+    updatedAt: daysAgo(0)
+  }
 ];
 
-export const mockRetrainingJobs: RetrainingJob[] = [
+export const retrainingJobs: RetrainingJob[] = [
   {
     id: 1,
     model: 'Customer Churn Predictor',
     frequency: 'daily',
-    at: 2, // 2 AM
+    at: 2,
     evaluator: {
       metric: 'f1_score',
       threshold: 0.85,
+      direction: 'maximize'
     },
     tunerConfig: {
-      maxTrials: 20,
-      parameters: { learning_rate: [0.01, 0.1] },
+      trials: 10,
+      metrics: ['f1_score'],
+      parameters: {
+        max_depth: { min: 3, max: 10 },
+        learning_rate: { min: 0.01, max: 0.1 }
+      }
     },
-    tuningFrequency: 'monthly',
-    lastTuningAt: '2024-03-01T02:00:00Z',
+    tuningFrequency: 'weekly',
+    lastTuningAt: daysAgo(7),
     active: true,
     status: 'completed',
-    lastRunAt: '2024-03-10T02:00:00Z',
+    lastRunAt: daysAgo(1),
     lockedAt: null,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-03-10T02:15:00Z',
-  },
+    createdAt: daysAgo(30),
+    updatedAt: daysAgo(0)
+  }
 ];
 
-export const mockRetrainingRuns: RetrainingRun[] = [
+export const retrainingRuns: RetrainingRun[] = [
   {
     id: 1,
     modelId: 1,
     retrainingJobId: 1,
     tunerJobId: null,
     status: 'completed',
-    metricValue: 0.891,
+    metricValue: 0.89,
     threshold: 0.85,
     thresholdDirection: 'maximize',
     shouldPromote: true,
-    startedAt: '2024-03-10T02:00:00Z',
-    completedAt: '2024-03-10T02:15:00Z',
+    startedAt: daysAgo(1),
+    completedAt: daysAgo(1),
     errorMessage: null,
     metadata: {
       metrics: {
-        f1_score: 0.891,
-        precision: 0.876,
-        recall: 0.907,
+        accuracy: 0.92,
+        precision: 0.88,
+        recall: 0.90,
+        f1: 0.89
       },
+      parameters: {
+        max_depth: 6,
+        learning_rate: 0.05
+      }
     },
-    createdAt: '2024-03-10T02:00:00Z',
-    updatedAt: '2024-03-10T02:15:00Z',
+    createdAt: daysAgo(1),
+    updatedAt: daysAgo(1)
   },
-];
-
-export const mockTunerJobs: TunerJob[] = [
   {
-    id: 1,
-    config: {
-      maxTrials: 20,
-      parameters: { learning_rate: [0.01, 0.1] },
-    },
-    bestTunerRunId: 3,
+    id: 2,
     modelId: 1,
-    status: 'completed',
-    direction: 'maximize',
-    startedAt: '2024-03-01T02:00:00Z',
-    completedAt: '2024-03-01T03:30:00Z',
-    metadata: {
-      bestMetrics: {
-        f1_score: 0.891,
-      },
-    },
-    createdAt: '2024-03-01T02:00:00Z',
-    updatedAt: '2024-03-01T03:30:00Z',
-  },
-];
-
-export const mockTunerRuns: TunerRun[] = [
-  {
-    id: 1,
+    retrainingJobId: 1,
     tunerJobId: 1,
-    hyperparameters: {
-      learning_rate: 0.05,
-      max_depth: 6,
-    },
-    value: 0.891,
-    trialNumber: 1,
     status: 'completed',
-    createdAt: '2024-03-01T02:00:00Z',
-    updatedAt: '2024-03-01T02:10:00Z',
+    metricValue: 0.86,
+    threshold: 0.85,
+    thresholdDirection: 'maximize',
+    shouldPromote: true,
+    startedAt: daysAgo(2),
+    completedAt: daysAgo(2),
+    errorMessage: null,
+    metadata: {
+      metrics: {
+        accuracy: 0.90,
+        precision: 0.85,
+        recall: 0.87,
+        f1: 0.86
+      },
+      parameters: {
+        max_depth: 5,
+        learning_rate: 0.03
+      }
+    },
+    createdAt: daysAgo(2),
+    updatedAt: daysAgo(2)
   },
+  {
+    id: 3,
+    modelId: 1,
+    retrainingJobId: 1,
+    tunerJobId: null,
+    status: 'failed',
+    metricValue: null,
+    threshold: 0.85,
+    thresholdDirection: 'maximize',
+    shouldPromote: false,
+    startedAt: daysAgo(3),
+    completedAt: daysAgo(3),
+    errorMessage: 'Training failed due to insufficient memory',
+    metadata: null,
+    createdAt: daysAgo(3),
+    updatedAt: daysAgo(3)
+  },
+  {
+    id: 4,
+    modelId: 1,
+    retrainingJobId: 1,
+    tunerJobId: null,
+    status: 'completed',
+    metricValue: 0.83,
+    threshold: 0.85,
+    thresholdDirection: 'maximize',
+    shouldPromote: false,
+    startedAt: daysAgo(4),
+    completedAt: daysAgo(4),
+    errorMessage: null,
+    metadata: {
+      metrics: {
+        accuracy: 0.87,
+        precision: 0.82,
+        recall: 0.84,
+        f1: 0.83
+      },
+      parameters: {
+        max_depth: 4,
+        learning_rate: 0.02
+      }
+    },
+    createdAt: daysAgo(4),
+    updatedAt: daysAgo(4)
+  }
 ];

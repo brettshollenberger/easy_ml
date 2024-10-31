@@ -5,7 +5,7 @@ module EasyML
       # models = Model.includes(:retraining_jobs, :retraining_runs)
       #               .order(created_at: :desc)
 
-      render inertia: "pages/Dashboard", props: {
+      render inertia: "pages/ModelsPage", props: {
         models: models.map { |model| model_data(model) }
         # retraining_jobs: RetrainingJob.current_jobs.map { |job| job_data(job) },
         # retraining_runs: RetrainingRun.recent.map { |run| run_data(run) }

@@ -1,7 +1,6 @@
 require "rails/engine"
-require "inertia_rails"
+# require "inertia_rails"
 require "vite_ruby"
-
 module EasyML
   class Engine < Rails::Engine
     isolate_namespace EasyML
@@ -61,17 +60,6 @@ module EasyML
       @vite_ruby ||= ViteRuby.new(root: root)
     end
 
-    # # Expose compiled assets via Rack::Static when running in the host app.
-    # config.app_middleware.use(Rack::Static,
-    #                           urls: ["/#{vite_ruby.config.public_output_dir}"],
-    #                           root: root.join(vite_ruby.config.public_dir))
-
-    # initializer "vite_rails_engine.proxy" do |app|
-    #   if vite_ruby.run_proxy?
-    #     app.middleware.insert_before 0, ViteRuby::DevServerProxy, ssl_verify_none: true, vite_ruby: vite_ruby
-    #   end
-    # end
-    # Only use Rack::Static for precompiled assets in non-development environments
     unless Rails.env.development?
       config.app_middleware.use(Rack::Static,
                                 urls: ["/#{vite_ruby.config.public_output_dir}"],

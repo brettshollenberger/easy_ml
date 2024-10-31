@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Calendar, Clock, BarChart2, Database } from 'lucide-react';
+import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
-import { DatasetPreview } from './DatasetPreview';
-import { mockDatasets } from '../mockData';
+import { datasets } from '../mockData';
 
 interface ModelDetailsProps {
   model: Model;
@@ -11,9 +10,18 @@ interface ModelDetailsProps {
   onBack: () => void;
 }
 
+const ITEMS_PER_PAGE = 3;
+
 export function ModelDetails({ model, runs, job, onBack }: ModelDetailsProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'dataset'>('overview');
-  const dataset = mockDatasets.find(d => d.id === model.datasetId);
+  const [currentPage, setCurrentPage] = useState(1);
+  const dataset = datasets.find(d => d.id === model.datasetId);
+
+  const totalPages = Math.ceil(runs.length / ITEMS_PER_PAGE);
+  const paginatedRuns = runs.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   return (
     <div className="space-y-6">
@@ -22,7 +30,7 @@ export function ModelDetails({ model, runs, job, onBack }: ModelDetailsProps) {
           onClick={onBack}
           className="flex items-center text-gray-600 hover:text-gray-800"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ChevronLeft className="w-4 h-4 mr-2" />
           Back to Models
         </button>
 
@@ -50,50 +58,70 @@ export function ModelDetails({ model, runs, job, onBack }: ModelDetailsProps) {
         </div>
       </div>
 
-      {activeTab === 'overview' ? (
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="mb-8">
-            <div className="flex justify-between items-start">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{model.name}</h2>
-                <p className="text-gray-600 mt-1">Type: {model.modelType}</p>
-              </div>
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  model.status === 'ready'
-                    ? 'bg-green-100 text-green-800'
-                    : model.status === 'training'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : model.status === 'error'
-                    ? 'bg-red-100 text-red-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}
-              >
-                {model.status}
-              </span>
+      <div className="bg-white rounded-lg shadow-lg p-6">
+        <div className="mb-8">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">{model.name}</h2>
+              <p className="text-gray-600 mt-1">
+                Version {model.version} • Type: {model.modelType}
+              </p>
             </div>
-
-            {job && (
-              <div className="mt-6 bg-gray-50 rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-4">Training Schedule</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-gray-400" />
-                    <span>Runs {job.frequency}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-gray-400" />
-                    <span>at {job.at}:00</span>
-                  </div>
-                </div>
-              </div>
-            )}
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                model.deploymentStatus === 'inference'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-gray-100 text-gray-800'
+              }`}
+            >
+              {model.deploymentStatus}
+            </span>
           </div>
 
+          {job && (
+            <div className="mt-6 bg-gray-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold mb-4">Training Schedule</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-gray-400" />
+                  <span>Runs {job.frequency}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-gray-400" />
+                  <span>at {job.at}:00</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {activeTab === 'overview' ? (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold">Training History</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Training History</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-4">
-              {runs.map((run) => (
+              {paginatedRuns.map((run) => (
                 <div
                   key={run.id}
                   className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
@@ -129,7 +157,7 @@ export function ModelDetails({ model, runs, job, onBack }: ModelDetailsProps) {
                   </div>
 
                   {run.metadata && run.metadata.metrics && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {Object.entries(
                         run.metadata.metrics as Record<string, number>
                       ).map(([key, value]) => (
@@ -161,10 +189,49 @@ export function ModelDetails({ model, runs, job, onBack }: ModelDetailsProps) {
               ))}
             </div>
           </div>
-        </div>
-      ) : (
-        dataset && <DatasetPreview dataset={dataset} />
-      )}
+        ) : (
+          dataset && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Database className="w-5 h-5 text-blue-600" />
+                <h3 className="text-lg font-semibold">{dataset.name}</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Columns</h4>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="space-y-2">
+                      {dataset.columns.map(column => (
+                        <div key={column.name} className="flex justify-between items-center">
+                          <span className="text-sm text-gray-900">{column.name}</span>
+                          <span className="text-xs text-gray-500">{column.type}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Statistics</h4>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-900">Total Rows</span>
+                        <span className="text-sm font-medium">{dataset.rowCount.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-900">Last Updated</span>
+                        <span className="text-sm font-medium">
+                          {new Date(dataset.updatedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        )}
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { Model, RetrainingJob, RetrainingRun, Dataset, Prediction } from './types';
+import type { Model, RetrainingJob, RetrainingRun, Dataset, Prediction, Transformation, TransformationGroup } from './types';
 
 // Helper function to generate dates
 const daysAgo = (days: number) => {
@@ -7,7 +7,7 @@ const daysAgo = (days: number) => {
   return date.toISOString();
 };
 
-export const datasets: Dataset[] = [
+export const mockDatasets: Dataset[] = [
   {
     id: 1,
     name: 'Customer Churn Dataset',
@@ -88,7 +88,7 @@ export const datasets: Dataset[] = [
   }
 ];
 
-export const models: Model[] = [
+export const mockModels: Model[] = [
   {
     id: 1,
     name: 'Customer Churn Predictor',
@@ -111,7 +111,7 @@ export const models: Model[] = [
   }
 ];
 
-export const retrainingJobs: RetrainingJob[] = [
+export const mockRetrainingJobs: RetrainingJob[] = [
   {
     id: 1,
     model: 'Customer Churn Predictor',
@@ -141,7 +141,7 @@ export const retrainingJobs: RetrainingJob[] = [
   }
 ];
 
-export const retrainingRuns: RetrainingRun[] = [
+export const mockRetrainingRuns: RetrainingRun[] = [
   {
     id: 1,
     modelId: 1,
@@ -242,5 +242,31 @@ export const retrainingRuns: RetrainingRun[] = [
     },
     createdAt: daysAgo(4),
     updatedAt: daysAgo(4)
+  }
+];
+
+export const mockTransformations: Transformation[] = [
+  {
+    id: 1,
+    name: 'Normalize state',
+    description: 'Turn state names into 2 letter state abbreviations',
+    groupId: 1,
+    testDatasetId: 1,
+    inputColumns: ["state"],
+    outputColumns: ["state"],
+    code: "",
+    createdAt: daysAgo(30),
+    updatedAt: daysAgo(0)
+  }
+];
+
+export const mockTransformationGroups: TransformationGroup[] = [
+  {
+    id: 1,
+    name: 'Customer Churn',
+    description: 'Transformations for customer churn dataset',
+    transformations: mockTransformations,
+    createdAt: daysAgo(30),
+    updatedAt: daysAgo(0)
   }
 ];

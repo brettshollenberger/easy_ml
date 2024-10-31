@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+// import { Link } from 'react-router-dom';
 import { Database, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
-import { datasets } from '../mockData';
+import { mockDatasets } from '../mockData';
 
 const ITEMS_PER_PAGE = 6;
 

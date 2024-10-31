@@ -1,6 +1,5 @@
 import React from 'react';
 import { Activity, Calendar, Database, Settings, ExternalLink } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
 interface ModelCardProps {
@@ -11,8 +10,6 @@ interface ModelCardProps {
 }
 
 export function ModelCard({ model, job, lastRun, onViewDetails }: ModelCardProps) {
-  const navigate = useNavigate();
-
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex flex-col gap-2">

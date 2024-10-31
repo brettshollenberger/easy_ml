@@ -51,5 +51,3 @@ export interface TransformationGroup {
   createdAt: string;
   updatedAt: string;
 }
-
-// Rest of the existing types...

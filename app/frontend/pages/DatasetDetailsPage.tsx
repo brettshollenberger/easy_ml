@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+// import { useParams } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import { DatasetPreview } from '../components/DatasetPreview';
 import { ColumnConfigModal } from '../components/dataset/ColumnConfigModal';
-import { datasets } from '../mockData';
+import { mockDatasets } from '../mockData';
 
 export function DatasetDetailsPage() {
   const { id } = useParams();

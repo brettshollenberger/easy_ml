@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+// import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Brain } from 'lucide-react';
 import { ModelForm } from '../components/ModelForm';
 import { mockModels } from '../mockData';

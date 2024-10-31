@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
-import { datasets } from '../mockData';
+import { mockDatasets } from '../mockData';
 
 interface ModelDetailsProps {
   model: Model;

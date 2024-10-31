@@ -8,8 +8,14 @@ module EasyML
 
     protect_from_forgery with: :exception
 
-    def inertia_share
+    def easy_ml_root
+      Rails.application.routes.routes.find { |r| r.app.app == EasyML::Engine }&.path&.spec&.to_s
+    end
+
+    inertia_share do
       {
+        rootPath: easy_ml_root,
+        url: request.path.gsub(Regexp.new(easy_ml_root), ""),
         errors: session.delete(:errors) || {},
         flash: {
           success: flash.notice,

@@ -1,11 +1,37 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation, Link } from 'react-router-dom';
+// import { NavLink, useLocation, Link } from 'react-router-dom';
+import { Link, router, usePage } from "@inertiajs/react";
 import { Brain, Database, HardDrive, ChevronRight, ChevronDown, Menu, Settings2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { cn } from '@/lib/utils';
 import { mockDatasets, mockModels } from '../mockData';
+
+export function NavLink({ 
+  href, 
+  className = (isActive) => "", // Default to a function that returns an empty string
+  activeClassName = 'active', 
+  children, 
+  ...props 
+}) {
+  // Get the current URL path from Inertia's page object
+  const { url } = usePage().props;
+
+  // Check if the current URL matches the `href` to apply the active class
+  const isActive = url === href;
+  let classes = className({isActive: isActive})
+
+  return (
+    <Link
+      href={href}
+      className={cn(classes, isActive && activeClassName)}
+      {...props}
+    >
+      {children}
+    </Link>
+  );
+}
 
 interface NavItem {
   title: string;
@@ -111,7 +137,7 @@ interface NavigationProps {
 export function Navigation({ children }: NavigationProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [openSections, setOpenSections] = useState<string[]>(['Models']);
-  const location = useLocation();
+  console.log(router)
   const breadcrumbs = getBreadcrumbs(location.pathname);
 
   const toggleSection = (title: string) => {
@@ -135,7 +161,7 @@ export function Navigation({ children }: NavigationProps) {
           {isSidebarOpen ? (
             <>
               <Brain className="w-8 h-8 text-blue-600" />
-              <h1 className="text-xl font-bold text-gray-900 ml-2">ML Ops</h1>
+              <h1 className="text-xl font-bold text-gray-900 ml-2">EasyML</h1>
             </>
           ) : (
             <Brain className="w-8 h-8 text-blue-600" />
@@ -175,8 +201,8 @@ export function Navigation({ children }: NavigationProps) {
                   {isSidebarOpen && section.children?.map((item) => (
                     <NavLink
                       key={item.href}
-                      to={item.href}
-                      className={({ isActive }) =>
+                      href={item.href}
+                      className={({ isActive }) => 
                         cn(
                           "flex items-center pl-8 pr-2 py-2 text-sm rounded-md",
                           isActive
@@ -197,7 +223,7 @@ export function Navigation({ children }: NavigationProps) {
 
             {/* Settings Link */}
             <NavLink
-              to="/settings"
+              href="/settings"
               className={({ isActive }) =>
                 cn(
                   "flex items-center w-full p-2 rounded-md",

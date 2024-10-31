@@ -1,5 +1,4 @@
 import React, { useState, useMemo } from 'react';
-// import { Inertia } from '@inertiajs/inertia';
 import { Brain, Plus } from 'lucide-react';
 import { ModelCard } from '../components/ModelCard';
 import { ModelDetails } from '../components/ModelDetails';
@@ -7,6 +6,7 @@ import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
 import { mockModels, mockRetrainingJobs, mockRetrainingRuns } from '../mockData';
+import { router } from '@inertiajs/react';
 
 // let models = []; //mockModels;
 // let retrainingJobs = []; //mockRetrainingJobs;
@@ -16,7 +16,7 @@ const retrainingRuns = [];
 const retrainingJobs = [];
 const ITEMS_PER_PAGE = 6;
 
-export function ModelsPage() {
+export default function ModelsPage({ rootPath }) {
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,7 +46,9 @@ export function ModelsPage() {
           title="Create your first ML model"
           description="Get started by creating a machine learning model. You can train models for classification, regression, and more."
           actionLabel="Create Model"
-          onAction={() => console.log("Clicked!")}//Inertia.visit('/models/new')}
+          onAction={() => {
+            router.visit(`${rootPath}/models/new`)
+          }}
         />
       </div>
     );
@@ -73,7 +75,7 @@ export function ModelsPage() {
               />
             </div>
             <button
-              onClick={() => console.log("clicked!") } //Inertia.visit('/models/new')}
+              onClick={() => router.visit('/models/new')}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <Plus className="w-4 h-4" />
@@ -90,7 +92,7 @@ export function ModelsPage() {
               </p>
               <div className="mt-6">
                 <button
-                  onClick={() => console.log("CLICKED") }//Inertia.visit('/models/new')}
+                  onClick={() => router.visit('/models/new')}
                   className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   <Plus className="w-4 h-4 mr-2" />

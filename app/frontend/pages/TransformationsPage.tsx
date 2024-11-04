@@ -6,7 +6,7 @@ import { TransformationCard } from '../components/transformations/Transformation
 import { TransformationGroupCard } from '../components/transformations/TransformationGroupCard';
 import { EmptyState } from '../components/EmptyState';
 
-export function TransformationsPage() {
+export default function TransformationsPage() {
   const [view, setView] = useState<'groups' | 'all'>('groups');
 
   if (mockTransformationGroups.length === 0) {

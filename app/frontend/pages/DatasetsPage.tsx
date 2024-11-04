@@ -8,7 +8,7 @@ import { mockDatasets } from '../mockData';
 
 const ITEMS_PER_PAGE = 6;
 
-export function DatasetsPage() {
+export default function DatasetsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 

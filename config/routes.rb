@@ -16,5 +16,7 @@ EasyML::Engine.routes.draw do
   resources :transformations, only: %i[index new edit], as: :easy_ml_transformations
 
   # Settings
-  get "settings", to: "settings#show"
+  resources :settings, only: [:index] do
+    patch :update, on: :collection
+  end
 end

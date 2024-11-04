@@ -5,7 +5,7 @@ import { DatasetPreview } from '../components/DatasetPreview';
 import { ColumnConfigModal } from '../components/dataset/ColumnConfigModal';
 import { mockDatasets } from '../mockData';
 
-export function DatasetDetailsPage() {
+export default function DatasetDetailsPage() {
   const { id } = useParams();
   const dataset = datasets.find(d => d.id === Number(id));
   const [showColumnConfig, setShowColumnConfig] = useState(false);

@@ -30,7 +30,7 @@ const mockDatasources = [
   },
 ];
 
-export function DatasourcesPage() {
+export default function DatasourcesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 

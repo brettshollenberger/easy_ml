@@ -4,7 +4,7 @@ import { ArrowLeft, Brain } from 'lucide-react';
 import { ModelForm } from '../components/ModelForm';
 import { mockModels } from '../mockData';
 
-export function EditModelPage() {
+export default function EditModelPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const model = mockModels.find(m => m.id === Number(id));

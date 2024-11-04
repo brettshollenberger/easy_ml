@@ -21,7 +21,7 @@ const mockDatasources = [
   },
 ];
 
-export function EditDatasourcePage() {
+export default function EditDatasourcePage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const datasource = mockDatasources.find(d => d.id === Number(id));

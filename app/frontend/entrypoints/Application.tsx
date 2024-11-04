@@ -9,6 +9,10 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log(`resolving component ${name}`)
       const pages = import.meta.glob('../pages/**/*.tsx', { eager: true })
       let page = pages[`../${name}.tsx`];
+      if (!page.default) {
+        alert(`The page ${name} could not be found, you probably forgot to export default.`);
+        return;
+      }
       page.default.layout = page.default.layout || (page => <Layout children={page} />)
       return page;
     },

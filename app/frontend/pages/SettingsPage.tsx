@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
+import { usePage } from '@inertiajs/react'
+import { useInertiaForm } from 'use-inertia-form';
 import { Settings2, Save, AlertCircle, Key, Database, Globe2 } from 'lucide-react';
 
 interface Settings {
-  timezone: string;
-  s3: {
-    bucket: string;
-    region: string;
-    accessKeyId: string;
-    secretAccessKey: string;
-  };
+  settings: {
+    timezone: string;
+    s3_bucket: string;
+    s3_region: string;
+    s3_access_key_id: string;
+    s3_secret_access_key: string;
+  }
 }
 
 const TIMEZONES = [
@@ -18,24 +20,45 @@ const TIMEZONES = [
   { value: 'America/Los_Angeles', label: 'Pacific Time' }
 ];
 
-export function SettingsPage() {
-  const [settings, setSettings] = useState<Settings>({
-    timezone: 'America/New_York',
-    s3: {
-      bucket: '',
-      region: 'us-east-1',
-      accessKeyId: '',
-      secretAccessKey: ''
+export default function SettingsPage({ settings: initialSettings }: { settings: Settings }) {
+  const { rootPath } = usePage().props;
+
+  const form = useInertiaForm<Settings>({
+    settings: {
+      timezone: initialSettings?.settings?.timezone || 'America/New_York',
+      s3_bucket: initialSettings?.settings?.s3_bucket || '',
+      s3_region: initialSettings?.settings?.s3_region || 'us-east-1',
+      s3_access_key_id: initialSettings?.settings?.s3_access_key_id || '',
+      s3_secret_access_key: initialSettings?.settings?.s3_secret_access_key || ''
     }
   });
 
+  const { data: formData, setData: setFormData, patch, processing } = form;
+  console.log(initialSettings);
+
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setSaved(false);
+    setError(null);
+
+    const timeoutId = setTimeout(() => {
+      setError('Request timed out. Please try again.');
+    }, 3000);
+
+    patch(`${rootPath}/settings`, {
+      onSuccess: () => {
+        clearTimeout(timeoutId);
+        setSaved(true);
+      },
+      onError: () => {
+        clearTimeout(timeoutId);
+        setError('Failed to save settings. Please try again.');
+      }
+    });
   };
 
   return (
@@ -62,8 +85,15 @@ export function SettingsPage() {
               </label>
               <select
                 id="timezone"
-                value={settings.timezone}
-                onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+                value={formData.settings.timezone}
+                
+                onChange={(e) => setFormData({
+                  ...formData,
+                  settings: {
+                    ...formData.settings,
+                    timezone: e.target.value
+                  }
+                })}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {TIMEZONES.map((tz) => (
@@ -93,10 +123,13 @@ export function SettingsPage() {
                 <input
                   type="text"
                   id="bucket"
-                  value={settings.s3.bucket}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    s3: { ...settings.s3, bucket: e.target.value }
+                  value={formData.settings.s3_bucket}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    settings: {
+                      ...formData.settings,
+                      s3_bucket: e.target.value
+                    }
                   })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   placeholder="my-bucket"
@@ -109,10 +142,13 @@ export function SettingsPage() {
                 </label>
                 <select
                   id="region"
-                  value={settings.s3.region}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    s3: { ...settings.s3, region: e.target.value }
+                  value={formData.settings.s3_region}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    settings: {
+                      ...formData.settings,
+                      s3_region: e.target.value
+                    }
                   })}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
@@ -146,10 +182,13 @@ export function SettingsPage() {
                   <input
                     type="text"
                     id="accessKeyId"
-                    value={settings.s3.accessKeyId}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      s3: { ...settings.s3, accessKeyId: e.target.value }
+                    value={formData.settings.s3_access_key_id}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      settings: {
+                        ...formData.settings,
+                        s3_access_key_id: e.target.value
+                      }
                     })}
                     className="mt-1 block w-full pl-9 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     placeholder="AKIA..."
@@ -166,10 +205,13 @@ export function SettingsPage() {
                   <input
                     type={showSecretKey ? 'text' : 'password'}
                     id="secretAccessKey"
-                    value={settings.s3.secretAccessKey}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      s3: { ...settings.s3, secretAccessKey: e.target.value }
+                    value={formData.settings.s3_secret_access_key}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      settings: {
+                        ...formData.settings,
+                        s3_secret_access_key: e.target.value
+                      }
                     })}
                     className="mt-1 block w-full pl-9 pr-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     placeholder="Your secret key"
@@ -193,12 +235,23 @@ export function SettingsPage() {
                 <span className="text-sm font-medium">Settings saved successfully</span>
               </div>
             )}
+            {error && (
+              <div className="flex items-center gap-2 text-red-600">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm font-medium">{error}</span>
+              </div>
+            )}
             <div className="flex gap-3">
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                disabled={processing}
+                className={`px-4 py-2 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+                  processing 
+                    ? 'bg-blue-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
-                Save Settings
+                {processing ? 'Saving...' : 'Save Settings'}
               </button>
             </div>
           </div>

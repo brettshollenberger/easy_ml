@@ -13,14 +13,19 @@ module EasyML
     end
 
     inertia_share do
+      flash_messages = []
+
+      flash_messages << { type: "success", message: flash[:notice] } if flash[:notice]
+
+      flash_messages << { type: "error", message: flash[:alert] } if flash[:alert]
+
+      flash_messages << { type: "info", message: flash[:info] } if flash[:info]
+
       {
         rootPath: easy_ml_root,
         url: request.path.gsub(Regexp.new(easy_ml_root), ""),
         errors: session.delete(:errors) || {},
-        flash: {
-          success: flash.notice,
-          error: flash.alert
-        }.compact
+        flash: flash_messages
       }
     end
   end

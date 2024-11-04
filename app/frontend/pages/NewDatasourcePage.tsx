@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
+import { usePage } from '@inertiajs/react'
+import { useInertiaForm, NestedFields } from 'use-inertia-form';
 
-export function NewDatasourcePage() {
-  const [formData, setFormData] = useState({
-    name: '',
-    bucket: '',
-    prefix: '',
-    region: 'us-east-1',
-  });
+
+export default function NewDatasourcePage() {
+  const { data, setData, post, processing, errors } = useInertiaForm({
+    datasource: {
+      name: '',
+      s3_bucket: '',
+      s3_prefix: '',
+      s3_region: 'us-east-1',
+    }
+  })
+
+  const { rootPath } = usePage().props;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Creating datasource:', formData);
+    post(`${rootPath}/datasources`)
   };
 
   return (
@@ -31,9 +38,9 @@ export function NewDatasourcePage() {
             <input
               type="text"
               id="name"
-              value={formData.name}
+              value={data.datasource.name}
               onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
+                setData('datasource.name', e.target.value)
               }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
@@ -42,17 +49,17 @@ export function NewDatasourcePage() {
 
           <div>
             <label
-              htmlFor="bucket"
+              htmlFor="s3_bucket"
               className="block text-sm font-medium text-gray-700"
             >
               S3 Bucket
             </label>
             <input
               type="text"
-              id="bucket"
-              value={formData.bucket}
+              id="s3_bucket"
+              value={data.datasource.s3_bucket}
               onChange={(e) =>
-                setFormData({ ...formData, bucket: e.target.value })
+                setData('datasource.s3_bucket', e.target.value)
               }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
@@ -61,17 +68,17 @@ export function NewDatasourcePage() {
 
           <div>
             <label
-              htmlFor="prefix"
+              htmlFor="s3_prefix"
               className="block text-sm font-medium text-gray-700"
             >
               S3 Prefix
             </label>
             <input
               type="text"
-              id="prefix"
-              value={formData.prefix}
+              id="s3_prefix"
+              value={data.datasource.s3_prefix}
               onChange={(e) =>
-                setFormData({ ...formData, prefix: e.target.value })
+                setData('datasource.s3_prefix', e.target.value)
               }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="data/raw/"
@@ -81,16 +88,16 @@ export function NewDatasourcePage() {
 
           <div>
             <label
-              htmlFor="region"
+              htmlFor="s3_region"
               className="block text-sm font-medium text-gray-700"
             >
               Region
             </label>
             <select
-              id="region"
-              value={formData.region}
+              id="s3_region"
+              value={data.datasource.s3_region}
               onChange={(e) =>
-                setFormData({ ...formData, region: e.target.value })
+                setData('datasource.s3_region', e.target.value)
               }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             >

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 // import { NavLink, useLocation, Link } from 'react-router-dom';
+import { AlertContainer } from './AlertProvider';
 import { Link, router, usePage } from "@inertiajs/react";
 import { Brain, Database, HardDrive, ChevronRight, ChevronDown, Menu, Settings2 } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
@@ -249,6 +250,8 @@ export function Navigation({ children }: NavigationProps) {
           isSidebarOpen ? "ml-64" : "ml-16"
         )}
       >
+        <AlertContainer />
+
         {/* Breadcrumbs */}
         <div className="h-16 border-b bg-white flex items-center px-4">
           <nav className="flex" aria-label="Breadcrumb">

@@ -20,8 +20,8 @@ module EasyML
         config.s3_region = @settings.s3_region
         config.s3_prefix = @settings.s3_prefix
       end
+      flash.now[:notice] = "Settings saved."
       render inertia: "pages/SettingsPage", props: {
-        notice: "Settings were successfully updated.",
         settings: @settings.as_json
       }
     end

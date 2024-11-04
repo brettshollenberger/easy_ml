@@ -1,7 +1,7 @@
 module EasyML
   class S3Datasource < Datasource
     attr_accessor :s3_bucket, :s3_prefix, :s3_access_key_id,
-                  :s3_secret_access_key, :cache_for, :polars_args,
+                  :s3_secret_access_key, :s3_region, :cache_for, :polars_args,
                   :verbose
 
     after_initialize :read_from_configuration

@@ -85,5 +85,9 @@ module EasyML
       #   ssr_enabled: false
       # )
     end
+
+    def list_routes
+      EasyML::Engine.routes.routes.map { |r| "#{r.name} #{r.path.spec}" }
+    end
   end
 end

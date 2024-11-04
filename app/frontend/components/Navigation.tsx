@@ -16,7 +16,7 @@ export function NavLink({
   ...props 
 }) {
   // Get the current URL path from Inertia's page object
-  const { url } = usePage().props;
+  const { rootPath, url } = usePage().props;
 
   // Check if the current URL matches the `href` to apply the active class
   const isActive = url === href;
@@ -24,7 +24,7 @@ export function NavLink({
 
   return (
     <Link
-      href={href}
+      href={`${rootPath}${href}`}
       className={cn(classes, isActive && activeClassName)}
       {...props}
     >

@@ -1,3 +1,15 @@
+# == Schema Information
+#
+# Table name: easy_ml_datasources
+#
+#  id              :bigint           not null, primary key
+#  name            :string           not null
+#  datasource_type :string
+#  root_dir        :string
+#  configuration   :json
+#  created_at      :datetime         not null
+#  updated_at      :datetime         not null
+#
 module EasyML
   class PolarsDatasource < Datasource
     attr_accessor :df, :last_updated_at

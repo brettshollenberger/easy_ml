@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Lock } from 'lucide-react';
 import { SearchableSelect } from './SearchableSelect';
 import { ScheduleModal } from './ScheduleModal';
-import { Inertia } from '@inertiajs/inertia';
 import { mockDatasets } from '../mockData';
+import { router } from '@inertiajs/react';
+
 
 let datasets = mockDatasets;
 interface ModelFormProps {
@@ -224,7 +225,7 @@ export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelF
       <div className="flex justify-end gap-3 pt-4 border-t">
         <button
           type="button"
-          onClick={() => Inertia.visit(`${rootPath}/models`)}
+          onClick={() => router.visit(`${rootPath}/models`)}
           className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
         >
           Cancel

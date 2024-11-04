@@ -12,15 +12,17 @@ module EasyML
     config.paths.add "lib", eager_load: true
 
     initializer "easy_ml.assets.precompile" do |app|
-      app.config.assets.precompile += %w[
-        easy_ml/application.js
-        easy_ml/application.css
-      ]
+      if app.config.respond_to?(:assets)
+        app.config.assets.precompile += %w[
+          easy_ml/application.js
+          easy_ml/application.css
+        ]
+      end
     end
 
     # This tells our demo app where to look for assets like css, js
     initializer "easy_ml.assets" do |app|
-      app.config.assets.paths << root.join("app", "frontend")
+      app.config.assets.paths << root.join("app", "frontend") if app.config.respond_to?(:assets)
     end
 
     initializer "easy_ml.setup_generators" do |app|

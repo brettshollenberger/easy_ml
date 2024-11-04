@@ -1,20 +1,33 @@
 import React from 'react';
 import { usePage } from '@inertiajs/react'
 import { useInertiaForm } from 'use-inertia-form';
+import { SearchableSelect } from '../components/SearchableSelect';
 
 interface Datasource {
   datasource: {
     name: string,
+    datasource_type: string,
     s3_bucket: string,
     s3_prefix: string,
     s3_region: string,
   }
 }
 
-export default function NewDatasourcePage() {
+interface Props {
+  constants: {
+    DATASOURCE_TYPES: Array<{ value: string, label: string, description: string }>
+    s3: {
+      S3_REGIONS: Array<{ value: string, label: string }>,
+    }
+    
+  }
+}
+
+export default function NewDatasourcePage({ constants }: Props) {
   const { data, setData, post, processing, errors } = useInertiaForm<Datasource>({
     datasource: {
       name: '',
+      datasource_type: 's3',
       s3_bucket: '',
       s3_prefix: '',
       s3_region: 'us-east-1',
@@ -32,7 +45,7 @@ export default function NewDatasourcePage() {
     <div className="max-w-2xl mx-auto p-8">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          New S3 Datasource
+          New Datasource
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -52,6 +65,18 @@ export default function NewDatasourcePage() {
               }
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Type
+            </label>
+            <SearchableSelect
+              options={constants.DATASOURCE_TYPES}
+              value={data.datasource.datasource_type}
+              onChange={(value) => setData('datasource.datasource_type', value)}
+              placeholder="Select datasource type"
             />
           </div>
 
@@ -95,29 +120,15 @@ export default function NewDatasourcePage() {
           </div>
 
           <div>
-            <label
-              htmlFor="s3_region"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Region
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              S3 Region
             </label>
-            <select
-              id="s3_region"
+            <SearchableSelect
+              options={constants.s3.S3_REGIONS}
               value={data.datasource.s3_region}
-              onChange={(e) =>
-                setData('datasource.s3_region', e.target.value)
-              }
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            >
-              <option value="us-east-1">US East (N. Virginia)</option>
-              <option value="us-east-2">US East (Ohio)</option>
-              <option value="us-west-1">US West (N. California)</option>
-              <option value="us-west-2">US West (Oregon)</option>
-              <option value="eu-west-1">EU (Ireland)</option>
-              <option value="eu-central-1">EU (Frankfurt)</option>
-              <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
-              <option value="ap-southeast-2">Asia Pacific (Sydney)</option>
-            </select>
+              onChange={(value) => setData('datasource.s3_region', value)}
+              placeholder="Select s3 region"
+            />
           </div>
 
           <div className="flex justify-end">

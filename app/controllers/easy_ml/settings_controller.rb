@@ -1,3 +1,18 @@
+# == Schema Information
+#
+# Table name: easy_ml_settings
+#
+#  id                   :bigint           not null, primary key
+#  storage              :string
+#  timezone             :string
+#  s3_access_key_id     :string
+#  s3_secret_access_key :string
+#  s3_bucket            :string
+#  s3_region            :string
+#  s3_prefix            :string
+#  created_at           :datetime         not null
+#  updated_at           :datetime         not null
+#
 module EasyML
   class SettingsController < ApplicationController
     def index

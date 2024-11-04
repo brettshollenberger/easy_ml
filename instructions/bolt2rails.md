@@ -91,7 +91,7 @@ const { rootPath, url } = usePage().props;
 router.visit(`${rootPath}/page`);
 ```
 
-NOTICE: You do NOT need to pass rootPath to the frontend, as it is already passed by ApplicationController.
+**NOTICE: You do NOT need to pass rootPath to the frontend, as it is already passed by ApplicationController.**
 
 ## Creating Links
 
@@ -146,19 +146,18 @@ const [formData, setFormData] = useState({
 ### With
 
 ```tsx
-const { data, setData, post, processing, errors } =
-  useInertiaForm <
-  Model >
-  {
-    model: {
-      name: "",
-      modelType: "",
-      datasetId: null,
-      task: "regression",
-      objective: "reg:squarederror",
-      metrics: ["accuracy"],
-    },
-  };
+import { useInertiaForm } from "use-inertia-form";
+
+const { data, setData, post, processing, errors } = useInertiaForm<Model>({
+  model: {
+    name: "",
+    modelType: "",
+    datasetId: null,
+    task: "regression",
+    objective: "reg:squarederror",
+    metrics: ["accuracy"],
+  },
+});
 ```
 
 ### Ensure
@@ -201,21 +200,72 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
 
 ### With
 
+- Be sure to follow object-oriented principles, where subclasses might implement constants that their parent classes do not. The main class should respond to `constants`, which will return the constants for all classes + subclasses.
+
+```tsx
+class Settings < ActiveRecord::Base
+  TIMEZONES = [
+    { value: "America/New_York", label: "Eastern Time" },
+    { value: "America/Chicago", label: "Central Time" },
+    { value: "America/Denver", label: "Mountain Time" },
+    { value: "America/Los_Angeles", label: "Pacific Time" }
+  ]
+
+  def self.constants
+    {
+      TIMEZONES: TIMEZONES
+    }
+  end
+end
+
+# Example with subclasses:
+
+class Datasource < ActiveRecord::Base
+  DATASOURCE_TYPES = [
+    {
+      value: "s3",
+      label: "Amazon S3",
+      description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets"
+    }
+  ].freeze
+
+  def self.constants
+    {
+      DATASOURCE_TYPES: DATASOURCE_TYPES,
+    }
+  end
+end
+
+# app/options/datasource_options.rb
+module EasyML
+  module DatasourceOptions
+    def self.constants
+      EasyML::Datasource.constants.merge!(
+        s3: EasyML::S3Datasource.constants, # Add subclass constants
+      )
+    end
+  end
+end
+```
+
 ```ruby
 def edit
   @settings = Settings.first_or_create
   render inertia: "pages/SettingsPage", props: {
     settings: { settings: @settings.as_json },
-    constants: {
-      TIMEZONES: Settings::TIMEZONES
-    }
+    constants: SettingsOptions.constants
   }
 end
 ```
 
 ```tsx
-export default function SettingsPage({ settings: initialSettings, constants }: { settings: Settings }) {
-	const TIMEZONES = constants.TIMEZONES
+interface Props {
+  constants: {
+    TIMEZONES: Array<{ value: string, label: string }>,
+  }
+}
+
+export default function NewDatasourcePage({ constants }: Props) {
 ```
 
 ### Ensure
@@ -278,3 +328,24 @@ const handleSubmit = (e: React.FormEvent) => {
 
 - Alerts will appear automatically if you use `flash.now[:notice]` for success statements and `flash.now[:error]` for error statements
 - For model validation errors, prefer inline errors
+
+## Controller Actions
+
+### Use Inertia Rails
+
+```ruby
+def edit
+  datasource = EasyML::Datasource.find_by(id: params[:id])
+
+  render inertia: "pages/EditDatasourcePage", props: {
+    datasource: {
+      id: datasource.id,
+      name: datasource.name,
+      s3_bucket: datasource.s3_bucket,
+      s3_prefix: datasource.s3_prefix,
+      s3_region: datasource.s3_region
+    },
+    constants: EasyML::DatasourceOptions.constants
+  }
+end
+```

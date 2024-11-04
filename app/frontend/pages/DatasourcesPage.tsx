@@ -9,11 +9,9 @@ interface Datasource {
   id: number;
   name: string;
   datasource_type: string;
-  configuration: {
-    s3_bucket: string;
-    s3_prefix: string;
-    s3_region: string;
-  };
+  s3_bucket: string;
+  s3_prefix: string;
+  s3_region: string;
   created_at: string;
   updated_at: string;
 }
@@ -29,7 +27,7 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
   const filteredDatasources = useMemo(() => {
     return datasources.filter(source =>
       source.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      source.configuration.s3_bucket.toLowerCase().includes(searchQuery.toLowerCase())
+      source.s3_bucket.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [searchQuery, datasources]);
 
@@ -113,7 +111,7 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                           {datasource.name}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">
-                          s3://{datasource.configuration.s3_bucket}/{datasource.configuration.s3_prefix}
+                          s3://{datasource.s3_bucket}/{datasource.s3_prefix}
                         </p>
                       </div>
                     </div>
@@ -139,7 +137,7 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                     <div>
                       <span className="text-sm text-gray-500">Region</span>
                       <p className="text-sm font-medium text-gray-900">
-                        {datasource.configuration.s3_region}
+                        {datasource.s3_region}
                       </p>
                     </div>
                     <div>

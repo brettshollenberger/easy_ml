@@ -10,11 +10,9 @@ module EasyML
             id: datasource.id,
             name: datasource.name,
             datasource_type: datasource.datasource_type,
-            configuration: {
-              s3_bucket: datasource.configuration["s3_bucket"],
-              s3_prefix: datasource.configuration["s3_prefix"],
-              s3_region: datasource.configuration["s3_region"]
-            },
+            s3_bucket: datasource.s3_bucket,
+            s3_prefix: datasource.s3_prefix,
+            s3_region: datasource.s3_region,
             created_at: datasource.created_at,
             updated_at: datasource.updated_at
           }
@@ -23,7 +21,18 @@ module EasyML
     end
 
     def edit
-      EasyML::Datasource.find_by(id: params["id"])
+      datasource = EasyML::Datasource.find_by(id: params[:id])
+
+      render inertia: "pages/EditDatasourcePage", props: {
+        datasource: {
+          id: datasource.id,
+          name: datasource.name,
+          s3_bucket: datasource.s3_bucket,
+          s3_prefix: datasource.s3_prefix,
+          s3_region: datasource.s3_region
+        },
+        constants: EasyML::DatasourceOptions.constants
+      }
     end
 
     def new
@@ -45,6 +54,15 @@ module EasyML
       @datasource.destroy
 
       redirect_to easy_ml_datasources_path, notice: "Datasource was successfully deleted."
+    end
+
+    def update
+      datasource = EasyML::Datasource.find(params[:id])
+      if datasource.update(datasource_params)
+        redirect_to easy_ml_datasources_path, notice: "Datasource was successfully updated."
+      else
+        redirect_to edit_easy_ml_datasource_path(datasource), alert: datasource.errors.full_messages.join(", ")
+      end
     end
 
     private

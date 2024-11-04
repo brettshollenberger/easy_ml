@@ -7,6 +7,7 @@ interface Alert {
   id: string;
   type: AlertType;
   message: string;
+  isLeaving?: boolean;
 }
 
 interface AlertContextType {
@@ -21,19 +22,26 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   let numSeconds = 1.25;
 
+  const removeAlert = useCallback((id: string) => {
+    setAlerts(prev => 
+      prev.map(alert => 
+        alert.id === id ? { ...alert, isLeaving: true } : alert
+      )
+    );
+
+    setTimeout(() => {
+      setAlerts(prev => prev.filter(alert => alert.id !== id));
+    }, 300);
+  }, []);
+
   const showAlert = useCallback((type: AlertType, message: string) => {
     const id = Math.random().toString(36).substring(7);
     setAlerts(prev => [...prev, { id, type, message }]);
 
-    // Auto-remove after 5 seconds
     setTimeout(() => {
-      setAlerts(prev => prev.filter(alert => alert.id !== id));
+      removeAlert(id);
     }, numSeconds * 1000);
-  }, []);
-
-  const removeAlert = useCallback((id: string) => {
-    setAlerts(prev => prev.filter(alert => alert.id !== id));
-  }, []);
+  }, [removeAlert]);
 
   return (
     <AlertContext.Provider value={{ alerts, showAlert, removeAlert }}>
@@ -60,11 +68,14 @@ export function AlertContainer() {
       {alerts.map(alert => (
         <div
           key={alert.id}
-          className={`flex items-center justify-between p-4 rounded-lg shadow-lg ${
-            alert.type === 'success' ? 'bg-green-50 text-green-900' :
-            alert.type === 'error' ? 'bg-red-50 text-red-900' :
-            'bg-blue-50 text-blue-900'
-          }`}
+          className={`flex items-center justify-between p-4 rounded-lg shadow-lg 
+            transition-all duration-300 ease-in-out
+            ${alert.isLeaving ? 'opacity-0 transform -translate-y-2' : 'opacity-100'}
+            ${
+              alert.type === 'success' ? 'bg-green-50 text-green-900' :
+              alert.type === 'error' ? 'bg-red-50 text-red-900' :
+              'bg-blue-50 text-blue-900'
+            }`}
         >
           <div className="flex items-center gap-3">
             {alert.type === 'success' ? (

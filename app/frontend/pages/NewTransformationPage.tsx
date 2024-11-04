@@ -4,7 +4,7 @@ import { Code2 } from 'lucide-react';
 import { mockDatasets, mockTransformationGroups } from '../mockData';
 import { TransformationForm } from '../components/transformations/TransformationForm';
 
-export function NewTransformationPage() {
+export default function NewTransformationPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',

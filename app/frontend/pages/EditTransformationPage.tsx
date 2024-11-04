@@ -4,7 +4,7 @@ import { Code2 } from 'lucide-react';
 import { mockDatasets, mockTransformationGroups } from '../mockData';
 import { TransformationForm } from '../components/transformations/TransformationForm';
 
-export function EditTransformationPage() {
+export default function EditTransformationPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   

@@ -31,7 +31,7 @@ interface SplitConfig {
   monthsValid: number;
 }
 
-export function NewDatasetPage() {
+export default function NewDatasetPage() {
   const [step, setStep] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({

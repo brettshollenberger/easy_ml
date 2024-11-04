@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { usePage } from '@inertiajs/react'
-import { useInertiaForm, NestedFields } from 'use-inertia-form';
+import { useInertiaForm } from 'use-inertia-form';
 
+interface Datasource {
+  datasource: {
+    name: string,
+    s3_bucket: string,
+    s3_prefix: string,
+    s3_region: string,
+  }
+}
 
 export default function NewDatasourcePage() {
-  const { data, setData, post, processing, errors } = useInertiaForm({
+  const { data, setData, post, processing, errors } = useInertiaForm<Datasource>({
     datasource: {
       name: '',
       s3_bucket: '',

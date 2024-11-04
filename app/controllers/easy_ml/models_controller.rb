@@ -1,3 +1,19 @@
+# == Schema Information
+#
+# Table name: easy_ml_models
+#
+#  id            :bigint           not null, primary key
+#  name          :string           not null
+#  model_type    :string
+#  status        :string
+#  dataset_id    :bigint
+#  configuration :json
+#  version       :string           not null
+#  root_dir      :string
+#  file          :json
+#  created_at    :datetime         not null
+#  updated_at    :datetime         not null
+#
 module EasyML
   class ModelsController < ApplicationController
     include EasyML::Engine.routes.url_helpers

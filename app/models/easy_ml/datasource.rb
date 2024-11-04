@@ -14,6 +14,16 @@ module EasyML
   class Datasource < ActiveRecord::Base
     include ConfigurableSTI
 
+    scope :s3, -> { where(datasource_type: "S3Datasource") }
+
+    DATASOURCE_TYPES = [
+      {
+        value: "s3",
+        label: "Amazon S3",
+        description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets"
+      }
+    ].freeze
+
     type_column :datasource_type
     register_types(
       polars: "PolarsDatasource",
@@ -24,6 +34,12 @@ module EasyML
     validates :name, presence: true
     validates :datasource_type, presence: true
     validates :datasource_type, inclusion: { in: type_map.values }
+
+    def self.constants
+      {
+        DATASOURCE_TYPES: DATASOURCE_TYPES
+      }
+    end
 
     # Common interface methods
     def in_batches(of: 10_000)

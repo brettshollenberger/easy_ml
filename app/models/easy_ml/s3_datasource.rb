@@ -1,5 +1,28 @@
+# == Schema Information
+#
+# Table name: easy_ml_datasources
+#
+#  id              :bigint           not null, primary key
+#  name            :string           not null
+#  datasource_type :string
+#  root_dir        :string
+#  configuration   :json
+#  created_at      :datetime         not null
+#  updated_at      :datetime         not null
+#
 module EasyML
   class S3Datasource < Datasource
+    REGIONS = [
+      { value: "us-east-1", label: "US East (N. Virginia)" },
+      { value: "us-east-2", label: "US East (Ohio)" },
+      { value: "us-west-1", label: "US West (N. California)" },
+      { value: "us-west-2", label: "US West (Oregon)" }
+    ].freeze
+
+    def self.constants
+      { S3_REGIONS: REGIONS }
+    end
+
     attr_accessor :s3_bucket, :s3_prefix, :s3_access_key_id,
                   :s3_secret_access_key, :s3_region, :cache_for, :polars_args,
                   :verbose
@@ -69,11 +92,11 @@ module EasyML
     end
 
     def store_in_configuration
-      super(:s3_bucket, :s3_prefix, :cache_for, :polars_args, :verbose)
+      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose)
     end
 
     def read_from_configuration
-      super(:s3_bucket, :s3_prefix, :cache_for, :polars_args, :verbose)
+      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose)
     end
   end
 end

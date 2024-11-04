@@ -1,25 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { HardDrive, Plus, Trash2, Settings } from 'lucide-react';
+import { HardDrive, Plus, Trash2, Settings, RefreshCw } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
-
-interface Datasource {
-  id: number;
-  name: string;
-  datasource_type: string;
-  s3_bucket: string;
-  s3_prefix: string;
-  s3_region: string;
-  created_at: string;
-  updated_at: string;
-}
+import type { Datasource } from '../types/datasource';
 
 const ITEMS_PER_PAGE = 6;
 
 export default function DatasourcesPage({ datasources }: { datasources: Datasource[] }) {
-  console.log(datasources)
   const { rootPath } = usePage().props;
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -40,6 +29,24 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
   const handleDelete = (datasourceId: number) => {
     if (confirm('Are you sure you want to delete this datasource? This action cannot be undone.')) {
       router.delete(`${rootPath}/datasources/${datasourceId}`);
+    }
+  };
+
+  const handleSync = async (id: number) => {
+    try {
+      router.post(`${rootPath}/datasources/${id}/sync`, {}, {
+        preserveScroll: true, // Keeps the scroll position
+        preserveState: true,  // Keeps the form state
+        onSuccess: () => {
+          // The page will automatically refresh with new data
+        },
+        onError: () => {
+          // Handle error case if needed
+          console.error('Failed to sync datasource');
+        }
+      });
+    } catch (error) {
+      console.error('Failed to sync datasource:', error);
     }
   };
 
@@ -116,6 +123,16 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                       </div>
                     </div>
                     <div className="flex gap-2">
+                    <button
+                        onClick={() => handleSync(datasource.id)}
+                        disabled={datasource.is_syncing}
+                        className={`text-gray-400 hover:text-blue-600 transition-colors ${
+                          datasource.is_syncing ? 'animate-spin' : ''
+                        }`}
+                        title="Sync datasource"
+                      >
+                        <RefreshCw className="w-5 h-5" />
+                      </button>
                       <Link
                         href={`${rootPath}/datasources/${datasource.id}/edit`}
                         className="text-gray-400 hover:text-blue-600 transition-colors"
@@ -141,9 +158,11 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                       </p>
                     </div>
                     <div>
-                      <span className="text-sm text-gray-500">Last Updated</span>
+                      <span className="text-sm text-gray-500">Last Sync</span>
                       <p className="text-sm font-medium text-gray-900">
-                        {new Date(datasource.updated_at).toLocaleString()}
+                        {isNaN(Date.parse(datasource.last_synced_at)) 
+                          ? datasource.last_synced_at
+                          : new Date(datasource.last_synced_at).toLocaleString()}
                       </p>
                     </div>
                   </div>

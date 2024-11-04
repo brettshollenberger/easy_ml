@@ -25,7 +25,7 @@ module EasyML
 
     attr_accessor :s3_bucket, :s3_prefix, :s3_access_key_id,
                   :s3_secret_access_key, :s3_region, :cache_for, :polars_args,
-                  :verbose
+                  :verbose, :is_syncing
 
     after_initialize :read_from_configuration
     before_save :store_in_configuration
@@ -54,11 +54,17 @@ module EasyML
     end
 
     def refresh
-      synced_directory.sync
+      update(is_syncing: true)
+      synced_directory.sync.tap do
+        update(is_syncing: false)
+      end
     end
 
     def refresh!
-      synced_directory.sync!
+      update(is_syncing: true)
+      synced_directory.sync!.tap do
+        update(is_syncing: false)
+      end
     end
 
     def data
@@ -92,11 +98,11 @@ module EasyML
     end
 
     def store_in_configuration
-      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose)
+      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose, :is_syncing)
     end
 
     def read_from_configuration
-      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose)
+      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose, :is_syncing)
     end
   end
 end

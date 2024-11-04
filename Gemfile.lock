@@ -1,22 +1,25 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.1.7)
+    easy_ml (0.1.8)
       activerecord
       activesupport
       awesome_print
-      carrierwave (>= 2.0, < 4)
-      glue_gun_dsl (~> 0.1.19)
+      aws-sdk
+      glue_gun_dsl (~> 0.1.31)
+      inertia_rails
+      jsonapi-serializer
       numo-narray
+      numpy
       parallel
       polars-df
       pycall
       rails
       red-optuna
-      sidekiq
+      sidekiq (~> 6.5.6)
       tailwindcss-rails
       vite_rails
-      wandb (~> 0.1.6)
+      wandb (~> 0.1.9)
       xgb
 
 GEM
@@ -93,8 +96,6 @@ GEM
       minitest (>= 5.1)
       securerandom (>= 0.3)
       tzinfo (~> 2.0, >= 2.0.5)
-    addressable (2.8.7)
-      public_suffix (>= 2.0.2, < 7.0)
     annotate (3.2.0)
       activerecord (>= 3.2, < 8.0)
       rake (>= 10.4, < 14.0)
@@ -105,7 +106,7 @@ GEM
     ast (2.4.2)
     awesome_print (1.9.2)
     aws-eventstream (1.3.0)
-    aws-partitions (1.999.0)
+    aws-partitions (1.1001.0)
     aws-sdk (3.2.0)
       aws-sdk-resources (~> 3)
     aws-sdk-accessanalyzer (1.61.0)
@@ -201,7 +202,7 @@ GEM
     aws-sdk-augmentedairuntime (1.49.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-autoscaling (1.123.0)
+    aws-sdk-autoscaling (1.124.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-autoscalingplans (1.66.0)
@@ -216,7 +217,7 @@ GEM
     aws-sdk-backupgateway (1.31.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.1)
-    aws-sdk-batch (1.102.0)
+    aws-sdk-batch (1.103.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-bcmdataexports (1.15.0)
@@ -225,9 +226,9 @@ GEM
     aws-sdk-bedrock (1.28.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-bedrockagent (1.31.0)
+    aws-sdk-bedrockagent (1.32.0)
       aws-sdk-core (~> 3, >= 3.210.0)
-      aws-sigv4 (~> 1.1)
+      aws-sigv4 (~> 1.5)
     aws-sdk-bedrockagentruntime (1.29.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
@@ -315,7 +316,7 @@ GEM
     aws-sdk-cloudwatchevidently (1.35.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.1)
-    aws-sdk-cloudwatchlogs (1.99.0)
+    aws-sdk-cloudwatchlogs (1.100.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-cloudwatchrum (1.33.0)
@@ -463,13 +464,13 @@ GEM
     aws-sdk-docdb (1.78.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-docdbelastic (1.25.0)
+    aws-sdk-docdbelastic (1.26.0)
       aws-sdk-core (~> 3, >= 3.210.0)
-      aws-sigv4 (~> 1.1)
+      aws-sigv4 (~> 1.5)
     aws-sdk-drs (1.43.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.1)
-    aws-sdk-dynamodb (1.126.0)
+    aws-sdk-dynamodb (1.127.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-dynamodbstreams (1.69.0)
@@ -514,7 +515,7 @@ GEM
     aws-sdk-elasticloadbalancing (1.68.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-elasticloadbalancingv2 (1.119.0)
+    aws-sdk-elasticloadbalancingv2 (1.120.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-elasticsearchservice (1.96.0)
@@ -586,7 +587,7 @@ GEM
     aws-sdk-globalaccelerator (1.71.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-glue (1.199.0)
+    aws-sdk-glue (1.200.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-gluedatabrew (1.49.0)
@@ -979,9 +980,9 @@ GEM
     aws-sdk-privatenetworks (1.27.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.1)
-    aws-sdk-prometheusservice (1.43.0)
+    aws-sdk-prometheusservice (1.44.0)
       aws-sdk-core (~> 3, >= 3.210.0)
-      aws-sigv4 (~> 1.1)
+      aws-sigv4 (~> 1.5)
     aws-sdk-proton (1.48.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.1)
@@ -1468,7 +1469,7 @@ GEM
     aws-sdk-s3outposts (1.42.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-sagemaker (1.271.0)
+    aws-sdk-sagemaker (1.272.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-sagemakeredgemanager (1.38.0)
@@ -1519,7 +1520,7 @@ GEM
     aws-sdk-ses (1.76.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-sesv2 (1.65.0)
+    aws-sdk-sesv2 (1.66.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-shield (1.75.0)
@@ -1591,7 +1592,7 @@ GEM
     aws-sdk-synthetics (1.55.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
-    aws-sdk-taxsettings (1.12.0)
+    aws-sdk-taxsettings (1.13.0)
       aws-sdk-core (~> 3, >= 3.210.0)
       aws-sigv4 (~> 1.5)
     aws-sdk-textract (1.70.0)
@@ -1673,13 +1674,6 @@ GEM
     benchmark (0.3.0)
     bigdecimal (3.1.8)
     builder (3.3.0)
-    carrierwave (3.0.7)
-      activemodel (>= 6.0.0)
-      activesupport (>= 6.0.0)
-      addressable (~> 2.6)
-      image_processing (~> 1.1)
-      marcel (~> 1.0.0)
-      ssrf_filter (~> 1.0)
     coderay (1.1.3)
     combustion (1.5.0)
       activesupport (>= 3.0.0)
@@ -1692,22 +1686,12 @@ GEM
       activerecord (>= 5.a)
       database_cleaner-core (~> 2.0.0)
     database_cleaner-core (2.0.1)
-    date (3.3.4)
+    date (3.4.0)
     diff-lcs (1.5.1)
     drb (2.2.1)
     dry-cli (1.2.0)
     erubi (1.13.0)
-    factory_bot (6.5.0)
-      activesupport (>= 5.0.0)
-    factory_bot_rails (6.4.4)
-      factory_bot (~> 6.5)
-      railties (>= 5.0.0)
-    ffi (1.17.0-aarch64-linux-gnu)
-    ffi (1.17.0-aarch64-linux-musl)
     ffi (1.17.0-arm64-darwin)
-    ffi (1.17.0-x86_64-darwin)
-    ffi (1.17.0-x86_64-linux-gnu)
-    ffi (1.17.0-x86_64-linux-musl)
     formatador (1.1.0)
     globalid (1.2.1)
       activesupport (>= 6.1)
@@ -1727,17 +1711,16 @@ GEM
       thor (>= 0.18.1)
     i18n (1.14.6)
       concurrent-ruby (~> 1.0)
-    image_processing (1.13.0)
-      mini_magick (>= 4.9.5, < 5)
-      ruby-vips (>= 2.0.17, < 3)
-    inertia_rails (3.3.0)
-      railties (>= 5)
+    inertia_rails (3.4.0)
+      railties (>= 6)
     io-console (0.7.2)
     irb (1.14.1)
       rdoc (>= 4.0.0)
       reline (>= 0.4.2)
     jmespath (1.6.2)
-    json (2.7.5)
+    json (2.7.6)
+    jsonapi-serializer (2.2.0)
+      activesupport (>= 4.2)
     language_server-protocol (3.17.0.3)
     listen (3.9.0)
       rb-fsevent (~> 0.10, >= 0.10.3)
@@ -1754,7 +1737,6 @@ GEM
       net-smtp
     marcel (1.0.4)
     method_source (1.1.0)
-    mini_magick (4.13.2)
     mini_mime (1.1.5)
     minitest (5.25.1)
     nenv (0.3.0)
@@ -1768,13 +1750,7 @@ GEM
     net-smtp (0.5.0)
       net-protocol
     nio4r (2.7.4)
-    nokogiri (1.16.7-aarch64-linux)
-      racc (~> 1.4)
     nokogiri (1.16.7-arm64-darwin)
-      racc (~> 1.4)
-    nokogiri (1.16.7-x86_64-darwin)
-      racc (~> 1.4)
-    nokogiri (1.16.7-x86_64-linux)
       racc (~> 1.4)
     notiffany (0.1.3)
       nenv (~> 0.1)
@@ -1784,40 +1760,29 @@ GEM
       pycall (>= 1.2.0.beta1)
     ostruct (0.6.0)
     parallel (1.26.3)
-    parser (3.3.5.0)
+    parser (3.3.5.1)
       ast (~> 2.4.1)
       racc
     pg (1.5.9)
-    polars-df (0.14.0-aarch64-linux)
-      bigdecimal
-    polars-df (0.14.0-aarch64-linux-musl)
-      bigdecimal
     polars-df (0.14.0-arm64-darwin)
-      bigdecimal
-    polars-df (0.14.0-x86_64-darwin)
-      bigdecimal
-    polars-df (0.14.0-x86_64-linux)
-      bigdecimal
-    polars-df (0.14.0-x86_64-linux-musl)
       bigdecimal
     pry (0.14.2)
       coderay (~> 1.1)
       method_source (~> 1.0)
     psych (5.1.2)
       stringio
-    public_suffix (6.0.1)
     pycall (1.5.2)
     racc (1.8.1)
-    rack (3.1.8)
+    rack (2.2.10)
     rack-proxy (0.7.7)
       rack
-    rack-session (2.0.0)
-      rack (>= 3.0.0)
+    rack-session (1.0.2)
+      rack (< 3)
     rack-test (2.1.0)
       rack (>= 1.3)
-    rackup (2.1.0)
-      rack (>= 3)
-      webrick (~> 1.8)
+    rackup (1.0.1)
+      rack (< 3)
+      webrick
     rails (7.2.2)
       actioncable (= 7.2.2)
       actionmailbox (= 7.2.2)
@@ -1856,8 +1821,7 @@ GEM
       psych (>= 4.0.0)
     red-optuna (1.0.1)
       numpy (>= 0.2.0)
-    redis-client (0.22.2)
-      connection_pool
+    redis (4.8.1)
     regexp_parser (2.9.2)
     reline (0.5.10)
       io-console (~> 0.5)
@@ -1897,28 +1861,20 @@ GEM
       rubocop-ast (>= 1.32.2, < 2.0)
       ruby-progressbar (~> 1.7)
       unicode-display_width (>= 2.4.0, < 3.0)
-    rubocop-ast (1.33.0)
+    rubocop-ast (1.34.0)
       parser (>= 3.3.1.0)
     ruby-progressbar (1.13.0)
-    ruby-vips (2.2.2)
-      ffi (~> 1.12)
-      logger
     securerandom (0.3.1)
     shellany (0.0.1)
-    sidekiq (7.3.4)
-      connection_pool (>= 2.3.0)
-      logger
-      rack (>= 2.2.4)
-      redis-client (>= 0.22.2)
-    ssrf_filter (1.1.2)
+    sidekiq (6.5.12)
+      connection_pool (>= 2.2.5, < 3)
+      rack (~> 2.0)
+      redis (>= 4.5.0, < 5)
     stringio (3.1.1)
     tailwindcss-rails (3.0.0)
       railties (>= 7.0.0)
       tailwindcss-ruby
-    tailwindcss-ruby (3.4.14-aarch64-linux)
     tailwindcss-ruby (3.4.14-arm64-darwin)
-    tailwindcss-ruby (3.4.14-x86_64-darwin)
-    tailwindcss-ruby (3.4.14-x86_64-linux)
     thor (1.3.2)
     timecop (0.9.10)
     timeout (0.4.1)
@@ -1936,7 +1892,7 @@ GEM
       zeitwerk (~> 2.2)
     wandb (0.1.9)
       pycall
-    webrick (1.8.2)
+    webrick (1.9.0)
     websocket-driver (0.7.6)
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
@@ -1945,14 +1901,7 @@ GEM
     zeitwerk (2.7.1)
 
 PLATFORMS
-  aarch64-linux
-  aarch64-linux-gnu
-  aarch64-linux-musl
-  arm64-darwin
-  x86_64-darwin
-  x86_64-linux
-  x86_64-linux-gnu
-  x86_64-linux-musl
+  arm64-darwin-23
 
 DEPENDENCIES
   annotate
@@ -1962,10 +1911,10 @@ DEPENDENCIES
   combustion
   database_cleaner-active_record
   easy_ml!
-  factory_bot_rails
   glue_gun_dsl (~> 0.1.31)
   guard
   inertia_rails
+  jsonapi-serializer
   numpy (~> 0.4.0)
   ostruct
   pg
@@ -1975,7 +1924,7 @@ DEPENDENCIES
   rspec-rails
   rspec-sidekiq
   rubocop (~> 1.21)
-  sidekiq
+  sidekiq (~> 6.5.6)
   timecop
   wandb (~> 0.1.9)
   xgb (~> 0.9.0)

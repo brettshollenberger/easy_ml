@@ -10,11 +10,12 @@ gem "awesome_print"
 gem "aws-sdk", "~> 3.1"
 gem "glue_gun_dsl", "~> 0.1.31"
 gem "inertia_rails", require: false
+gem "jsonapi-serializer"
 gem "numpy", "~> 0.4.0"
 gem "pg"
 gem "rake", "~> 13.0"
 gem "rubocop", "~> 1.21"
-gem "sidekiq"
+gem "sidekiq", "~> 6.5.6"
 gem "wandb", "~> 0.1.9"
 gem "xgb", "~> 0.9.0"
 

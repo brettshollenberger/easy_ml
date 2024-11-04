@@ -138,7 +138,6 @@ interface NavigationProps {
 export function Navigation({ children }: NavigationProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [openSections, setOpenSections] = useState<string[]>(['Models']);
-  console.log(router)
   const breadcrumbs = getBreadcrumbs(location.pathname);
 
   const toggleSection = (title: string) => {

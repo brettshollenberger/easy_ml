@@ -48,6 +48,10 @@ module EasyML
       # No need to refresh for in-memory datasource
     end
 
+    def is_syncing
+      false
+    end
+
     def data
       df
     end

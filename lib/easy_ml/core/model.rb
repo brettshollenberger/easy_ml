@@ -1,5 +1,3 @@
-require "carrierwave"
-
 module EasyML
   module Core
     class Model

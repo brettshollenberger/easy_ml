@@ -37,6 +37,10 @@ module EasyML
     def refresh; end
     def refresh!; end
 
+    def is_syncing
+      false
+    end
+
     def data
       return @combined_df if @combined_df.present?
 

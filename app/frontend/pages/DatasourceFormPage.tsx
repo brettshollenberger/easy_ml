@@ -1,49 +1,37 @@
 import React from 'react';
-import { ArrowLeft } from 'lucide-react';
 import { router, usePage } from '@inertiajs/react';
 import { useInertiaForm } from 'use-inertia-form';
+import { SearchableSelect } from '../components/SearchableSelect';
+import type { Datasource, DatasourceFormProps } from '../types/datasource';
 
-interface DatasourceForm {
-  datasource: {
-    name: string;
-    s3_bucket: string;
-    s3_prefix: string;
-    s3_region: string;
-  }
-}
-
-interface Props {
-  datasource: {
-    id: number;
-    name: string;
-    s3_bucket: string;
-    s3_prefix: string;
-    s3_region: string;
-  }
-}
-
-export default function EditDatasourcePage({ datasource }: Props) {
+export default function DatasourceFormPage({ datasource, constants }: DatasourceFormProps) {
   const { rootPath } = usePage().props;
-  
-  const { data, setData, patch, processing, errors } = useInertiaForm<DatasourceForm>({
+  const isEditing = !!datasource;
+
+  const { data, setData, processing, errors } = useInertiaForm<{ datasource: Datasource }>({
     datasource: {
-      name: datasource.name,
-      s3_bucket: datasource.s3_bucket,
-      s3_prefix: datasource.s3_prefix,
-      s3_region: datasource.s3_region
+      name: datasource?.name ?? '',
+      datasource_type: datasource?.datasource_type ?? 's3',
+      s3_bucket: datasource?.s3_bucket ?? '',
+      s3_prefix: datasource?.s3_prefix ?? '',
+      s3_region: datasource?.s3_region ?? 'us-east-1',
     }
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    patch(`${rootPath}/datasources/${datasource.id}`);
+    if (isEditing) {
+      router.patch(`${rootPath}/datasources/${datasource.id}`, data);
+    } else {
+      router.post(`${rootPath}/datasources`, data);
+    }
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto p-8">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          Edit Datasource
+          {isEditing ? 'Edit Datasource' : 'New Datasource'}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -62,72 +50,78 @@ export default function EditDatasourcePage({ datasource }: Props) {
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
-            {errors['datasource.name'] && (
-              <p className="mt-1 text-sm text-red-600">{errors['datasource.name']}</p>
+            {errors.datasource?.name && (
+              <p className="mt-1 text-sm text-red-600">{errors.datasource.name}</p>
             )}
           </div>
 
+          {!isEditing && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Type
+              </label>
+              <SearchableSelect
+                options={constants.DATASOURCE_TYPES}
+                value={data.datasource.datasource_type}
+                onChange={(value) => setData('datasource.datasource_type', value)}
+                placeholder="Select datasource type"
+              />
+            </div>
+          )}
+
           <div>
             <label
-              htmlFor="bucket"
+              htmlFor="s3_bucket"
               className="block text-sm font-medium text-gray-700"
             >
               S3 Bucket
             </label>
             <input
               type="text"
-              id="bucket"
+              id="s3_bucket"
               value={data.datasource.s3_bucket}
               onChange={(e) => setData('datasource.s3_bucket', e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
-            {errors['datasource.s3_bucket'] && (
-              <p className="mt-1 text-sm text-red-600">{errors['datasource.s3_bucket']}</p>
+            {errors.datasource?.s3_bucket && (
+              <p className="mt-1 text-sm text-red-600">{errors.datasource.s3_bucket}</p>
             )}
           </div>
 
           <div>
             <label
-              htmlFor="prefix"
+              htmlFor="s3_prefix"
               className="block text-sm font-medium text-gray-700"
             >
               S3 Prefix
             </label>
             <input
               type="text"
-              id="prefix"
+              id="s3_prefix"
               value={data.datasource.s3_prefix}
               onChange={(e) => setData('datasource.s3_prefix', e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="data/raw/"
               required
             />
-            {errors['datasource.s3_prefix'] && (
-              <p className="mt-1 text-sm text-red-600">{errors['datasource.s3_prefix']}</p>
+            {errors.datasource?.s3_prefix && (
+              <p className="mt-1 text-sm text-red-600">{errors.datasource.s3_prefix}</p>
             )}
           </div>
 
           <div>
-            <label
-              htmlFor="region"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Region
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              S3 Region
             </label>
-            <select
-              id="region"
+            <SearchableSelect
+              options={constants.s3.S3_REGIONS}
               value={data.datasource.s3_region}
-              onChange={(e) => setData('datasource.s3_region', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-            >
-              <option value="us-east-1">US East (N. Virginia)</option>
-              <option value="us-east-2">US East (Ohio)</option>
-              <option value="us-west-1">US West (N. California)</option>
-              <option value="us-west-2">US West (Oregon)</option>
-            </select>
-            {errors['datasource.s3_region'] && (
-              <p className="mt-1 text-sm text-red-600">{errors['datasource.s3_region']}</p>
+              onChange={(value) => setData('datasource.s3_region', value)}
+              placeholder="Select s3 region"
+            />
+            {errors.datasource?.s3_region && (
+              <p className="mt-1 text-sm text-red-600">{errors.datasource.s3_region}</p>
             )}
           </div>
 
@@ -144,11 +138,11 @@ export default function EditDatasourcePage({ datasource }: Props) {
               disabled={processing}
               className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              {processing ? 'Saving...' : 'Save Changes'}
+              {processing ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Datasource'}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
-}
+} 

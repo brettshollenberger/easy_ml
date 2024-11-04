@@ -2,41 +2,28 @@ require_relative "../../options/datasource_options"
 module EasyML
   class DatasourcesController < ApplicationController
     def index
-      datasources = EasyML::Datasource.s3
-
+      @datasources = Datasource.all
       render inertia: "pages/DatasourcesPage", props: {
-        datasources: datasources.map do |datasource|
-          {
-            id: datasource.id,
-            name: datasource.name,
-            datasource_type: datasource.datasource_type,
-            s3_bucket: datasource.s3_bucket,
-            s3_prefix: datasource.s3_prefix,
-            s3_region: datasource.s3_region,
-            created_at: datasource.created_at,
-            updated_at: datasource.updated_at
-          }
-        end
+        datasources: @datasources.map { |datasource| to_json(datasource) }
       }
+    end
+
+    def show
+      @datasource = Datasource.find(params[:id])
+      render json: @datasource, serializer: DatasourceSerializer
     end
 
     def edit
       datasource = EasyML::Datasource.find_by(id: params[:id])
 
-      render inertia: "pages/EditDatasourcePage", props: {
-        datasource: {
-          id: datasource.id,
-          name: datasource.name,
-          s3_bucket: datasource.s3_bucket,
-          s3_prefix: datasource.s3_prefix,
-          s3_region: datasource.s3_region
-        },
+      render inertia: "pages/DatasourceFormPage", props: {
+        datasource: to_json(datasource),
         constants: EasyML::DatasourceOptions.constants
       }
     end
 
     def new
-      render inertia: "pages/NewDatasourcePage", props: {
+      render inertia: "pages/DatasourceFormPage", props: {
         constants: EasyML::DatasourceOptions.constants
       }
     end
@@ -65,6 +52,18 @@ module EasyML
       end
     end
 
+    def sync
+      datasource = Datasource.find(params[:id])
+      datasource.update(is_syncing: true)
+
+      # Start sync in background to avoid blocking
+      EasyML::SyncDatasourceWorker.perform_async(datasource)
+
+      redirect_to easy_ml_datasources_path, notice: "Datasource is syncing..."
+    rescue ActiveRecord::RecordNotFound
+      redirect_to easy_ml_datasources_path, error: "Datasource not found..."
+    end
+
     private
 
     def datasource_params
@@ -74,6 +73,10 @@ module EasyML
         s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
         root_dir: Rails.root.join("datasets")
       )
+    end
+
+    def to_json(datasource)
+      DatasourceSerializer.new(datasource).serializable_hash.dig(:data, :attributes)
     end
   end
 end

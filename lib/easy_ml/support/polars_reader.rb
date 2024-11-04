@@ -36,6 +36,7 @@ module EasyML
       case ext
       when "csv"
         filtered_args = filter_polars_args(Polars.method(:read_csv))
+        filtered_args.merge!(infer_schema_length: 1_000_000, null_values: ["\\N", "\\\\N", "NULL"])
         df = Polars.read_csv(file, **filtered_args)
       when "parquet"
         filtered_args = filter_polars_args(Polars.method(:read_parquet))
@@ -102,32 +103,31 @@ module EasyML
 
     def learn_schema
       puts "Normalizing schema..."
-      combined_schema = {}
 
-      files.each do |path|
+      combined_schema = files.map do |path, _idx|
         df = read_file(path)
-        df.schema.each do |column, dtype|
-          combined_schema[column] = if combined_schema.key?(column)
-                                      resolve_dtype(combined_schema[column], dtype)
-                                    else
-                                      dtype
-                                    end
+        df.schema
+      end.inject({}) do |h, schema|
+        h.tap do
+          schema.each do |key, value|
+            h[key] ||= []
+            h[key] << value unless h[key].include?(value)
+          end
+        end
+      end.inject({}) do |h, (k, v)|
+        h.tap do
+          values = v.map { |klass| klass.to_s.gsub(/Polars::/, "") }
+          h[k] = if values.any? { |v| v.match?(/Float/) }
+                   Polars::Float64
+                 elsif values.any? { |v| v.match?(/Int/) }
+                   Polars::Int64
+                 else
+                   v.first
+                 end
         end
       end
 
       polars_args[:dtypes] = combined_schema
-    end
-
-    def resolve_dtype(dtype1, dtype2)
-      # Example of simple rules: prioritize Float64 over Int64
-      if [dtype1, dtype2].include?(:float64)
-        :float64
-      elsif [dtype1, dtype2].include?(:int64)
-        :int64
-      else
-        # If both are the same, return any
-        dtype1
-      end
     end
   end
 end

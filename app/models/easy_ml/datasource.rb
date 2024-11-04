@@ -65,5 +65,7 @@ module EasyML
     def data
       raise NotImplementedError, "#{self.class} must implement #data"
     end
+
+    delegate :s3_bucket, :s3_prefix, :s3_region, to: :configuration, allow_nil: true
   end
 end

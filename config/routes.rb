@@ -7,7 +7,11 @@ EasyML::Engine.routes.draw do
   end
 
   # Datasources
-  resources :datasources, as: :easy_ml_datasources
+  resources :datasources, as: :easy_ml_datasources do
+    member do
+      post :sync
+    end
+  end
 
   # Datasets
   resources :datasets, only: %i[index new show], as: :easy_ml_datasets

@@ -1,5 +1,18 @@
+require "aws-sdk"
+require "awesome_print"
+require "inertia_rails"
+require "jsonapi/serializer"
+require "numo/narray"
+require "numpy"
+require "parallel"
+require "polars-df"
+require "pycall"
+require "optuna"
+require "tailwindcss-rails"
+require "wandb"
+require "xgb"
 require "rails/engine"
-# require "inertia_rails"
+require "sidekiq"
 require "vite_ruby"
 module EasyML
   class Engine < Rails::Engine
@@ -10,6 +23,20 @@ module EasyML
     end
 
     config.paths.add "lib", eager_load: true
+
+    # initializer "easy_ml.sidekiq_config" do
+    #   if defined?(Sidekiq)
+    #     sidekiq_config_path = Rails.root.join("config", "sidekiq.yml")
+    #     yaml = YAML.load_file(sidekiq_config_path).deep_symbolize_keys
+
+    #     Sidekiq.configure_server do |config|
+    #       config.queues = yaml.queues
+    #     end
+    #     Sidekiq.configure_client do |config|
+    #       config.queues = yaml.queues
+    #     end
+    #   end
+    # end
 
     initializer "easy_ml.assets.precompile" do |app|
       if app.config.respond_to?(:assets)

@@ -1,9 +1,11 @@
+import type { Datasource } from './datasource';
 export interface Dataset {
   dataset: {
     id?: number;
     name: string;
     description: string;
-    target: string;
+    target?: string;
+    drop_cols?: string[];
     datasource_id: number;
     preprocessing_steps: {
       training: Record<string, any>;
@@ -21,18 +23,7 @@ export interface Dataset {
       selected: boolean;
       sample?: any[];
     }>;
-    drop_cols?: string[];
   };
-}
-
-export interface Datasource {
-  id: number;
-  name: string;
-  label: string;
-  value: number;
-  datasource_type: string;
-  s3_bucket?: string;
-  root_dir?: string;
 }
 
 export interface Props {

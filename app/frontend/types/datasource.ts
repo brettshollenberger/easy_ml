@@ -9,6 +9,8 @@ export interface Datasource {
   is_syncing: boolean;
   sync_error: boolean;
   stacktrace?: string;
+  schema: object;
+  columns: string[];
 }
 
 export interface DatasourceFormProps {

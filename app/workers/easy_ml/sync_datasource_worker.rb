@@ -22,7 +22,7 @@ module EasyML
       rescue StandardError => e
         create_event(datasource, "error", e)
         datasource.update(is_syncing: false)
-        raise # Re-raise the error to ensure Sidekiq marks the job as failed
+        # TODO: ADD HOOK FOR ROLLBAR OR EQUIVALENT, DO NOT RE-RAISE, AS THIS IS PROBABLY NOT RETRYABLE
       end
     end
 

@@ -68,7 +68,7 @@ module EasyML
     def syncing
       update(is_syncing: true)
       result = yield
-      self.schema = synced_directory.schema
+      self.schema = synced_directory.schema.map { |k, v| [k, v.to_s] }.to_h
       self.columns = schema.keys
       update(is_syncing: false)
       store_in_configuration

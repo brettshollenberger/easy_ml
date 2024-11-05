@@ -2,7 +2,7 @@ require_relative "../../options/datasource_options"
 module EasyML
   class DatasourcesController < ApplicationController
     def index
-      @datasources = Datasource.all
+      @datasources = Datasource.all.order(id: :asc)
       render inertia: "pages/DatasourcesPage", props: {
         datasources: @datasources.map { |datasource| to_json(datasource) }
       }
@@ -29,7 +29,9 @@ module EasyML
     end
 
     def create
-      EasyML::Datasource.create!(datasource_params)
+      datasource = EasyML::Datasource.create!(datasource_params)
+      datasource.update(is_syncing: true, root_dir: root_dir_name(datasource))
+      EasyML::SyncDatasourceWorker.perform_async(datasource.id)
 
       redirect_to easy_ml_datasources_path, notice: "Datasource was successfully created."
     rescue ActiveRecord::RecordInvalid => e
@@ -66,12 +68,16 @@ module EasyML
 
     private
 
+    def root_dir_name(datasource)
+      datasource_folder = datasource.name.gsub(/\s{2,}/, " ").split(" ").join("_").downcase
+      Rails.root.join("easy_ml/datasets").join(datasource_folder)
+    end
+
     def datasource_params
       params.require(:datasource).permit(:name, :s3_bucket, :s3_prefix, :s3_region, :datasource_type, :s3_access_key_id, :s3_secret_access_key, :root_dir).merge!(
         datasource_type: :s3,
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,
-        s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
-        root_dir: Rails.root.join("datasets")
+        s3_secret_access_key: EasyML::Configuration.s3_secret_access_key
       )
     end
 

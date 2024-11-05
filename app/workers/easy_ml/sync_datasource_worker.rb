@@ -1,6 +1,7 @@
 module EasyML
   class SyncDatasourceWorker
     include Sidekiq::Job
+    MAX_LINE_LENGTH = 65
 
     sidekiq_options(
       queue: :easy_ml,
@@ -19,7 +20,7 @@ module EasyML
         datasource.refresh!
         create_event(datasource, "success")
       rescue StandardError => e
-        create_event(datasource, "error", e.full_message)
+        create_event(datasource, "error", e)
         datasource.update(is_syncing: false)
         raise # Re-raise the error to ensure Sidekiq marks the job as failed
       end
@@ -27,13 +28,35 @@ module EasyML
 
     private
 
-    def create_event(datasource, status, stacktrace = nil)
+    def create_event(datasource, status, error = nil)
       EasyML::Event.create!(
         name: self.class.name.demodulize,
         status: status,
         eventable: datasource,
-        stacktrace: stacktrace
+        stacktrace: format_stacktrace(error)
       )
+    end
+
+    def format_stacktrace(error)
+      return nil if error.nil?
+
+      topline = error.inspect
+
+      stacktrace = error.binding_locations.select do |loc|
+        loc.to_s.match?(/easy_ml/)
+      end
+
+      %(#{topline}
+
+        #{stacktrace.join("\n")}
+      ).split("\n").map do |l|
+        l.gsub(/\s{2,}/,
+               " ").strip
+      end.flat_map { |line| wrap_text(line, MAX_LINE_LENGTH) }.join("\n")
+    end
+
+    def wrap_text(text, max_length)
+      text.strip.scan(/.{1,#{max_length}}/)
     end
   end
 end

@@ -1,3 +1,16 @@
+# == Schema Information
+#
+# Table name: easy_ml_events
+#
+#  id             :bigint           not null, primary key
+#  name           :string           not null
+#  status         :string           not null
+#  eventable_type :string
+#  eventable_id   :bigint
+#  stacktrace     :text
+#  created_at     :datetime         not null
+#  updated_at     :datetime         not null
+#
 module EasyML
   class Event < ActiveRecord::Base
     self.table_name = "easy_ml_events"

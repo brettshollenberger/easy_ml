@@ -47,19 +47,25 @@ RSpec.describe EasyML::Datasource do
         allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
         allow_any_instance_of(s3_datasource).to receive(:refresh!).and_return(true)
 
+        EasyML::Configuration.configure do |config|
+          config.s3_access_key_id = "12345"
+        end
+
         s3_datasource = EasyML::Datasource.create!(
           name: "s3 Datasource",
           datasource_type: :s3,
           root_dir: path,
           s3_bucket: "bucket",
-          s3_prefix: "raw",
-          s3_access_key_id: "12345",
-          s3_secret_access_key: "12345"
+          s3_prefix: "raw"
         )
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
         expect(datasource.s3_bucket).to eq "bucket"
         expect(datasource.data).to eq(Polars.read_csv(csv_file))
+        expect(datasource.s3_access_key_id).to eq "12345"
+        expect(datasource.configuration.keys).to include "s3_bucket"
+        expect(datasource.configuration.keys).to_not include "s3_access_key_id"
+        expect(datasource.configuration.keys).to_not include "s3_secret_access_key"
       end
     end
   end

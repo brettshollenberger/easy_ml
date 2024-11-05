@@ -5,48 +5,39 @@ module EasyML
   class Configuration
     include Singleton
 
+    KEYS = %i[storage s3_access_key_id s3_secret_access_key s3_bucket s3_region s3_prefix timezone]
+
+    KEYS.each do |key|
+      define_method "#{key}=" do |value|
+        db_settings.send("#{key}=", value)
+      end
+
+      define_method key do
+        db_settings.send(key)
+      end
+    end
+
     class << self
       def configure
         yield instance
+        instance.db_settings.save
       end
 
-      def storage
-        instance&.storage || "s3"
-      end
-
-      def s3_access_key_id
-        db_settings&.s3_access_key_id
-      end
-
-      def s3_secret_access_key
-        db_settings&.s3_secret_access_key
-      end
-
-      def s3_bucket
-        db_settings&.s3_bucket
-      end
-
-      def s3_region
-        db_settings&.s3_region
-      end
-
-      def s3_prefix
-        db_settings&.s3_prefix
-      end
-
-      def timezone
-        db_settings&.timezone
+      KEYS.each do |key|
+        define_method key do
+          instance.send(key)
+        end
       end
 
       private
 
       def db_settings
-        instance.db_settings ||= EasyML::Settings.first_or_create
+        instance.db_settings
       end
     end
 
-    # Keep instance attributes for backwards compatibility during configuration
-    attr_accessor :storage, :s3_access_key_id, :s3_secret_access_key,
-                  :s3_bucket, :s3_region, :s3_prefix, :db_settings, :timezone
+    def db_settings
+      @db_settings ||= EasyML::Settings.first_or_create
+    end
   end
 end

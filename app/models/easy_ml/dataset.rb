@@ -4,6 +4,7 @@
 #
 #  id            :bigint           not null, primary key
 #  name          :string           not null
+#  description   :string
 #  dataset_type  :string
 #  status        :string
 #  version       :string

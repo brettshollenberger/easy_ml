@@ -5,6 +5,7 @@ require "timecop"
 require "combustion"
 require "benchmark" # Add this to measure time
 require "sidekiq/testing"
+require "pry"
 Bundler.require :default, :development
 
 # Require the engine file
@@ -21,7 +22,11 @@ running_rails_specs = RSpec.configuration.files_to_run.any? { |file| file.includ
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")
 
-Combustion.initialize! :active_record
+require "sprockets/railtie"
+Combustion.initialize! :active_record do |config|
+  config.assets = ActiveSupport::OrderedOptions.new # Stub to avoid errors
+  config.assets.enabled = false # Set false since assets are handled by Vite
+end
 require "rspec/rails"
 
 if Dir.glob(Rails.root.join("db/migrate/**/*")).none?
@@ -68,6 +73,7 @@ RSpec.configure do |config|
 
   config.before(:all) do
     EasyML::Configuration.configure do |config|
+      config.storage = "s3"
       config.s3_bucket = "my-bucket"
       config.s3_access_key_id = "12345"
       config.s3_secret_access_key = "67890"

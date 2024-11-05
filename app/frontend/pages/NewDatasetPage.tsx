@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Search, AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Database, AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { SearchableSelect } from '../components/SearchableSelect';
-import { useAlerts } from '../components/AlertProvider';
 import { useInertiaForm } from 'use-inertia-form';
-import { usePage } from '@inertiajs/react';
+import { usePage, router } from '@inertiajs/react';
 import type { Dataset, Props } from '../types/dataset';
 
 export default function NewDatasetPage({ constants, datasources }: Props) {
   const [step, setStep] = useState(1);
-  const [searchQuery, setSearchQuery] = useState('');
   const [showError, setShowError] = useState<number | null>(null);
   const { rootPath } = usePage().props;
   const [availableCols, setAvailableCols] = useState<string[]>([]);
@@ -26,7 +24,7 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
         date: {
           date_col: '',
           months_test: 2,
-          months_valid: 1
+          months_valid: 2
         }
       }
     }
@@ -60,7 +58,15 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Creating dataset:', formData);
+    
+    post(`${rootPath}/datasets`, {
+      onSuccess: () => {
+        router.visit(`${rootPath}/datasets`);
+      },
+      onError: (errors) => {
+        console.error('Failed to create dataset:', errors);
+      }
+    });
   };
 
   useEffect(() => {

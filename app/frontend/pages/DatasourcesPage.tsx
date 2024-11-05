@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { HardDrive, Plus, Trash2, Settings, RefreshCw } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
 import type { Datasource } from '../types/datasource';
+import { Badge } from "@/components/ui/badge";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -49,6 +50,38 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
       console.error('Failed to sync datasource:', error);
     }
   };
+
+  const formatLastSyncedAt = (lastSyncedAt: string) => {
+    if (lastSyncedAt === 'Not Synced') return lastSyncedAt;
+    
+    const date = new Date(lastSyncedAt);
+    return isNaN(date.getTime()) ? lastSyncedAt : date.toLocaleString();
+  };
+
+  useEffect(() => {
+    let pollInterval: number | undefined;
+
+    // Check if any datasource is syncing
+    const isAnySyncing = datasources.some(d => d.is_syncing);
+
+    if (isAnySyncing) {
+      // Start polling every 5 seconds
+      pollInterval = window.setInterval(() => {
+        router.get(window.location.href, {}, {
+          preserveScroll: true,
+          preserveState: true,
+          only: ['datasources']
+        });
+      }, 5000);
+    }
+
+    // Cleanup function
+    return () => {
+      if (pollInterval) {
+        window.clearInterval(pollInterval);
+      }
+    };
+  }, [datasources]);
 
   if (datasources.length === 0) {
     return (
@@ -160,17 +193,21 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                     <div>
                       <span className="text-sm text-gray-500">Last Sync</span>
                       <p className="text-sm font-medium text-gray-900">
-                        {datasource.last_synced_at === 'Not Synced' 
-                          ? 'Not Synced'
-                          : new Date(datasource.last_synced_at).toLocaleString()}
+                        {formatLastSyncedAt(datasource.last_synced_at)}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-gray-100">
-                    {/* <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      active
-                    </span> */}
+                    {datasource.is_syncing ? (
+                      <Badge variant="warning">syncing</Badge>
+                    ) : datasource.syncing_error ? (
+                      <Badge variant="important">sync error</Badge>
+                    ) : datasource.last_synced_at !== 'Not Synced' ? (
+                      <Badge variant="success">synced</Badge>
+                    ) : (
+                      <Badge variant="warning">not synced</Badge>
+                    )}
                   </div>
                 </div>
               ))}

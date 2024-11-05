@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./app/frontend/*"]
+    },
     "target": "ES2020",
     "jsx": "react-jsx",
     "module": "ESNext",

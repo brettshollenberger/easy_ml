@@ -147,9 +147,20 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                     <div className="flex items-start gap-3">
                       <HardDrive className="w-5 h-5 text-blue-600 mt-1" />
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {datasource.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {datasource.name}
+                          </h3>
+                          {datasource.is_syncing ? (
+                            <Badge variant="warning">syncing</Badge>
+                          ) : datasource.sync_error ? (
+                            <Badge variant="important">sync error</Badge>
+                          ) : datasource.last_synced_at !== 'Not Synced' ? (
+                            <Badge variant="success">synced</Badge>
+                          ) : (
+                            <Badge variant="warning">not synced</Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-gray-500 mt-1">
                           s3://{datasource.s3_bucket}/{datasource.s3_prefix}
                         </p>
@@ -198,17 +209,6 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    {datasource.is_syncing ? (
-                      <Badge variant="warning">syncing</Badge>
-                    ) : datasource.sync_error ? (
-                      <Badge variant="important">sync error</Badge>
-                    ) : datasource.last_synced_at !== 'Not Synced' ? (
-                      <Badge variant="success">synced</Badge>
-                    ) : (
-                      <Badge variant="warning">not synced</Badge>
-                    )}
-                  </div>
                 </div>
               ))}
             </div>

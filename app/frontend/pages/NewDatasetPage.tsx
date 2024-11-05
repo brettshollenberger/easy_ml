@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Database, Search } from 'lucide-react';
+import { SearchableSelect } from '../components/SearchableSelect';
 import Fuse from 'fuse.js';
+import { useInertiaForm } from 'use-inertia-form';
+import { usePage, router } from '@inertiajs/react';
+import { Dataset, Datasource } from '../types/dataset';
 
 const mockDatasources = [
   {
@@ -31,20 +35,40 @@ interface SplitConfig {
   monthsValid: number;
 }
 
-export default function NewDatasetPage() {
+interface Props {
+  datasources: Datasource[];
+  constants: {
+    COLUMN_TYPES: Array<{ value: string; label: string }>;
+  };
+}
+
+export default function NewDatasetPage({ constants, datasources }: Props) {
+  const { rootPath } = usePage().props;
+  const { data, setData, post, processing, errors } = useInertiaForm<Dataset>({
+    dataset: {
+      name: '',
+      description: '',
+      datasource_id: undefined as unknown as number,
+      target: '',
+      preprocessing_steps: {
+        training: {}
+      },
+      splitter: {
+        date: {
+          date_col: '',
+          months_test: 2,
+          months_valid: 1
+        }
+      },
+      columns: [],
+      drop_cols: []
+    }
+  });
+
   const [step, setStep] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    datasourceId: '',
-    columns: [] as { name: string; selected: boolean }[],
-    splitConfig: {
-      dateColumn: '',
-      monthsTest: 2,
-      monthsValid: 1,
-    } as SplitConfig,
-  });
+  const [isLoadingColumns, setIsLoadingColumns] = useState(false);
+  const [columnError, setColumnError] = useState<string | null>(null);
 
   const fuse = new Fuse(mockColumns.filter(col => col.type === 'datetime'), {
     keys: ['name'],
@@ -56,11 +80,27 @@ export default function NewDatasetPage() {
     : mockColumns.filter(col => col.type === 'datetime');
 
   const handleDatasourceSelect = () => {
-    setFormData({
-      ...formData,
-      columns: mockColumns.map((col) => ({ name: col.name, selected: true })),
-    });
-    setStep(2);
+    if (!data.dataset.datasource_id) return;
+    
+    setIsLoadingColumns(true);
+    setColumnError(null);
+    
+    router.get(`${rootPath}/datasets/columns`, 
+      { datasource_id: data.dataset.datasource_id },
+      {
+        preserveState: true,
+        preserveScroll: true,
+        onSuccess: (page) => {
+          setData('dataset.columns', page.props.columns);
+          setStep(2);
+          setIsLoadingColumns(false);
+        },
+        onError: () => {
+          setColumnError('Failed to load columns. Please try again.');
+          setIsLoadingColumns(false);
+        }
+      }
+    );
   };
 
   const handleSplitConfig = () => {
@@ -69,7 +109,11 @@ export default function NewDatasetPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Creating dataset:', formData);
+    post(`${rootPath}/datasets`, {
+      onSuccess: () => {
+        router.visit(`${rootPath}/datasets`);
+      }
+    });
   };
 
   return (
@@ -138,10 +182,8 @@ export default function NewDatasetPage() {
               <input
                 type="text"
                 id="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                value={data.dataset.name}
+                onChange={(e) => setData('dataset.name', e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 required
               />
@@ -156,50 +198,52 @@ export default function NewDatasetPage() {
               </label>
               <textarea
                 id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
+                value={data.dataset.description}
+                onChange={(e) => setData('dataset.description', e.target.value)}
                 rows={3}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
 
             <div>
-              <label
-                htmlFor="datasource"
-                className="block text-sm font-medium text-gray-700"
-              >
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Datasource
               </label>
-              <select
-                id="datasource"
-                value={formData.datasourceId}
-                onChange={(e) =>
-                  setFormData({ ...formData, datasourceId: e.target.value })
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              >
-                <option value="">Select a datasource</option>
-                {mockDatasources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                options={datasources}
+                value={data.dataset.datasource_id}
+                onChange={(value) => setData('dataset.datasource_id', value)}
+                placeholder="Select datasource"
+              />
+              {errors.dataset?.datasource_id && (
+                <p className="mt-1 text-sm text-red-600">{errors.dataset.datasource_id}</p>
+              )}
             </div>
 
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={handleDatasourceSelect}
-                disabled={!formData.datasourceId || !formData.name}
+                disabled={!data.dataset.datasource_id || isLoadingColumns}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                Next
+                {isLoadingColumns ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Loading Columns...
+                  </span>
+                ) : 'Next'}
               </button>
             </div>
+
+            {columnError && (
+              <div className="mt-2 text-sm text-red-600">
+                {columnError}
+              </div>
+            )}
           </div>
         ) : step === 2 ? (
           <div className="space-y-6">
@@ -210,7 +254,7 @@ export default function NewDatasetPage() {
                 </span>
                 <span className="text-sm font-medium text-gray-700">Include</span>
               </div>
-              {formData.columns.map((column, index) => (
+              {data.dataset.columns?.map((column, columnIndex) => (
                 <div
                   key={column.name}
                   className="flex items-center justify-between"
@@ -218,11 +262,13 @@ export default function NewDatasetPage() {
                   <span className="text-sm text-gray-900">{column.name}</span>
                   <input
                     type="checkbox"
-                    checked={column.selected}
+                    checked={!data.dataset.drop_cols?.includes(column.name)}
                     onChange={(e) => {
-                      const newColumns = [...formData.columns];
-                      newColumns[index].selected = e.target.checked;
-                      setFormData({ ...formData, columns: newColumns });
+                      const newDropCols = e.target.checked
+                        ? data.dataset.drop_cols?.filter(col => col !== column.name) || []
+                        : [...(data.dataset.drop_cols || []), column.name];
+                      
+                      setData('dataset.drop_cols', newDropCols);
                     }}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
@@ -274,13 +320,7 @@ export default function NewDatasetPage() {
                         key={column.name}
                         type="button"
                         onClick={() => {
-                          setFormData({
-                            ...formData,
-                            splitConfig: {
-                              ...formData.splitConfig,
-                              dateColumn: column.name,
-                            },
-                          });
+                          setData('dataset.splitter.date.date_col', column.name);
                           setSearchQuery('');
                         }}
                         className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2"
@@ -298,11 +338,11 @@ export default function NewDatasetPage() {
                 )}
               </div>
 
-              {formData.splitConfig.dateColumn && (
+              {data.dataset.splitter.date.date_col && (
                 <div className="bg-blue-50 rounded-md p-4 flex items-center gap-2">
                   <Database className="w-5 h-5 text-blue-500" />
                   <span className="text-sm text-blue-700">
-                    Using {formData.splitConfig.dateColumn} for date-based splitting
+                    Using {data.dataset.splitter.date.date_col} for date-based splitting
                   </span>
                 </div>
               )}
@@ -320,15 +360,9 @@ export default function NewDatasetPage() {
                     id="monthsTest"
                     min="1"
                     max="12"
-                    value={formData.splitConfig.monthsTest}
+                    value={data.dataset.splitter.date.months_test}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        splitConfig: {
-                          ...formData.splitConfig,
-                          monthsTest: parseInt(e.target.value) || 0,
-                        },
-                      })
+                      setData('dataset.splitter.date.months_test', parseInt(e.target.value) || 0)
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
@@ -345,15 +379,9 @@ export default function NewDatasetPage() {
                     id="monthsValid"
                     min="1"
                     max="12"
-                    value={formData.splitConfig.monthsValid}
+                    value={data.dataset.splitter.date.months_valid}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        splitConfig: {
-                          ...formData.splitConfig,
-                          monthsValid: parseInt(e.target.value) || 0,
-                        },
-                      })
+                      setData('dataset.splitter.date.months_valid', parseInt(e.target.value) || 0)
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
@@ -371,7 +399,7 @@ export default function NewDatasetPage() {
               </button>
               <button
                 type="submit"
-                disabled={!formData.splitConfig.dateColumn}
+                disabled={!data.dataset.splitter.date.date_col}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Create Dataset

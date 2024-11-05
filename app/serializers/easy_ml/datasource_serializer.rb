@@ -27,5 +27,14 @@ module EasyML
     attribute :is_syncing do |object|
       object.is_syncing
     end
+
+    attribute :sync_error do |object|
+      object.events.order(id: :desc).limit(1).last.status == "error"
+    end
+
+    attribute :stacktrace do |object|
+      last_event = object.events.order(id: :desc).limit(1).last
+      last_event.stacktrace if last_event.status == "error"
+    end
   end
 end

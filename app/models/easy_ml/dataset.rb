@@ -35,5 +35,15 @@ module EasyML
     # def fit
     #   raise "Cannot train live dataset!" if is_live
     # end
+    def self.constants
+      {
+        datasources: Datasource.s3.map do |datasource|
+          {
+            value: datasource.id,
+            label: datasource.name
+          }
+        end
+      }
+    end
   end
 end

@@ -2,7 +2,13 @@ module EasyML
   class SyncDatasourceWorker
     include Sidekiq::Job
 
-    sidekiq_options queue: :easy_ml, retry: false
+    sidekiq_options(
+      queue: :easy_ml,
+      retry: false,
+      lock: :until_executed,
+      on_conflict: :log,
+      lock_args_method: ->(args) { args.first } # Lock based on datasource ID
+    )
 
     def perform(id)
       datasource = EasyML::Datasource.find(id)

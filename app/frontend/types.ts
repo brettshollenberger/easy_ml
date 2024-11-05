@@ -4,15 +4,15 @@ export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
 
-export interface Dataset {
-  id: number;
-  name: string;
-  description: string;
-  columns: Column[];
-  sampleData: Record<string, any>[];
-  rowCount: number;
-  updatedAt: string;
-}
+// export interface Dataset {
+//   id: number;
+//   name: string;
+//   description: string;
+//   columns: Column[];
+//   sampleData: Record<string, any>[];
+//   rowCount: number;
+//   updatedAt: string;
+// }
 
 export interface Column {
   name: string;

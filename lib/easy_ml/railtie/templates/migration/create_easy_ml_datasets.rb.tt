@@ -2,6 +2,7 @@ class CreateEasyMLDatasets < ActiveRecord::Migration[6.0]
   def change
     create_table :easy_ml_datasets do |t|
       t.string :name, null: false
+      t.string :description
       t.string :dataset_type
       t.string :status
       t.string :version

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Database, Search, AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { SearchableSelect } from '../components/SearchableSelect';
 import { useAlerts } from '../components/AlertProvider';
@@ -11,6 +11,7 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showError, setShowError] = useState<number | null>(null);
   const { rootPath } = usePage().props;
+  const [availableCols, setAvailableCols] = useState<string[]>([]);
 
   const form = useInertiaForm<Dataset>({
     dataset: {
@@ -61,6 +62,16 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
     e.preventDefault();
     console.log('Creating dataset:', formData);
   };
+
+  useEffect(() => {
+    if (selectedDatasource?.columns) {
+      setAvailableCols(
+        selectedDatasource.columns.filter(
+          col => !formData.dataset.drop_cols.includes(col)
+        )
+      );
+    }
+  }, [selectedDatasource?.columns, formData.dataset.drop_cols]);
 
   return (
     <div className="max-w-2xl mx-auto p-8">
@@ -260,8 +271,8 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
                 </span>
                 <span className="text-sm font-medium text-gray-700">Include</span>
               </div>
-              {selectedDatasource.columns.map((column, index) => {
-                  return (
+              {selectedDatasource?.columns?.map((column, index) => {
+                return (
                   <div
                     key={column}
                     className="flex items-center justify-between"
@@ -269,19 +280,18 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
                     <span className="text-sm text-gray-900">{column}</span>
                     <input
                       type="checkbox"
-                      checked={!formData.dataset.drop_cols.includes(column)}
+                      checked={!formData.dataset.drop_cols?.includes(column)}
                       onChange={(e) => {
                         const newDropCols = !e.target.checked
-                          ? [...formData.dataset.drop_cols, column]
-                          : formData.dataset.drop_cols.filter(col => col !== column);
+                          ? [...(formData.dataset.drop_cols || []), column]
+                          : (formData.dataset.drop_cols || []).filter(col => col !== column);
                         setData('dataset.drop_cols', newDropCols);
                       }}
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                   </div>
-                )
-            }
-            )}
+                );
+              })}
             </div>
 
             <div className="flex justify-between">
@@ -304,23 +314,22 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
-              <div className="relative">
+              <div>
                 <label
                   htmlFor="dateColumn"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
                   Date Column To Split On
                 </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search date columns..."
-                    className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
+                <SearchableSelect
+                  value={formData.dataset.splitter.date.date_col}
+                  onChange={(value) => setData('dataset.splitter.date.date_col', value)}
+                  options={availableCols.map(col => ({
+                    value: col,
+                    label: col
+                  }))}
+                  placeholder="Select a date column..."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

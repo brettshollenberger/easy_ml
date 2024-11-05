@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { HardDrive, Plus, Trash2, Settings, RefreshCw } from 'lucide-react';
+import { HardDrive, Plus, Trash2, Settings, RefreshCw, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
@@ -13,6 +13,7 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
   const { rootPath } = usePage().props;
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedErrors, setExpandedErrors] = useState<number[]>([]);
 
   const filteredDatasources = useMemo(() => {
     return datasources.filter(source =>
@@ -31,6 +32,14 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
     if (confirm('Are you sure you want to delete this datasource? This action cannot be undone.')) {
       router.delete(`${rootPath}/datasources/${datasourceId}`);
     }
+  };
+
+  const toggleError = (id: number) => {
+    setExpandedErrors(prev =>
+      prev.includes(id)
+        ? prev.filter(expandedId => expandedId !== id)
+        : [...prev, id]
+    );
   };
 
   const handleSync = async (id: number) => {
@@ -208,6 +217,30 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                       </p>
                     </div>
                   </div>
+
+                  {datasource.sync_error && datasource.stacktrace && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <button
+                        onClick={() => toggleError(datasource.id)}
+                        className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                        <span>View Error Details</span>
+                        {expandedErrors.includes(datasource.id) ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </button>
+                      {expandedErrors.includes(datasource.id) && (
+                        <div className="mt-2 p-3 bg-red-50 rounded-md">
+                          <pre className="text-xs text-red-700 whitespace-pre-wrap font-mono">
+                            {datasource.stacktrace}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                 </div>
               ))}

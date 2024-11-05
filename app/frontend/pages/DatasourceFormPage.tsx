@@ -103,7 +103,6 @@ export default function DatasourceFormPage({ datasource, constants }: Datasource
               onChange={(e) => setData('datasource.s3_prefix', e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="data/raw/"
-              required
             />
             {errors.datasource?.s3_prefix && (
               <p className="mt-1 text-sm text-red-600">{errors.datasource.s3_prefix}</p>

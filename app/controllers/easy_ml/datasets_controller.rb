@@ -9,7 +9,6 @@ module EasyML
 
     def columns
       datasource = Datasource.find(params[:datasource_id])
-      binding.pry
       columns = datasource.columns.map do |col|
         {
           name: col.name,

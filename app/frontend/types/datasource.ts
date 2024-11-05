@@ -7,6 +7,8 @@ export interface Datasource {
   s3_region: string;
   last_synced_at: string;
   is_syncing: boolean;
+  sync_error: boolean;
+  stacktrace?: string;
 }
 
 export interface DatasourceFormProps {

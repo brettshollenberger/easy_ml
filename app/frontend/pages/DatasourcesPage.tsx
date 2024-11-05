@@ -201,7 +201,7 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     {datasource.is_syncing ? (
                       <Badge variant="warning">syncing</Badge>
-                    ) : datasource.syncing_error ? (
+                    ) : datasource.sync_error ? (
                       <Badge variant="important">sync error</Badge>
                     ) : datasource.last_synced_at !== 'Not Synced' ? (
                       <Badge variant="success">synced</Badge>

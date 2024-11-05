@@ -66,6 +66,10 @@ module EasyML
         files.map { |file| File.mtime(file) }.max.in_time_zone(EST)
       end
 
+      def schema
+        reader.schema
+      end
+
       private
 
       def reader

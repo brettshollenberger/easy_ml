@@ -62,7 +62,7 @@ module EasyML
 
     def store_in_configuration(*attrs)
       attrs.each do |attr|
-        value = instance_variable_get("@#{attr}")
+        value = instance_variable_get("@#{attr}") || send(attr)
         next if value.nil?
 
         self.configuration = (configuration || {}).merge(attr.to_s => value)

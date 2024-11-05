@@ -29,6 +29,10 @@ module EasyML
       end
     end
 
+    def schema
+      polars_args[:dtypes]
+    end
+
     private
 
     def read_file(file)
@@ -85,10 +89,6 @@ module EasyML
         df.write_parquet(path)
         FileUtils.rm(orig_path) unless Rails.env.test?
       end
-    end
-
-    def schema
-      polars_args[:dtypes]
     end
 
     def cast(df)

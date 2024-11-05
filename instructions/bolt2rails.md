@@ -3,6 +3,10 @@
 1. Take an existing frontend, and properly integrate it into the backend to achieve {task}
 2. Use the following rules to achieve your goal
 
+## Use Browser Environment Only
+
+- All Typescript code will run in the browser only. Do not use any Node.js or server-side features.
+
 ## InitialData
 
 ### Replace

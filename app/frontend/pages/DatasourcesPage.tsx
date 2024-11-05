@@ -160,17 +160,17 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                     <div>
                       <span className="text-sm text-gray-500">Last Sync</span>
                       <p className="text-sm font-medium text-gray-900">
-                        {isNaN(Date.parse(datasource.last_synced_at)) 
-                          ? datasource.last_synced_at
+                        {datasource.last_synced_at === 'Not Synced' 
+                          ? 'Not Synced'
                           : new Date(datasource.last_synced_at).toLocaleString()}
                       </p>
                     </div>
                   </div>
 
                   <div className="mt-4 pt-4 border-t border-gray-100">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    {/* <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       active
-                    </span>
+                    </span> */}
                   </div>
                 </div>
               ))}

@@ -5,7 +5,12 @@ module EasyML
     sidekiq_options queue: :easy_ml, retry: false
 
     def perform(id)
-      EasyML::Datasource.find(id).refresh
+      datasource = EasyML::Datasource.find(id)
+      begin
+        datasource.refresh!
+      rescue StandardError
+        datasource.update(is_syncing: false)
+      end
     end
   end
 end

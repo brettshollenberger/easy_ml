@@ -17,6 +17,7 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
       name: '',
       description: '',
       datasource_id: '',
+      drop_cols: [],
       preprocessing_steps: {
         training: {}
       },
@@ -259,24 +260,28 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
                 </span>
                 <span className="text-sm font-medium text-gray-700">Include</span>
               </div>
-              {formData.dataset.columns.map((column, index) => (
-                <div
-                  key={column.name}
-                  className="flex items-center justify-between"
-                >
-                  <span className="text-sm text-gray-900">{column.name}</span>
-                  <input
-                    type="checkbox"
-                    checked={column.selected}
-                    onChange={(e) => {
-                      const newColumns = [...formData.dataset.columns];
-                      newColumns[index].selected = e.target.checked;
-                      setData('dataset.columns', newColumns);
-                    }}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                </div>
-              ))}
+              {selectedDatasource.columns.map((column, index) => {
+                  return (
+                  <div
+                    key={column}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-sm text-gray-900">{column}</span>
+                    <input
+                      type="checkbox"
+                      checked={!formData.dataset.drop_cols.includes(column)}
+                      onChange={(e) => {
+                        const newDropCols = !e.target.checked
+                          ? [...formData.dataset.drop_cols, column]
+                          : formData.dataset.drop_cols.filter(col => col !== column);
+                        setData('dataset.drop_cols', newDropCols);
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                  </div>
+                )
+            }
+            )}
             </div>
 
             <div className="flex justify-between">
@@ -304,7 +309,7 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
                   htmlFor="dateColumn"
                   className="block text-sm font-medium text-gray-700 mb-1"
                 >
-                  Date Column for Splitting
+                  Date Column To Split On
                 </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />

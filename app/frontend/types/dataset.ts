@@ -17,12 +17,6 @@ export interface Dataset {
         months_valid: number;
       };
     };
-    columns?: Array<{
-      name: string;
-      type: string;
-      selected: boolean;
-      sample?: any[];
-    }>;
   };
 }
 

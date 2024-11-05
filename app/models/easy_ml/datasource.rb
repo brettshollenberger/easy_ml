@@ -35,6 +35,8 @@ module EasyML
     validates :datasource_type, presence: true
     validates :datasource_type, inclusion: { in: type_map.values }
 
+    has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
+
     def self.constants
       {
         DATASOURCE_TYPES: DATASOURCE_TYPES

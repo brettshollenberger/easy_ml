@@ -19,11 +19,11 @@ module EasyML
       end
 
       def sync(force: false)
-        return false if synced? && !force
-
-        mk_dir
-        clean_dir!
-        download
+        if !synced? || force
+          mk_dir
+          clean_dir!
+          download
+        end
         normalize
         true
       end
@@ -77,12 +77,16 @@ module EasyML
 
         @reader = EasyML::PolarsReader.new(
           root_dir: File.join(root_dir, s3_prefix),
-          polars_args: polars_args
+          polars_args: polars_args,
+          refresh: false
         )
       end
 
       def normalize
-        reader.normalize
+        reader.refresh = true
+        reader.normalize.tap do
+          reader.refresh = false
+        end
       end
 
       def mk_dir

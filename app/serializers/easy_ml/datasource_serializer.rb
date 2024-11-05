@@ -6,7 +6,29 @@ module EasyML
 
     set_type :datasource # Optional type for JSON:API
 
-    attributes :id, :name, :datasource_type, :s3_bucket, :s3_prefix, :s3_region
+    attributes :id, :name, :datasource_type, :s3_bucket, :s3_prefix, :s3_region, :columns
+
+    attribute :schema do |object|
+      if object.schema.nil?
+        nil
+      else
+        object.schema.map do |k, v|
+          v = if v.match?(/Boolean/)
+                :boolean
+              elsif v.match?(/Int/)
+                :integer
+              elsif v.match?(/Float/)
+                :float
+              elsif v.match?(/String/)
+                :string
+              else
+                v
+              end
+
+          [k, v]
+        end.to_h
+      end
+    end
 
     attribute :last_synced_at do |object|
       if object.is_syncing
@@ -24,12 +46,20 @@ module EasyML
       object.updated_at.in_time_zone(EasyML::Configuration.timezone).iso8601
     end
 
+    attribute :is_synced do |object|
+      object.last_updated_at.present?
+    end
+
     attribute :is_syncing do |object|
       object.is_syncing
     end
 
     attribute :sync_error do |object|
-      object.events.order(id: :desc).limit(1)&.last&.status == "error"
+      if object.is_syncing
+        nil
+      else
+        object.events.order(id: :desc).limit(1)&.last&.status == "error"
+      end
     end
 
     attribute :stacktrace do |object|

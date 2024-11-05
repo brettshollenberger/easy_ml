@@ -4,9 +4,10 @@ module EasyML
 
     attribute :root_dir
     attribute :polars_args, :hash, default: {}
+    attribute :refresh, :boolean
 
     def normalize
-      return files if all_parquet?
+      return files if all_parquet? && !refresh
 
       learn_schema
       convert_to_parquet
@@ -22,7 +23,7 @@ module EasyML
     end
 
     def files
-      if parquet_files.any?
+      if parquet_files.any? && !refresh
         parquet_files
       else
         csv_files
@@ -81,13 +82,13 @@ module EasyML
         puts path
         df = read_file(path)
         df = cast(df)
-        orig_path = path.dup
+        path.dup
         filename = Pathname.new(path).basename
         ext = Pathname.new(path).extname.gsub(/\./, "")
         filename = filename.to_s.gsub(Regexp.new(ext), "parquet")
         path = parquet_dir.join(filename).to_s
         df.write_parquet(path)
-        FileUtils.rm(orig_path) unless Rails.env.test?
+        # FileUtils.rm(orig_path) unless Rails.env.test?
       end
     end
 

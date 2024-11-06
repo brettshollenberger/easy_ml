@@ -11,5 +11,6 @@ module EasyML
     require_relative "support/file_rotate"
     require_relative "support/error_enhancer"
     require_relative "support/file_support"
+    require_relative "support/lockable"
   end
 end

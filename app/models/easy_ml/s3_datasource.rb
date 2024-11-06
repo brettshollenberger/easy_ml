@@ -53,21 +53,15 @@ module EasyML
       synced_directory.in_batches(&block)
     end
 
-    def refresh(async: false)
-      if async
-        SyncDatasourceWorker.perform_async(id)
-        true
-      else
-        track_sync { synced_directory.sync }
+    def refresh
+      track_sync do
+        synced_directory.sync
       end
     end
 
-    def refresh!(async: false)
-      if async
-        SyncDatasourceWorker.perform_async(id)
-        true
-      else
-        track_sync { synced_directory.sync! }
+    def refresh!
+      track_sync do
+        synced_directory.sync!
       end
     end
 
@@ -85,6 +79,24 @@ module EasyML
 
     def s3_secret_access_key
       EasyML::Configuration.s3_secret_access_key
+    end
+
+    def files_to_sync
+      synced_directory.files_to_sync
+    end
+
+    def download_file(file)
+      synced_directory.download_file(file)
+    end
+
+    def before_sync
+      super
+      synced_directory.before_sync
+    end
+
+    def after_sync
+      synced_directory.after_sync
+      super
     end
 
     private
@@ -114,21 +126,6 @@ module EasyML
       result = yield
       after_sync
       result
-    end
-
-    def before_sync
-      update!(is_syncing: true)
-      Rails.logger.info("Starting sync for datasource #{id}")
-    end
-
-    def after_sync
-      if synced_directory.schema.present? && synced_directory.schema.keys.any?
-        self.schema = synced_directory.schema.transform_values(&:to_s)
-        self.columns = synced_directory.schema.keys
-        self.num_rows = synced_directory.num_rows
-      end
-      self.is_syncing = false
-      save
     end
   end
 end

@@ -1,3 +1,5 @@
+require_relative "../../date_converter"
+
 module EasyML::Data::Dataset::Splitters
   class DateSplitter
     include GlueGun::DSL
@@ -17,50 +19,11 @@ module EasyML::Data::Dataset::Splitters
       super(options)
     end
 
-    def detect_date_format(date_strings)
-      # Define common date-time formats to check
-      common_formats = [
-        "%Y-%m-%d %H:%M:%S.%L",   # e.g., "2021-01-01 00:01:36.000"
-        "%Y-%m-%d %H:%M:%S",      # e.g., "2021-01-01 00:01:36"
-        "%Y-%m-%d %H:%M",         # e.g., "2021-01-01 00:01"
-        "%Y-%m-%d",               # e.g., "2021-01-01"
-        "%m/%d/%Y %H:%M:%S",      # e.g., "01/01/2021 00:01:36"
-        "%m/%d/%Y",               # e.g., "01/01/2021"
-        "%d-%m-%Y",               # e.g., "01-01-2021"
-        "%d-%b-%Y %H:%M:%S",      # e.g., "01-Jan-2021 00:01:36"
-        "%d-%b-%Y",               # e.g., "01-Jan-2021"
-        "%b %d, %Y",              # e.g., "Jan 01, 2021"
-        "%Y/%m/%d %H:%M:%S",      # e.g., "2021/01/01 00:01:36"
-        "%Y/%m/%d"                # e.g., "2021/01/01"
-      ]
-
-      # Iterate over formats and test each one
-      shared_format = common_formats.detect do |format|
-        # Attempt to parse each date string using the current format
-        date_strings.all? do |date_str|
-          DateTime.strptime(date_str, format)
-          true
-        rescue StandardError
-          false
-        end
-      end
-      ruby_to_polars_format(shared_format)
-    end
-
-    def ruby_to_polars_format(ruby_format)
-      # Replace Ruby's '%L' (milliseconds) with Polars' '%3f'
-      ruby_format.gsub("%L", "%3f")
-    end
-
     def split(df)
       raise "Split by date requires argument: date_col" unless date_col.present?
 
-      if df[date_col].dtype.is_a?(Polars::String)
-        self.date_format = detect_date_format(df[date_col].to_a)
-        df = df.with_column(
-          Polars.col(date_col).str.strptime(Polars::Datetime, date_format).alias(date_col)
-        )
-      end
+      df = EasyML::Data::DateConverter.maybe_convert_date(df, date_col)
+
       unless df[date_col].dtype.is_a?(Polars::Datetime)
         raise "Date splitter cannot split on non-date col #{date_col}, dtype is #{df[date_col].dtype}"
       end

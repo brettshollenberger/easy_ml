@@ -17,6 +17,8 @@ gem "rake", "~> 13.0"
 gem "rubocop", "~> 1.21"
 gem "sidekiq", "~> 6.5.6"
 gem "sidekiq-batch"
+gem "sidekiq-unique-jobs"
+gem "suo"
 gem "wandb", "~> 0.1.9"
 gem "xgb", "~> 0.9.0"
 

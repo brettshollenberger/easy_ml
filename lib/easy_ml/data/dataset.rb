@@ -226,8 +226,6 @@ module EasyML
         df
       end
 
-      delegate :statistics, to: :preprocessor
-
       # Filter data using Polars predicates:
       # dataset.data(filter: Polars.col("CREATED_DATE") > EST.now - 2.days)
       # dataset.data(limit: 10)

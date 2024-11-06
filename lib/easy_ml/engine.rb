@@ -19,11 +19,12 @@ module EasyML
   class Engine < Rails::Engine
     isolate_namespace EasyML
 
+    paths["lib"] << EasyML::Engine.root.join("lib")
+    paths["lib"].autoload!
+
     initializer "easy_ml.inflections" do
       require_relative "initializers/inflections"
     end
-
-    config.paths.add "lib", eager_load: true
 
     unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate].include?(ARGV.first)
       config.after_initialize do

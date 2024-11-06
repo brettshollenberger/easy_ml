@@ -25,7 +25,7 @@ module EasyML
 
     attr_accessor :s3_bucket, :s3_prefix, :s3_access_key_id,
                   :s3_secret_access_key, :s3_region, :cache_for, :polars_args,
-                  :verbose, :is_syncing, :schema, :columns
+                  :verbose, :is_syncing, :schema, :columns, :num_rows
 
     after_initialize :read_from_configuration
     before_save :store_in_configuration
@@ -53,26 +53,22 @@ module EasyML
       synced_directory.in_batches(&block)
     end
 
-    def refresh
-      syncing do
-        synced_directory.sync
+    def refresh(async: false)
+      if async
+        SyncDatasourceWorker.perform_async(id)
+        true
+      else
+        track_sync { synced_directory.sync }
       end
     end
 
-    def refresh!
-      syncing do
-        synced_directory.sync!
+    def refresh!(async: false)
+      if async
+        SyncDatasourceWorker.perform_async(id)
+        true
+      else
+        track_sync { synced_directory.sync! }
       end
-    end
-
-    def syncing
-      update(is_syncing: true)
-      result = yield
-      self.schema = synced_directory.schema.map { |k, v| [k, v.to_s] }.to_h
-      self.columns = schema.keys
-      update(is_syncing: false)
-      store_in_configuration
-      result
     end
 
     def data
@@ -106,11 +102,33 @@ module EasyML
     end
 
     def store_in_configuration
-      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose, :is_syncing, :schema, :columns)
+      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose, :is_syncing, :schema, :columns, :num_rows)
     end
 
     def read_from_configuration
-      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose, :is_syncing, :schema, :columns)
+      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose, :is_syncing, :schema, :columns, :num_rows)
+    end
+
+    def track_sync
+      before_sync
+      result = yield
+      after_sync
+      result
+    end
+
+    def before_sync
+      update!(is_syncing: true)
+      Rails.logger.info("Starting sync for datasource #{id}")
+    end
+
+    def after_sync
+      if synced_directory.schema.present? && synced_directory.schema.keys.any?
+        self.schema = synced_directory.schema.transform_values(&:to_s)
+        self.columns = synced_directory.schema.keys
+        self.num_rows = synced_directory.num_rows
+      end
+      self.is_syncing = false
+      save
     end
   end
 end

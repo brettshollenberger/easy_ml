@@ -9,6 +9,7 @@ class CreateEasyMLDatasets < ActiveRecord::Migration[6.0]
       t.bigint :datasource_id
       t.string :root_dir
       t.json :configuration
+      t.bigint :num_rows
 
       t.timestamps
 

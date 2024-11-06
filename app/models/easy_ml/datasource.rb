@@ -12,7 +12,7 @@
 #
 module EasyML
   class Datasource < ActiveRecord::Base
-    include ConfigurableSTI
+    include EasyML::ConfigurableSTI
 
     scope :s3, -> { where(datasource_type: "S3Datasource") }
 
@@ -56,12 +56,17 @@ module EasyML
       raise NotImplementedError, "#{self.class} must implement #last_updated_at"
     end
 
-    def refresh
-      raise NotImplementedError, "#{self.class} must implement #refresh"
+    def refresh!
+      update!(is_syncing: true)
+      synced_directory.sync!
     end
 
-    def refresh!
-      raise NotImplementedError, "#{self.class} must implement #refresh!"
+    def refresh
+      update(is_syncing: true)
+      synced_directory.sync
+    rescue StandardError => e
+      Rails.logger.error("Failed to refresh datasource: #{e.message}")
+      false
     end
 
     def data

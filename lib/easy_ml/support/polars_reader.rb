@@ -5,11 +5,12 @@ module EasyML
     attribute :root_dir
     attribute :polars_args, :hash, default: {}
     attribute :refresh, :boolean
+    attribute :num_rows, :integer
 
     def normalize
       return files if all_parquet? && !refresh
 
-      learn_schema
+      learn_dataset
       convert_to_parquet
       files
     end
@@ -102,11 +103,13 @@ module EasyML
       )
     end
 
-    def learn_schema
+    def learn_dataset
       puts "Normalizing schema..."
+      self.num_rows = 0
 
-      combined_schema = files.map do |path, _idx|
+      combined_schema = files.map.with_index do |path, _idx|
         df = read_file(path)
+        self.num_rows += df.shape[0]
         df.schema
       end.inject({}) do |h, schema|
         h.tap do

@@ -11,6 +11,7 @@
 #  datasource_id :bigint
 #  root_dir      :string
 #  configuration :json
+#  num_rows      :bigint
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
 #

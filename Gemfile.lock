@@ -6,7 +6,7 @@ PATH
       activesupport
       awesome_print
       aws-sdk
-      glue_gun_dsl (~> 0.1.31)
+      glue_gun_dsl (~> 0.1.32)
       inertia_rails
       jsonapi-serializer
       numo-narray
@@ -1695,7 +1695,7 @@ GEM
     formatador (1.1.0)
     globalid (1.2.1)
       activesupport (>= 6.1)
-    glue_gun_dsl (0.1.31)
+    glue_gun_dsl (0.1.32)
       activemodel (>= 6, < 8)
       activerecord (>= 6, < 8)
       activesupport (>= 6, < 8)
@@ -1870,6 +1870,8 @@ GEM
       connection_pool (>= 2.2.5, < 3)
       rack (~> 2.0)
       redis (>= 4.5.0, < 5)
+    sidekiq-batch (0.1.9)
+      sidekiq (>= 3)
     sprockets (4.2.1)
       concurrent-ruby (~> 1.0)
       rack (>= 2.2.4, < 4)
@@ -1918,7 +1920,7 @@ DEPENDENCIES
   combustion
   database_cleaner-active_record
   easy_ml!
-  glue_gun_dsl (~> 0.1.31)
+  glue_gun_dsl (~> 0.1.32)
   guard
   inertia_rails
   jsonapi-serializer
@@ -1932,6 +1934,7 @@ DEPENDENCIES
   rspec-sidekiq
   rubocop (~> 1.21)
   sidekiq (~> 6.5.6)
+  sidekiq-batch
   sprockets-rails
   timecop
   wandb (~> 0.1.9)

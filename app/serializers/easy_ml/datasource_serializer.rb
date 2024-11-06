@@ -21,25 +21,7 @@ module EasyML
     attributes :id, :name, :datasource_type, :s3_bucket, :s3_prefix, :s3_region, :columns
 
     attribute :schema do |object|
-      if object.schema.nil?
-        nil
-      else
-        object.schema.map do |k, v|
-          v = if v.match?(/Boolean/)
-                :boolean
-              elsif v.match?(/Int/)
-                :integer
-              elsif v.match?(/Float/)
-                :float
-              elsif v.match?(/String/)
-                :string
-              else
-                v
-              end
-
-          [k, v]
-        end.to_h
-      end
+      object.schema
     end
 
     attribute :last_synced_at do |object|

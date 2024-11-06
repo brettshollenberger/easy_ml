@@ -43,7 +43,7 @@ module EasyML
     def create
       datasource = EasyML::Datasource.create!(datasource_params)
       datasource.update(is_syncing: true, root_dir: root_dir_name(datasource))
-      EasyML::SyncDatasourceWorker.perform_async(datasource.id)
+      datasource.refresh_async
 
       redirect_to easy_ml_datasources_path, notice: "Datasource was successfully created."
     rescue ActiveRecord::RecordInvalid => e

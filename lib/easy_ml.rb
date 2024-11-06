@@ -7,6 +7,7 @@ require "active_support/all"
 require "glue_gun"
 require "numo/narray"
 require "xgboost"
+require "suo"
 require_relative "easy_ml/version"
 require_relative "easy_ml/engine"
 

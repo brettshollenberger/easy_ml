@@ -9,13 +9,17 @@ module EasyML
     )
 
     def perform(id)
-      datasource = EasyML::Datasource.find(id)
-      create_event(datasource, "started")
+      EasyML::Support::Lockable.with_lock_client("SyncDatasourceWorker:#{id}") do |client|
+        client.lock do
+          datasource = EasyML::Datasource.find(id)
+          create_event(datasource, "started")
 
-      begin
-        sync_datasource(datasource)
-      rescue StandardError => e
-        handle_error(datasource, e)
+          begin
+            sync_datasource(datasource)
+          rescue StandardError => e
+            handle_error(datasource, e)
+          end
+        end
       end
     end
 
@@ -23,32 +27,33 @@ module EasyML
       options.symbolize_keys!
 
       datasource = EasyML::Datasource.find(options[:datasource_id])
-      directory = datasource.send(:synced_directory)
 
       begin
-        directory.send(:after_sync)
-        datasource.send(:after_sync)
-
+        datasource.after_sync
         create_event(datasource, "success")
       rescue StandardError => e
         handle_error(datasource, e)
       end
     end
 
+    def on_complete(_status, options)
+      options.symbolize_keys!
+
+      datasource = EasyML::Datasource.find(options[:datasource_id])
+      datasource.update(is_syncing: false)
+    end
+
     private
 
     def sync_datasource(datasource)
-      directory = datasource.send(:synced_directory)
-
-      datasource.send(:before_sync)
-      directory.send(:before_sync)
-
-      files = directory.files_to_sync
+      datasource.before_sync
+      files = datasource.files_to_sync
       return if files.empty?
 
       batch = Sidekiq::Batch.new
       batch.description = "Syncing datasource #{datasource.id}"
       batch.on(:success, EasyML::SyncDatasourceWorker, datasource_id: datasource.id)
+      batch.on(:complete, EasyML::SyncDatasourceWorker, datasource_id: datasource.id)
 
       batch.jobs do
         files.each do |file|

@@ -56,25 +56,27 @@ module EasyML
       raise NotImplementedError, "#{self.class} must implement #last_updated_at"
     end
 
+    def data
+      raise NotImplementedError, "#{self.class} must implement #data"
+    end
+
     def refresh_async
       EasyML::SyncDatasourceWorker.perform_async(id)
     end
 
-    def refresh!
+    def before_sync
       update!(is_syncing: true)
-      synced_directory.sync!
+      Rails.logger.info("Starting sync for datasource #{id}")
     end
 
-    def refresh
-      update(is_syncing: true)
-      synced_directory.sync
-    rescue StandardError => e
-      Rails.logger.error("Failed to refresh datasource: #{e.message}")
-      false
+    def learn_statistics
+      EasyML::Data::StatisticsLearner.learn(data)
     end
 
-    def data
-      raise NotImplementedError, "#{self.class} must implement #data"
+    def after_sync
+      self.statistics = learn_statistics
+      self.is_syncing = false
+      save
     end
 
     delegate :s3_bucket, :s3_prefix, :s3_region, to: :configuration, allow_nil: true

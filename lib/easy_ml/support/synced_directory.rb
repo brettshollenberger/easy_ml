@@ -14,6 +14,15 @@ module EasyML
       attribute :cache_for, default: nil
       attribute :polars_args, :hash, default: {}
 
+      def before_sync
+        mk_dir
+        clean_dir!
+      end
+
+      def after_sync
+        normalize
+      end
+
       def sync!(parallel: true)
         sync(force: true, parallel: parallel)
       end
@@ -21,10 +30,13 @@ module EasyML
       def sync(force: false, parallel: true)
         return unless should_sync?(force)
 
-        before_sync
-        do_sync(parallel: parallel)
-        after_sync
-        true
+        files = files_to_sync
+
+        if parallel
+          Parallel.each(files, in_processes: 4, timeout: 10) { |object| download_file(object) }
+        else
+          files.each { |object| download_file(object) }
+        end
       end
 
       def files_to_sync
@@ -78,6 +90,25 @@ module EasyML
         reader.num_rows
       end
 
+      def download_file(object)
+        gzipped_file_path = File.join(root_dir, object.key)
+        FileUtils.mkdir_p(File.dirname(gzipped_file_path))
+
+        Rails.logger.info("Downloading object #{object.key}")
+        s3.get_object(
+          response_target: gzipped_file_path,
+          bucket: s3_bucket,
+          key: object.key
+        )
+
+        Rails.logger.info("Downloaded #{object.key} to #{gzipped_file_path}")
+        ungzipped_file_path = ungzip_file(gzipped_file_path)
+        Rails.logger.info("Ungzipped to #{ungzipped_file_path}")
+      rescue Aws::S3::Errors::ServiceError, Net::OpenTimeout, Net::ReadTimeout, StandardError => e
+        Rails.logger.error("Failed to process #{object.key}: #{e.message}")
+        raise e
+      end
+
       private
 
       def reader
@@ -124,25 +155,6 @@ module EasyML
             logger: Logger.new(STDOUT) # Logs to STDOUT; you can also set a file
           )
         end
-      end
-
-      def download_file(object)
-        gzipped_file_path = File.join(root_dir, object.key)
-        FileUtils.mkdir_p(File.dirname(gzipped_file_path))
-
-        Rails.logger.info("Downloading object #{object.key}")
-        s3.get_object(
-          response_target: gzipped_file_path,
-          bucket: s3_bucket,
-          key: object.key
-        )
-
-        Rails.logger.info("Downloaded #{object.key} to #{gzipped_file_path}")
-        ungzipped_file_path = ungzip_file(gzipped_file_path)
-        Rails.logger.info("Ungzipped to #{ungzipped_file_path}")
-      rescue Aws::S3::Errors::ServiceError, Net::OpenTimeout, Net::ReadTimeout, StandardError => e
-        Rails.logger.error("Failed to process #{object.key}: #{e.message}")
-        raise e
       end
 
       def ungzip_file(gzipped_file_path)
@@ -195,25 +207,6 @@ module EasyML
 
       def should_sync?(force)
         force || !synced?
-      end
-
-      def before_sync
-        mk_dir
-        clean_dir!
-      end
-
-      def do_sync(parallel: true)
-        files = files_to_sync
-
-        if parallel
-          Parallel.each(files, in_processes: 4, timeout: 10) { |object| download_file(object) }
-        else
-          files.each { |object| download_file(object) }
-        end
-      end
-
-      def after_sync
-        normalize
       end
     end
   end

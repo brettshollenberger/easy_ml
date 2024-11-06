@@ -7,9 +7,7 @@ module EasyML
     def perform(datasource_id, file_info)
       datasource = EasyML::Datasource.find(datasource_id)
       file = JSON.parse(file_info).symbolize_keys
-
-      directory = datasource.send(:synced_directory)
-      directory.send(:download_file, OpenStruct.new(file))
+      datasource.download_file(OpenStruct.new(file))
     rescue StandardError => e
       Rails.logger.error("Failed to download file #{file[:key]}: #{e.message}")
       raise e

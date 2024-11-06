@@ -56,6 +56,10 @@ module EasyML
       raise NotImplementedError, "#{self.class} must implement #last_updated_at"
     end
 
+    def refresh_async
+      EasyML::SyncDatasourceWorker.perform_async(id)
+    end
+
     def refresh!
       update!(is_syncing: true)
       synced_directory.sync!

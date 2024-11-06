@@ -55,5 +55,13 @@ module EasyML
     def schema
       datasource&.schema
     end
+
+    def num_rows
+      datasource&.num_rows
+    end
+
+    def refresh_async
+      EasyML::RefreshDatasetWorker.perform_async(id)
+    end
   end
 end

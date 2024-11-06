@@ -81,7 +81,7 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
           preserveState: true,
           only: ['datasources']
         });
-      }, 5000);
+      }, 2000);
     }
 
     // Cleanup function

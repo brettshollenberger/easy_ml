@@ -1,14 +1,18 @@
 import React, { useState, useMemo } from 'react';
-// import { Link } from 'react-router-dom';
+import { Link, usePage, router } from '@inertiajs/react';
 import { Database, Plus, Trash2, ExternalLink } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
-import { mockDatasets } from '../mockData';
+import { Dataset } from "@types/dataset";
+interface Props {
+  datasets: Dataset[];
+}
 
 const ITEMS_PER_PAGE = 6;
 
-export default function DatasetsPage() {
+export default function DatasetsPage({ datasets, constants }: Props) {
+  const { rootPath } = usePage().props;
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -17,13 +21,19 @@ export default function DatasetsPage() {
       dataset.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       dataset.description.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [datasets, searchQuery]);
 
   const totalPages = Math.ceil(filteredDatasets.length / ITEMS_PER_PAGE);
   const paginatedDatasets = filteredDatasets.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
+  const handleDelete = (datasetId: number) => {
+    if (confirm('Are you sure you want to delete this dataset?')) {
+      router.delete(`${rootPath}/datasets/${datasetId}`);
+    }
+  };
 
   if (datasets.length === 0) {
     return (
@@ -52,7 +62,7 @@ export default function DatasetsPage() {
             />
           </div>
           <Link
-            to="/datasets/new"
+            href={`${rootPath}/datasets/new`}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <Plus className="w-4 h-4" />
@@ -69,7 +79,7 @@ export default function DatasetsPage() {
             </p>
             <div className="mt-6">
               <Link
-                to="/datasets/new"
+                href={`${rootPath}/datasets/new`}
                 className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -99,7 +109,7 @@ export default function DatasetsPage() {
                     </div>
                     <div className="flex gap-2">
                       <Link
-                        to={`/datasets/${dataset.id}`}
+                        href={`${rootPath}/datasets/${dataset.id}`}
                         className="text-gray-400 hover:text-blue-600 transition-colors"
                         title="View details"
                       >
@@ -108,6 +118,7 @@ export default function DatasetsPage() {
                       <button
                         className="text-gray-400 hover:text-red-600 transition-colors"
                         title="Delete dataset"
+                        onClick={() => handleDelete(dataset.id)}
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
@@ -124,7 +135,7 @@ export default function DatasetsPage() {
                     <div>
                       <span className="text-sm text-gray-500">Rows</span>
                       <p className="text-sm font-medium text-gray-900">
-                        {dataset.rowCount.toLocaleString()}
+                        {dataset.num_rows.toLocaleString()}
                       </p>
                     </div>
                   </div>

@@ -37,7 +37,7 @@ module EasyML
       dataset = Dataset.new(dataset_params.to_h)
 
       if dataset.save
-        dataset.refresh
+        dataset.refresh_async
         redirect_to easy_ml_datasets_path, notice: "Dataset was successfully created."
       else
         redirect_to new_easy_ml_dataset_path, alert: dataset.errors.full_messages.join(", ")

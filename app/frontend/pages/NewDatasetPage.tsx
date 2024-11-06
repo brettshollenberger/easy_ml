@@ -330,7 +330,9 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
                 <SearchableSelect
                   value={formData.dataset.splitter.date.date_col}
                   onChange={(value) => setData('dataset.splitter.date.date_col', value)}
-                  options={availableCols.map(col => ({
+                  options={availableCols.filter(col => {
+                    return selectedDatasource.schema[col] == 'datetime'
+                  }).map(col => ({
                     value: col,
                     label: col
                   }))}

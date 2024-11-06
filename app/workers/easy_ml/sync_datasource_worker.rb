@@ -23,6 +23,10 @@ module EasyML
       end
     end
 
+    def handle_error(datasource, _error)
+      datasource.update!(is_syncing: false)
+    end
+
     def on_success(_status, options)
       options.symbolize_keys!
 
@@ -30,16 +34,19 @@ module EasyML
 
       begin
         datasource.after_sync
+        datasource.update(is_syncing: false)
         create_event(datasource, "success")
       rescue StandardError => e
         handle_error(datasource, e)
       end
     end
 
-    def on_complete(_status, options)
+    def on_complete(status, options)
+      return if status.success
+
       options.symbolize_keys!
 
-      datasource = EasyML::Datasource.find(options[:datasource_id])
+      EasyML::Datasource.find(options[:datasource_id])
       datasource.update(is_syncing: false)
     end
 

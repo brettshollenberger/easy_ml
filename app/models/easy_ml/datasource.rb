@@ -13,6 +13,7 @@
 module EasyML
   class Datasource < ActiveRecord::Base
     include EasyML::ConfigurableSTI
+    self.filter_attributes += [:statistics]
 
     scope :s3, -> { where(datasource_type: "S3Datasource") }
 
@@ -36,6 +37,7 @@ module EasyML
     validates :datasource_type, inclusion: { in: type_map.values }
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
+    attr_accessor :schema, :columns, :num_rows
 
     def self.constants
       {
@@ -74,6 +76,13 @@ module EasyML
     end
 
     def after_sync
+      self.schema = data.schema.reduce({}) do |h, (k, v)|
+        h.tap do
+          h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
+        end
+      end
+      self.columns = data.columns
+      self.num_rows = data.shape[0]
       self.statistics = learn_statistics
       self.is_syncing = false
       save

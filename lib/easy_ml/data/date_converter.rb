@@ -27,8 +27,14 @@ module EasyML
         # @param df [Polars::DataFrame] The dataframe containing the series
         # @param column [String] The name of the column to convert
         # @return [Polars::DataFrame] The dataframe with converted column (if successful)
-        def maybe_convert_date(df, column)
-          series = df[column]
+        def maybe_convert_date(df, column = nil)
+          if column.nil?
+            series = df
+            column = series.name
+            df = Polars::DataFrame.new(series)
+          else
+            series = df[column]
+          end
           return df if series.dtype.is_a?(Polars::Datetime)
           return df unless series.dtype == Polars::Utf8
 

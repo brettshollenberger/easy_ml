@@ -15,7 +15,6 @@ module EasyML
 
     def handle_error(model, error)
       create_event(model, "error", error)
-      model.update!(is_syncing: false)
       Rails.logger.error("#{self.class.name} failed: #{error.message}")
     end
 

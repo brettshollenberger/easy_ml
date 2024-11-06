@@ -25,7 +25,7 @@ module EasyML
 
     attr_accessor :s3_bucket, :s3_prefix, :s3_access_key_id,
                   :s3_secret_access_key, :s3_region, :cache_for, :polars_args,
-                  :verbose, :is_syncing, :schema, :columns, :num_rows
+                  :verbose, :is_syncing
 
     after_initialize :read_from_configuration
     before_save :store_in_configuration
@@ -66,11 +66,18 @@ module EasyML
     end
 
     def data
+      return @data if @data.present?
+
+      Polars.enable_string_cache
       dfs = []
       in_batches do |df|
         dfs.push(df)
       end
-      Polars.concat(dfs)
+
+      Polars.concat(dfs).tap do |data|
+        @data = data
+        Polars.disable_string_cache
+      end
     end
 
     def s3_access_key_id

@@ -1,5 +1,5 @@
 require_relative "date_converter"
-require_relative "field_type_detector"
+require_relative "polars_column"
 
 module EasyML::Data
   class StatisticsLearner
@@ -15,7 +15,7 @@ module EasyML::Data
       # Add basic column statistics first
       df.columns.each_with_object({}) do |col, stats|
         series = df[col]
-        field_type = FieldTypeDetector.determine_type(series)
+        field_type = PolarsColumn.determine_type(series)
 
         stats[col] = {
           field_type: field_type,

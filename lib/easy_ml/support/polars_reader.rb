@@ -4,8 +4,9 @@ module EasyML
 
     attribute :root_dir
     attribute :polars_args, :hash, default: {}
-    attribute :refresh, :boolean
+    attribute :refresh, :boolean, default: false
     attribute :num_rows, :integer
+    attribute :schema
 
     def normalize
       return files if all_parquet? && !refresh
@@ -106,6 +107,7 @@ module EasyML
     def learn_dataset
       puts "Normalizing schema..."
       self.num_rows = 0
+      first_file = read_file(files.first)
 
       combined_schema = files.map.with_index do |path, _idx|
         df = read_file(path)
@@ -126,11 +128,15 @@ module EasyML
                  elsif values.any? { |v| v.match?(/Int/) }
                    Polars::Int64
                  else
-                   v.first
+                   type = EasyML::Data::PolarsColumn.determine_type(first_file[k], true)
+                   raise "Cannot determine polars type for field #{k}" if type.nil?
+
+                   type
                  end
         end
       end
 
+      self.schema = combined_schema
       polars_args[:dtypes] = combined_schema
     end
   end

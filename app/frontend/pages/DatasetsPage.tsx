@@ -43,7 +43,7 @@ export default function DatasetsPage({ datasets, constants }: Props) {
           title="Create your first dataset"
           description="Create a dataset to start training your machine learning models"
           actionLabel="Create Dataset"
-          onAction={() => {/* Handle dataset creation */}}
+          onAction={() => { router.visit(`${rootPath}/datasets/new`) }}
         />
       </div>
     );

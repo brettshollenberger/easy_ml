@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// import { NavLink, useLocation, Link } from 'react-router-dom';
 import { AlertContainer } from './AlertProvider';
 import { Link, router, usePage } from "@inertiajs/react";
 import { Brain, Database, HardDrive, ChevronRight, ChevronDown, Menu, Settings2 } from 'lucide-react';
@@ -11,17 +10,23 @@ import { mockDatasets, mockModels } from '../mockData';
 
 export function NavLink({ 
   href, 
-  className = (isActive) => "", // Default to a function that returns an empty string
+  className = (isActive: boolean) => "", // Add type annotation for isActive
   activeClassName = 'active', 
   children, 
   ...props 
+}: {
+  href: string;
+  className?: (isActive: boolean) => string;
+  activeClassName?: string;
+  children: React.ReactNode;
+  [key: string]: any;
 }) {
   // Get the current URL path from Inertia's page object
   const { rootPath, url } = usePage().props;
 
   // Check if the current URL matches the `href` to apply the active class
   const isActive = url === href;
-  let classes = className({isActive: isActive})
+  let classes = className(isActive);
 
   return (
     <Link
@@ -47,7 +52,7 @@ const navItems: NavItem[] = [
     icon: Brain,
     href: '/',
     children: [
-      { title: 'All Models', icon: Brain, href: '/' },
+      { title: 'All Models', icon: Brain, href: '/models' },
       { title: 'New Model', icon: Brain, href: '/models/new' }
     ]
   },
@@ -72,50 +77,56 @@ const navItems: NavItem[] = [
 ];
 
 function getBreadcrumbs(pathname: string): { title: string; href: string }[] {
+  const { rootPath } = usePage().props; // Inject rootPath
   const paths = pathname.split('/').filter(Boolean);
   const breadcrumbs = [];
-  let currentPath = '';
+  let currentPath = rootPath; // Start with rootPath
 
-  // Special case for root path
+  // Determine the root breadcrumb based on the first path segment
   if (paths.length === 0) {
-    return [{ title: 'Models', href: '/' }];
+    return [];
   }
 
-  // Add first breadcrumb based on the first path segment
-  const firstSegment = paths[0];
+  let firstSegment;
+  let rootCrumb;
+  if (['datasources', 'datasets', 'models', 'settings'].includes(paths[0])) {
+    firstSegment = paths[0];
+    rootCrumb = 0;
+  } else {
+    firstSegment = paths[1];
+    rootCrumb = 1;
+  }
   switch (firstSegment) {
     case 'models':
-      breadcrumbs.push({ title: 'Models', href: '/' });
+      breadcrumbs.push({ title: 'Models', href: `${rootPath}/models` });
       break;
     case 'datasources':
-      breadcrumbs.push({ title: 'Datasources', href: '/datasources' });
+      breadcrumbs.push({ title: 'Datasources', href: `${rootPath}/datasources` });
       break;
     case 'datasets':
-      breadcrumbs.push({ title: 'Datasets', href: '/datasets' });
+      breadcrumbs.push({ title: 'Datasets', href: `${rootPath}/datasets` });
       break;
     case 'settings':
-      breadcrumbs.push({ title: 'Settings', href: '/settings' });
+      breadcrumbs.push({ title: 'Settings', href: `${rootPath}/settings` });
       break;
     default:
-      breadcrumbs.push({ title: 'Models', href: '/' });
+      breadcrumbs.push({ title: 'Models', href: `${rootPath}/models` });
   }
 
-  // Add remaining breadcrumbs
-  for (let i = 1; i < paths.length; i++) {
+  // Add remaining breadcrumbs only if there are more segments
+  for (let i = rootCrumb + 1; i < paths.length; i++) {
     const path = paths[i];
     currentPath += `/${paths[i]}`;
     
     // Handle special cases for IDs
     if (paths[i-1] === 'datasets' && path !== 'new') {
-      const dataset = mockDatasets.find(d => d.id === Number(path));
       breadcrumbs.push({ 
-        title: dataset ? dataset.name : 'Dataset Details', 
+        title: 'Details', 
         href: currentPath 
       });
     } else if (paths[i-1] === 'models' && path !== 'new') {
-      const model = mockModels.find(m => m.id === Number(path));
       breadcrumbs.push({ 
-        title: model ? model.name : 'Model Details', 
+        title: 'Details', 
         href: currentPath 
       });
     } else {
@@ -262,7 +273,7 @@ export function Navigation({ children }: NavigationProps) {
                   )}
                   <li>
                     <Link
-                      to={crumb.href}
+                      href={crumb.href}
                       className={cn(
                         "text-sm",
                         index === breadcrumbs.length - 1

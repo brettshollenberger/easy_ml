@@ -53,7 +53,7 @@ module EasyML::Data
 
     def postprocess(df, inference: false)
       puts "Postprocessing..." if verbose
-      return df if preprocessing_steps.keys.none?
+      return df if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
       steps = if inference
                 preprocessing_steps[:training].merge(preprocessing_steps[:inference] || {})

@@ -18,11 +18,7 @@ module EasyML
 
     set_type :datasource # Optional type for JSON:API
 
-    attributes :id, :name, :datasource_type, :s3_bucket, :s3_prefix, :s3_region, :columns
-
-    attribute :schema do |object|
-      object.schema
-    end
+    attributes :id, :name, :datasource_type, :s3_bucket, :s3_prefix, :s3_region, :schema, :columns
 
     attribute :last_synced_at do |object|
       if object.is_syncing

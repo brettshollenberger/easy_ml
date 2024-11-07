@@ -194,6 +194,28 @@ module EasyML
         end
       end
 
+      dependency :sample_split do |dependency|
+        dependency.option :file do |option|
+          option.default
+          option.set_class EasyML::Data::Dataset::Splits::FileSplit
+          option.bind_attribute :dir, source: :root_dir do |value|
+            Pathname.new(value).append("files/splits/sample")
+          end
+          option.bind_attribute :polars_args
+          option.bind_attribute :max_rows_per_file, source: :batch_size
+          option.bind_attribute :batch_size
+          option.bind_attribute :verbose
+        end
+
+        dependency.option :memory do |option|
+          option.set_class EasyML::Data::Dataset::Splits::InMemorySplit
+        end
+
+        dependency.when do |_dep|
+          { option: :memory } if datasource.respond_to?(:df)
+        end
+      end
+
       delegate :new_data_available?, :synced?, :stale?, to: :datasource
       delegate :train, :test, :valid, to: :split
       delegate :splits, to: :splitter
@@ -202,6 +224,7 @@ module EasyML
         split_data
         fit
         normalize_all
+        sample_data
         alert_nulls
       end
 
@@ -249,6 +272,10 @@ module EasyML
         load_data(:all, **kwargs)
       end
 
+      def sample
+        sample_split.read(:sample)
+      end
+
       def num_batches(segment)
         processed.num_batches(segment)
       end
@@ -256,6 +283,7 @@ module EasyML
       def cleanup
         raw.cleanup
         processed.cleanup
+        sample_split.cleanup
       end
 
       def check_nulls(data_type = :processed)
@@ -317,6 +345,12 @@ module EasyML
         end
       end
       log_method :normalize_all, "Normalizing dataset", verbose: true
+
+      def sample_data
+        sample_split.cleanup
+        sample_df = data(limit: 10)
+        sample_split.save(:sample, sample_df)
+      end
 
       def drop_nulls(df)
         return df if drop_if_null.nil? || drop_if_null.empty?

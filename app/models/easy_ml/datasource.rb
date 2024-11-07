@@ -12,7 +12,7 @@
 #
 module EasyML
   class Datasource < ActiveRecord::Base
-    include EasyML::ConfigurableSTI
+    include EasyML::Concerns::ConfigurableSTI
     self.filter_attributes += [:statistics]
 
     scope :s3, -> { where(datasource_type: "S3Datasource") }

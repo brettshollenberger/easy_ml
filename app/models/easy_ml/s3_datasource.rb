@@ -70,7 +70,6 @@ module EasyML
     def data
       return @data if @data.present?
 
-      Polars.enable_string_cache
       dfs = []
       in_batches do |df|
         dfs.push(df)
@@ -78,7 +77,6 @@ module EasyML
 
       Polars.concat(dfs).tap do |data|
         @data = data
-        Polars.disable_string_cache
       end
     end
 

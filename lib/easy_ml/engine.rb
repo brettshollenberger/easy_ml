@@ -26,6 +26,10 @@ module EasyML
       require_relative "initializers/inflections"
     end
 
+    initializer "easy_ml.enable_string_cache" do
+      Polars.enable_string_cache
+    end
+
     unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate].include?(ARGV.first)
       config.after_initialize do
         Dir.glob(

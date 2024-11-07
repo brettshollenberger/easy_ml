@@ -48,6 +48,10 @@ module EasyML
       }
     end
 
+    def statistics
+      datasource&.statistics
+    end
+
     def columns
       datasource&.columns
     end

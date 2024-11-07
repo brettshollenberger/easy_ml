@@ -1,12 +1,27 @@
 import type { Datasource } from './datasource';
 export interface Dataset {
   dataset: {
-    id?: number;
+    id: number;
     name: string;
     description: string;
     target?: string;
+    num_rows?: number;
     drop_cols?: string[];
     datasource_id: number;
+    columns: Array<{
+      name: string;
+      type: string;
+      description?: string;
+      statistics?: {
+        mean?: number;
+        median?: number;
+        min?: number;
+        max?: number;
+        uniqueCount?: number;
+        nullCount?: number;
+      };
+    }>;
+    sample_data: Record<string, any>[];
     preprocessing_steps: {
       training: Record<string, any>;
     };

@@ -54,17 +54,18 @@ module EasyML
       end
     end
 
+    def show
+      dataset = Dataset.find(params[:id])
+
+      render inertia: "pages/DatasetDetailsPage", props: {
+        dataset: dataset_to_json(dataset)
+      }
+    end
+
     private
 
     def dataset_to_json(dataset)
-      {
-        id: dataset.id,
-        name: dataset.name,
-        description: dataset.description,
-        columns: dataset.columns,
-        num_rows: dataset.num_rows,
-        status: dataset.status
-      }
+      DatasetSerializer.new(dataset).serializable_hash.dig(:data, :attributes)
     end
 
     def datasource_to_json(datasource)

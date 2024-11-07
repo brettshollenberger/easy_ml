@@ -1,13 +1,23 @@
 import React, { useState } from 'react';
-import { Database, Table, ChevronDown, ChevronUp, BarChart } from 'lucide-react';
+import { Database, Table, ChevronDown, ChevronUp, BarChart, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Dataset, Column } from '../types';
 
 interface DatasetPreviewProps {
   dataset: Dataset;
 }
 
+const STATS_PER_PAGE = 6;
+
 export function DatasetPreview({ dataset }: DatasetPreviewProps) {
+  console.log(dataset)
   const [showStats, setShowStats] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const totalPages = Math.ceil(dataset.columns.length / STATS_PER_PAGE);
+  const paginatedColumns = dataset.columns.slice(
+    (currentPage - 1) * STATS_PER_PAGE,
+    currentPage * STATS_PER_PAGE
+  );
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
@@ -19,8 +29,8 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
           </div>
           <p className="text-gray-600 mt-1">{dataset.description}</p>
           <p className="text-sm text-gray-500 mt-2">
-            {dataset.rowCount.toLocaleString()} rows • Last updated{' '}
-            {new Date(dataset.updatedAt).toLocaleDateString()}
+            {dataset.num_rows.toLocaleString()} rows • {dataset.columns.length} columns • Last updated{' '}
+            {new Date(dataset.updated_at).toLocaleDateString()}
           </p>
         </div>
         <button
@@ -41,40 +51,69 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
 
       <div className="space-y-6">
         {showStats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {dataset.columns.map((column) => (
-              <div
-                key={column.name}
-                className="bg-gray-50 rounded-lg p-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-gray-900">{column.name}</h4>
-                  <span className="text-xs font-medium text-gray-500 px-2 py-1 bg-gray-200 rounded-full">
-                    {column.type}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">{column.description}</p>
-                {column.statistics && (
-                  <div className="space-y-1">
-                    {Object.entries(column.statistics).map(([key, value]) => (
-                      <div key={key} className="flex justify-between text-sm">
-                        <span className="text-gray-500">
-                          {key.charAt(0).toUpperCase() + key.slice(1)}:
-                        </span>
-                        <span className="font-medium text-gray-900">
-                          {typeof value === 'number' ? 
-                            value.toLocaleString(undefined, {
-                              maximumFractionDigits: 2
-                            }) : 
-                            value}
-                        </span>
-                      </div>
-                    ))}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {paginatedColumns.map((column: Column) => (
+                <div
+                  key={column.name}
+                  className="bg-gray-50 rounded-lg p-4"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-gray-900">{column.name}</h4>
+                    <span className="text-xs font-medium text-gray-500 px-2 py-1 bg-gray-200 rounded-full">
+                      {column.type}
+                    </span>
                   </div>
-                )}
+                  <p className="text-sm text-gray-600 mb-3">{column.description}</p>
+                  {column.statistics && (
+                    <div className="space-y-1">
+                      {Object.entries(column.statistics).map(([key, value]) => (
+                        <div key={key} className="flex justify-between text-sm">
+                          <span className="text-gray-500">
+                            {key.charAt(0).toUpperCase() + key.slice(1)}:
+                          </span>
+                          <span className="font-medium text-gray-900">
+                            {typeof value === 'number' ? 
+                              value.toLocaleString(undefined, {
+                                maximumFractionDigits: 2
+                              }) : 
+                              value}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t pt-4">
+                <div className="text-sm text-gray-500">
+                  Showing {((currentPage - 1) * STATS_PER_PAGE) + 1} to {Math.min(currentPage * STATS_PER_PAGE, dataset.columns.length)} of {dataset.columns.length} columns
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
 
         <div className="overflow-x-auto">
@@ -83,7 +122,7 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
               <table className="min-w-full divide-y divide-gray-300">
                 <thead className="bg-gray-50">
                   <tr>
-                    {dataset.columns.map((column) => (
+                    {dataset.columns.map((column: Column) => (
                       <th
                         key={column.name}
                         scope="col"
@@ -95,9 +134,9 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 bg-white">
-                  {dataset.sampleData.map((row, i) => (
+                  {dataset.sample_data.map((row: Record<string, any>, i: number) => (
                     <tr key={i}>
-                      {dataset.columns.map((column) => (
+                      {dataset.columns.map((column: Column) => (
                         <td
                           key={column.name}
                           className="whitespace-nowrap px-3 py-4 text-sm text-gray-500"

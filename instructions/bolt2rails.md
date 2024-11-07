@@ -3,6 +3,12 @@
 1. Take an existing frontend, and properly integrate it into the backend to achieve {task}
 2. Use the following rules to achieve your goal
 
+## Principles:
+
+## Do No Harm
+
+Do not remove any code that seems to be irrelevant to your task. You do not have full context of the application, so you should err on the side of NOT removing code, unless the code is clearly duplication.
+
 ## Use Browser Environment Only
 
 - All Typescript code will run in the browser only. Do not use any Node.js or server-side features.

@@ -18,14 +18,18 @@ module EasyML::Data
         field_type = PolarsColumn.determine_type(series)
 
         stats[col] = {
-          field_type: field_type,
           null_count: base_stats[col.to_sym][:null_count].to_i
         }
 
         # Add type-specific statistics
         case field_type
-        when :numeric
-          stats[col].merge!(base_stats[col.to_sym])
+        when :integer, :float
+          allowed_attrs = if id_column?(col)
+                            %i[field_type null_count count min max]
+                          else
+                            base_stats[col.to_sym].keys
+                          end
+          stats[col].merge!(base_stats[col.to_sym].slice(*allowed_attrs))
         when :categorical
           stats[col].merge!(unique_count: series.n_unique)
         when :datetime
@@ -34,6 +38,11 @@ module EasyML::Data
           # Only null count needed for text (already added above)
         end
       end
+    end
+
+    def self.id_column?(column)
+      col = column.to_s.downcase
+      col.match?(/^id$/) || col.match?(/.*_id/)
     end
 
     def self.describe_to_h(df)

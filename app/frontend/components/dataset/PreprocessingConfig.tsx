@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings2, AlertTriangle, Wrench, ArrowRight } from 'lucide-react';
-import type { Column } from '../../types';
+import type { Column, ColumnType, PreprocessingConstants } from '../../types';
 import type { PreprocessingStrategy } from './ColumnConfigModal';
 
 interface PreprocessingConfigProps {
@@ -16,39 +16,20 @@ interface PreprocessingConfigProps {
     inference: PreprocessingStrategy | undefined,
     useDistinctInference: boolean
   ) => void;
+  constants: PreprocessingConstants;
 }
 
-const COLUMN_TYPES = [
-  { value: 'numeric', label: 'Numeric' },
-  { value: 'categorical', label: 'Categorical' },
-  { value: 'datetime', label: 'Datetime' },
-  { value: 'text', label: 'Text' }
-];
+const isNumericType = (type: ColumnType): boolean => 
+  type === 'float' || type === 'integer';
 
-const PREPROCESSING_STRATEGIES = {
-  numeric: [
-    { value: 'mean', label: 'Mean' },
-    { value: 'median', label: 'Median' },
-    { value: 'forward_fill', label: 'Forward Fill' },
-    { value: 'constant', label: 'Constant Value' }
-  ],
-  categorical: [
-    { value: 'most_frequent', label: 'Most Frequent' },
-    { value: 'constant', label: 'Constant Value' }
-  ],
-  datetime: [
-    { value: 'forward_fill', label: 'Forward Fill' },
-    { value: 'constant', label: 'Constant Value' },
-    { value: 'today', label: 'Current Date' }
-  ],
-  text: [
-    { value: 'most_frequent', label: 'Most Frequent' },
-    { value: 'constant', label: 'Constant Value' }
-  ]
-};
-
-export function PreprocessingConfig({ column, config, isTarget, onUpdate }: PreprocessingConfigProps) {
-  const [selectedType, setSelectedType] = useState<Column['type']>(column.type);
+export function PreprocessingConfig({ 
+  column, 
+  config, 
+  isTarget, 
+  onUpdate,
+  constants 
+}: PreprocessingConfigProps) {
+  const [selectedType, setSelectedType] = useState<ColumnType>(column.type);
   const [useDistinctInference, setUseDistinctInference] = useState(
     config?.useDistinctInference ?? false
   );
@@ -58,7 +39,7 @@ export function PreprocessingConfig({ column, config, isTarget, onUpdate }: Prep
       method: isTarget ? 'label' : 'mean',
       params: isTarget ? { 
         labelMapping: {},
-        threshold: column.type === 'numeric' ? 0 : undefined
+        threshold: isNumericType(column.type) ? 0 : undefined
       } : undefined
     }
   }));
@@ -109,10 +90,10 @@ export function PreprocessingConfig({ column, config, isTarget, onUpdate }: Prep
             </label>
             <select
               value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value as Column['type'])}
+              onChange={(e) => setSelectedType(e.target.value as ColumnType)}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             >
-              {COLUMN_TYPES.map(type => (
+              {constants.column_types.map(type => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
@@ -123,7 +104,7 @@ export function PreprocessingConfig({ column, config, isTarget, onUpdate }: Prep
           <div className="bg-gray-50 rounded-md p-4">
             <h4 className="text-sm font-medium text-gray-900 mb-2">Sample Data</h4>
             <div className="space-y-2">
-              {column.statistics?.sample?.slice(0, 3).map((value, index) => (
+              {column.statistics?.sample?.slice(0, 3).map((value: any, index: number) => (
                 <div key={index} className="text-sm text-gray-600">
                   {String(value)}
                 </div>
@@ -174,7 +155,7 @@ export function PreprocessingConfig({ column, config, isTarget, onUpdate }: Prep
                   onChange={(e) => handleStrategyChange('training', e.target.value as PreprocessingStrategy['method'])}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
-                  {PREPROCESSING_STRATEGIES[selectedType].map(strategy => (
+                  {constants.preprocessing_strategies[selectedType]?.map(strategy => (
                     <option key={strategy.value} value={strategy.value}>
                       {strategy.label}
                     </option>
@@ -243,7 +224,7 @@ export function PreprocessingConfig({ column, config, isTarget, onUpdate }: Prep
                     onChange={(e) => handleStrategyChange('inference', e.target.value as PreprocessingStrategy['method'])}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   >
-                    {PREPROCESSING_STRATEGIES[selectedType].map(strategy => (
+                    {constants.preprocessing_strategies[selectedType]?.map(strategy => (
                       <option key={strategy.value} value={strategy.value}>
                         {strategy.label}
                       </option>
@@ -254,7 +235,7 @@ export function PreprocessingConfig({ column, config, isTarget, onUpdate }: Prep
             </div>
           </div>
 
-          {selectedType === 'numeric' && (
+          {isNumericType(selectedType) && (
             <div className="border-t pt-4">
               <h4 className="text-sm font-medium text-gray-900 mb-2">Clip Values</h4>
               <div className="grid grid-cols-2 gap-4">

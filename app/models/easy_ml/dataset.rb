@@ -46,14 +46,13 @@ module EasyML
     # def fit
     #   raise "Cannot train live dataset!" if is_live
     # end
+
     def self.constants
       {
-        datasources: Datasource.s3.map do |datasource|
-          {
-            value: datasource.id,
-            label: datasource.name
-          }
-        end
+        column_types: EasyML::Data::PolarsColumn::TYPE_MAP.keys.map do |type|
+          { value: type.to_s, label: type.to_s.titleize }
+        end,
+        preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies]
       }
     end
 

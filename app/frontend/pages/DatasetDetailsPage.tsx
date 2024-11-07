@@ -4,14 +4,17 @@ import { Settings } from 'lucide-react';
 import { DatasetPreview } from '../components/DatasetPreview';
 import { ColumnConfigModal } from '../components/dataset/ColumnConfigModal';
 import type { Dataset } from '../types/dataset';
+import type { PreprocessingConstants } from '../types';
 
 interface Props {
   dataset: Dataset;
+  constants: PreprocessingConstants;
 }
 
-export default function DatasetDetailsPage({ dataset }: Props) {
+export default function DatasetDetailsPage({ dataset, constants }: Props) {
   const [showColumnConfig, setShowColumnConfig] = useState(false);
   const { rootPath } = usePage().props;
+  console.log(constants)
 
   return (
     <div className="p-8 space-y-6">
@@ -31,6 +34,7 @@ export default function DatasetDetailsPage({ dataset }: Props) {
         isOpen={showColumnConfig}
         onClose={() => setShowColumnConfig(false)}
         columns={dataset.columns}
+        constants={constants}
         onSave={(config) => {
           console.log('Saving column configuration:', config);
           setShowColumnConfig(false);

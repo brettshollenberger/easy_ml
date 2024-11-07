@@ -2,23 +2,31 @@
 #
 # Table name: easy_ml_datasets
 #
-#  id            :bigint           not null, primary key
-#  name          :string           not null
-#  description   :string
-#  dataset_type  :string
-#  status        :string
-#  version       :string
-#  datasource_id :bigint
-#  root_dir      :string
-#  configuration :json
-#  num_rows      :bigint
-#  created_at    :datetime         not null
-#  updated_at    :datetime         not null
+#  id              :bigint           not null, primary key
+#  name            :string           not null
+#  description     :string
+#  dataset_type    :string
+#  status          :string
+#  version         :string
+#  datasource_id   :bigint
+#  root_dir        :string
+#  configuration   :json
+#  num_rows        :bigint
+#  workflow_status :string
+#  created_at      :datetime         not null
+#  updated_at      :datetime         not null
 #
 require_relative "concerns/statuses"
 module EasyML
   class Dataset < ActiveRecord::Base
     include EasyML::Concerns::Statuses
+
+    enum workflow_status: {
+      analyzing: "analyzing",
+      ready: "ready",
+      failed: "failed",
+      locked: "locked"
+    }
 
     self.filter_attributes += [:configuration]
 
@@ -71,6 +79,17 @@ module EasyML
 
     def refresh_async
       EasyML::RefreshDatasetWorker.perform_async(id)
+    end
+
+    def refresh
+      return false if locked?
+
+      update(workflow_status: "analyzing")
+      dataset_service.refresh
+      update(workflow_status: "ready")
+    rescue StandardError => e
+      update(workflow_status: "failed")
+      raise e
     end
   end
 end

@@ -7,15 +7,13 @@
 #  datasource_type :string
 #  root_dir        :string
 #  configuration   :json
+#  statistics      :json
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
 module EasyML
   class FileDatasource < Datasource
     attr_accessor :polars_args
-
-    after_initialize :read_from_configuration
-    before_save :store_in_configuration
 
     def polars_args=(args)
       args[:dtypes] = args[:dtypes].stringify_keys if args&.key?(:dtypes)
@@ -58,14 +56,6 @@ module EasyML
         root_dir: root_dir,
         polars_args: polars_args
       )
-    end
-
-    def store_in_configuration
-      super(:polars_args)
-    end
-
-    def read_from_configuration
-      super(:polars_args)
     end
   end
 end

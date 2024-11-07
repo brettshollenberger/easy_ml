@@ -15,7 +15,7 @@ module EasyML
       attribute :polars_args, :hash, default: {}
 
       def before_sync
-        return unless should_sync?(force)
+        return unless should_sync?
 
         mk_dir
         clean_dir!

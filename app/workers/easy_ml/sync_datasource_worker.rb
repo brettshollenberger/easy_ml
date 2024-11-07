@@ -11,13 +11,16 @@ module EasyML
     def perform(id)
       EasyML::Support::Lockable.with_lock_client("SyncDatasourceWorker:#{id}") do |client|
         client.lock do
+          puts "Locking!"
           datasource = EasyML::Datasource.find(id)
           create_event(datasource, "started")
 
           begin
-            sync_datasource(datasource)
+            files = sync_datasource(datasource)
+            datasource.after_sync if files.nil?
           rescue StandardError => e
             handle_error(datasource, e)
+            create_event(datasource, e)
           end
         end
       end
@@ -46,13 +49,15 @@ module EasyML
 
       options.symbolize_keys!
 
-      EasyML::Datasource.find(options[:datasource_id])
+      datasource = EasyML::Datasource.find(options[:datasource_id])
       datasource.update(is_syncing: false)
     end
 
     private
 
     def sync_datasource(datasource)
+      return unless datasource.should_sync?
+
       datasource.before_sync
       files = datasource.files_to_sync
       return if files.empty?
@@ -70,6 +75,7 @@ module EasyML
           )
         end
       end
+      files
     end
   end
 end

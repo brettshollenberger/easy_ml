@@ -7,6 +7,7 @@
 #  datasource_type :string
 #  root_dir        :string
 #  configuration   :json
+#  statistics      :json
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -27,10 +28,9 @@ module EasyML
                   :s3_secret_access_key, :s3_region, :cache_for, :polars_args,
                   :verbose, :is_syncing
 
-    after_initialize :read_from_configuration
-    before_save :store_in_configuration
-
     validates :s3_bucket, :s3_access_key_id, :s3_secret_access_key, presence: true
+
+    add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :cache_for
 
     def s3_prefix=(value)
       @s3_prefix = value.to_s.gsub(%r{^/|/$}, "")
@@ -51,6 +51,10 @@ module EasyML
 
     def in_batches(&block)
       synced_directory.in_batches(&block)
+    end
+
+    def should_sync?
+      synced_directory.should_sync?
     end
 
     def refresh
@@ -118,14 +122,6 @@ module EasyML
         polars_args: polars_args,
         cache_for: cache_for
       )
-    end
-
-    def store_in_configuration
-      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose, :is_syncing, :schema, :columns, :num_rows)
-    end
-
-    def read_from_configuration
-      super(:s3_bucket, :s3_prefix, :s3_region, :cache_for, :polars_args, :verbose, :is_syncing, :schema, :columns, :num_rows)
     end
 
     def track_sync

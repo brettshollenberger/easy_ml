@@ -7,6 +7,7 @@
 #  datasource_type :string
 #  root_dir        :string
 #  configuration   :json
+#  statistics      :json
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -38,6 +39,8 @@ module EasyML
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
     attr_accessor :schema, :columns, :num_rows
+
+    add_configuration_attributes :schema, :columns, :num_rows, :polars_args, :verbose, :is_syncing
 
     def self.constants
       {

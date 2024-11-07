@@ -3,70 +3,23 @@ import { X, Settings2, AlertCircle, Target, EyeOff, Search } from 'lucide-react'
 import { PreprocessingConfig } from './PreprocessingConfig';
 import { ColumnList } from './ColumnList';
 import { ColumnFilters } from './ColumnFilters';
-import type { Column } from '../../types';
+import type { Column, PreprocessingStep } from '../../types';
 
 interface ColumnConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   columns: Column[];
-  onSave: (config: ColumnConfiguration) => void;
-  existingConfig?: ColumnConfiguration;
+  onSave: (updates: { columnId: number; updates: Partial<Column> }[]) => void;
+  constants: any;
 }
-
-export interface ColumnConfiguration {
-  trainingColumns: string[];
-  targetColumn?: string;
-  dropIfNull: string[];
-  preprocessing: {
-    [columnName: string]: {
-      training: PreprocessingStrategy;
-      inference?: PreprocessingStrategy;
-      useDistinctInference: boolean;
-    };
-  };
-}
-
-export type PreprocessingStrategy = {
-  method: 'mean' | 'median' | 'forward_fill' | 'most_frequent' | 'categorical' | 'constant' | 'today' | 'label';
-  params?: {
-    constantValue?: string | number;
-    minInstancesForCategory?: number;
-    oneHotEncode?: boolean;
-    clip?: {
-      min?: number;
-      max?: number;
-    };
-    labelMapping?: {
-      [key: string]: number;
-    };
-  };
-  statistics?: {
-    meanValue?: number;
-    medianValue?: number;
-    mostFrequentValue?: string | number;
-    categories?: string[];
-    otherExamples?: string[];
-    lastKnownValue?: string | number;
-    uniqueValues?: string[];
-    nullCount?: number;
-    affectedRows?: { id: number; values: Record<string, any> }[];
-  };
-};
 
 export function ColumnConfigModal({ 
   isOpen, 
   onClose, 
   columns, 
   onSave,
-  constants,
-  existingConfig 
+  constants
 }: ColumnConfigModalProps) {
-  const [config, setConfig] = useState<ColumnConfiguration>(existingConfig || {
-    trainingColumns: columns.map(c => c.name),
-    dropIfNull: [],
-    preprocessing: {}
-  });
-
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<{
@@ -82,15 +35,14 @@ export function ColumnConfigModal({
       const matchesSearch = column.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = activeFilters.types.length === 0 || activeFilters.types.includes(column.datatype);
       
-      // View-specific filtering
       const matchesView = (() => {
         switch (activeFilters.view) {
           case 'training':
-            return config.trainingColumns.includes(column.name) && !config.dropIfNull.includes(column.name);
+            return !column.hidden && !column.drop_if_null;
           case 'hidden':
-            return config.dropIfNull.includes(column.name);
+            return column.hidden;
           case 'preprocessed':
-            return !!config.preprocessing[column.name];
+            return column.preprocessing_steps != null;
           case 'nulls':
             return (column.statistics?.null_count || 0) > 0;
           default:
@@ -100,16 +52,16 @@ export function ColumnConfigModal({
       
       return matchesSearch && matchesType && matchesView;
     });
-  }, [columns, searchQuery, activeFilters, config]);
+  }, [columns, searchQuery, activeFilters]);
 
   const columnStats = useMemo(() => ({
     total: columns.length,
     filtered: filteredColumns.length,
-    training: config.trainingColumns.filter(c => !config.dropIfNull.includes(c)).length,
-    hidden: config.dropIfNull.length,
-    withPreprocessing: Object.keys(config.preprocessing).length,
+    training: columns.filter(c => !c.hidden && !c.drop_if_null).length,
+    hidden: columns.filter(c => c.hidden).length,
+    withPreprocessing: columns.filter(c => c.preprocessing_steps != null).length,
     withNulls: columns.filter(c => (c.statistics?.null_count || 0) > 0).length
-  }), [columns, filteredColumns, config]);
+  }), [columns, filteredColumns]);
 
   const columnTypes = useMemo(() => 
     Array.from(new Set(columns.map(c => c.datatype))),
@@ -121,81 +73,49 @@ export function ColumnConfigModal({
   };
 
   const toggleTrainingColumn = (columnName: string) => {
-    if (columnName === config.targetColumn) return;
+    const column = columns.find(c => c.name === columnName);
+    if (!column) return;
 
-    setConfig(prev => ({
-      ...prev,
-      trainingColumns: prev.trainingColumns.includes(columnName)
-        ? prev.trainingColumns.filter(c => c !== columnName)
-        : [...prev.trainingColumns, columnName]
-    }));
+    onSave([{
+      columnId: column.id,
+      updates: { hidden: !column.hidden }
+    }]);
   };
 
   const toggleHiddenColumn = (columnName: string) => {
-    setConfig(prev => ({
-      ...prev,
-      dropIfNull: prev.dropIfNull.includes(columnName)
-        ? prev.dropIfNull.filter(c => c !== columnName)
-        : [...prev.dropIfNull, columnName]
-    }));
-  };
+    const column = columns.find(c => c.name === columnName);
+    if (!column) return;
 
-  const setTargetColumn = (columnName: string | undefined) => {
-    setConfig(prev => {
-      const trainingColumns = columnName 
-        ? [...new Set([...prev.trainingColumns, columnName])]
-        : prev.trainingColumns;
-
-      return {
-        ...prev,
-        targetColumn: columnName,
-        trainingColumns,
-        preprocessing: {
-          ...prev.preprocessing,
-          ...(columnName && {
-            [columnName]: {
-              training: {
-                method: 'label',
-                params: {
-                  labelMapping: {},
-                },
-                statistics: {
-                  uniqueValues: columns.find(c => c.name === columnName)?.statistics?.unique_count 
-                    ? Array(columns.find(c => c.name === columnName)?.statistics?.unique_count).fill('').map((_, i) => `Value ${i + 1}`)
-                    : []
-                }
-              },
-              useDistinctInference: false
-            }
-          })
-        }
-      };
-    });
+    onSave([{
+      columnId: column.id,
+      updates: { drop_if_null: !column.drop_if_null }
+    }]);
   };
 
   const handlePreprocessingUpdate = (
     columnName: string,
-    training: PreprocessingStrategy,
-    inference: PreprocessingStrategy | undefined,
+    training: PreprocessingStep,
+    inference: PreprocessingStep | undefined,
     useDistinctInference: boolean
   ) => {
-    setConfig(prev => ({
-      ...prev,
-      preprocessing: {
-        ...prev.preprocessing,
-        [columnName]: {
+    const column = columns.find(c => c.name === columnName);
+    if (!column) return;
+
+    onSave([{
+      columnId: column.id,
+      updates: {
+        preprocessing_steps: {
           training,
           inference,
           useDistinctInference
         }
       }
-    }));
+    }]);
   };
 
   if (!isOpen) return null;
 
   const selectedColumnData = selectedColumn ? columns.find(c => c.name === selectedColumn) : null;
-  const selectedColumnConfig = selectedColumn ? config.preprocessing[selectedColumn] : undefined;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -224,37 +144,17 @@ export function ColumnConfigModal({
 
         <div className="grid grid-cols-7 h-[calc(90vh-4rem)]">
           <div className="col-span-3 border-r overflow-hidden flex flex-col">
-            <div className="p-4 border-b">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Column
-              </label>
-              <select
-                value={config.targetColumn || ''}
-                onChange={(e) => setTargetColumn(e.target.value || undefined)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                <option value="">Select target column...</option>
-                {columns.map(column => (
-                  <option key={column.name} value={column.name}>
-                    {column.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <ColumnFilters
               types={columnTypes}
               activeFilters={activeFilters}
               onFilterChange={setActiveFilters}
               columnStats={columnStats}
               columns={columns}
-              config={config}
             />
 
             <div className="flex-1 overflow-y-auto p-4">
               <ColumnList
                 columns={filteredColumns}
-                config={config}
                 selectedColumn={selectedColumn}
                 onColumnSelect={handleColumnSelect}
                 onToggleTraining={toggleTrainingColumn}
@@ -268,10 +168,8 @@ export function ColumnConfigModal({
               <PreprocessingConfig
                 column={selectedColumnData}
                 constants={constants}
-                config={selectedColumnConfig}
-                isTarget={selectedColumn === config.targetColumn}
                 onUpdate={(training, inference, useDistinctInference) => 
-                  handlePreprocessingUpdate(selectedColumn, training, inference, useDistinctInference)
+                  handlePreprocessingUpdate(selectedColumn!, training, inference, useDistinctInference)
                 }
               />
             ) : (
@@ -284,7 +182,7 @@ export function ColumnConfigModal({
 
         <div className="border-t p-4 flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            {config.trainingColumns.length} columns selected for training
+            {columns.filter(c => !c.hidden).length} columns selected for training
           </div>
           <div className="flex gap-3">
             <button
@@ -294,13 +192,10 @@ export function ColumnConfigModal({
               Cancel
             </button>
             <button
-              onClick={() => {
-                onSave(config);
-                onClose();
-              }}
+              onClick={onClose}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
-              Save Configuration
+              Close
             </button>
           </div>
         </div>

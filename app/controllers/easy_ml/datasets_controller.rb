@@ -36,6 +36,7 @@ module EasyML
 
     def create
       dataset = Dataset.new(dataset_params.to_h)
+      dataset.workflow_status = "analyzing"
 
       if dataset.save
         dataset.refresh_async

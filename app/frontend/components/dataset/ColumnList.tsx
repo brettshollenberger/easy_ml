@@ -1,11 +1,10 @@
 import React from 'react';
 import { Settings2, AlertCircle, Target, EyeOff, Eye } from 'lucide-react';
 import type { Column } from '../../types';
-import type { ColumnConfiguration } from './ColumnConfigModal';
+import { usePage } from "@inertiajs/react";
 
 interface ColumnListProps {
   columns: Column[];
-  config: ColumnConfiguration;
   selectedColumn: string | null;
   onColumnSelect: (columnName: string) => void;
   onToggleTraining: (columnName: string) => void;
@@ -14,12 +13,13 @@ interface ColumnListProps {
 
 export function ColumnList({
   columns,
-  config,
   selectedColumn,
   onColumnSelect,
   onToggleTraining,
   onToggleHidden
 }: ColumnListProps) {
+  const { rootPath } = usePage().props;
+
   return (
     <div className="space-y-2">
       {columns.map(column => (
@@ -28,37 +28,37 @@ export function ColumnList({
           className={`p-3 rounded-lg border ${
             selectedColumn === column.name
               ? 'border-blue-500 bg-blue-50'
-              : column.name === config.targetColumn
+              : column.is_target
               ? 'border-purple-500 bg-purple-50'
-              : config.dropIfNull.includes(column.name)
+              : column.hidden
               ? 'border-gray-200 bg-gray-50'
               : 'border-gray-200 hover:border-gray-300'
           } transition-colors duration-150`}
         >
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              {column.name === config.targetColumn && (
+              {column.is_target && (
                 <Target className="w-4 h-4 text-purple-500" />
               )}
-              <span className={`font-medium ${config.dropIfNull.includes(column.name) ? 'text-gray-500' : 'text-gray-900'}`}>
+              <span className={`font-medium ${column.hidden ? 'text-gray-500' : 'text-gray-900'}`}>
                 {column.name}
               </span>
               <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
-                {column.type}
+                {column.datatype}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              {column.name !== config.targetColumn && (
+              {!column.is_target && (
                 <button
-                  onClick={() => onToggleHidden(column.name)}
+                  onClick={() => onToggleHidden(column)}
                   className={`p-1 rounded hover:bg-gray-100 ${
-                    config.dropIfNull.includes(column.name)
+                    column.hidden
                       ? 'text-gray-500'
                       : 'text-gray-400 hover:text-gray-600'
                   }`}
-                  title={config.dropIfNull.includes(column.name) ? 'Show column' : 'Hide column'}
+                  title={column.hidden ? 'Show column' : 'Hide column'}
                 >
-                  {config.dropIfNull.includes(column.name) ? (
+                  {column.hidden ? (
                     <EyeOff className="w-4 h-4" />
                   ) : (
                     <Eye className="w-4 h-4" />
@@ -75,19 +75,14 @@ export function ColumnList({
             </div>
           </div>
           <div className="text-sm text-gray-500">
-            {column.description && (
-              <p className={`mb-1 line-clamp-1 ${config.dropIfNull.includes(column.name) ? 'text-gray-400' : ''}`}>
-                {column.description}
-              </p>
-            )}
             <div className="flex flex-wrap gap-2">
-              {config.preprocessing[column.name] && (
+              {column.preprocessing_steps && (
                 <div className="flex items-center gap-1 text-blue-600">
                   <AlertCircle className="w-3 h-3" />
                   <span className="text-xs">Preprocessing configured</span>
                 </div>
               )}
-              {config.dropIfNull.includes(column.name) && column.statistics?.nullCount && (
+              {column.hidden && (
                 <div className="flex items-center gap-1 text-gray-400">
                   <EyeOff className="w-3 h-3" />
                   <span className="text-xs">Hidden from training</span>

@@ -20,6 +20,7 @@ export function ColumnConfigModal({
   onSave,
   constants
 }: ColumnConfigModalProps) {
+  const [config, setConfig] = useState({});
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<{
@@ -88,9 +89,28 @@ export function ColumnConfigModal({
 
     onSave([{
       columnId: column.id,
-      updates: { drop_if_null: !column.drop_if_null }
+      updates: { hidden: !column.hidden }
     }]);
   };
+
+  const setTargetColumn = (columnName: string) => {
+    setConfig({
+      targetColumn: columnName
+    });
+
+    let prevTarget = columns.find(c => c.is_target === true);
+    const column = columns.find(c => c.name === columnName);
+    if (!column) return;
+
+    onSave([{
+      columnId: column.id,
+      updates: { is_target: true }
+    }, {
+      columnId: prevTarget?.id,
+      updates: { is_target: false }
+    }]);
+
+  }
 
   const handlePreprocessingUpdate = (
     columnName: string,
@@ -144,6 +164,23 @@ export function ColumnConfigModal({
 
         <div className="grid grid-cols-7 h-[calc(90vh-4rem)]">
           <div className="col-span-3 border-r overflow-hidden flex flex-col">
+            <div className="p-4 border-b">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Target Column
+              </label>
+              <select
+                value={config.targetColumn || ''}
+                onChange={(e) => setTargetColumn(e.target.value || undefined)}
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="">Select target column...</option>
+                {columns.map(column => (
+                  <option key={column.name} value={column.name}>
+                    {column.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             <ColumnFilters
               types={columnTypes}
               activeFilters={activeFilters}

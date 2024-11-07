@@ -1,7 +1,8 @@
-import React from 'react';
-import { Filter, Database, Wrench, Eye, EyeOff, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Filter, Database, Wrench, Eye, EyeOff, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Column } from '../../types';
 
+const ITEMS_PER_PAGE = 5;
 interface ColumnFiltersProps {
   types: string[];
   activeFilters: {
@@ -44,7 +45,7 @@ export function ColumnFilters({
       filtered: filteredColumns.length,
       training: filteredColumns.filter(col => !col.hidden).length,
       hidden: filteredColumns.filter(col => col.hidden).length,
-      withPreprocessing: filteredColumns.filter(col => col.preprocessing != null).length,
+      withPreprocessing: filteredColumns.filter(col => col.preprocessing_steps != null).length,
       withNulls: filteredColumns.filter(col => 
         col.statistics?.null_count && col.statistics.null_count > 0
       ).length
@@ -72,6 +73,17 @@ export function ColumnFilters({
     if (!column.statistics?.null_count || !column.statistics?.count) return 0;
     return (column.statistics.null_count / column.statistics.count) * 100;
   };
+
+  const columnsWithNulls = columns
+    .filter(col => col.statistics?.null_count && col.statistics.null_count > 0)
+    .sort((a, b) => calculateNullPercentage(b) - calculateNullPercentage(a));
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(columnsWithNulls.length / ITEMS_PER_PAGE);
+  const paginatedColumns = columnsWithNulls.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const toggleType = (type: string) => {
     onFilterChange({
@@ -209,27 +221,53 @@ export function ColumnFilters({
           </div>
         )}
 
-        {activeFilters.view === 'nulls' && (
+        {activeFilters.view === 'nulls' && columnsWithNulls.length > 0 && (
           <div className="bg-yellow-50 rounded-lg p-3">
-            <h4 className="text-sm font-medium text-yellow-900 mb-2">Null Value Distribution</h4>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-yellow-900">Null Value Distribution</h4>
+              <div className="flex items-center gap-2 text-sm text-yellow-700">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 rounded hover:bg-yellow-100 disabled:opacity-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1 rounded hover:bg-yellow-100 disabled:opacity-50"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
             <div className="space-y-2">
-              {columns
-                .filter(col => col.statistics?.null_count && col.statistics.null_count > 0)
-                .sort((a, b) => calculateNullPercentage(b) - calculateNullPercentage(a))
-                .map(col => (
-                  <div key={col.name} className="flex items-center gap-2">
-                    <span className="text-yellow-800 text-sm min-w-[120px]">{col.name}</span>
-                    <div className="flex-1 h-2 bg-yellow-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-yellow-400 rounded-full"
-                        style={{ width: `${calculateNullPercentage(col)}%` }}
-                      />
-                    </div>
+              {paginatedColumns.map(col => (
+                <div key={col.name} className="flex items-center gap-2">
+                  <span className="text-yellow-800 text-sm min-w-[120px]">{col.name}</span>
+                  <div className="flex-1 h-2 bg-yellow-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-yellow-400 rounded-full"
+                      style={{ width: `${calculateNullPercentage(col)}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
                     <span className="text-yellow-800 text-xs">
                       {calculateNullPercentage(col).toFixed(1)}% null
                     </span>
+                    <span className="text-yellow-600 text-xs">
+                      ({col.statistics?.nullCount?.toLocaleString()} / {col.statistics?.rowCount?.toLocaleString()})
+                    </span>
                   </div>
-                ))}
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 text-sm text-yellow-700">
+              {columnsWithNulls.length} columns contain null values
             </div>
           </div>
         )}

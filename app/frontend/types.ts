@@ -112,6 +112,7 @@ export interface Column {
   datatype: ColumnType;
   drop_if_null: boolean;
   hidden: boolean;
+  is_target: boolean;
   statistics?: {
     count?: number;
     max?: number;

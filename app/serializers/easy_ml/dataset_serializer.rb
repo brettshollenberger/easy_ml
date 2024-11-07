@@ -30,7 +30,9 @@ module EasyML
     end
 
     attribute :columns do |dataset|
-      ColumnSerializer.new(dataset).serializable_hash.dig(:data, :attributes)
+      dataset.columns.map do |column|
+        ColumnSerializer.new(column).serializable_hash.dig(:data, :attributes)
+      end
     end
 
     attribute :sample_data do |dataset|

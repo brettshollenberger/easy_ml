@@ -21,7 +21,6 @@ interface ColumnFiltersProps {
     withNulls: number;
   };
   columns: Column[];
-  config: any; // Using ColumnConfiguration type from parent
 }
 
 export function ColumnFilters({
@@ -29,9 +28,51 @@ export function ColumnFilters({
   activeFilters,
   onFilterChange,
   columnStats,
-  columns,
-  config
+  columns
 }: ColumnFiltersProps) {
+  const getFilteredColumns = () => {
+    return columns.filter(col => 
+      activeFilters.types.length === 0 || activeFilters.types.includes(col.datatype)
+    );
+  };
+
+  const getFilteredStats = () => {
+    const filteredColumns = getFilteredColumns();
+    
+    return {
+      total: filteredColumns.length,
+      filtered: filteredColumns.length,
+      training: filteredColumns.filter(col => !col.hidden).length,
+      hidden: filteredColumns.filter(col => col.hidden).length,
+      withPreprocessing: filteredColumns.filter(col => col.preprocessing != null).length,
+      withNulls: filteredColumns.filter(col => 
+        col.statistics?.null_count && col.statistics.null_count > 0
+      ).length
+    };
+  };
+
+  const filteredStats = getFilteredStats();
+
+  const getViewStats = (view: typeof activeFilters.view) => {
+    switch (view) {
+      case 'training':
+        return `${filteredStats.training} columns`;
+      case 'hidden':
+        return `${filteredStats.hidden} columns`;
+      case 'preprocessed':
+        return `${filteredStats.withPreprocessing} columns`;
+      case 'nulls':
+        return `${filteredStats.withNulls} columns`;
+      default:
+        return `${filteredStats.total} columns`;
+    }
+  };
+
+  const calculateNullPercentage = (column: Column) => {
+    if (!column.statistics?.null_count || !column.statistics?.count) return 0;
+    return (column.statistics.null_count / column.statistics.count) * 100;
+  };
+
   const toggleType = (type: string) => {
     onFilterChange({
       ...activeFilters,
@@ -39,26 +80,6 @@ export function ColumnFilters({
         ? activeFilters.types.filter(t => t !== type)
         : [...activeFilters.types, type]
     });
-  };
-
-  const getViewStats = (view: typeof activeFilters.view) => {
-    switch (view) {
-      case 'training':
-        return `${columnStats.training} columns`;
-      case 'hidden':
-        return `${columnStats.hidden} columns`;
-      case 'preprocessed':
-        return `${columnStats.withPreprocessing} columns`;
-      case 'nulls':
-        return `${columnStats.withNulls} columns`;
-      default:
-        return `${columnStats.total} columns`;
-    }
-  };
-
-  const calculateNullPercentage = (column: Column) => {
-    if (!column.statistics?.null_count || !column.statistics?.count) return 0;
-    return (column.statistics.null_count / column.statistics.count) * 100;
   };
 
   return (
@@ -69,7 +90,7 @@ export function ColumnFilters({
           Column Views
         </h3>
         <div className="text-sm text-gray-500">
-          Showing {columnStats.filtered} of {columnStats.total} columns
+          Showing {filteredStats.filtered} of {columnStats.total} columns
         </div>
       </div>
 
@@ -170,18 +191,17 @@ export function ColumnFilters({
           </div>
         </div>
 
-        {/* View-specific information */}
         {activeFilters.view === 'preprocessed' && (
           <div className="bg-blue-50 rounded-lg p-3">
             <h4 className="text-sm font-medium text-blue-900 mb-2">Preprocessing Overview</h4>
             <div className="space-y-2">
               {columns
-                .filter(col => config.preprocessing[col.name])
+                .filter(col => col.preprocessing != null)
                 .map(col => (
                   <div key={col.name} className="flex items-center justify-between text-sm">
                     <span className="text-blue-800">{col.name}</span>
                     <span className="text-blue-600">
-                      {config.preprocessing[col.name].training.method}
+                      {col.preprocessing?.training.method}
                     </span>
                   </div>
                 ))}

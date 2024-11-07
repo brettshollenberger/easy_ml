@@ -17,10 +17,21 @@
 #  updated_at          :datetime         not null
 #
 module EasyML
-  class ColumnSerializer
-    include JSONAPI::Serializer
+  class ColumnsController < ApplicationController
+    def update
+      @column = EasyML::Column.find(params[:id])
 
-    attributes :id, :name, :dataset_id, :datatype, :polars_datatype, :preprocessing_steps,
-               :hidden, :drop_if_null, :sample_values, :statistics
+      if @column.update(column_params)
+        head :ok
+      else
+        render json: { errors: @column.errors }, status: :unprocessable_entity
+      end
+    end
+
+    private
+
+    def column_params
+      params.require(:column).permit(:hidden)
+    end
   end
 end

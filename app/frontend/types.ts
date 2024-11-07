@@ -107,11 +107,11 @@ export type ColumnType =
   | 'categorical';
 
 export interface Column {
+  id: number;
   name: string;
   datatype: ColumnType;
   drop_if_null: boolean;
   hidden: boolean;
-  sample_values: any[];
   statistics?: {
     count?: number;
     max?: number;

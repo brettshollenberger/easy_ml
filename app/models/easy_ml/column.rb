@@ -8,6 +8,7 @@
 #  datatype            :string
 #  polars_datatype     :string
 #  preprocessing_steps :json
+#  is_target           :boolean
 #  hidden              :boolean          default(FALSE)
 #  drop_if_null        :boolean          default(FALSE)
 #  sample_values       :json

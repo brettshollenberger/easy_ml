@@ -23,4 +23,7 @@ EasyML::Engine.routes.draw do
   resources :settings, only: [:index] do
     patch :update, on: :collection
   end
+
+  # Columns
+  resources :columns, only: [:update], as: :easy_ml_columns
 end

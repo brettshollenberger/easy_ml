@@ -15,6 +15,7 @@ require "xgb"
 require "sidekiq"
 require "vite_ruby"
 require "rails/engine"
+require "activerecord-import"
 module EasyML
   class Engine < Rails::Engine
     isolate_namespace EasyML

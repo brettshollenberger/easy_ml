@@ -26,10 +26,11 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   spec.add_runtime_dependency "activerecord"
+  spec.add_runtime_dependency "activerecord-import", "~> 1.8.1"
   spec.add_runtime_dependency "activesupport"
   spec.add_runtime_dependency "awesome_print"
   spec.add_runtime_dependency "aws-sdk"
-  spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.32"
+  #spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.33"
   spec.add_runtime_dependency "inertia_rails"
   spec.add_runtime_dependency "jsonapi-serializer"
   spec.add_runtime_dependency "numo-narray"

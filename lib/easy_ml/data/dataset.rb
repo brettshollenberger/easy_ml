@@ -58,8 +58,6 @@ module EasyML
         super(Pathname.new(value).append("data").to_s)
       end
 
-      attribute :drop_if_null, :array, default: []
-
       # define_attr can also define default values, as well as argument helpers
       attribute :polars_args, :hash, default: {}
       def polars_args=(args)
@@ -79,8 +77,8 @@ module EasyML
         errors.add(:transforms, "Must respond to transform, try including EasyML::Data::Transforms")
       end
 
-      attribute :drop_cols, :array, default: []
       attribute :datasource
+      attribute :columns
 
       # dependency defines a configurable dependency, with optional args,
       # for example, here we define a datasource:
@@ -133,7 +131,6 @@ module EasyML
       #   }
       # end
       #
-      attribute :preprocessing_steps, :hash, default: {}
       dependency :preprocessor do |dependency|
         dependency.set_class EasyML::Data::Preprocessor
         dependency.bind_attribute :directory, source: :root_dir do |value|
@@ -321,6 +318,26 @@ module EasyML
 
       def decode_labels(ys, col: nil)
         preprocessor.decode_labels(ys, col: col.nil? ? target : col)
+      end
+
+      def preprocessing_steps
+        return if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
+        return @preprocessing_steps if @preprocessing_steps.present?
+
+        training = columns.map(&:name).zip(columns.map { |col| col.preprocessing_steps&.dig(:training) }).to_h.compact
+        inference = columns.map(&:name).zip(columns.map { |col| col.preprocessing_steps&.dig(:inference) }).to_h.compact
+        @preprocessing_steps = {
+          training: training,
+          inference: inference
+        }.compact
+      end
+
+      def drop_cols
+        @drop_cols ||= columns.select(&:hidden).map(&:name)
+      end
+
+      def drop_if_null
+        @drop_if_null ||= columns.select(&:drop_if_null).map(&:name)
       end
 
       private

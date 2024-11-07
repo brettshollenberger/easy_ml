@@ -39,6 +39,8 @@ module EasyML
                class_name: "EasyML::Datasource"
 
     has_many :models, class_name: "EasyML::Model"
+    has_many :columns, class_name: "EasyML::Column", dependent: :destroy
+
     before_destroy :cleanup!
 
     # Maybe copy attrs over from training to prod when marking is_live, so we keep 1 for training and one for live?
@@ -64,10 +66,6 @@ module EasyML
       datasource&.statistics
     end
 
-    def columns
-      datasource&.columns
-    end
-
     def schema
       datasource&.schema
     end
@@ -85,10 +83,44 @@ module EasyML
 
       update(workflow_status: "analyzing")
       dataset_service.refresh
+      sync_columns
       update(workflow_status: "ready")
     rescue StandardError => e
       update(workflow_status: "failed")
       raise e
+    end
+
+    def sync_columns
+      return unless schema.present?
+
+      EasyML::Column.transaction do
+        col_names = schema.keys
+        columns.where.not(name: col_names).delete_all # Delete missing columns
+        existing_columns = columns.where(name: col_names)
+        new_columns = col_names - existing_columns.map(&:name)
+        cols_to_insert = new_columns.map do |col_name|
+          EasyML::Column.new(
+            name: col_name,
+            dataset_id: id
+          )
+        end
+        EasyML::Column.import(cols_to_insert)
+        columns_to_update = columns.where(name: col_names)
+        stats = statistics
+        cached_sample = sample
+        polars_types = sample.columns.zip(sample.dtypes).to_h
+        columns_to_update.each do |column|
+          column.assign_attributes(
+            statistics: stats[column.name],
+            datatype: schema[column.name],
+            polars_datatype: polars_types[column.name],
+            sample_values: cached_sample[column.name][0...5].to_a
+          )
+        end
+        EasyML::Column.import(columns_to_update.to_a,
+                              { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
+                                                                       sample_values] } })
+      end
     end
   end
 end

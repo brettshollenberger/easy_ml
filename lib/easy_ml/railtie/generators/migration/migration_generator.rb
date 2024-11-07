@@ -30,6 +30,7 @@ module EasyML
         def create_migration_files
           create_easy_ml_datasource_migration
           create_easy_ml_datasets_migration
+          create_easy_ml_columns_migration
           create_easy_ml_models_migration
           create_easy_ml_model_files_migration
           create_easy_ml_tuner_jobs_migration
@@ -94,6 +95,13 @@ module EasyML
           migration_template(
             "create_easy_ml_events.rb.tt",
             "db/migrate/create_easy_ml_events.rb"
+          )
+        end
+
+        def create_easy_ml_columns_migration
+          migration_template(
+            "create_easy_ml_columns.rb.tt",
+            "db/migrate/create_easy_ml_columns.rb"
           )
         end
 

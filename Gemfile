@@ -8,7 +8,7 @@ gemspec
 gem "annotate"
 gem "awesome_print"
 gem "aws-sdk", "~> 3.1"
-gem "glue_gun_dsl", "~> 0.1.32"
+gem "glue_gun_dsl", path: "/Users/brettshollenberger/programming/glue_gun_dsl" #"~> 0.1.33"
 gem "inertia_rails", require: false
 gem "jsonapi-serializer"
 gem "numpy", "~> 0.4.0"

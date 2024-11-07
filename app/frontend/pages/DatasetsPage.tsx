@@ -30,6 +30,7 @@ const STATUS_STYLES: Record<DatasetWorkflowStatus, { bg: string; text: string; i
 };
 
 export default function DatasetsPage({ datasets, constants }: Props) {
+  console.log(datasets)
   const { rootPath } = usePage().props;
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);

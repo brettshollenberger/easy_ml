@@ -3,10 +3,10 @@ PATH
   specs:
     easy_ml (0.1.8)
       activerecord
+      activerecord-import (~> 1.8.1)
       activesupport
       awesome_print
       aws-sdk
-      glue_gun_dsl (~> 0.1.32)
       inertia_rails
       jsonapi-serializer
       numo-narray
@@ -24,6 +24,15 @@ PATH
       vite_rails
       wandb (~> 0.1.9)
       xgb
+
+PATH
+  remote: /Users/brettshollenberger/programming/glue_gun_dsl
+  specs:
+    glue_gun_dsl (0.1.33)
+      activemodel (>= 6, < 8)
+      activerecord (>= 6, < 8)
+      activesupport (>= 6, < 8)
+      awesome_print
 
 GEM
   remote: https://rubygems.org/
@@ -81,6 +90,8 @@ GEM
       activemodel (= 7.2.2)
       activesupport (= 7.2.2)
       timeout (>= 0.4.0)
+    activerecord-import (1.8.1)
+      activerecord (>= 4.2)
     activestorage (7.2.2)
       actionpack (= 7.2.2)
       activejob (= 7.2.2)
@@ -1702,11 +1713,6 @@ GEM
     formatador (1.1.0)
     globalid (1.2.1)
       activesupport (>= 6.1)
-    glue_gun_dsl (0.1.32)
-      activemodel (>= 6, < 8)
-      activerecord (>= 6, < 8)
-      activesupport (>= 6, < 8)
-      awesome_print
     guard (2.19.0)
       formatador (>= 0.2.4)
       listen (>= 2.7, < 4.0)
@@ -1938,7 +1944,7 @@ DEPENDENCIES
   combustion
   database_cleaner-active_record
   easy_ml!
-  glue_gun_dsl (~> 0.1.32)
+  glue_gun_dsl!
   guard
   inertia_rails
   jsonapi-serializer

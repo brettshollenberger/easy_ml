@@ -1,3 +1,5 @@
+require_relative "./column_serializer"
+
 # == Schema Information
 #
 # Table name: easy_ml_datasets
@@ -19,18 +21,23 @@ module EasyML
   class DatasetSerializer
     include JSONAPI::Serializer
 
-    attributes :name, :description, :target
-
-    attribute :datasource_id do |dataset|
-      dataset.datasource.id
-    end
-
-    attribute :preprocessing_steps do |dataset|
-      dataset.preprocessing_steps
-    end
+    attributes :id, :name, :description, :target, :num_rows, :status,
+               :datasource_id, :preprocessing_steps
 
     attribute :splitter do |dataset|
       dataset.splitter
+    end
+
+    attribute :columns do |dataset|
+      ColumnSerializer.new(dataset).serializable_hash.dig(:data, :attributes)
+    end
+
+    attribute :sample_data do |dataset|
+      dataset.data(limit: 10).to_hashes
+    end
+
+    attribute :updated_at do |dataset|
+      dataset.datasource&.last_updated_at
     end
   end
 end

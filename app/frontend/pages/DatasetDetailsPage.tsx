@@ -1,22 +1,17 @@
 import React, { useState } from 'react';
-// import { useParams } from 'react-router-dom';
+import { usePage } from '@inertiajs/react';
 import { Settings } from 'lucide-react';
 import { DatasetPreview } from '../components/DatasetPreview';
 import { ColumnConfigModal } from '../components/dataset/ColumnConfigModal';
-import { mockDatasets } from '../mockData';
+import type { Dataset } from '../types/dataset';
 
-export default function DatasetDetailsPage() {
-  const { id } = useParams();
-  const dataset = datasets.find(d => d.id === Number(id));
+interface Props {
+  dataset: Dataset;
+}
+
+export default function DatasetDetailsPage({ dataset }: Props) {
   const [showColumnConfig, setShowColumnConfig] = useState(false);
-
-  if (!dataset) {
-    return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900">Dataset not found</h2>
-      </div>
-    );
-  }
+  const { rootPath } = usePage().props;
 
   return (
     <div className="p-8 space-y-6">

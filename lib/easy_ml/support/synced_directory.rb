@@ -21,7 +21,7 @@ module EasyML
         clean_dir!
       end
 
-      def should_sync?(force)
+      def should_sync?(force = false)
         force || !synced?
       end
 

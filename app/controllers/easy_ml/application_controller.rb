@@ -8,6 +8,15 @@ module EasyML
 
     protect_from_forgery with: :exception
 
+    before_action :hot_reload
+    def hot_reload
+      return unless Rails.env.development? && ENV["EASY_ML_DEMO_APP"]
+
+      Dir[EasyML::Engine.root.join("lib/**/*")].select { |f| Pathname.new(f).extname == ".rb" }.each do |file|
+        load file
+      end
+    end
+
     def easy_ml_root
       Rails.application.routes.routes.find { |r| r.app.app == EasyML::Engine }&.path&.spec&.to_s
     end

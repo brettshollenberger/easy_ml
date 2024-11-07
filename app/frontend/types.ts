@@ -108,8 +108,17 @@ export type ColumnType =
 
 export interface Column {
   name: string;
-  type: ColumnType;
+  datatype: ColumnType;
+  drop_if_null: boolean;
+  hidden: boolean;
+  sample_values: any[];
   statistics?: {
+    count?: number;
+    max?: number;
+    min?: number;
+    mean?: number;
+    median?: number;
+    std?: number;
     sample?: any[];
     unique_count?: number;
     null_count?: number;
@@ -127,3 +136,10 @@ export interface PreprocessingConstants {
     categorical: Array<{ value: string; label: string }>;
   };
 }
+
+export type PreprocessingStrategy = {
+  method: 'none' | 'mean' | 'median' | 'most_frequent' | 'constant' | 'categorical' | 'label' | 'today';
+  params?: {
+    // ... existing params ...
+  };
+};

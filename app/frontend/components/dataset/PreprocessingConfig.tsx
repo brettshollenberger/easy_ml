@@ -29,29 +29,31 @@ export function PreprocessingConfig({
   onUpdate,
   constants 
 }: PreprocessingConfigProps) {
-  const [selectedType, setSelectedType] = useState<ColumnType>(column.type);
+  console.log(`CONSTANTS`)
+  console.log(constants)
+  const [selectedType, setSelectedType] = useState<ColumnType>(column.datatype);
   const [useDistinctInference, setUseDistinctInference] = useState(
     config?.useDistinctInference ?? false
   );
   
   const [training, setTraining] = useState<PreprocessingStrategy>(() => ({
     ...config?.training || { 
-      method: isTarget ? 'label' : 'mean',
+      method: isTarget ? 'label' : 'none',
       params: isTarget ? { 
         labelMapping: {},
-        threshold: isNumericType(column.type) ? 0 : undefined
+        threshold: isNumericType(column.datatype) ? 0 : undefined
       } : undefined
     }
   }));
   
   const [inference, setInference] = useState<PreprocessingStrategy>(() => ({
-    ...config?.inference || { method: 'today' }
+    ...config?.inference || { method: 'none' }
   }));
 
   // Update selectedType when column changes
   useEffect(() => {
-    setSelectedType(column.type);
-  }, [column.type]);
+    setSelectedType(column.datatype);
+  }, [column.datatype]);
 
   const handleStrategyChange = (
     type: 'training' | 'inference',
@@ -155,6 +157,7 @@ export function PreprocessingConfig({
                   onChange={(e) => handleStrategyChange('training', e.target.value as PreprocessingStrategy['method'])}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
+                  <option value="none">No preprocessing</option>
                   {constants.preprocessing_strategies[selectedType]?.map(strategy => (
                     <option key={strategy.value} value={strategy.value}>
                       {strategy.label}
@@ -224,6 +227,7 @@ export function PreprocessingConfig({
                     onChange={(e) => handleStrategyChange('inference', e.target.value as PreprocessingStrategy['method'])}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   >
+                    <option value="none">No preprocessing</option>
                     {constants.preprocessing_strategies[selectedType]?.map(strategy => (
                       <option key={strategy.value} value={strategy.value}>
                         {strategy.label}
@@ -235,7 +239,7 @@ export function PreprocessingConfig({
             </div>
           </div>
 
-          {isNumericType(selectedType) && (
+          {isNumericType(selectedType) && training.method !== 'none' && (
             <div className="border-t pt-4">
               <h4 className="text-sm font-medium text-gray-900 mb-2">Clip Values</h4>
               <div className="grid grid-cols-2 gap-4">
@@ -317,8 +321,8 @@ export function PreprocessingConfig({
               <div className="bg-gray-50 rounded-md p-4 space-y-2">
                 {column.statistics?.sample?.slice(0, 3).map((value, index) => (
                   <div key={index} className="text-sm text-gray-600">
-                    {/* Show processed value based on strategy */}
-                    {training.method === 'mean' ? '123.45' :
+                    {training.method === 'none' ? String(value) :
+                     training.method === 'mean' ? '123.45' :
                      training.method === 'median' ? '100.00' :
                      training.method === 'most_frequent' ? 'most common value' :
                      training.method === 'constant' ? training.params?.constantValue :

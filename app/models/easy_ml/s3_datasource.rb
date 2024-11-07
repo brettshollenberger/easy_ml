@@ -54,6 +54,8 @@ module EasyML
     end
 
     def refresh
+      return unless synced_directory.should_sync?
+
       track_sync do
         synced_directory.sync
       end
@@ -130,7 +132,7 @@ module EasyML
 
     def track_sync
       before_sync
-      result = yield
+      yield
       after_sync
       result
     end

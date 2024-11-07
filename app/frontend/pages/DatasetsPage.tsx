@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { Database, Plus, Trash2, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
@@ -26,7 +26,7 @@ const STATUS_STYLES: Record<DatasetWorkflowStatus, { bg: string; text: string; i
     bg: 'bg-red-100',
     text: 'text-red-800',
     icon: <AlertCircle className="w-4 h-4" />
-  }
+  },
 };
 
 export default function DatasetsPage({ datasets, constants }: Props) {
@@ -52,6 +52,28 @@ export default function DatasetsPage({ datasets, constants }: Props) {
       router.delete(`${rootPath}/datasets/${datasetId}`);
     }
   };
+
+  useEffect(() => {
+    let pollInterval: number | undefined;
+
+    const isAnyAnalyzing = datasets.some(d => d.workflow_status === 'analyzing');
+
+    if (isAnyAnalyzing) {
+      pollInterval = window.setInterval(() => {
+        router.get(window.location.href, {}, {
+          preserveScroll: true,
+          preserveState: true,
+          only: ['datasets']
+        });
+      }, 2000);
+    }
+
+    return () => {
+      if (pollInterval) {
+        window.clearInterval(pollInterval);
+      }
+    };
+  }, [datasets]);
 
   if (datasets.length === 0) {
     return (
@@ -134,8 +156,12 @@ export default function DatasetsPage({ datasets, constants }: Props) {
                     <div className="flex gap-2">
                       <Link
                         href={`${rootPath}/datasets/${dataset.id}`}
-                        className="text-gray-400 hover:text-blue-600 transition-colors"
-                        title="View details"
+                        className={`transition-colors ${
+                          dataset.workflow_status === 'analyzing'
+                            ? 'text-gray-300 cursor-not-allowed pointer-events-none'
+                            : 'text-gray-400 hover:text-blue-600'
+                        }`}
+                        title={dataset.workflow_status === 'analyzing' ? 'Dataset is being analyzed' : 'View details'}
                       >
                         <ExternalLink className="w-5 h-5" />
                       </Link>

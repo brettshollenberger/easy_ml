@@ -31,6 +31,7 @@ module EasyML
                class_name: "EasyML::Datasource"
 
     has_many :models, class_name: "EasyML::Model"
+    before_destroy :cleanup!
 
     # Maybe copy attrs over from training to prod when marking is_live, so we keep 1 for training and one for live?
     #
@@ -46,6 +47,10 @@ module EasyML
           }
         end
       }
+    end
+
+    def cleanup!
+      FileUtils.rm_rf(File.join(root_dir, "data"))
     end
 
     def statistics

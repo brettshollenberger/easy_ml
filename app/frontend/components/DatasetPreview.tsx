@@ -29,7 +29,7 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
           </div>
           <p className="text-gray-600 mt-1">{dataset.description}</p>
           <p className="text-sm text-gray-500 mt-2">
-            {dataset.num_rows.toLocaleString()} rows • {dataset.columns.length} columns • Last updated{' '}
+            {dataset.num_rows.toLocaleString()} rows • {dataset.columns.length} columns • Last synced{' '}
             {new Date(dataset.updated_at).toLocaleDateString()}
           </p>
         </div>

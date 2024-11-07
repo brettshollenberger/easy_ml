@@ -33,7 +33,7 @@ module EasyML
     end
 
     attribute :sample_data do |dataset|
-      dataset.data(limit: 10).to_hashes
+      dataset.sample&.to_hashes
     end
 
     attribute :updated_at do |dataset|

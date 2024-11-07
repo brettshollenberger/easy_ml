@@ -80,7 +80,7 @@ export function ColumnConfigModal({
   const filteredColumns = useMemo(() => {
     return columns.filter(column => {
       const matchesSearch = column.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = activeFilters.types.length === 0 || activeFilters.types.includes(column.type);
+      const matchesType = activeFilters.types.length === 0 || activeFilters.types.includes(column.datatype);
       
       // View-specific filtering
       const matchesView = (() => {
@@ -92,7 +92,7 @@ export function ColumnConfigModal({
           case 'preprocessed':
             return !!config.preprocessing[column.name];
           case 'nulls':
-            return (column.statistics?.nullCount || 0) > 0;
+            return (column.statistics?.null_count || 0) > 0;
           default:
             return true;
         }
@@ -108,11 +108,11 @@ export function ColumnConfigModal({
     training: config.trainingColumns.filter(c => !config.dropIfNull.includes(c)).length,
     hidden: config.dropIfNull.length,
     withPreprocessing: Object.keys(config.preprocessing).length,
-    withNulls: columns.filter(c => (c.statistics?.nullCount || 0) > 0).length
+    withNulls: columns.filter(c => (c.statistics?.null_count || 0) > 0).length
   }), [columns, filteredColumns, config]);
 
   const columnTypes = useMemo(() => 
-    Array.from(new Set(columns.map(c => c.type))),
+    Array.from(new Set(columns.map(c => c.datatype))),
     [columns]
   );
 
@@ -160,8 +160,8 @@ export function ColumnConfigModal({
                   labelMapping: {},
                 },
                 statistics: {
-                  uniqueValues: columns.find(c => c.name === columnName)?.statistics?.uniqueCount 
-                    ? Array(columns.find(c => c.name === columnName)?.statistics?.uniqueCount).fill('').map((_, i) => `Value ${i + 1}`)
+                  uniqueValues: columns.find(c => c.name === columnName)?.statistics?.unique_count 
+                    ? Array(columns.find(c => c.name === columnName)?.statistics?.unique_count).fill('').map((_, i) => `Value ${i + 1}`)
                     : []
                 }
               },
@@ -267,6 +267,7 @@ export function ColumnConfigModal({
             {selectedColumnData ? (
               <PreprocessingConfig
                 column={selectedColumnData}
+                constants={constants}
                 config={selectedColumnConfig}
                 isTarget={selectedColumn === config.targetColumn}
                 onUpdate={(training, inference, useDistinctInference) => 

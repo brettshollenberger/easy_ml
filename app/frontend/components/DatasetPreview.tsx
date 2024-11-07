@@ -61,7 +61,7 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-gray-900">{column.name}</h4>
                     <span className="text-xs font-medium text-gray-500 px-2 py-1 bg-gray-200 rounded-full">
-                      {column.type}
+                      {column.datatype}
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{column.description}</p>

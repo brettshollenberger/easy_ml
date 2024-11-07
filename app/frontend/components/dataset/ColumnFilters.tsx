@@ -57,8 +57,8 @@ export function ColumnFilters({
   };
 
   const calculateNullPercentage = (column: Column) => {
-    if (!column.statistics?.nullCount || !column.statistics?.rowCount) return 0;
-    return (column.statistics.nullCount / column.statistics.rowCount) * 100;
+    if (!column.statistics?.null_count || !column.statistics?.count) return 0;
+    return (column.statistics.null_count / column.statistics.count) * 100;
   };
 
   return (
@@ -194,7 +194,7 @@ export function ColumnFilters({
             <h4 className="text-sm font-medium text-yellow-900 mb-2">Null Value Distribution</h4>
             <div className="space-y-2">
               {columns
-                .filter(col => col.statistics?.nullCount && col.statistics.nullCount > 0)
+                .filter(col => col.statistics?.null_count && col.statistics.null_count > 0)
                 .sort((a, b) => calculateNullPercentage(b) - calculateNullPercentage(a))
                 .map(col => (
                   <div key={col.name} className="flex items-center gap-2">

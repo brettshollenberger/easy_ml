@@ -10,6 +10,7 @@ class CreateEasyMLDatasets < ActiveRecord::Migration[6.0]
       t.string :root_dir
       t.json :configuration
       t.bigint :num_rows
+      t.string :workflow_status
 
       t.timestamps
 
@@ -19,6 +20,7 @@ class CreateEasyMLDatasets < ActiveRecord::Migration[6.0]
       t.index [:name, :status]
       t.index :datasource_id
       t.index :dataset_type
+      t.index :workflow_status
     end
   end
 end

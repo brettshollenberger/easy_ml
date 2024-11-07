@@ -7,6 +7,10 @@ module EasyML
         self.filter_attributes += [:configuration]
         class_attribute :type_map, instance_writer: false
         class_attribute :sti_column_name, instance_writer: false
+        class_attribute :configuration_attributes, instance_writer: false, default: []
+
+        after_initialize :read_from_configuration
+        before_save :store_in_configuration
       end
 
       class_methods do
@@ -14,7 +18,6 @@ module EasyML
           self.inheritance_column = column_name
           self.sti_column_name = column_name
 
-          # Dynamically define the setter method
           define_method("#{column_name}=") do |value|
             write_sti_type(value)
           end
@@ -25,13 +28,9 @@ module EasyML
         end
 
         def find_sti_class(type_name)
-          # If it's already a valid STI type, use it directly
           return "#{module_parent_name}::#{type_name}".constantize if type_name.in?(type_map.values)
 
-          # Convert to symbol for lookup
           type_key = type_name.to_s.underscore.to_sym
-
-          # Use the mapped class name if it exists, otherwise use the original
           normalized_type = type_map[type_key] || type_name
 
           "#{module_parent_name}::#{normalized_type}".constantize
@@ -39,6 +38,10 @@ module EasyML
 
         def sti_name
           name.demodulize
+        end
+
+        def add_configuration_attributes(*attrs)
+          self.configuration_attributes += attrs
         end
       end
 
@@ -52,17 +55,14 @@ module EasyML
 
       def normalize_type
         return if @type_value.nil?
-        return if @type_value.in?(self.class.type_map.values) # Already normalized
+        return if @type_value.in?(self.class.type_map.values)
 
-        # Convert symbol to string if needed
         type_key = @type_value.to_sym if @type_value.respond_to?(:to_sym)
-
-        # Map the friendly type to the STI type if it exists in our mapping
         @type_value = self.class.type_map[type_key] if self.class.type_map.key?(type_key)
       end
 
-      def store_in_configuration(*attrs)
-        attrs.each do |attr|
+      def store_in_configuration
+        self.class.configuration_attributes.each do |attr|
           value = instance_variable_get("@#{attr}") || try(attr)
           next if value.nil?
 
@@ -70,10 +70,10 @@ module EasyML
         end
       end
 
-      def read_from_configuration(*attrs)
+      def read_from_configuration
         return unless configuration
 
-        attrs.each do |attr|
+        self.class.configuration_attributes.each do |attr|
           next unless configuration.key?(attr.to_s)
 
           instance_variable_set("@#{attr}", configuration[attr.to_s])

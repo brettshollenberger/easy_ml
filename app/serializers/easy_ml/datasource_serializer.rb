@@ -7,6 +7,7 @@
 #  datasource_type :string
 #  root_dir        :string
 #  configuration   :json
+#  statistics      :json
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #

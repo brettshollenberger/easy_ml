@@ -1,15 +1,33 @@
 import React, { useState, useMemo } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { Database, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Database, Plus, Trash2, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
-import { Dataset } from "@types/dataset";
+import { Dataset, DatasetWorkflowStatus } from "@types/dataset";
 interface Props {
   datasets: Dataset[];
 }
 
 const ITEMS_PER_PAGE = 6;
+
+const STATUS_STYLES: Record<DatasetWorkflowStatus, { bg: string; text: string; icon: React.ReactNode }> = {
+  analyzing: {
+    bg: 'bg-blue-100',
+    text: 'text-blue-800',
+    icon: <Loader2 className="w-4 h-4 animate-spin" />
+  },
+  ready: {
+    bg: 'bg-green-100',
+    text: 'text-green-800',
+    icon: null
+  },
+  failed: {
+    bg: 'bg-red-100',
+    text: 'text-red-800',
+    icon: <AlertCircle className="w-4 h-4" />
+  }
+};
 
 export default function DatasetsPage({ datasets, constants }: Props) {
   const { rootPath } = usePage().props;
@@ -99,9 +117,15 @@ export default function DatasetsPage({ datasets, constants }: Props) {
                     <div className="flex items-start gap-3">
                       <Database className="w-5 h-5 text-blue-600 mt-1" />
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {dataset.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {dataset.name}
+                          </h3>
+                          <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[dataset.workflow_status].bg} ${STATUS_STYLES[dataset.workflow_status].text}`}>
+                            {STATUS_STYLES[dataset.workflow_status].icon}
+                            <span>{dataset.workflow_status.charAt(0).toUpperCase() + dataset.workflow_status.slice(1)}</span>
+                          </div>
+                        </div>
                         <p className="text-sm text-gray-500 mt-1">
                           {dataset.description}
                         </p>

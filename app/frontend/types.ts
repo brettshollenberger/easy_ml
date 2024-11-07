@@ -14,20 +14,6 @@ export type ThresholdDirection = 'minimize' | 'maximize';
 //   updatedAt: string;
 // }
 
-export interface Column {
-  name: string;
-  type: 'numeric' | 'categorical' | 'datetime' | 'text';
-  description?: string;
-  statistics?: {
-    mean?: number;
-    median?: number;
-    min?: number;
-    max?: number;
-    uniqueCount?: number;
-    nullCount?: number;
-  };
-}
-
 export interface Transformation {
   id: number;
   name: string;

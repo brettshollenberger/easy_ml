@@ -4,16 +4,6 @@ export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
 
-// export interface Dataset {
-//   id: number;
-//   name: string;
-//   description: string;
-//   columns: Column[];
-//   sampleData: Record<string, any>[];
-//   rowCount: number;
-//   updatedAt: string;
-// }
-
 export interface Transformation {
   id: number;
   name: string;
@@ -106,4 +96,34 @@ export interface RetrainingRun {
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+export type ColumnType = 
+  | 'float' 
+  | 'integer' 
+  | 'boolean' 
+  | 'datetime' 
+  | 'string' 
+  | 'categorical';
+
+export interface Column {
+  name: string;
+  type: ColumnType;
+  statistics?: {
+    sample?: any[];
+    unique_count?: number;
+    null_count?: number;
+  };
+}
+
+export interface PreprocessingConstants {
+  column_types: Array<{ value: ColumnType; label: string }>;
+  preprocessing_strategies: {
+    float: Array<{ value: string; label: string }>;
+    integer: Array<{ value: string; label: string }>;
+    boolean: Array<{ value: string; label: string }>;
+    datetime: Array<{ value: string; label: string }>;
+    string: Array<{ value: string; label: string }>;
+    categorical: Array<{ value: string; label: string }>;
+  };
 }

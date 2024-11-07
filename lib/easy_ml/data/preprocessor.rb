@@ -300,5 +300,44 @@ module EasyML::Data
         value
       end
     end
+
+    PREPROCESSING_STRATEGIES = {
+      float: [
+        { value: "mean", label: "Mean" },
+        { value: "median", label: "Median" },
+        { value: "forward_fill", label: "Forward Fill" },
+        { value: "constant", label: "Constant Value" },
+        { value: "clip", label: "Clip Values" }
+      ],
+      integer: [
+        { value: "mean", label: "Mean" },
+        { value: "median", label: "Median" },
+        { value: "forward_fill", label: "Forward Fill" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      boolean: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      datetime: [
+        { value: "forward_fill", label: "Forward Fill" },
+        { value: "constant", label: "Constant Value" },
+        { value: "today", label: "Current Date" }
+      ],
+      string: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      categorical: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ]
+    }.freeze
+
+    def self.constants
+      {
+        preprocessing_strategies: PREPROCESSING_STRATEGIES
+      }
+    end
   end
 end

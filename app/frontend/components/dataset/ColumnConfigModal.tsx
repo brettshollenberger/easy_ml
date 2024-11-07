@@ -58,6 +58,7 @@ export function ColumnConfigModal({
   onClose, 
   columns, 
   onSave,
+  constants,
   existingConfig 
 }: ColumnConfigModalProps) {
   const [config, setConfig] = useState<ColumnConfiguration>(existingConfig || {

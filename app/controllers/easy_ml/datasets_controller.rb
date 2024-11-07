@@ -59,7 +59,8 @@ module EasyML
       dataset = Dataset.find(params[:id])
 
       render inertia: "pages/DatasetDetailsPage", props: {
-        dataset: dataset_to_json(dataset)
+        dataset: dataset_to_json(dataset),
+        constants: Dataset.constants
       }
     end
 

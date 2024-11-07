@@ -80,7 +80,8 @@ module EasyML
 
       puts "Converting to Parquet..."
 
-      Parallel.each(csv_files, in_threads: 8) do |path|
+      # Parallel.each(csv_files, in_threads: 8) do |path|
+      csv_files.each do |path|
         puts path
         df = read_file(path)
         df = cast(df)

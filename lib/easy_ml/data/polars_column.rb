@@ -52,8 +52,6 @@ module EasyML
                       end
 
           polars_type ? sym_to_polars(type_name) : type_name
-        rescue StandardError => e
-          binding.pry
         end
 
         # Determines if a string field is a date, text, or categorical

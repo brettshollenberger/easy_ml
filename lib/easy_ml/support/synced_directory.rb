@@ -15,8 +15,14 @@ module EasyML
       attribute :polars_args, :hash, default: {}
 
       def before_sync
+        return unless should_sync?(force)
+
         mk_dir
         clean_dir!
+      end
+
+      def should_sync?(force)
+        force || !synced?
       end
 
       def after_sync
@@ -28,7 +34,7 @@ module EasyML
       end
 
       def sync(force: false, parallel: true)
-        return unless should_sync?(force)
+        return false unless should_sync?(force)
 
         files = files_to_sync
 
@@ -37,6 +43,7 @@ module EasyML
         else
           files.each { |object| download_file(object) }
         end
+        true
       end
 
       def files_to_sync
@@ -122,10 +129,7 @@ module EasyML
       end
 
       def normalize
-        reader.refresh = true
-        reader.normalize.tap do
-          reader.refresh = false
-        end
+        reader.normalize
       end
 
       def mk_dir
@@ -203,10 +207,6 @@ module EasyML
         end
 
         s3_latest.in_time_zone(EST)
-      end
-
-      def should_sync?(force)
-        force || !synced?
       end
     end
   end

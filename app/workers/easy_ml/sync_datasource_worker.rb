@@ -42,7 +42,7 @@ module EasyML
     end
 
     def on_complete(status, options)
-      return if status.success
+      return if status == "success"
 
       options.symbolize_keys!
 

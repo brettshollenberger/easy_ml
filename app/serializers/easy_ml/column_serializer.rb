@@ -17,28 +17,9 @@
 #
 module EasyML
   class ColumnSerializer
-    attr_accessor :model
+    include JSONAPI::Serializer
 
-    def initialize(model)
-      @model = model
-    end
-
-    def serializable_hash
-      schema = model.schema
-      model.columns
-      stats = model.statistics
-
-      {
-        data: {
-          attributes: schema.map do |col_name, col_type|
-            {
-              name: col_name,
-              type: col_type,
-              statistics: stats[col_name]
-            }
-          end
-        }
-      }
-    end
+    attributes :id, :name, :dataset_id, :datatype, :polars_datatype, :preprocessing_steps,
+               :hidden, :drop_if_null, :sample_values, :statistics
   end
 end

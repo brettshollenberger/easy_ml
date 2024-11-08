@@ -56,7 +56,7 @@ module EasyML
     private
 
     def sync_datasource(datasource)
-      return unless datasource.should_sync?
+      # return unless datasource.should_sync?
 
       datasource.before_sync
       files = datasource.files_to_sync

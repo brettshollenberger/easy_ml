@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { usePage } from '@inertiajs/react';
+import React, { useState, useCallback } from 'react';
+import { usePage, router } from '@inertiajs/react';
 import { Settings } from 'lucide-react';
+import { isEqual } from 'lodash';
 import { DatasetPreview } from '../components/DatasetPreview';
 import { ColumnConfigModal } from '../components/dataset/ColumnConfigModal';
-import type { Dataset } from '../types/dataset';
+import type { Dataset, Column } from '../types/dataset';
 import type { PreprocessingConstants } from '../types';
 
 interface Props {
@@ -13,8 +14,57 @@ interface Props {
 
 export default function DatasetDetailsPage({ dataset, constants }: Props) {
   const [showColumnConfig, setShowColumnConfig] = useState(false);
+  const [currentDataset, setCurrentDataset] = useState<Dataset>(dataset);
   const { rootPath } = usePage().props;
-  console.log(constants)
+
+  const onSave = useCallback((updatedDataset: Dataset) => {
+    // Find dataset-level changes
+    const datasetChanges = Object.entries(updatedDataset).reduce((acc, [key, value]) => {
+      if (key !== 'columns' && !isEqual(currentDataset[key as keyof Dataset], value)) {
+        acc[key as keyof Dataset] = value;
+      }
+      return acc;
+    }, {} as Partial<Dataset>);
+
+    // Find column changes
+    const columnChanges = updatedDataset.columns.reduce((acc, newColumn) => {
+      const oldColumn = currentDataset.columns.find(c => c.id === newColumn.id);
+      
+      if (!oldColumn || !isEqual(oldColumn, newColumn)) {
+        // Get only the changed fields for this column
+        const changedFields = Object.entries(newColumn).reduce((fields, [key, value]) => {
+          if (!oldColumn || !isEqual(oldColumn[key as keyof Column], value)) {
+            fields[key] = value;
+          }
+          return fields;
+        }, {} as Record<string, any>);
+
+        if (Object.keys(changedFields).length > 0) {
+          acc[newColumn.id] = {
+            ...changedFields,
+            id: newColumn.id
+          };
+        }
+      }
+      return acc;
+    }, {} as Record<number, Record<string, any>>);
+
+    // Only make the API call if there are actual changes
+    if (Object.keys(datasetChanges).length > 0 || Object.keys(columnChanges).length > 0) {
+      router.patch(`${rootPath}/datasets/${dataset.id}`, {
+        dataset: {
+          ...datasetChanges,
+          columns_attributes: columnChanges
+        }
+      }, {
+        preserveState: true,
+        preserveScroll: true
+      });
+    }
+
+    // Update local state
+    setCurrentDataset(updatedDataset);
+  }, [currentDataset, dataset.id, rootPath]);
 
   return (
     <div className="p-8 space-y-6">
@@ -28,17 +78,14 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
         </button>
       </div>
 
-      <DatasetPreview dataset={dataset} />
+      <DatasetPreview dataset={currentDataset} />
 
       <ColumnConfigModal
         isOpen={showColumnConfig}
         onClose={() => setShowColumnConfig(false)}
-        columns={dataset.columns}
+        initialDataset={currentDataset}
         constants={constants}
-        onSave={(config) => {
-          console.log('Saving column configuration:', config);
-          setShowColumnConfig(false);
-        }}
+        onSave={onSave}
       />
     </div>
   );

@@ -40,6 +40,7 @@ module EasyML
 
     has_many :models, class_name: "EasyML::Model"
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy
+    accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
     before_destroy :cleanup!
 

@@ -65,6 +65,24 @@ module EasyML
       }
     end
 
+    def update
+      dataset = Dataset.find(params[:id])
+
+      if dataset.update(dataset_params.to_h)
+        flash.now[:notice] = "Dataset configuration was successfully updated."
+        render inertia: "pages/DatasetDetailsPage", props: {
+          dataset: dataset_to_json(dataset),
+          constants: Dataset.constants
+        }
+      else
+        flash.now[:error] = dataset.errors.full_messages.join(", ")
+        render inertia: "pages/DatasetDetailsPage", props: {
+          dataset: dataset_to_json(dataset),
+          constants: Dataset.constants
+        }
+      end
+    end
+
     private
 
     def dataset_to_json(dataset)
@@ -88,9 +106,22 @@ module EasyML
         },
         splitter: {
           date: %i[date_col months_test months_valid]
-        }
-      ).merge!(
-        root_dir: EasyML::Datasource.find_by(id: params.dig(:dataset, :datasource_id)).root_dir
+        },
+        columns_attributes: [
+          :id,
+          :name,
+          :type,
+          :description,
+          :datatype,
+          :polars_datatype,
+          :is_target,
+          :hidden,
+          :drop_if_null,
+          :preprocessing_steps,
+          :sample_values,
+          :_destroy,
+          { statistics: %i[mean median min max null_count] }
+        ]
       )
     end
   end

@@ -32,16 +32,36 @@ export function ColumnFilters({
   columns
 }: ColumnFiltersProps) {
   const getFilteredColumns = () => {
-    return columns.filter(col => 
+    let filtered = columns.filter(col => 
       activeFilters.types.length === 0 || activeFilters.types.includes(col.datatype)
     );
+
+    // Apply view filters
+    switch (activeFilters.view) {
+      case 'training':
+        filtered = filtered.filter(col => !col.hidden);
+        break;
+      case 'hidden':
+        filtered = filtered.filter(col => col.hidden);
+        break;
+      case 'preprocessed':
+        filtered = filtered.filter(col => col.preprocessing_steps != null);
+        break;
+      case 'nulls':
+        filtered = filtered.filter(col => 
+          col.statistics?.null_count && col.statistics.null_count > 0
+        );
+        break;
+    }
+
+    return filtered;
   };
 
   const getFilteredStats = () => {
     const filteredColumns = getFilteredColumns();
     
     return {
-      total: filteredColumns.length,
+      total: columns.length,
       filtered: filteredColumns.length,
       training: filteredColumns.filter(col => !col.hidden).length,
       hidden: filteredColumns.filter(col => col.hidden).length,
@@ -102,7 +122,7 @@ export function ColumnFilters({
           Column Views
         </h3>
         <div className="text-sm text-gray-500">
-          Showing {filteredStats.filtered} of {columnStats.total} columns
+          Showing {filteredStats.filtered} of {filteredStats.total} columns
         </div>
       </div>
 

@@ -50,7 +50,7 @@ export function ColumnList({
             <div className="flex items-center gap-2">
               {!column.is_target && (
                 <button
-                  onClick={() => onToggleHidden(column)}
+                  onClick={() => onToggleHidden(column.name)}
                   className={`p-1 rounded hover:bg-gray-100 ${
                     column.hidden
                       ? 'text-gray-500'

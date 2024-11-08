@@ -99,13 +99,16 @@ export function ColumnConfigModal({
   };
 
   const toggleHiddenColumn = (columnName: string) => {
-    const column = dataset.columns.find(c => c.name === columnName);
-    if (!column) return;
+    console.log(columnName)
+    const updatedColumns = dataset.columns.map(c => ({
+      ...c,
+      hidden: c.name === columnName ? !c.hidden : c.hidden,
+    }));
 
-    onSave([{
-      columnId: column.id,
-      updates: { hidden: !column.hidden }
-    }]);
+    setDataset({
+      ...dataset,
+      columns: updatedColumns,
+    });
   };
 
   const setTargetColumn = (columnName: string) => {

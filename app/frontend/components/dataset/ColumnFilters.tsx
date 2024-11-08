@@ -223,17 +223,17 @@ export function ColumnFilters({
           </div>
         </div>
 
-        {activeFilters.view === 'preprocessed' && (
+        {activeFilters.view === 'preprocessed' && getFilteredStats().withPreprocessing > 0 && (
           <div className="bg-blue-50 rounded-lg p-3">
             <h4 className="text-sm font-medium text-blue-900 mb-2">Preprocessing Overview</h4>
             <div className="space-y-2">
               {columns
-                .filter(col => col.preprocessing != null)
+                .filter(col => col.preprocessing_steps != null)
                 .map(col => (
                   <div key={col.name} className="flex items-center justify-between text-sm">
                     <span className="text-blue-800">{col.name}</span>
                     <span className="text-blue-600">
-                      {col.preprocessing?.training.method}
+                      {col.preprocessing_steps?.training.method}
                     </span>
                   </div>
                 ))}

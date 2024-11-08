@@ -15,7 +15,6 @@ export function ColumnList({
   columns,
   selectedColumn,
   onColumnSelect,
-  onToggleTraining,
   onToggleHidden
 }: ColumnListProps) {
   const { rootPath } = usePage().props;

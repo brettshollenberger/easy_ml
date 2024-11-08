@@ -8,6 +8,8 @@ import { SearchableSelect } from '../SearchableSelect';
 import { useAutosave } from '../../hooks/useAutosave';
 import { Dataset, Column } from "../../types/dataset";
 import { PreprocessingStrategy } from "../../types";
+import type { PreprocessingStep } from '../../types/dataset';
+
 interface ColumnConfig {
   targetColumn?: string;
 }
@@ -88,18 +90,7 @@ export function ColumnConfigModal({
     setSelectedColumn(columnName);
   };
 
-  const toggleTrainingColumn = (columnName: string) => {
-    const column = dataset.columns.find(c => c.name === columnName);
-    if (!column) return;
-
-    onSave([{
-      columnId: column.id,
-      updates: { hidden: !column.hidden }
-    }]);
-  };
-
   const toggleHiddenColumn = (columnName: string) => {
-    console.log(columnName)
     const updatedColumns = dataset.columns.map(c => ({
       ...c,
       hidden: c.name === columnName ? !c.hidden : c.hidden,
@@ -125,25 +116,43 @@ export function ColumnConfigModal({
     });
   };
 
+  const setColumnType = (columnName: string, datatype: string) => {
+    const updatedColumns = dataset.columns.map(c => ({
+      ...c,
+      datatype: c.name === columnName ? datatype : c.datatype,
+    }));
+
+    setDataset({
+      ...dataset,
+      columns: updatedColumns,
+    });
+  };
+
   const handlePreprocessingUpdate = (
     columnName: string,
-    training: PreprocessingStrategy,
-    inference: PreprocessingStrategy | undefined,
+    training: PreprocessingStep,
+    inference: PreprocessingStep | undefined,
     useDistinctInference: boolean
   ) => {
     const column = dataset.columns.find(c => c.name === columnName);
     if (!column) return;
 
-    onSave([{
-      columnId: column.id,
-      updates: {
+    const updatedColumns = dataset.columns.map(c => {
+      if (c.name !== columnName) return c;
+      
+      return {
+        ...c,
         preprocessing_steps: {
           training,
-          inference,
-          useDistinctInference
+          ...(useDistinctInference && inference ? { inference } : {})
         }
-      }
-    }]);
+      };
+    });
+
+    setDataset({
+      ...dataset,
+      columns: updatedColumns
+    });
   };
 
   if (!isOpen) return null;
@@ -208,7 +217,6 @@ export function ColumnConfigModal({
                 columns={filteredColumns}
                 selectedColumn={selectedColumn}
                 onColumnSelect={handleColumnSelect}
-                onToggleTraining={toggleTrainingColumn}
                 onToggleHidden={toggleHiddenColumn}
               />
             </div>
@@ -218,10 +226,15 @@ export function ColumnConfigModal({
             {selectedColumnData ? (
               <PreprocessingConfig
                 column={selectedColumnData}
+                setColumnType={setColumnType}
                 constants={constants}
-                isTarget={selectedColumnData.is_target || false}
                 onUpdate={(training, inference, useDistinctInference) => 
-                  handlePreprocessingUpdate(selectedColumnData.name, training, inference, useDistinctInference)
+                  handlePreprocessingUpdate(
+                    selectedColumnData.name,
+                    training,
+                    inference,
+                    useDistinctInference
+                  )
                 }
               />
             ) : (

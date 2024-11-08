@@ -30,12 +30,19 @@ module EasyML::Data
                             base_stats[col.to_sym].keys
                           end
           stats[col].merge!(base_stats[col.to_sym].slice(*allowed_attrs))
-        when :categorical
-          stats[col].merge!(unique_count: series.n_unique)
+        when :categorical, :string, :text
+          stats[col].merge!(most_frequent_value: series.mode.to_a&.first)
+          if field_type == :categorical
+            stats[col].merge!(
+              unique_count: series.n_unique,
+              counts: Hash[series.value_counts.to_hashes.map(&:values)]
+            )
+          end
         when :datetime
-          # Only null count needed for datetime (already added above)
-        when :text
-          # Only null count needed for text (already added above)
+          stats[col].merge!(
+            unique_count: series.n_unique,
+            last_value: series.sort[-1]
+          )
         end
       end
     end

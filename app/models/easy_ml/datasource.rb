@@ -75,7 +75,9 @@ module EasyML
     end
 
     def learn_statistics
-      EasyML::Data::StatisticsLearner.learn(data)
+      update(
+        statistics: EasyML::Data::StatisticsLearner.learn(data)
+      )
     end
 
     def after_sync
@@ -86,7 +88,7 @@ module EasyML
       end
       self.columns = data.columns
       self.num_rows = data.shape[0]
-      self.statistics = learn_statistics
+      learn_statistics
       self.is_syncing = false
       save
     end

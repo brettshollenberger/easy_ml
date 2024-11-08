@@ -97,27 +97,3 @@ export interface RetrainingRun {
   createdAt: string;
   updatedAt: string;
 }
-export interface PreprocessingConstants {
-  column_types: Array<{ value: ColumnType; label: string }>;
-  preprocessing_strategies: {
-    float: Array<{ value: string; label: string }>;
-    integer: Array<{ value: string; label: string }>;
-    boolean: Array<{ value: string; label: string }>;
-    datetime: Array<{ value: string; label: string }>;
-    string: Array<{ value: string; label: string }>;
-    categorical: Array<{ value: string; label: string }>;
-  };
-}
-
-export type PreprocessingStrategy = {
-  method: 'none' | 'mean' | 'median' | 'forward_fill' | 'most_frequent' | 'categorical' | 'constant' | 'today' | 'label';
-  params?: {
-    categorical_min: number;
-    clip?: {
-      min?: number;
-      max?: number;
-    };
-    one_hot: boolean;
-    encode_labels: boolean;
-  };
-};

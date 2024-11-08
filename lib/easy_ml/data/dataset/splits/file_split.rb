@@ -45,8 +45,8 @@ module EasyML
             combined_lazy_df = combined_lazy_df.drop(drop_cols) unless drop_cols.empty?
 
             # Collect the DataFrame (execute the lazy operations)
+            combined_lazy_df = combined_lazy_df.limit(limit) if limit
             df = combined_lazy_df.collect
-            df = df.limit(limit) if limit
 
             split_features_targets(df, split_ys, target)
           end

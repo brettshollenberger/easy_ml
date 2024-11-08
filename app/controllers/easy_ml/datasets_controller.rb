@@ -35,9 +35,9 @@ module EasyML
     end
 
     def create
-      dataset = Dataset.new(dataset_params.to_h)
+      datasource = EasyML::Datasource.find_by(id: params.dig(:dataset, :datasource_id))
+      dataset = Dataset.new(dataset_params.to_h.merge!(root_dir: datasource.root_dir))
       dataset.workflow_status = "analyzing"
-      dataset.root_dir = dataset.datasource.root_dir
 
       if dataset.save
         dataset.refresh_async
@@ -74,7 +74,7 @@ module EasyML
         column_attrs[:preprocessing_steps] = nil if column_attrs.dig(:preprocessing_steps, :training, :method) == "none"
       end
 
-      if dataset.update(dataset_params.to_h)
+      if dataset.update(dataset_params)
         flash.now[:notice] = "Dataset configuration was successfully updated."
         render inertia: "pages/DatasetDetailsPage", props: {
           dataset: dataset_to_json(dataset),

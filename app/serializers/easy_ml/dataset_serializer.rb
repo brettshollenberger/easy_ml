@@ -36,7 +36,11 @@ module EasyML
     end
 
     attribute :sample_data do |dataset|
-      dataset.data(limit: 10, all_columns: true)&.to_hashes
+      if dataset.workflow_status.to_sym == :analyzing
+        nil
+      else
+        dataset.data(limit: 10, all_columns: true)&.to_hashes
+      end
     end
 
     attribute :updated_at do |dataset|

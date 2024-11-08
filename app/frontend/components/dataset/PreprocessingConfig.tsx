@@ -57,21 +57,49 @@ export function PreprocessingConfig({
   const handleColumnTypeChange = (newType: ColumnType) => {
     setSelectedType(newType);
     setColumnType(column.name, newType);
+
+    // Apply default preprocessing strategy based on the new column type
+    let defaultParams: PreprocessingStep['params'] = {};
+    let defaultMethod: PreprocessingStep['method'] = 'none';
+
+    if (newType === 'categorical') {
+        defaultParams = {
+            categorical_min: 100,
+            one_hot: true,
+        };
+        defaultMethod = 'categorical';
+    } else if (isNumericType(newType)) {
+        defaultMethod = 'none'; // or any other default method for numeric types
+    }
+
+    const newTrainingStrategy: PreprocessingStep = {
+        method: defaultMethod,
+        params: defaultParams
+    };
+
+    setTraining(newTrainingStrategy);
+    onUpdate(newTrainingStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
   };
 
   const handleStrategyChange = (
     type: 'training' | 'inference',
     method: PreprocessingStep['method']
   ) => {
-    // Initialize base params based on column type and target status
-    let defaultParams: PreprocessingStep['params'] = {}
+    let defaultParams: PreprocessingStep['params'] = {};
 
     if (selectedType === 'categorical') {
-      defaultParams = {
-        ...defaultParams,
-        categorical_min: 100,
-        one_hot: true
-      };
+      if (method === 'categorical') {
+        defaultParams = {
+          ...defaultParams,
+          categorical_min: 100,
+          one_hot: true
+        };
+      } else if (method != 'none') {
+        defaultParams = {
+          ...defaultParams,
+          one_hot: true
+        };
+      }
     }
 
     if (column.is_target) {
@@ -148,6 +176,29 @@ export function PreprocessingConfig({
     }
   };
 
+  const handleConstantValueChange = (
+    type: 'training' | 'inference',
+    value: string
+  ) => {
+    const strategy = type === 'training' ? training : inference;
+    const setStrategy = type === 'training' ? setTraining : setInference;
+
+    const newStrategy: PreprocessingStep = {
+      ...strategy,
+      params: {
+        ...strategy.params,
+        constantValue: value
+      }
+    };
+
+    setStrategy(newStrategy);
+    if (type === 'training') {
+      onUpdate(newStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
+    } else {
+      onUpdate(training, newStrategy, useDistinctInference);
+    }
+  };
+
   const renderConstantValueInput = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
     if (strategy.method !== 'constant') return null;
@@ -157,7 +208,7 @@ export function PreprocessingConfig({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           Constant Value
         </label>
-        {selectedType === 'numeric' ? (
+        {isNumericType(selectedType) ? (
           <input
             type="number"
             value={strategy.params?.constantValue ?? ''}
@@ -390,7 +441,7 @@ export function PreprocessingConfig({
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2">Original Data</h4>
               <div className="bg-gray-50 rounded-md p-4 space-y-2">
-                {column.statistics?.sample?.slice(0, 3).map((value, index) => (
+                {column.statistics?.sample?.slice(0, 3).map((value: any, index: number) => (
                   <div key={index} className="text-sm text-gray-600">
                     {String(value)}
                   </div>

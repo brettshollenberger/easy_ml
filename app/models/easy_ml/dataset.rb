@@ -96,7 +96,6 @@ module EasyML
 
       EasyML::Column.transaction do
         col_names = schema.keys
-        columns.where.not(name: col_names).delete_all # Delete missing columns
         existing_columns = columns.where(name: col_names)
         new_columns = col_names - existing_columns.map(&:name)
         cols_to_insert = new_columns.map do |col_name|
@@ -108,8 +107,8 @@ module EasyML
         EasyML::Column.import(cols_to_insert)
         columns_to_update = columns.where(name: col_names)
         stats = statistics
-        cached_sample = sample
-        polars_types = sample.columns.zip(sample.dtypes).to_h
+        cached_sample = data(limit: 10, all_columns: true)
+        polars_types = cached_sample.columns.zip(cached_sample.dtypes).to_h
         columns_to_update.each do |column|
           column.assign_attributes(
             statistics: stats[column.name],

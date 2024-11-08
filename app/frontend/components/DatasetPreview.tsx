@@ -9,7 +9,6 @@ interface DatasetPreviewProps {
 const STATS_PER_PAGE = 6;
 
 export function DatasetPreview({ dataset }: DatasetPreviewProps) {
-  console.log(dataset)
   const [showStats, setShowStats] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -67,7 +66,11 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                   <p className="text-sm text-gray-600 mb-3">{column.description}</p>
                   {column.statistics && (
                     <div className="space-y-1">
-                      {Object.entries(column.statistics).map(([key, value]) => (
+                      {Object.entries(column.statistics).map(([key, value]) => {
+                        if (key === "counts") { 
+                          return null;
+                        }
+                        return (
                         <div key={key} className="flex justify-between text-sm">
                           <span className="text-gray-500">
                             {key.charAt(0).toUpperCase() + key.slice(1)}:
@@ -80,7 +83,7 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                               value}
                           </span>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   )}
                 </div>

@@ -1,70 +1,78 @@
 import React, { useState, useEffect } from 'react';
 import { Settings2, AlertTriangle, Wrench, ArrowRight } from 'lucide-react';
-import type { Column, ColumnType, PreprocessingConstants } from '../../types';
-import type { PreprocessingStrategy } from './ColumnConfigModal';
+import type { Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
 
 interface PreprocessingConfigProps {
   column: Column;
-  config?: {
-    training: PreprocessingStrategy;
-    inference?: PreprocessingStrategy;
-    useDistinctInference: boolean;
-  };
-  isTarget: boolean;
+  setColumnType: (columnName: string, columnType: string) => void;
+  constants: PreprocessingConstants;
   onUpdate: (
-    training: PreprocessingStrategy, 
-    inference: PreprocessingStrategy | undefined,
+    training: PreprocessingStep,
+    inference: PreprocessingStep | undefined,
     useDistinctInference: boolean
   ) => void;
-  constants: PreprocessingConstants;
 }
 
 const isNumericType = (type: ColumnType): boolean => 
   type === 'float' || type === 'integer';
 
 export function PreprocessingConfig({ 
-  column, 
-  config, 
-  isTarget, 
-  onUpdate,
-  constants 
+  column,
+  setColumnType,
+  constants,
+  onUpdate 
 }: PreprocessingConfigProps) {
-  console.log(`CONSTANTS`)
-  console.log(constants)
-  const [selectedType, setSelectedType] = useState<ColumnType>(column.datatype);
   const [useDistinctInference, setUseDistinctInference] = useState(
-    config?.useDistinctInference ?? false
+    Boolean(column.preprocessing_steps?.inference?.method && 
+            column.preprocessing_steps.inference.method !== 'none')
   );
   
-  const [training, setTraining] = useState<PreprocessingStrategy>(() => ({
-    ...config?.training || { 
-      method: isTarget ? 'label' : 'none',
-      params: isTarget ? { 
-        labelMapping: {},
-        threshold: isNumericType(column.datatype) ? 0 : undefined
-      } : undefined
+  const [selectedType, setSelectedType] = useState<ColumnType>(column.datatype as ColumnType);
+  
+  const [training, setTraining] = useState<PreprocessingStep>(() => ({
+    method: column.preprocessing_steps?.training?.method || 'none',
+    params: {
+      categorical_min: column.preprocessing_steps?.training?.params?.categorical_min ?? 100,
+      one_hot: column.preprocessing_steps?.training?.params?.one_hot ?? true,
+      encode_labels: column.preprocessing_steps?.training?.params?.encode_labels ?? false,
+      clip: column.preprocessing_steps?.training?.params?.clip
     }
   }));
   
-  const [inference, setInference] = useState<PreprocessingStrategy>(() => ({
-    ...config?.inference || { method: 'none' }
+  const [inference, setInference] = useState<PreprocessingStep>(() => ({
+    method: column.preprocessing_steps?.inference?.method || 'none',
+    params: {
+      categorical_min: column.preprocessing_steps?.inference?.params?.categorical_min ?? 100,
+      one_hot: column.preprocessing_steps?.inference?.params?.one_hot ?? true,
+      encode_labels: column.preprocessing_steps?.inference?.params?.encode_labels ?? false,
+      clip: column.preprocessing_steps?.inference?.params?.clip
+    }
   }));
 
   // Update selectedType when column changes
   useEffect(() => {
-    setSelectedType(column.datatype);
+    setSelectedType(column.datatype as ColumnType);
   }, [column.datatype]);
+
+  const handleColumnTypeChange = (newType: ColumnType) => {
+    setSelectedType(newType);
+    setColumnType(column.name, newType);
+  };
 
   const handleStrategyChange = (
     type: 'training' | 'inference',
-    method: PreprocessingStrategy['method']
+    method: PreprocessingStep['method']
   ) => {
-    const newStrategy = {
+    // Initialize params with required fields
+    const defaultParams: PreprocessingStep['params'] = {
+      categorical_min: 100,
+      one_hot: true,
+      encode_labels: false
+    };
+
+    const newStrategy: PreprocessingStep = {
       method,
-      params: method === 'categorical' ? { 
-        oneHotEncode: true,
-        minInstancesForCategory: 100
-      } : undefined
+      params: defaultParams
     };
 
     if (type === 'training') {
@@ -74,6 +82,89 @@ export function PreprocessingConfig({
       setInference(newStrategy);
       onUpdate(training, newStrategy, useDistinctInference);
     }
+  };
+
+  // Update the categorical params section:
+  const handleCategoricalParamChange = (
+    type: 'training' | 'inference',
+    updates: Partial<PreprocessingStep['params']>
+  ) => {
+    const strategy = type === 'training' ? training : inference;
+    const setStrategy = type === 'training' ? setTraining : setInference;
+    
+    const newStrategy: PreprocessingStep = {
+      ...strategy,
+      params: {
+        categorical_min: strategy.params.categorical_min,
+        one_hot: strategy.params.one_hot,
+        encode_labels: strategy.params.encode_labels,
+        ...updates
+      }
+    };
+
+    setStrategy(newStrategy);
+    if (type === 'training') {
+      onUpdate(newStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
+    } else {
+      onUpdate(training, newStrategy, useDistinctInference);
+    }
+  };
+
+  // Update the numeric clipping section:
+  const handleClipChange = (
+    type: 'training' | 'inference',
+    clipUpdates: Partial<{ min?: number; max?: number }>
+  ) => {
+    const strategy = type === 'training' ? training : inference;
+    const setStrategy = type === 'training' ? setTraining : setInference;
+    
+    const newStrategy: PreprocessingStep = {
+      ...strategy,
+      params: {
+        ...strategy.params,
+        clip: {
+          ...strategy.params.clip,
+          ...clipUpdates
+        }
+      }
+    };
+
+    setStrategy(newStrategy);
+    if (type === 'training') {
+      onUpdate(newStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
+    } else {
+      onUpdate(training, newStrategy, useDistinctInference);
+    }
+  };
+
+  const renderConstantValueInput = (type: 'training' | 'inference') => {
+    const strategy = type === 'training' ? training : inference;
+    if (strategy.method !== 'constant') return null;
+
+    return (
+      <div className="mt-4">
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Constant Value
+        </label>
+        {selectedType === 'numeric' ? (
+          <input
+            type="number"
+            value={strategy.params?.constantValue ?? ''}
+            onChange={(e) => handleConstantValueChange(type, e.target.value)}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            placeholder="Enter a number..."
+          />
+        ) : (
+          <input
+            type="text"
+            value={strategy.params?.constantValue ?? ''}
+            onChange={(e) => handleConstantValueChange(type, e.target.value)}
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            placeholder="Enter a value..."
+          />
+        )}
+      </div>
+    );
   };
 
   return (
@@ -92,7 +183,7 @@ export function PreprocessingConfig({
             </label>
             <select
               value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value as ColumnType)}
+              onChange={(e) => handleColumnTypeChange(e.target.value as ColumnType)}
               className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             >
               {constants.column_types.map(type => (
@@ -154,7 +245,7 @@ export function PreprocessingConfig({
               <div>
                 <select
                   value={training.method}
-                  onChange={(e) => handleStrategyChange('training', e.target.value as PreprocessingStrategy['method'])}
+                  onChange={(e) => handleStrategyChange('training', e.target.value as PreprocessingStep['method'])}
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
                   <option value="none">No preprocessing</option>
@@ -165,45 +256,40 @@ export function PreprocessingConfig({
                   ))}
                 </select>
 
-                {training.method === 'categorical' && (
-                  <div className="mt-4 space-y-4">
+                {renderConstantValueInput('training')}
+
+                {(column.datatype === 'categorical' && training.method === 'categorical') && (
+                  <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Minimum Instances for Category
+                        Minimum Category Instances
                       </label>
                       <input
                         type="number"
-                        value={training.params?.minInstancesForCategory ?? 100}
-                        onChange={(e) => {
-                          const newTraining = {
-                            ...training,
-                            params: {
-                              ...training.params,
-                              minInstancesForCategory: parseInt(e.target.value)
-                            }
-                          };
-                          setTraining(newTraining);
-                          onUpdate(newTraining, useDistinctInference ? inference : undefined, useDistinctInference);
-                        }}
+                        min="1"
+                        value={training.params.categorical_min}
+                        onChange={(e) => handleCategoricalParamChange('training', {
+                          categorical_min: parseInt(e.target.value)
+                        })}
                         className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                       />
+                      <p className="mt-1 text-sm text-gray-500">
+                        Categories with fewer instances will be grouped as "OTHER"
+                      </p>
                     </div>
+                  </div>
+                )}
+
+                {(column.datatype === 'categorical' && training.method !== 'none') && (
+                  <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
                         id="oneHotEncode"
-                        checked={training.params?.oneHotEncode ?? true}
-                        onChange={(e) => {
-                          const newTraining = {
-                            ...training,
-                            params: {
-                              ...training.params,
-                              oneHotEncode: e.target.checked
-                            }
-                          };
-                          setTraining(newTraining);
-                          onUpdate(newTraining, useDistinctInference ? inference : undefined, useDistinctInference);
-                        }}
+                        checked={training.params.one_hot}
+                        onChange={(e) => handleCategoricalParamChange('training', {
+                          one_hot: e.target.checked
+                        })}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       <label htmlFor="oneHotEncode" className="text-sm text-gray-700">
@@ -224,7 +310,7 @@ export function PreprocessingConfig({
                   </div>
                   <select
                     value={inference.method}
-                    onChange={(e) => handleStrategyChange('inference', e.target.value as PreprocessingStrategy['method'])}
+                    onChange={(e) => handleStrategyChange('inference', e.target.value as PreprocessingStep['method'])}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   >
                     <option value="none">No preprocessing</option>
@@ -234,6 +320,8 @@ export function PreprocessingConfig({
                       </option>
                     ))}
                   </select>
+
+                  {renderConstantValueInput('inference')}
                 </div>
               )}
             </div>
@@ -251,18 +339,9 @@ export function PreprocessingConfig({
                     type="number"
                     value={training.params?.clip?.min ?? ''}
                     onChange={(e) => {
-                      const newTraining = {
-                        ...training,
-                        params: {
-                          ...training.params,
-                          clip: {
-                            ...training.params?.clip,
-                            min: e.target.value ? Number(e.target.value) : undefined
-                          }
-                        }
-                      };
-                      setTraining(newTraining);
-                      onUpdate(newTraining, useDistinctInference ? inference : undefined, useDistinctInference);
+                      handleClipChange('training', {
+                        min: e.target.value ? Number(e.target.value) : undefined
+                      });
                     }}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     placeholder="No minimum"
@@ -276,18 +355,9 @@ export function PreprocessingConfig({
                     type="number"
                     value={training.params?.clip?.max ?? ''}
                     onChange={(e) => {
-                      const newTraining = {
-                        ...training,
-                        params: {
-                          ...training.params,
-                          clip: {
-                            ...training.params?.clip,
-                            max: e.target.value ? Number(e.target.value) : undefined
-                          }
-                        }
-                      };
-                      setTraining(newTraining);
-                      onUpdate(newTraining, useDistinctInference ? inference : undefined, useDistinctInference);
+                      handleClipChange('training', {
+                        max: e.target.value ? Number(e.target.value) : undefined
+                      });
                     }}
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     placeholder="No maximum"

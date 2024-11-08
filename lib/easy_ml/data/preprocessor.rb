@@ -305,14 +305,11 @@ module EasyML::Data
       float: [
         { value: "mean", label: "Mean" },
         { value: "median", label: "Median" },
-        { value: "forward_fill", label: "Forward Fill" },
-        { value: "constant", label: "Constant Value" },
-        { value: "clip", label: "Clip Values" }
+        { value: "constant", label: "Constant Value" }
       ],
       integer: [
         { value: "mean", label: "Mean" },
         { value: "median", label: "Median" },
-        { value: "forward_fill", label: "Forward Fill" },
         { value: "constant", label: "Constant Value" }
       ],
       boolean: [
@@ -329,6 +326,7 @@ module EasyML::Data
         { value: "constant", label: "Constant Value" }
       ],
       categorical: [
+        { value: "categorical", label: "Categorical" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" }
       ]

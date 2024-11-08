@@ -21,6 +21,6 @@ module EasyML
     include JSONAPI::Serializer
 
     attributes :id, :name, :dataset_id, :datatype, :polars_datatype, :preprocessing_steps,
-               :hidden, :drop_if_null, :sample_values, :statistics
+               :hidden, :drop_if_null, :sample_values, :statistics, :is_target
   end
 end

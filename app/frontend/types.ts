@@ -97,35 +97,6 @@ export interface RetrainingRun {
   createdAt: string;
   updatedAt: string;
 }
-
-export type ColumnType = 
-  | 'float' 
-  | 'integer' 
-  | 'boolean' 
-  | 'datetime' 
-  | 'string' 
-  | 'categorical';
-
-export interface Column {
-  id: number;
-  name: string;
-  datatype: ColumnType;
-  drop_if_null: boolean;
-  hidden: boolean;
-  is_target: boolean;
-  statistics?: {
-    count?: number;
-    max?: number;
-    min?: number;
-    mean?: number;
-    median?: number;
-    std?: number;
-    sample?: any[];
-    unique_count?: number;
-    null_count?: number;
-  };
-}
-
 export interface PreprocessingConstants {
   column_types: Array<{ value: ColumnType; label: string }>;
   preprocessing_strategies: {
@@ -139,8 +110,14 @@ export interface PreprocessingConstants {
 }
 
 export type PreprocessingStrategy = {
-  method: 'none' | 'mean' | 'median' | 'most_frequent' | 'constant' | 'categorical' | 'label' | 'today';
+  method: 'none' | 'mean' | 'median' | 'forward_fill' | 'most_frequent' | 'categorical' | 'constant' | 'today' | 'label';
   params?: {
-    // ... existing params ...
+    categorical_min: number;
+    clip?: {
+      min?: number;
+      max?: number;
+    };
+    one_hot: boolean;
+    encode_labels: boolean;
   };
 };

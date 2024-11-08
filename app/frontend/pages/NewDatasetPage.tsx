@@ -3,7 +3,7 @@ import { Database, AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-r
 import { SearchableSelect } from '../components/SearchableSelect';
 import { useInertiaForm } from 'use-inertia-form';
 import { usePage, router } from '@inertiajs/react';
-import type { Dataset, Props } from '../types/dataset';
+import type { DatasetForm, Props } from '../types/dataset';
 
 export default function NewDatasetPage({ constants, datasources }: Props) {
   const [step, setStep] = useState(1);
@@ -11,7 +11,7 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
   const { rootPath } = usePage().props;
   const [availableCols, setAvailableCols] = useState<string[]>([]);
 
-  const form = useInertiaForm<Dataset>({
+  const form = useInertiaForm<DatasetForm>({
     dataset: {
       name: '',
       description: '',

@@ -1,14 +1,21 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { X, Settings2, AlertCircle, Target, EyeOff, Search } from 'lucide-react';
 import { PreprocessingConfig } from './PreprocessingConfig';
 import { ColumnList } from './ColumnList';
 import { ColumnFilters } from './ColumnFilters';
-import type { Column, PreprocessingStep } from '../../types';
+import { AutosaveIndicator } from './AutosaveIndicator';
+import { SearchableSelect } from '../SearchableSelect';
+import { useAutosave } from '../../hooks/useAutosave';
+import { Dataset, Column } from "../../types/dataset";
+import { PreprocessingStrategy } from "../../types";
+interface ColumnConfig {
+  targetColumn?: string;
+}
 
 interface ColumnConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  columns: Column[];
+  initialDataset: Dataset;
   onSave: (updates: { columnId: number; updates: Partial<Column> }[]) => void;
   constants: any;
 }
@@ -16,11 +23,13 @@ interface ColumnConfigModalProps {
 export function ColumnConfigModal({ 
   isOpen, 
   onClose, 
-  columns, 
+  initialDataset, 
   onSave,
   constants
 }: ColumnConfigModalProps) {
-  const [config, setConfig] = useState({});
+  const [dataset, setDataset] = useState<Dataset>(initialDataset);
+
+  const [config, setConfig] = useState<ColumnConfig>({ targetColumn: dataset.target });
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilters, setActiveFilters] = useState<{
@@ -31,8 +40,14 @@ export function ColumnConfigModal({
     types: []
   });
 
+  const handleSave = useCallback(async (data: Dataset) => {
+    await onSave(data);
+  }, [onSave]);
+
+  const { saving, saved, error } = useAutosave(dataset, handleSave, 2000);
+
   const filteredColumns = useMemo(() => {
-    return columns.filter(column => {
+    return dataset.columns.filter(column => {
       const matchesSearch = column.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = activeFilters.types.length === 0 || activeFilters.types.includes(column.datatype);
       
@@ -53,20 +68,20 @@ export function ColumnConfigModal({
       
       return matchesSearch && matchesType && matchesView;
     });
-  }, [columns, searchQuery, activeFilters]);
+  }, [dataset.columns, searchQuery, activeFilters]);
 
   const columnStats = useMemo(() => ({
-    total: columns.length,
+    total: dataset.columns.length,
     filtered: filteredColumns.length,
-    training: columns.filter(c => !c.hidden && !c.drop_if_null).length,
-    hidden: columns.filter(c => c.hidden).length,
-    withPreprocessing: columns.filter(c => c.preprocessing_steps != null).length,
-    withNulls: columns.filter(c => (c.statistics?.null_count || 0) > 0).length
-  }), [columns, filteredColumns]);
+    training: dataset.columns.filter(c => !c.hidden && !c.drop_if_null).length,
+    hidden: dataset.columns.filter(c => c.hidden).length,
+    withPreprocessing: dataset.columns.filter(c => c.preprocessing_steps != null).length,
+    withNulls: dataset.columns.filter(c => (c.statistics?.null_count || 0) > 0).length
+  }), [dataset.columns, filteredColumns]);
 
   const columnTypes = useMemo(() => 
-    Array.from(new Set(columns.map(c => c.datatype))),
-    [columns]
+    Array.from(new Set(dataset.columns.map(c => c.datatype))),
+    [dataset.columns]
   );
 
   const handleColumnSelect = (columnName: string) => {
@@ -74,7 +89,7 @@ export function ColumnConfigModal({
   };
 
   const toggleTrainingColumn = (columnName: string) => {
-    const column = columns.find(c => c.name === columnName);
+    const column = dataset.columns.find(c => c.name === columnName);
     if (!column) return;
 
     onSave([{
@@ -84,7 +99,7 @@ export function ColumnConfigModal({
   };
 
   const toggleHiddenColumn = (columnName: string) => {
-    const column = columns.find(c => c.name === columnName);
+    const column = dataset.columns.find(c => c.name === columnName);
     if (!column) return;
 
     onSave([{
@@ -94,31 +109,26 @@ export function ColumnConfigModal({
   };
 
   const setTargetColumn = (columnName: string) => {
-    setConfig({
-      targetColumn: columnName
+    const name = String(columnName);
+    setConfig({targetColumn: columnName})
+    const updatedColumns = dataset.columns.map(c => ({
+      ...c,
+      is_target: c.name === name,
+    }));
+
+    setDataset({
+      ...dataset,
+      columns: updatedColumns,
     });
-
-    let prevTarget = columns.find(c => c.is_target === true);
-    const column = columns.find(c => c.name === columnName);
-    if (!column) return;
-
-    onSave([{
-      columnId: column.id,
-      updates: { is_target: true }
-    }, {
-      columnId: prevTarget?.id,
-      updates: { is_target: false }
-    }]);
-
-  }
+  };
 
   const handlePreprocessingUpdate = (
     columnName: string,
-    training: PreprocessingStep,
-    inference: PreprocessingStep | undefined,
+    training: PreprocessingStrategy,
+    inference: PreprocessingStrategy | undefined,
     useDistinctInference: boolean
   ) => {
-    const column = columns.find(c => c.name === columnName);
+    const column = dataset.columns.find(c => c.name === columnName);
     if (!column) return;
 
     onSave([{
@@ -135,7 +145,7 @@ export function ColumnConfigModal({
 
   if (!isOpen) return null;
 
-  const selectedColumnData = selectedColumn ? columns.find(c => c.name === selectedColumn) : null;
+  const selectedColumnData = selectedColumn ? dataset.columns.find(c => c.name === selectedColumn) : null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -143,6 +153,9 @@ export function ColumnConfigModal({
         <div className="flex justify-between items-center p-4 border-b">
           <h2 className="text-lg font-semibold">Column Configuration</h2>
           <div className="flex items-center gap-4">
+            <div className="min-w-[0px]">
+              <AutosaveIndicator saving={saving} saved={saved} error={error} />
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
@@ -165,28 +178,26 @@ export function ColumnConfigModal({
         <div className="grid grid-cols-7 h-[calc(90vh-4rem)]">
           <div className="col-span-3 border-r overflow-hidden flex flex-col">
             <div className="p-4 border-b">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700">
                 Target Column
               </label>
-              <select
-                value={config.targetColumn || ''}
-                onChange={(e) => setTargetColumn(e.target.value || undefined)}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                <option value="">Select target column...</option>
-                {columns.map(column => (
-                  <option key={column.name} value={column.name}>
-                    {column.name}
-                  </option>
+              <SearchableSelect
+                options={dataset.columns.map(column => (
+                  {
+                    value: column.name,
+                    label: column.name
+                  }
                 ))}
-              </select>
+                value={config.targetColumn || ''}
+                onChange={(value) => value && setTargetColumn(value)}
+              />
             </div>
             <ColumnFilters
               types={columnTypes}
               activeFilters={activeFilters}
               onFilterChange={setActiveFilters}
               columnStats={columnStats}
-              columns={columns}
+              columns={dataset.columns}
             />
 
             <div className="flex-1 overflow-y-auto p-4">
@@ -205,8 +216,9 @@ export function ColumnConfigModal({
               <PreprocessingConfig
                 column={selectedColumnData}
                 constants={constants}
+                isTarget={selectedColumnData.is_target || false}
                 onUpdate={(training, inference, useDistinctInference) => 
-                  handlePreprocessingUpdate(selectedColumn!, training, inference, useDistinctInference)
+                  handlePreprocessingUpdate(selectedColumnData.name, training, inference, useDistinctInference)
                 }
               />
             ) : (
@@ -219,7 +231,7 @@ export function ColumnConfigModal({
 
         <div className="border-t p-4 flex justify-between items-center">
           <div className="text-sm text-gray-600">
-            {columns.filter(c => !c.hidden).length} columns selected for training
+            {dataset.columns.filter(c => !c.hidden).length} columns selected for training
           </div>
           <div className="flex gap-3">
             <button

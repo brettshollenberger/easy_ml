@@ -47,8 +47,6 @@ module EasyML
         value ||= UTC.now
         super(value.in_time_zone(UTC).to_date)
       end
-      attribute :target, :string
-      validates :target, presence: true
 
       attribute :batch_size, :integer, default: 50_000
 
@@ -330,6 +328,10 @@ module EasyML
           training: training,
           inference: inference
         }.compact
+      end
+
+      def target
+        @target ||= columns.find_by(is_target: true)&.name
       end
 
       def drop_cols

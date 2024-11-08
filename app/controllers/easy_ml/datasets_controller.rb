@@ -93,6 +93,11 @@ module EasyML
       DatasourceSerializer.new(datasource).serializable_hash.dig(:data, :attributes)
     end
 
+    def preprocessing_params
+      [:method, { params:
+        [:categorical_min, :one_hot, :encode_labels, { clip: %i[min max] }] }]
+    end
+
     def dataset_params
       params.require(:dataset).permit(
         :name,
@@ -101,9 +106,6 @@ module EasyML
         :datasource_id,
         :target,
         drop_cols: [],
-        preprocessing_steps: {
-          training: {}
-        },
         splitter: {
           date: %i[date_col months_test months_valid]
         },
@@ -117,10 +119,15 @@ module EasyML
           :is_target,
           :hidden,
           :drop_if_null,
-          :preprocessing_steps,
           :sample_values,
           :_destroy,
-          { statistics: %i[mean median min max null_count] }
+          {
+            preprocessing_steps: {
+              training: preprocessing_params,
+              inference: preprocessing_params
+            },
+            statistics: %i[mean median min max null_count]
+          }
         ]
       )
     end

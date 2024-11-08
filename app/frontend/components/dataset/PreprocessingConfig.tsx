@@ -63,12 +63,23 @@ export function PreprocessingConfig({
     type: 'training' | 'inference',
     method: PreprocessingStep['method']
   ) => {
-    // Initialize params with required fields
-    const defaultParams: PreprocessingStep['params'] = {
-      categorical_min: 100,
-      one_hot: true,
-      encode_labels: false
-    };
+    // Initialize base params based on column type and target status
+    let defaultParams: PreprocessingStep['params'] = {}
+
+    if (selectedType === 'categorical') {
+      defaultParams = {
+        ...defaultParams,
+        categorical_min: 100,
+        one_hot: true
+      };
+    }
+
+    if (column.is_target) {
+      defaultParams = {
+        ...defaultParams,
+        encode_labels: true
+      };
+    }
 
     const newStrategy: PreprocessingStep = {
       method,

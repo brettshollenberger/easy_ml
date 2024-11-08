@@ -12,13 +12,13 @@ export type PreprocessingSteps = {
 export type PreprocessingStep = {
   method: 'none' | 'mean' | 'median' | 'forward_fill' | 'most_frequent' | 'categorical' | 'constant' | 'today' | 'label';
   params: {
-    categorical_min: number;
+    categorical_min?: number;
     clip?: {
       min?: number;
       max?: number;
     };
-    one_hot: boolean;
-    encode_labels: boolean;
+    one_hot?: boolean;
+    encode_labels?: boolean;
   };
 };
 

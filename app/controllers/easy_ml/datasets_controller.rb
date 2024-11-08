@@ -37,6 +37,7 @@ module EasyML
     def create
       dataset = Dataset.new(dataset_params.to_h)
       dataset.workflow_status = "analyzing"
+      dataset.root_dir = dataset.datasource.root_dir
 
       if dataset.save
         dataset.refresh_async
@@ -67,6 +68,11 @@ module EasyML
 
     def update
       dataset = Dataset.find(params[:id])
+
+      # Iterate over columns to check and update preprocessing_steps
+      dataset_params[:columns_attributes]&.each do |_, column_attrs|
+        column_attrs[:preprocessing_steps] = nil if column_attrs.dig(:preprocessing_steps, :training, :method) == "none"
+      end
 
       if dataset.update(dataset_params.to_h)
         flash.now[:notice] = "Dataset configuration was successfully updated."

@@ -410,7 +410,7 @@ export function PreprocessingConfig({
           <div className="bg-gray-50 rounded-md p-4">
             <h4 className="text-sm font-medium text-gray-900 mb-2">Sample Data</h4>
             <div className="space-y-2">
-              {getUniqueValues(column.sample_values).slice(0, 3).map((value: any, index: number) => (
+              {column.sample_values.slice(0, 3).map((value: any, index: number) => (
                 <span key={index} className="m-1 flex-items items-center">
                   <Badge>
                     {String(value)}
@@ -584,41 +584,6 @@ export function PreprocessingConfig({
         </div>
       </div>
 
-      {/* Preview Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
-          Data Preview
-        </h3>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Original Data</h4>
-              <div className="bg-gray-50 rounded-md p-4 space-y-2">
-                {getUniqueValues(column.statistics.sample).slice(0, 3).map((value: any, index: number) => (
-                  <div key={index} className="text-sm text-gray-600">
-                    {String(value)}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Processed Data</h4>
-              <div className="bg-gray-50 rounded-md p-4 space-y-2">
-                {column.statistics?.sample?.slice(0, 3).map((value, index) => (
-                  <div key={index} className="text-sm text-gray-600">
-                    {training.method === 'none' ? String(value) :
-                     training.method === 'mean' ? '123.45' :
-                     training.method === 'median' ? '100.00' :
-                     training.method === 'most_frequent' ? 'most common value' :
-                     training.method === 'constant' ? training.params?.constantValue :
-                     String(value)}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

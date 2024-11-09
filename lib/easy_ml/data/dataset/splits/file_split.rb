@@ -27,7 +27,8 @@ module EasyML
             df.write_parquet(file_path)
           end
 
-          def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil)
+          def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
+                   unique: nil)
             files = files_for_segment(segment)
             return split_ys ? [nil, nil] : nil if files.empty?
 
@@ -39,6 +40,7 @@ module EasyML
             combined_lazy_df = combined_lazy_df.filter(filter) if filter
             # Apply select columns if provided
             combined_lazy_df = combined_lazy_df.select(select) if select.present?
+            combined_lazy_df = combined_lazy_df.unique if unique
 
             # Apply drop columns
             drop_cols &= combined_lazy_df.columns

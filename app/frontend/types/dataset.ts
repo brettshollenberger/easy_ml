@@ -35,6 +35,7 @@ export interface Statistics {
   most_frequent_value?: string;
   counts: object;
   num_rows?: number;
+  sample_data?: any[];
 }
 export interface Column {
   id: number;

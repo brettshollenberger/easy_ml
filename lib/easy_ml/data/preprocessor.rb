@@ -139,10 +139,10 @@ module EasyML::Data
 
           sorted_strategies(strategies).each do |strategy|
             conf = strategies[strategy.to_sym]
-            if conf.is_a?(Hash) && conf.key?(:one_hot)
+            if conf.is_a?(Hash) && conf.key?(:one_hot) && conf[:one_hot] == true
               df = apply_one_hot(df, col, imputers)
-            elsif imputers.dig(col, strategy).options.dig(:encode_labels)
-              df = apply_encode_labels(df, col, imputers)
+            elsif imputers.dig(col, strategy).options.dig(:ordinal_encoding) == true
+              df = apply_ordinal_encoding(df, col, imputers)
             else
               imputer = imputers.dig(col, strategy)
               df[actual_col] = imputer.transform(df[actual_col]) if imputer
@@ -182,7 +182,7 @@ module EasyML::Data
       df.drop([col.to_s])
     end
 
-    def apply_encode_labels(df, col, imputers)
+    def apply_ordinal_encoding(df, col, imputers)
       cat_imputer = imputers.dig(col, :categorical)
       approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
         v >= cat_imputer.options[:categorical_min]

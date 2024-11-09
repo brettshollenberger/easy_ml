@@ -38,7 +38,7 @@ export function PreprocessingConfig({
     params: {
       categorical_min: column.preprocessing_steps?.training?.params?.categorical_min ?? 100,
       one_hot: column.preprocessing_steps?.training?.params?.one_hot ?? true,
-      encode_labels: column.preprocessing_steps?.training?.params?.encode_labels ?? false,
+      ordinal_encoding: column.preprocessing_steps?.training?.params?.ordinal_encoding ?? false,
       clip: column.preprocessing_steps?.training?.params?.clip
     }
   }));
@@ -48,7 +48,7 @@ export function PreprocessingConfig({
     params: {
       categorical_min: column.preprocessing_steps?.inference?.params?.categorical_min ?? 100,
       one_hot: column.preprocessing_steps?.inference?.params?.one_hot ?? true,
-      encode_labels: column.preprocessing_steps?.inference?.params?.encode_labels ?? false,
+      ordinal_encoding: column.preprocessing_steps?.inference?.params?.ordinal_encoding ?? false,
       clip: column.preprocessing_steps?.inference?.params?.clip
     }
   }));
@@ -109,7 +109,7 @@ export function PreprocessingConfig({
     if (column.is_target) {
       defaultParams = {
         ...defaultParams,
-        encode_labels: true
+        ordinal_encoding: true
       };
     }
 
@@ -140,7 +140,7 @@ export function PreprocessingConfig({
       params: {
         categorical_min: strategy.params.categorical_min,
         one_hot: strategy.params.one_hot,
-        encode_labels: strategy.params.encode_labels,
+        ordinal_encoding: strategy.params.ordinal_encoding,
         ...updates
       }
     };
@@ -429,13 +429,13 @@ export function PreprocessingConfig({
           <div className="bg-gray-50 rounded-md p-4">
             <h4 className="text-sm font-medium text-gray-900 mb-2">Sample Data</h4>
             <div className="space-y-2">
-              {column.sample_values.slice(0, 3).map((value: any, index: number) => (
+              {Array.isArray(column.sample_values) ? column.sample_values.slice(0, 3).map((value: any, index: number) => (
                 <span key={index} className="m-1 flex-items items-center">
                   <Badge>
                     {String(value)}
                   </Badge>
                 </span>
-              ))}
+              )) : []}
             </div>
           </div>
         </div>
@@ -483,7 +483,7 @@ export function PreprocessingConfig({
                   className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 >
                   <option value="none">No preprocessing</option>
-                  {constants.preprocessing_strategies[selectedType]?.map(strategy => (
+                  {constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => (
                     <option key={strategy.value} value={strategy.value}>
                       {strategy.label}
                     </option>
@@ -492,8 +492,7 @@ export function PreprocessingConfig({
 
                 {renderStrategySpecificInfo('training')}
                 {renderConstantValueInput('training')}
-
-                {(column.datatype === 'categorical' && training.method === 'categorical') && (
+               {(column.datatype === 'categorical' && training.method === 'categorical') && (
                   <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -514,21 +513,39 @@ export function PreprocessingConfig({
                     </div>
                   </div>
                 )}
-
                 {(column.datatype === 'categorical' && training.method !== 'none') && (
                   <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Encoding</h4>
                     <div className="flex items-center gap-2">
                       <input
-                        type="checkbox"
+                        type="radio"
                         id="oneHotEncode"
+                        name="encoding"
                         checked={training.params.one_hot}
-                        onChange={(e) => handleCategoricalParamChange('training', {
-                          one_hot: e.target.checked
+                        onChange={() => handleCategoricalParamChange('training', {
+                          one_hot: true,
+                          ordinal_encoding: false
                         })}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
                       <label htmlFor="oneHotEncode" className="text-sm text-gray-700">
                         One-hot encode categories
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        id="ordinalEncode"
+                        name="encoding"
+                        checked={training.params.ordinal_encoding}
+                        onChange={() => handleCategoricalParamChange('training', {
+                          one_hot: false,
+                          ordinal_encoding: true
+                        })}
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label htmlFor="ordinalEncode" className="text-sm text-gray-700">
+                        Ordinal encode categories
                       </label>
                     </div>
                   </div>
@@ -549,7 +566,7 @@ export function PreprocessingConfig({
                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   >
                     <option value="none">No preprocessing</option>
-                    {constants.preprocessing_strategies[selectedType]?.map(strategy => (
+                    {constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => (
                       <option key={strategy.value} value={strategy.value}>
                         {strategy.label}
                       </option>

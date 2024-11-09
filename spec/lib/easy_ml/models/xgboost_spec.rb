@@ -102,7 +102,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
               did_convert: {
                 categorical: {
                   categorical_min: 1,
-                  encode_labels: true
+                  ordinal_encoding: true
                 }
               }
             }

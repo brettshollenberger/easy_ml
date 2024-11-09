@@ -268,8 +268,27 @@ export function PreprocessingConfig({
     ? Math.round((column.statistics.null_count / column.statistics.num_rows) * 100)
     : 0;
 
-  // Use a utility function to get unique values
-  const getUniqueValues = (values: any[]) => Array.from(new Set(values));
+  const renderStrategySpecificInfo = (type: 'training' | 'inference') => {
+    const strategy = type === 'training' ? training : inference;
+    if (strategy.method === 'most_frequent' && column.statistics?.most_frequent_value) {
+      return (
+        <div className="mt-4 bg-blue-50 rounded-lg p-4">
+          <span className="text-sm font-medium text-blue-700">
+            Most Frequent Value: {column.statistics.most_frequent_value}
+          </span>
+        </div>
+      );
+    } else if (strategy.method === 'forward_fill' && column.statistics?.last_value) {
+      return (
+        <div className="mt-4 bg-yellow-50 rounded-lg p-4">
+          <span className="text-sm font-medium text-yellow-700">
+            Last Value: {column.statistics.last_value}
+          </span>
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="space-y-8">
@@ -471,6 +490,7 @@ export function PreprocessingConfig({
                   ))}
                 </select>
 
+                {renderStrategySpecificInfo('training')}
                 {renderConstantValueInput('training')}
 
                 {(column.datatype === 'categorical' && training.method === 'categorical') && (

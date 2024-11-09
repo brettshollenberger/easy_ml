@@ -226,7 +226,9 @@ export function ColumnConfigModal({
             {selectedColumnData ? (
               <PreprocessingConfig
                 column={selectedColumnData}
+                dataset={dataset}
                 setColumnType={setColumnType}
+                setDataset={setDataset}
                 constants={constants}
                 onUpdate={(training, inference, useDistinctInference) => 
                   handlePreprocessingUpdate(

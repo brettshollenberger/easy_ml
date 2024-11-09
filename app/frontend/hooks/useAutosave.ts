@@ -49,6 +49,7 @@ export function useAutosave<T>(
     const serializedData = JSON.stringify(data);
 
     if (serializedData !== previousSerializedData.current) {
+      console.log(`changed data!`)
       debouncedSave(data); // Trigger save if there's a difference
     }
 

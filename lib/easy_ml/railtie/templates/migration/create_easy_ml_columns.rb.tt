@@ -3,6 +3,7 @@ class CreateEasyMLColumns < ActiveRecord::Migration[6.0]
     create_table :easy_ml_columns do |t|
       t.bigint :dataset_id, null: false
       t.string :name, null: false
+      t.string :description
       t.string :datatype # The symbol representation (e.g., 'float', 'integer')
       t.string :polars_datatype # The full Polars class name (e.g., 'Polars::Float64')
       t.json :preprocessing_steps

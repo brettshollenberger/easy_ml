@@ -18,6 +18,7 @@ module EasyML::Data
         field_type = PolarsColumn.determine_type(series)
 
         stats[col] = {
+          num_rows: series.shape,
           null_count: base_stats[col.to_sym][:null_count].to_i
         }
 

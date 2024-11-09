@@ -63,6 +63,11 @@ module EasyML
       FileUtils.rm_rf(File.join(root_dir, "data"))
     end
 
+    def learn_statistics
+      datasource&.learn_statistics
+      sync_columns
+    end
+
     def statistics
       datasource&.statistics
     end

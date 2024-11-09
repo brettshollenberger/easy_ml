@@ -34,6 +34,7 @@ export interface Statistics {
   last_value?: string;
   most_frequent_value?: string;
   counts: object;
+  num_rows?: number;
 }
 export interface Column {
   id: number;
@@ -54,7 +55,7 @@ export interface Column {
 export interface Dataset {
   id: number;
   name: string;
-  description: string;
+  description?: string;
   status: DatasetStatus;
   workflow_status: DatasetWorkflowStatus;
   target?: string;

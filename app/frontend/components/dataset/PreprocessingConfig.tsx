@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings2, Wrench, ArrowRight, Pencil } from 'lucide-react';
 import type { Dataset, Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
+import { Badge } from "@/components/ui/badge";
 interface PreprocessingConfigProps {
   column: Column;
   dataset: Dataset;
@@ -267,6 +268,9 @@ export function PreprocessingConfig({
     ? Math.round((column.statistics.null_count / column.statistics.num_rows) * 100)
     : 0;
 
+  // Use a utility function to get unique values
+  const getUniqueValues = (values: any[]) => Array.from(new Set(values));
+
   return (
     <div className="space-y-8">
       {/* Column Header Section */}
@@ -406,10 +410,12 @@ export function PreprocessingConfig({
           <div className="bg-gray-50 rounded-md p-4">
             <h4 className="text-sm font-medium text-gray-900 mb-2">Sample Data</h4>
             <div className="space-y-2">
-              {column.statistics?.sample?.slice(0, 3).map((value: any, index: number) => (
-                <div key={index} className="text-sm text-gray-600">
-                  {String(value)}
-                </div>
+              {getUniqueValues(column.sample_values).slice(0, 3).map((value: any, index: number) => (
+                <span key={index} className="m-1 flex-items items-center">
+                  <Badge>
+                    {String(value)}
+                  </Badge>
+                </span>
               ))}
             </div>
           </div>
@@ -588,7 +594,7 @@ export function PreprocessingConfig({
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-2">Original Data</h4>
               <div className="bg-gray-50 rounded-md p-4 space-y-2">
-                {column.statistics?.sample?.slice(0, 3).map((value: any, index: number) => (
+                {getUniqueValues(column.statistics.sample).slice(0, 3).map((value: any, index: number) => (
                   <div key={index} className="text-sm text-gray-600">
                     {String(value)}
                   </div>

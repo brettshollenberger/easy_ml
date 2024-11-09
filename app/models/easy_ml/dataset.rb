@@ -112,14 +112,15 @@ module EasyML
         EasyML::Column.import(cols_to_insert)
         columns_to_update = columns.where(name: col_names)
         stats = statistics
-        cached_sample = data(limit: 10, all_columns: true)
+        cached_sample = data(limit: 100, all_columns: true)
         polars_types = cached_sample.columns.zip(cached_sample.dtypes).to_h
         columns_to_update.each do |column|
           column.assign_attributes(
             statistics: stats[column.name],
             datatype: schema[column.name],
             polars_datatype: polars_types[column.name],
-            sample_values: cached_sample[column.name][0...5].to_a
+            sample_values: data(unique: true, limit: 5, select: column.name,
+                                all_columns: true)[column.name].to_a.uniq[0...5]
           )
         end
         EasyML::Column.import(columns_to_update.to_a,

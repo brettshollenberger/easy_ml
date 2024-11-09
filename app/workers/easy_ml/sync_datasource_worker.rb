@@ -8,7 +8,7 @@ module EasyML
       lock_args_method: ->(args) { args.first }
     )
 
-    def perform(id)
+    def perform(id, force = false)
       EasyML::Support::Lockable.with_lock_client("SyncDatasourceWorker:#{id}") do |client|
         client.lock do
           puts "Locking!"
@@ -16,7 +16,7 @@ module EasyML
           create_event(datasource, "started")
 
           begin
-            files = sync_datasource(datasource)
+            files = sync_datasource(datasource, force)
             datasource.after_sync if files.nil?
           rescue StandardError => e
             handle_error(datasource, e)
@@ -55,8 +55,8 @@ module EasyML
 
     private
 
-    def sync_datasource(datasource)
-      # return unless datasource.should_sync?
+    def sync_datasource(datasource, force = false)
+      return unless datasource.should_sync? || force
 
       datasource.before_sync
       files = datasource.files_to_sync

@@ -5,6 +5,7 @@
 #  id                  :bigint           not null, primary key
 #  dataset_id          :bigint           not null
 #  name                :string           not null
+#  description         :string
 #  datatype            :string
 #  polars_datatype     :string
 #  preprocessing_steps :json
@@ -20,7 +21,7 @@ module EasyML
   class ColumnSerializer
     include JSONAPI::Serializer
 
-    attributes :id, :name, :dataset_id, :datatype, :polars_datatype, :preprocessing_steps,
+    attributes :id, :name, :description, :dataset_id, :datatype, :polars_datatype, :preprocessing_steps,
                :hidden, :drop_if_null, :sample_values, :statistics, :is_target
   end
 end

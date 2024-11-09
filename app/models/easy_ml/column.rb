@@ -5,6 +5,7 @@
 #  id                  :bigint           not null, primary key
 #  dataset_id          :bigint           not null
 #  name                :string           not null
+#  description         :string
 #  datatype            :string
 #  polars_datatype     :string
 #  preprocessing_steps :json

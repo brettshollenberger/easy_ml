@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, AlertTriangle, Wrench, ArrowRight } from 'lucide-react';
-import type { Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
-
+import { Settings2, Wrench, ArrowRight, Pencil } from 'lucide-react';
+import type { Dataset, Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
 interface PreprocessingConfigProps {
   column: Column;
+  dataset: Dataset;
   setColumnType: (columnName: string, columnType: string) => void;
+  setDataset: (dataset: Dataset) => void;
   constants: PreprocessingConstants;
   onUpdate: (
     training: PreprocessingStep,
@@ -18,7 +19,9 @@ const isNumericType = (type: ColumnType): boolean =>
 
 export function PreprocessingConfig({ 
   column,
+  dataset,
   setColumnType,
+  setDataset,
   constants,
   onUpdate 
 }: PreprocessingConfigProps) {
@@ -229,8 +232,152 @@ export function PreprocessingConfig({
     );
   };
 
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const updatedColumns = dataset.columns.map(c => ({
+      ...c,
+      description: c.name === column.name ? e.target.value : c.description
+    }));
+
+    setDataset({
+      ...dataset,
+      columns: updatedColumns
+    });
+  };
+
+  const handleDescriptionSave = () => {
+    setIsEditingDescription(false);
+  };
+
+  const handleDescriptionKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setIsEditingDescription(false);
+    } else if (e.key === 'Escape') {
+      setIsEditingDescription(false);
+    }
+  };
+
+  const handleDescriptionClick = () => {
+    setIsEditingDescription(true);
+  };
+
+  const nullPercentage = column.statistics?.null_count && column.statistics?.num_rows
+    ? Math.round((column.statistics.null_count / column.statistics.num_rows) * 100)
+    : 0;
+
   return (
     <div className="space-y-8">
+      {/* Column Header Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex-1">
+            <h2 className="text-2xl font-semibold text-gray-900">{column.name}</h2>
+            <div className="mt-1 flex items-start gap-2">
+              {isEditingDescription ? (
+                <div className="flex-1">
+                  <textarea
+                    value={column.description || ''}
+                    onChange={handleDescriptionChange}
+                    onBlur={handleDescriptionSave}
+                    onKeyDown={handleDescriptionKeyDown}
+                    className="w-full px-2 py-1 text-sm text-gray-900 border border-blue-500 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={2}
+                    autoFocus
+                    placeholder="Enter column description..."
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Press Enter to save, Escape to cancel
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p
+                    className="text-sm text-gray-500 flex-1 cursor-pointer"
+                    onClick={handleDescriptionClick}
+                  >
+                    {column.description || 'No description provided'}
+                  </p>
+                  <button
+                    onClick={handleDescriptionClick}
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          {column.is_target && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+              Target Column
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mt-6">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <span className="text-sm text-gray-500">Type</span>
+            <p className="text-lg font-medium text-gray-900 mt-1">{column.datatype}</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <span className="text-sm text-gray-500">Unique Values</span>
+            <p className="text-lg font-medium text-gray-900 mt-1">
+              {column.statistics?.unique_count?.toLocaleString() ?? 'N/A'}
+            </p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4">
+            <span className="text-sm text-gray-500">Null Values</span>
+            <p className="text-lg font-medium text-gray-900 mt-1">
+              {column.statistics?.null_count?.toLocaleString() ?? '0'}
+            </p>
+          </div>
+        </div>
+
+        {column.statistics?.null_count ? (
+          <div className="mt-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-gray-700">Null Distribution</span>
+              <span className="text-sm text-gray-500">
+                {nullPercentage}% of values are null
+              </span>
+            </div>
+            <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="absolute top-0 left-0 h-full bg-yellow-400 rounded-full"
+                style={{ width: `${nullPercentage}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="mt-6 bg-green-50 rounded-lg p-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-400 rounded-full" />
+              <span className="text-sm text-green-700">This column has no null values</span>
+            </div>
+          </div>
+        )}
+
+        {column.statistics?.sample_data && (
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Sample Values</h4>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex flex-wrap gap-2">
+                {column.statistics.sample_data.map((value, index) => (
+                  <span key={index} className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-700">
+                    {String(value)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Preprocessing Strategy Section */}
+
+
       {/* Data Type Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">

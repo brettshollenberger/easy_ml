@@ -75,7 +75,8 @@ export function ColumnList({
           </div>
           <div className="text-sm text-gray-500">
             <div className="flex flex-wrap gap-2">
-              {column.preprocessing_steps && (
+              {column.preprocessing_steps && 
+               column.preprocessing_steps.training?.method !== 'none' && (
                 <div className="flex items-center gap-1 text-blue-600">
                   <AlertCircle className="w-3 h-3" />
                   <span className="text-xs">Preprocessing configured</span>

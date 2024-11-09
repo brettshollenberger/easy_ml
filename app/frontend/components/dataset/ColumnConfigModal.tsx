@@ -48,6 +48,10 @@ export function ColumnConfigModal({
 
   const { saving, saved, error } = useAutosave(dataset, handleSave, 2000);
 
+  const colHasPreprocessingSteps = (col: Column) => {
+    return col.preprocessing_steps != null && col.preprocessing_steps?.training?.method !== 'none'
+  }
+
   const filteredColumns = useMemo(() => {
     return dataset.columns.filter(column => {
       const matchesSearch = column.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -60,7 +64,7 @@ export function ColumnConfigModal({
           case 'hidden':
             return column.hidden;
           case 'preprocessed':
-            return column.preprocessing_steps != null;
+            return colHasPreprocessingSteps(column);
           case 'nulls':
             return (column.statistics?.null_count || 0) > 0;
           default:
@@ -77,7 +81,7 @@ export function ColumnConfigModal({
     filtered: filteredColumns.length,
     training: dataset.columns.filter(c => !c.hidden && !c.drop_if_null).length,
     hidden: dataset.columns.filter(c => c.hidden).length,
-    withPreprocessing: dataset.columns.filter(c => c.preprocessing_steps != null).length,
+    withPreprocessing: dataset.columns.filter(colHasPreprocessingSteps).length,
     withNulls: dataset.columns.filter(c => (c.statistics?.null_count || 0) > 0).length
   }), [dataset.columns, filteredColumns]);
 
@@ -210,6 +214,7 @@ export function ColumnConfigModal({
               onFilterChange={setActiveFilters}
               columnStats={columnStats}
               columns={dataset.columns}
+              colHasPreprocessingSteps={colHasPreprocessingSteps}
             />
 
             <div className="flex-1 overflow-y-auto p-4">

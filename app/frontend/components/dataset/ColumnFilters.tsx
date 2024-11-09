@@ -21,6 +21,7 @@ interface ColumnFiltersProps {
     withPreprocessing: number;
     withNulls: number;
   };
+  colHasPreprocessingSteps: (col: Column) => boolean;
   columns: Column[];
 }
 
@@ -29,63 +30,21 @@ export function ColumnFilters({
   activeFilters,
   onFilterChange,
   columnStats,
+  colHasPreprocessingSteps,
   columns
 }: ColumnFiltersProps) {
-  const getFilteredColumns = () => {
-    let filtered = columns.filter(col => 
-      activeFilters.types.length === 0 || activeFilters.types.includes(col.datatype)
-    );
-
-    // Apply view filters
-    switch (activeFilters.view) {
-      case 'training':
-        filtered = filtered.filter(col => !col.hidden);
-        break;
-      case 'hidden':
-        filtered = filtered.filter(col => col.hidden);
-        break;
-      case 'preprocessed':
-        filtered = filtered.filter(col => col.preprocessing_steps != null);
-        break;
-      case 'nulls':
-        filtered = filtered.filter(col => 
-          col.statistics?.null_count && col.statistics.null_count > 0
-        );
-        break;
-    }
-
-    return filtered;
-  };
-
-  const getFilteredStats = () => {
-    const filteredColumns = getFilteredColumns();
-    
-    return {
-      total: columns.length,
-      filtered: filteredColumns.length,
-      training: filteredColumns.filter(col => !col.hidden).length,
-      hidden: filteredColumns.filter(col => col.hidden).length,
-      withPreprocessing: filteredColumns.filter(col => col.preprocessing_steps != null).length,
-      withNulls: filteredColumns.filter(col => 
-        col.statistics?.null_count && col.statistics.null_count > 0
-      ).length
-    };
-  };
-
-  const filteredStats = getFilteredStats();
-
   const getViewStats = (view: typeof activeFilters.view) => {
     switch (view) {
       case 'training':
-        return `${filteredStats.training} columns`;
+        return `${columnStats.training} columns`;
       case 'hidden':
-        return `${filteredStats.hidden} columns`;
+        return `${columnStats.hidden} columns`;
       case 'preprocessed':
-        return `${filteredStats.withPreprocessing} columns`;
+        return `${columnStats.withPreprocessing} columns`;
       case 'nulls':
-        return `${filteredStats.withNulls} columns`;
+        return `${columnStats.withNulls} columns`;
       default:
-        return `${filteredStats.total} columns`;
+        return `${columnStats.total} columns`;
     }
   };
 
@@ -122,7 +81,7 @@ export function ColumnFilters({
           Column Views
         </h3>
         <div className="text-sm text-gray-500">
-          Showing {filteredStats.filtered} of {filteredStats.total} columns
+          Showing {columnStats.filtered} of {columnStats.total} columns
         </div>
       </div>
 
@@ -223,12 +182,12 @@ export function ColumnFilters({
           </div>
         </div>
 
-        {activeFilters.view === 'preprocessed' && getFilteredStats().withPreprocessing > 0 && (
+        {activeFilters.view === 'preprocessed' && columnStats.withPreprocessing > 0 && (
           <div className="bg-blue-50 rounded-lg p-3">
             <h4 className="text-sm font-medium text-blue-900 mb-2">Preprocessing Overview</h4>
             <div className="space-y-2">
               {columns
-                .filter(col => col.preprocessing_steps != null)
+                .filter(colHasPreprocessingSteps)
                 .map(col => (
                   <div key={col.name} className="flex items-center justify-between text-sm">
                     <span className="text-blue-800">{col.name}</span>

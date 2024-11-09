@@ -20,7 +20,7 @@ export type PreprocessingStep = {
       max?: number;
     };
     one_hot?: boolean;
-    encode_labels?: boolean;
+    ordinal_encoding?: boolean;
   };
 };
 

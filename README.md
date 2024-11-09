@@ -161,12 +161,12 @@ EasyML offers a variety of preprocessing features to prepare your data for machi
   }
   ```
 
-- **Label Encoding**: Convert categorical variables into integer labels. Use this when you have categorical data that can be ordinally encoded.
+- **Ordinal Encoding**: Convert categorical variables into integer labels. Use this when you have categorical data that can be ordinally encoded.
 
   ```ruby
   loan_purpose: {
     categorical: {
-      encode_labels: true
+      ordinal_encoding: true
     }
   }
   ```

@@ -53,14 +53,6 @@ module EasyML
 
           protected
 
-          def create_progress_bar(segment, total_rows)
-            ProgressBar.create(
-              title: "Reading #{segment}",
-              total: total_rows,
-              format: "%t: |%B| %p%% %e"
-            )
-          end
-
           def process_block_with_split_ys(block, result, xs, ys)
             case block.arity
             when 3

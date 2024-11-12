@@ -13,6 +13,8 @@
 #  configuration   :json
 #  num_rows        :bigint
 #  workflow_status :string
+#  statistics      :json
+#  schema          :json
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #

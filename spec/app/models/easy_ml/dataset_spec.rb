@@ -104,8 +104,22 @@ RSpec.describe EasyML::Datasource do
                 name: "did_convert",
                 description: "Boolean true/false, did the loan application fund?"
     end
+
+    class Age
+      include EasyML::Transforms
+
+      def age(df)
+        df.with_column(
+          Polars::Series.new("age", Array.new(df.height) { rand(1..50) })
+        )
+      end
+      transform :age,
+                name: "age",
+                description: "Age of the business"
+    end
     before do
       EasyML::Transforms::Registry.register(DidConvert)
+      EasyML::Transforms::Registry.register(Age)
     end
 
     it "saves and reloads the dataset" do
@@ -130,17 +144,30 @@ RSpec.describe EasyML::Datasource do
       expect(reloaded.train).to be_a(Polars::DataFrame)
     end
 
-    it "creates computed columns" do
+    it "creates computed columns", :focus do
       EasyML::DatasetTransform.create!(
         dataset: dataset,
         transform_class: DidConvert,
         transform_method: :did_convert
       )
 
+      EasyML::DatasetTransform.create!(
+        dataset: dataset,
+        transform_class: Age,
+        transform_method: :age
+      )
+
       dataset.refresh!
       expect(dataset.data["did_convert"].to_a).to eq([
                                                        false, false, true, true, false, true, true, true
                                                      ])
+
+      # It computes statistics for computed features
+      expect(dataset.statistics["age"]["mean"]).to be_between(1, 50)
+      expect(dataset.columns.map(&:name)).to include("age")
+      expect(dataset.columns.map(&:name)).to include("did_convert")
+      expect(dataset.schema["age"]).to eq "integer"
+      expect(dataset.schema["did_convert"]).to eq "boolean"
     end
   end
 end

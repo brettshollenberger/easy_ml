@@ -13,6 +13,8 @@
 #  configuration   :json
 #  num_rows        :bigint
 #  workflow_status :string
+#  statistics      :json
+#  schema          :json
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -70,12 +72,8 @@ module EasyML
       sync_columns
     end
 
-    def statistics
-      datasource&.statistics
-    end
-
     def schema
-      datasource&.schema
+      read_attribute(:schema) || datasource.schema
     end
 
     def num_rows
@@ -103,12 +101,29 @@ module EasyML
 
       update(workflow_status: "analyzing")
       yield
+      learn_schema
+      learn_statistics
       sync_columns
       update(workflow_status: "ready")
       reload
     rescue StandardError => e
       update(workflow_status: "failed")
       raise e
+    end
+
+    def learn_schema
+      schema = data.schema.reduce({}) do |h, (k, v)|
+        h.tap do
+          h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
+        end
+      end
+      write_attribute(:schema, schema)
+    end
+
+    def learn_statistics
+      update(
+        statistics: EasyML::Data::StatisticsLearner.learn(data)
+      )
     end
 
     def sync_columns

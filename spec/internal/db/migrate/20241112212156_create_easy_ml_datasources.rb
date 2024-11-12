@@ -5,7 +5,6 @@ class CreateEasyMLDatasources < ActiveRecord::Migration[6.0]
       t.string :datasource_type
       t.string :root_dir
       t.json :configuration
-      t.json :statistics
 
       t.timestamps
       t.index :created_at

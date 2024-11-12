@@ -7,14 +7,12 @@
 #  datasource_type :string
 #  root_dir        :string
 #  configuration   :json
-#  statistics      :json
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
 module EasyML
   class Datasource < ActiveRecord::Base
     include EasyML::Concerns::ConfigurableSTI
-    self.filter_attributes += [:statistics]
 
     scope :s3, -> { where(datasource_type: "S3Datasource") }
 
@@ -74,12 +72,6 @@ module EasyML
       Rails.logger.info("Starting sync for datasource #{id}")
     end
 
-    def learn_statistics
-      update(
-        statistics: EasyML::Data::StatisticsLearner.learn(data)
-      )
-    end
-
     def after_sync
       self.schema = data.schema.reduce({}) do |h, (k, v)|
         h.tap do
@@ -88,7 +80,6 @@ module EasyML
       end
       self.columns = data.columns
       self.num_rows = data.shape[0]
-      learn_statistics
       self.is_syncing = false
       save
     end

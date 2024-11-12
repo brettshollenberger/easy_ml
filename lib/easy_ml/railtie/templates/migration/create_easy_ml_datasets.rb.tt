@@ -11,6 +11,8 @@ class CreateEasyMLDatasets < ActiveRecord::Migration[6.0]
       t.json :configuration
       t.bigint :num_rows
       t.string :workflow_status
+      t.json :statistics
+      t.json :schema
 
       t.timestamps
 

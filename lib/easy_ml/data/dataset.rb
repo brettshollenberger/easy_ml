@@ -77,6 +77,7 @@ module EasyML
 
       attribute :datasource
       attribute :columns
+      attribute :schema
 
       # dependency defines a configurable dependency, with optional args,
       # for example, here we define a datasource:

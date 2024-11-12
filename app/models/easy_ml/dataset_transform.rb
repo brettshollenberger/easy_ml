@@ -1,3 +1,17 @@
+# == Schema Information
+#
+# Table name: easy_ml_dataset_transforms
+#
+#  id               :bigint           not null, primary key
+#  dataset_id       :bigint           not null
+#  transform_class  :string           not null
+#  transform_method :string           not null
+#  parameters       :json
+#  position         :integer
+#  applied_at       :datetime
+#  created_at       :datetime         not null
+#  updated_at       :datetime         not null
+#
 module EasyML
   class DatasetTransform < ActiveRecord::Base
     self.table_name = "easy_ml_dataset_transforms"
@@ -22,19 +36,8 @@ module EasyML
       raise InvalidTransformError, "Invalid transform class: #{transform_class}"
     end
 
-    def apply!
-      return if applied?
-
-      transform_class_constant.public_send(transform_method, dataset, parameters || {})
-
-      update!(
-        applied_at: Time.current
-      )
-    rescue StandardError => e
-      update!(
-        parameters: parameters.merge(error: e.message)
-      )
-      raise
+    def apply!(df)
+      transform_class_constant.new.public_send(transform_method, df)
     end
 
     private
@@ -42,7 +45,7 @@ module EasyML
     def set_position
       return if position.present?
 
-      max_position = dataset&.dataset_transforms&.maximum(:position) || -1
+      max_position = dataset&.transforms&.maximum(:position) || -1
       self.position = max_position + 1
     end
   end

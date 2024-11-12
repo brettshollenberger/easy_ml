@@ -42,7 +42,7 @@ module EasyML
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
-    has_many :dataset_transforms, -> { ordered }, dependent: :destroy
+    has_many :transforms, -> { ordered }, dependent: :destroy, class_name: "EasyML::DatasetTransform"
 
     before_destroy :cleanup!
 

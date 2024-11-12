@@ -16,6 +16,7 @@ require "sidekiq"
 require "vite_ruby"
 require "rails/engine"
 require "activerecord-import"
+require "historiographer"
 module EasyML
   class Engine < Rails::Engine
     isolate_namespace EasyML
@@ -92,17 +93,3 @@ module EasyML
     end
   end
 end
-
-# initializer "easy_ml.sidekiq_config" do
-#   if defined?(Sidekiq)
-#     sidekiq_config_path = Rails.root.join("config", "sidekiq.yml")
-#     yaml = YAML.load_file(sidekiq_config_path).deep_symbolize_keys
-
-#     Sidekiq.configure_server do |config|
-#       config.queues = yaml.queues
-#     end
-#     Sidekiq.configure_client do |config|
-#       config.queues = yaml.queues
-#     end
-#   end
-# end

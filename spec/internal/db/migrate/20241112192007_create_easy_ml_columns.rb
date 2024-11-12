@@ -6,10 +6,10 @@ class CreateEasyMLColumns < ActiveRecord::Migration[6.0]
       t.string :description
       t.string :datatype # The symbol representation (e.g., 'float', 'integer')
       t.string :polars_datatype # The full Polars class name (e.g., 'Polars::Float64')
-      t.json :preprocessing_steps
       t.boolean :is_target
       t.boolean :hidden, default: false
       t.boolean :drop_if_null, default: false
+      t.json :preprocessing_steps
       t.json :sample_values # Store up to 3 sample values
       t.json :statistics
 

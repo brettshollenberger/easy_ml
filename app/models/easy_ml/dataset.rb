@@ -30,7 +30,7 @@ module EasyML
       locked: "locked"
     }
 
-    self.filter_attributes += [:configuration]
+    self.filter_attributes += %i[configuration statistics schema]
 
     include GlueGun::Model
     service :dataset, EasyML::Data::Dataset

@@ -40,7 +40,58 @@ module EasyML
       transform_class_constant.new.public_send(transform_method, df)
     end
 
+    # Position manipulation methods
+    def insert
+      save!
+      self
+    end
+
+    def prepend
+      self.position = 0
+      bulk_update_positions do |transform|
+        transform.position += 1
+      end
+      save!
+      self
+    end
+
+    def insert_before(transform_method)
+      target = dataset.transforms.find_by!(transform_method: transform_method)
+      self.position = target.position
+
+      bulk_update_positions do |transform|
+        transform.position += 1 if transform.position >= target.position
+      end
+
+      save!
+      self
+    end
+
+    def insert_after(transform_method)
+      target = dataset.transforms.find_by!(transform_method: transform_method)
+      self.position = target.position + 1
+
+      bulk_update_positions do |transform|
+        transform.position += 1 if transform.position > target.position
+      end
+
+      save!
+      self
+    end
+
     private
+
+    def bulk_update_positions(&block)
+      transforms_to_update = dataset.transforms.ordered.to_a
+      transforms_to_update.each(&block)
+
+      # Use activerecord-import for bulk updates
+      DatasetTransform.import(
+        transforms_to_update,
+        on_duplicate_key_update: [:position],
+        validate: false
+      )
+    end
 
     def set_position
       return if position.present?

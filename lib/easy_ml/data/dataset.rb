@@ -407,10 +407,18 @@ module EasyML
       end
 
       def apply_transforms(df)
-        if transforms.nil?
+        if transforms.nil? || transforms.empty?
           df
         else
-          transforms.reduce(df) { |df, transform| transform.apply!(df) }
+          transforms.ordered.reduce(df) do |acc_df, transform|
+            result = transform.apply!(acc_df)
+
+            unless result.is_a?(Polars::DataFrame)
+              raise "Transform '#{transform.transform_method}' must return a Polars::DataFrame, got #{result.class}"
+            end
+
+            result
+          end
         end
       end
 

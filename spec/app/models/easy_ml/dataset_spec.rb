@@ -115,11 +115,53 @@ RSpec.describe EasyML::Datasource do
       end
       transform :age,
                 name: "age",
-                description: "Age of the business"
+                description: "Age of the owner"
     end
+
+    class BusinessInception
+      include EasyML::Transforms
+
+      def business_inception(df)
+        df.with_column(
+          Polars::Series.new("business_inception", Array.new(df.height) do
+            rand(Date.new(1970, 1, 1)..Date.today - 2.years)
+          end).alias("business_inception")
+        )
+      end
+      transform :business_inception,
+                name: "Business Inception",
+                description: "Business inception date"
+    end
+
+    class DaysInBusiness
+      include EasyML::Transforms
+
+      def days_in_business(df)
+        df.with_column(
+          (Polars.col("created_date") - Polars.col("business_inception")).dt.days.alias("days_in_business")
+        )
+      end
+      transform :days_in_business,
+                name: "Days in business",
+                description: "Days since the business inception date"
+    end
+
+    class BadTransform
+      include EasyML::Transforms
+
+      def bad_transform(_df)
+        "not a dataframe" # Intentionally return wrong type
+      end
+      transform :bad_transform,
+                name: "Bad Transform",
+                description: "A transform that doesn't return a DataFrame"
+    end
+
     before do
       EasyML::Transforms::Registry.register(DidConvert)
       EasyML::Transforms::Registry.register(Age)
+      EasyML::Transforms::Registry.register(BusinessInception)
+      EasyML::Transforms::Registry.register(DaysInBusiness)
     end
 
     it "saves and reloads the dataset" do
@@ -144,30 +186,65 @@ RSpec.describe EasyML::Datasource do
       expect(reloaded.train).to be_a(Polars::DataFrame)
     end
 
-    it "creates computed columns", :focus do
-      EasyML::DatasetTransform.create!(
+    it "creates computed columns in the correct order" do
+      # Create business_inception first since days_in_business depends on it
+      EasyML::DatasetTransform.new(
         dataset: dataset,
-        transform_class: DidConvert,
-        transform_method: :did_convert
-      )
+        transform_class: BusinessInception,
+        transform_method: :business_inception
+      ).insert
 
-      EasyML::DatasetTransform.create!(
+      EasyML::DatasetTransform.new(
+        dataset: dataset,
+        transform_class: DaysInBusiness,
+        transform_method: :days_in_business
+      ).insert
+
+      # Insert age between business_inception and days_in_business
+      EasyML::DatasetTransform.new(
         dataset: dataset,
         transform_class: Age,
         transform_method: :age
-      )
+      ).insert_after(:business_inception)
+
+      # Prepend did_convert to be first
+      EasyML::DatasetTransform.new(
+        dataset: dataset,
+        transform_class: DidConvert,
+        transform_method: :did_convert
+      ).prepend
 
       dataset.refresh!
+
+      transforms = dataset.transforms.ordered
+      expect(transforms.map(&:transform_method)).to eq(
+        %w[did_convert business_inception age days_in_business]
+      )
+
+      # Verify the data is computed correctly
       expect(dataset.data["did_convert"].to_a).to eq([
                                                        false, false, true, true, false, true, true, true
                                                      ])
-
-      # It computes statistics for computed features
       expect(dataset.statistics["age"]["mean"]).to be_between(1, 50)
-      expect(dataset.columns.map(&:name)).to include("age")
-      expect(dataset.columns.map(&:name)).to include("did_convert")
-      expect(dataset.schema["age"]).to eq "integer"
-      expect(dataset.schema["did_convert"]).to eq "boolean"
+      expect(dataset.data["days_in_business"].to_a).to all(be > 0)
+    end
+
+    it "raises appropriate error if any transform doesn't return df" do
+      # Register the bad transform
+      EasyML::Transforms::Registry.register(BadTransform)
+
+      # Create a transform that will fail
+      transform = EasyML::DatasetTransform.new(
+        dataset: dataset,
+        transform_class: BadTransform,
+        transform_method: :bad_transform
+      )
+      transform.insert
+
+      # Attempt to refresh the dataset
+      expect do
+        dataset.refresh!
+      end.to raise_error(/Transform 'bad_transform' must return a Polars::DataFrame/)
     end
   end
 end

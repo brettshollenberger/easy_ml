@@ -42,6 +42,8 @@ module EasyML
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
+    has_many :dataset_transforms, -> { ordered }, dependent: :destroy
+
     before_destroy :cleanup!
 
     # Maybe copy attrs over from training to prod when marking is_live, so we keep 1 for training and one for live?
@@ -127,6 +129,10 @@ module EasyML
                               { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
                                                                        sample_values] } })
       end
+    end
+
+    def apply_transforms!
+      dataset_transforms.pending.each(&:apply!)
     end
   end
 end

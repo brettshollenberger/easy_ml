@@ -193,6 +193,8 @@ module EasyML
       delegate :train, :test, :valid, to: :split
       delegate :splits, to: :splitter
 
+      SPLIT_ORDER = %i[train valid test]
+
       def process_data
         split_data
         fit
@@ -254,7 +256,7 @@ module EasyML
       end
 
       def check_nulls(data_type = :processed)
-        result = %i[train test valid].each_with_object({}) do |segment, acc|
+        result = SPLIT_ORDER.each_with_object({}) do |segment, acc|
           segment_result = { nulls: {}, total: 0 }
 
           data_source = data_type == :raw ? raw : processed
@@ -329,7 +331,7 @@ module EasyML
       def normalize_all
         processed.cleanup
 
-        %i[train test valid].each do |segment|
+        SPLIT_ORDER.each do |segment|
           df = raw.read(segment)
           processed_df = normalize(df)
           processed.save(segment, processed_df)
@@ -407,7 +409,7 @@ module EasyML
         if transforms.nil?
           df
         else
-          transforms.apply_transforms(df)
+          transforms.reduce(df) { |df, transform| transform.apply!(df) }
         end
       end
 

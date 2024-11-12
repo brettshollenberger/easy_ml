@@ -92,8 +92,26 @@ RSpec.describe EasyML::Datasource do
       )
     end
 
+    class DidConvert
+      include EasyML::Transforms
+
+      def did_convert(df)
+        df.with_column(
+          (Polars.col("rev") > 0).alias("did_convert")
+        )
+      end
+      transform :did_convert,
+                name: "did_convert",
+                description: "Boolean true/false, did the loan application fund?"
+    end
+    before do
+      EasyML::Transforms::Registry.register(DidConvert)
+    end
+
     it "saves and reloads the dataset" do
       dataset.refresh!
+      dataset.columns.find_by(name: "rev").update(is_target: true)
+
       reloaded = EasyML::Dataset.find(dataset.id)
       expect(reloaded.datasource).to eq datasource
       expect(reloaded.datasource.data).to eq datasource.data
@@ -110,6 +128,19 @@ RSpec.describe EasyML::Datasource do
       reloaded.refresh!
       expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
+    end
+
+    it "creates computed columns" do
+      EasyML::DatasetTransform.create!(
+        dataset: dataset,
+        transform_class: DidConvert,
+        transform_method: :did_convert
+      )
+
+      dataset.refresh!
+      expect(dataset.data["did_convert"].to_a).to eq([
+                                                       false, false, true, true, false, true, true, true
+                                                     ])
     end
   end
 end

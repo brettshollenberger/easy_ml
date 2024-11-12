@@ -86,13 +86,26 @@ module EasyML
       EasyML::RefreshDatasetWorker.perform_async(id)
     end
 
+    def refresh!
+      refreshing do
+        dataset_service.refresh!
+      end
+    end
+
     def refresh
+      refreshing do
+        dataset_service.refresh
+      end
+    end
+
+    def refreshing
       return false if locked?
 
       update(workflow_status: "analyzing")
-      dataset_service.refresh
+      yield
       sync_columns
       update(workflow_status: "ready")
+      reload
     rescue StandardError => e
       update(workflow_status: "failed")
       raise e

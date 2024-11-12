@@ -26,7 +26,7 @@ module EasyML
 
     attr_accessor :s3_bucket, :s3_prefix, :s3_access_key_id,
                   :s3_secret_access_key, :s3_region, :cache_for, :polars_args,
-                  :verbose, :is_syncing
+                  :verbose
 
     validates :s3_bucket, :s3_access_key_id, :s3_secret_access_key, presence: true
 
@@ -60,13 +60,13 @@ module EasyML
     def refresh
       return unless synced_directory.should_sync?
 
-      track_sync do
+      syncing do
         synced_directory.sync
       end
     end
 
     def refresh!
-      track_sync do
+      syncing do
         synced_directory.sync!
       end
     end
@@ -122,13 +122,6 @@ module EasyML
         polars_args: polars_args,
         cache_for: cache_for
       )
-    end
-
-    def track_sync
-      before_sync
-      yield
-      after_sync
-      result
     end
   end
 end

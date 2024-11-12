@@ -32,8 +32,17 @@ module EasyML
       files.map { |file| File.mtime(file) }.max
     end
 
-    def refresh; end
-    def refresh!; end
+    def refresh
+      syncing do
+        # syncing ensures we call before & after, but no actual work for file datasource
+      end
+    end
+
+    def refresh!
+      syncing do
+        # syncing ensures we call before & after, but no actual work for file datasource
+      end
+    end
 
     def is_syncing
       false

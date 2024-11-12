@@ -42,11 +42,15 @@ module EasyML
     end
 
     def refresh
-      # No need to refresh for in-memory datasource
+      syncing do
+        # No need to refresh for in-memory datasource
+      end
     end
 
     def refresh!
-      # No need to refresh for in-memory datasource
+      syncing do
+        # No need to refresh for in-memory datasource
+      end
     end
 
     def is_syncing

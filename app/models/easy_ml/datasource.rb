@@ -38,7 +38,7 @@ module EasyML
     validates :datasource_type, inclusion: { in: type_map.values }
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
-    attr_accessor :schema, :columns, :num_rows
+    attr_accessor :schema, :columns, :num_rows, :is_syncing
 
     add_configuration_attributes :schema, :columns, :num_rows, :polars_args, :verbose, :is_syncing
 
@@ -91,6 +91,13 @@ module EasyML
       learn_statistics
       self.is_syncing = false
       save
+    end
+
+    def syncing
+      before_sync
+      yield.tap do
+        after_sync
+      end
     end
 
     delegate :s3_bucket, :s3_prefix, :s3_region, to: :configuration, allow_nil: true

@@ -14,7 +14,11 @@ EasyML::Engine.routes.draw do
   end
 
   # Datasets
-  resources :datasets, as: :easy_ml_datasets
+  resources :datasets, as: :easy_ml_datasets do
+    member do
+      post :refresh
+    end
+  end
 
   # Transformations
   resources :transformations, only: %i[index new edit], as: :easy_ml_transformations

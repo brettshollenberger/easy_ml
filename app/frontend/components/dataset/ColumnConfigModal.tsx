@@ -165,8 +165,8 @@ export function ColumnConfigModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
-        <div className="flex justify-between items-center p-4 border-b">
+      <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b shrink-0">
           <h2 className="text-lg font-semibold">Column Configuration</h2>
           <div className="flex items-center gap-4">
             <div className="min-w-[0px]">
@@ -191,7 +191,7 @@ export function ColumnConfigModal({
           </div>
         </div>
 
-        <div className="flex border-b">
+        <div className="flex border-b shrink-0">
           <button
             onClick={() => setActiveTab('columns')}
             className={`px-4 py-2 text-sm font-medium border-b-2 ${
@@ -227,9 +227,9 @@ export function ColumnConfigModal({
 
         {activeTab === 'columns' ? (
           <React.Fragment>
-            <div className="grid grid-cols-7 h-[calc(90vh-4rem)]">
+            <div className="grid grid-cols-7 flex-1 min-h-0">
               <div className="col-span-3 border-r overflow-hidden flex flex-col">
-                <div className="p-4 border-b">
+                <div className="p-4 border-b shrink-0">
                   <label className="block text-sm font-medium text-gray-700">
                     Target Column
                   </label>
@@ -244,16 +244,18 @@ export function ColumnConfigModal({
                     onChange={(value) => value && setTargetColumn(String(value))}
                   />
                 </div>
-                <ColumnFilters
-                  types={columnTypes}
-                  activeFilters={activeFilters}
-                  onFilterChange={setActiveFilters}
-                  columnStats={columnStats}
-                  columns={dataset.columns}
-                  colHasPreprocessingSteps={colHasPreprocessingSteps}
-                />
+                <div className="shrink-0">
+                  <ColumnFilters
+                    types={columnTypes}
+                    activeFilters={activeFilters}
+                    onFilterChange={setActiveFilters}
+                    columnStats={columnStats}
+                    columns={dataset.columns}
+                    colHasPreprocessingSteps={colHasPreprocessingSteps}
+                  />
+                </div>
 
-                <div className="flex-1 overflow-y-auto p-4">
+                <div className="flex-1 overflow-y-auto p-4 min-h-0">
                   <ColumnList
                     columns={filteredColumns}
                     selectedColumn={selectedColumn}
@@ -287,17 +289,11 @@ export function ColumnConfigModal({
                 )}
               </div>
             </div>
-            <div className="border-t p-4 flex justify-between items-center">
+            <div className="border-t p-4 flex justify-between items-center shrink-0">
               <div className="text-sm text-gray-600">
                 {dataset.columns.filter(c => !c.hidden).length} columns selected for training
               </div>
               <div className="flex gap-3">
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                >
-                  Cancel
-                </button>
                 <button
                   onClick={onClose}
                   className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"

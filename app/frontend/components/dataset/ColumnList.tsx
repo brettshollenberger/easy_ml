@@ -19,7 +19,7 @@ export function ColumnList({
   const { rootPath } = usePage().props;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 pb-2">
       {columns.map(column => (
         <div
           key={column.name}

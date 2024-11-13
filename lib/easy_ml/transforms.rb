@@ -40,9 +40,9 @@ module EasyML::Transforms
         transform_class.transforms.each do |transform|
           [namespace, transform[:name]].compact.join("/")
           registry[namespace][transform[:name]] = {
-            class: transform_class,
+            transform_class: transform_class,
             name: transform[:name],
-            method: transform[:method],
+            transform_method: transform[:method],
             description: transform[:description]
           }
         end

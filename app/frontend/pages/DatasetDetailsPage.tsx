@@ -20,7 +20,7 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
   const onSave = useCallback((updatedDataset: Dataset) => {
     // Find dataset-level changes
     const datasetChanges = Object.entries(updatedDataset).reduce((acc, [key, value]) => {
-      if (key !== 'columns' && !isEqual(currentDataset[key as keyof Dataset], value)) {
+      if (key !== 'columns' && key !== 'transforms' && !isEqual(currentDataset[key as keyof Dataset], value)) {
         acc[key as keyof Dataset] = value;
       }
       return acc;
@@ -31,7 +31,6 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
       const oldColumn = currentDataset.columns.find(c => c.id === newColumn.id);
       
       if (!oldColumn || !isEqual(oldColumn, newColumn)) {
-        // Get only the changed fields for this column
         const changedFields = Object.entries(newColumn).reduce((fields, [key, value]) => {
           if (!oldColumn || !isEqual(oldColumn[key as keyof Column], value)) {
             fields[key] = value;
@@ -49,12 +48,25 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
       return acc;
     }, {} as Record<number, Record<string, any>>);
 
+    // Format transforms for nested attributes
+    const transformChanges = updatedDataset.transforms?.map((transform, index) => ({
+      id: transform.id,
+      name: transform.name,
+      transform_class: transform.transform_class,
+      transform_method: transform.transform_method,
+      position: index,
+      _destroy: transform._destroy
+    }));
+
     // Only make the API call if there are actual changes
-    if (Object.keys(datasetChanges).length > 0 || Object.keys(columnChanges).length > 0) {
+    if (Object.keys(datasetChanges).length > 0 || 
+        Object.keys(columnChanges).length > 0 || 
+        !isEqual(currentDataset.transforms, updatedDataset.transforms)) {
       router.patch(`${rootPath}/datasets/${dataset.id}`, {
         dataset: {
           ...datasetChanges,
-          columns_attributes: columnChanges
+          columns_attributes: columnChanges,
+          transforms_attributes: transformChanges
         }
       }, {
         preserveState: true,

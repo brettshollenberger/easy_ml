@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { X, Settings2, AlertCircle, Target, EyeOff, Search, Wand2, Play } from 'lucide-react';
+import { X, Settings2, AlertCircle, Target, EyeOff, Search, Wand2, Play, Loader2, Sparkles } from 'lucide-react';
 import { PreprocessingConfig } from './PreprocessingConfig';
 import { ColumnList } from './ColumnList';
 import { ColumnFilters } from './ColumnFilters';
 import { AutosaveIndicator } from './AutosaveIndicator';
 import { SearchableSelect } from '../SearchableSelect';
 import { useAutosave } from '../../hooks/useAutosave';
-import { Dataset, Column } from "../../types/dataset";
+import { Dataset, Column, Transform } from "../../types/dataset";
 import type { PreprocessingStep } from '../../types/dataset';
 import { TransformPicker } from './TransformPicker';
 
@@ -18,7 +18,7 @@ interface ColumnConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialDataset: Dataset;
-  onSave: (updates: { columnId: number; updates: Partial<Column> }[]) => void;
+  onSave: (dataset: Dataset) => Promise<void>;
   constants: any;
 }
 
@@ -160,10 +160,25 @@ export function ColumnConfigModal({
     });
   };
 
-  const handleTransformsChange = (transforms: any[]) => {
-    setConfig(prev => ({
-      ...prev,
-      transforms
+  const handleTransformsChange = (newTransforms: Transform[]) => {
+    const existingTransforms = dataset.transforms || [];
+    
+    const removedTransforms = existingTransforms
+      .filter(existing => !newTransforms.find(t => t.name === existing.name))
+      .map(transform => ({ ...transform, _destroy: true }));
+
+    const transformsWithDatasetId = [
+      ...newTransforms,
+      ...removedTransforms
+    ].map((transform, index) => ({
+      ...transform,
+      dataset_id: dataset.id,
+      position: index,
+    }));
+
+    setDataset(prevDataset => ({
+      ...prevDataset,
+      transforms: transformsWithDatasetId
     }));
   };
 

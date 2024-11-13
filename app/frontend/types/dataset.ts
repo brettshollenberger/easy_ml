@@ -10,13 +10,15 @@ export type PreprocessingSteps = {
 }
 
 export type Transform = {
-  id: string;
+  id?: number;
   name: string;
-  description: string;
-  type: 'calculation' | 'lookup' | 'other';
   transform_class: string;
   transform_method: string;
   position: number;
+  dataset_id?: number;
+  description?: string;
+  transform_type?: 'calculation' | 'lookup' | 'other';
+  _destroy?: boolean;
 }
 
 export type PreprocessingStep = {
@@ -76,7 +78,7 @@ export interface Dataset {
   datasource_id: number;
   columns: Array<Column>;
   sample_data: Record<string, any>[];
-  transforms: Array<Transform>;
+  transforms?: Array<Transform>;
   preprocessing_steps: {
     training: Record<string, any>;
   };

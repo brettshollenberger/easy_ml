@@ -137,6 +137,14 @@ module EasyML
             },
             statistics: %i[mean median min max null_count]
           }
+        ],
+        transforms_attributes: %i[
+          id
+          name
+          transform_class
+          transform_method
+          position
+          _destroy
         ]
       )
     end

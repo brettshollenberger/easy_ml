@@ -3,6 +3,7 @@ import { GripVertical, X, Plus, ArrowDown, ArrowUp, Settings2 } from 'lucide-rea
 import { SearchableSelect } from '../SearchableSelect';
 import { TransformConfigPopover } from './TransformConfigPopover';
 import { Transform } from "../../types/dataset";
+
 interface TransformPickerProps {
   options: Transform[];
   initialTransforms?: Transform[];
@@ -28,7 +29,7 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
     onTransformsChange(transformsWithPosition);
   };
 
-  const handleAdd = (transformName: string) => {
+  const handleAddTransform = (transformName: string) => {
     const transform = options.find(t => t.name === transformName);
     if (transform) {
       const newTransform = {
@@ -90,7 +91,7 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
               description: transform.description
             }))}
             value=""
-            onChange={(value) => handleAdd(value as string)}
+            onChange={(value) => handleAddTransform(value as string)}
             placeholder="Add a transform..."
           />
         </div>
@@ -121,8 +122,8 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
               <div className="flex items-center gap-2">
                 <span className="font-medium text-gray-900">{transform.name}</span>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  transform.type === 'calculation' ? 'bg-blue-100 text-blue-800' :
-                  transform.type === 'lookup' ? 'bg-purple-100 text-purple-800' :
+                  transform.transform_type === 'calculation' ? 'bg-blue-100 text-blue-800' :
+                  transform.transform_type === 'lookup' ? 'bg-purple-100 text-purple-800' :
                   'bg-green-100 text-green-800'
                 }`}>
                   {'transform'}

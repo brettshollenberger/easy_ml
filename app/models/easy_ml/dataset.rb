@@ -46,6 +46,7 @@ module EasyML
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
     has_many :transforms, -> { ordered }, dependent: :destroy, class_name: "EasyML::Transform"
+    accepts_nested_attributes_for :transforms, allow_destroy: true
 
     before_destroy :cleanup!
 

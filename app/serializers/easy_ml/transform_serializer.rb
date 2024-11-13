@@ -18,6 +18,10 @@ module EasyML
   class TransformSerializer
     include JSONAPI::Serializer
 
-    attributes :id, :transform_class, :transform_method, :position
+    attributes :id, :transform_class, :transform_method, :position, :name
+
+    attribute :description do |transform|
+      (EasyML::Transforms::Registry.find(transform.name) || {}).dig(:description)
+    end
   end
 end

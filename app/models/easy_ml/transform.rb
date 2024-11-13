@@ -25,7 +25,6 @@ module EasyML
     validates :position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
     before_validation :set_position, on: :create
-    after_save :touch_dataset
 
     # Scopes
     scope :ordered, -> { order(position: :asc) }
@@ -103,10 +102,6 @@ module EasyML
 
       max_position = dataset&.transforms&.maximum(:position) || -1
       self.position = max_position + 1
-    end
-
-    def touch_dataset
-      dataset.touch
     end
   end
 

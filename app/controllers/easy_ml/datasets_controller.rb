@@ -15,6 +15,7 @@
 #  workflow_status :string
 #  statistics      :json
 #  schema          :json
+#  refreshed_at    :datetime
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #

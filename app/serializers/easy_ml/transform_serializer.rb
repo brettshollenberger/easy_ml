@@ -4,9 +4,9 @@
 #
 #  id               :bigint           not null, primary key
 #  dataset_id       :bigint           not null
+#  name             :string
 #  transform_class  :string           not null
 #  transform_method :string           not null
-#  parameters       :json
 #  position         :integer
 #  applied_at       :datetime
 #  created_at       :datetime         not null

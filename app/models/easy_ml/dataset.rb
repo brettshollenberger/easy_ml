@@ -15,6 +15,7 @@
 #  workflow_status :string
 #  statistics      :json
 #  schema          :json
+#  refreshed_at    :datetime
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -97,6 +98,10 @@ module EasyML
       end
     end
 
+    def needs_refresh?
+      refreshed_at.nil? || refreshed_at < updated_at
+    end
+
     def refreshing
       return false if locked?
 
@@ -105,7 +110,8 @@ module EasyML
       learn_schema
       learn_statistics
       sync_columns
-      update(workflow_status: "ready")
+      now = UTC.now
+      update(workflow_status: "ready", refreshed_at: now, updated_at: now)
       reload
     rescue StandardError => e
       update(workflow_status: "failed")

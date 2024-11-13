@@ -10,7 +10,7 @@ class CreateEasyMLTransforms < ActiveRecord::Migration[6.0]
 
       t.timestamps
 
-      t.index [:dataset_id, :position], unique: true
+      t.index [:dataset_id, :position]
       t.index [:dataset_id, :name], unique: true
       t.index :transform_class
       t.index :applied_at

@@ -37,7 +37,7 @@ module EasyML
           create_easy_ml_retraining_jobs_migration
           create_easy_ml_settings_migration
           create_easy_ml_events_migration
-          create_easy_ml_dataset_transforms_migration
+          create_easy_ml_transforms_migration
         end
 
         private
@@ -106,10 +106,10 @@ module EasyML
           )
         end
 
-        def create_easy_ml_dataset_transforms_migration
+        def create_easy_ml_transforms_migration
           migration_template(
-            "create_easy_ml_dataset_transforms.rb.tt",
-            "db/migrate/create_easy_ml_dataset_transforms.rb"
+            "create_easy_ml_transforms.rb.tt",
+            "db/migrate/create_easy_ml_transforms.rb"
           )
         end
 

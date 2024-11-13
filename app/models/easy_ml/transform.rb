@@ -1,6 +1,6 @@
 # == Schema Information
 #
-# Table name: easy_ml_dataset_transforms
+# Table name: easy_ml_transforms
 #
 #  id               :bigint           not null, primary key
 #  dataset_id       :bigint           not null
@@ -13,8 +13,8 @@
 #  updated_at       :datetime         not null
 #
 module EasyML
-  class DatasetTransform < ActiveRecord::Base
-    self.table_name = "easy_ml_dataset_transforms"
+  class Transform < ActiveRecord::Base
+    self.table_name = "easy_ml_transforms"
 
     # Associations
     belongs_to :dataset, class_name: "EasyML::Dataset"
@@ -86,7 +86,7 @@ module EasyML
       transforms_to_update.each(&block)
 
       # Use activerecord-import for bulk updates
-      DatasetTransform.import(
+      Transform.import(
         transforms_to_update,
         on_duplicate_key_update: [:position],
         validate: false

@@ -44,7 +44,7 @@ module EasyML
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
-    has_many :transforms, -> { ordered }, dependent: :destroy, class_name: "EasyML::DatasetTransform"
+    has_many :transforms, -> { ordered }, dependent: :destroy, class_name: "EasyML::Transform"
 
     before_destroy :cleanup!
 
@@ -59,7 +59,8 @@ module EasyML
         column_types: EasyML::Data::PolarsColumn::TYPE_MAP.keys.map do |type|
           { value: type.to_s, label: type.to_s.titleize }
         end,
-        preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies]
+        preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies],
+        transform_options: EasyML::Transforms::Registry.list_flat
       }
     end
 

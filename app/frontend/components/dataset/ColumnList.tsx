@@ -7,7 +7,6 @@ interface ColumnListProps {
   columns: Column[];
   selectedColumn: string | null;
   onColumnSelect: (columnName: string) => void;
-  onToggleTraining: (columnName: string) => void;
   onToggleHidden: (columnName: string) => void;
 }
 

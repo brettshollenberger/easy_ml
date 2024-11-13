@@ -2,57 +2,56 @@ import React, { useState } from 'react';
 import { GripVertical, X, Plus, ArrowDown, ArrowUp, Settings2 } from 'lucide-react';
 import { SearchableSelect } from '../SearchableSelect';
 import { TransformConfigPopover } from './TransformConfigPopover';
-
-interface Transform {
-  id: string;
-  name: string;
-  description: string;
-  type: 'calculation' | 'lookup' | 'conversion';
-  config?: Record<string, any>;
-}
-
+import { Transform } from "../../types/dataset";
 interface TransformPickerProps {
   options: Transform[];
-  selectedTransforms: Transform[];
+  initialTransforms?: Transform[];
   onTransformsChange: (transforms: Transform[]) => void;
 }
 
-export function TransformPicker({ options, selectedTransforms, onTransformsChange }: TransformPickerProps) {
+export function TransformPicker({ options, initialTransforms = [], onTransformsChange }: TransformPickerProps) {
+  const [selectedTransforms, setSelectedTransforms] = useState<Transform[]>(initialTransforms);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
+  console.log(options)
   const availableTransforms = options.filter(
-    transform => !selectedTransforms.find(t => t.id === transform.id)
+    transform => !selectedTransforms.find(t => t.name === transform.name)
   );
+  console.log(availableTransforms)
+
+  const updateTransforms = (newTransforms: Transform[]) => {
+    setSelectedTransforms(newTransforms);
+    onTransformsChange(newTransforms);
+  };
 
   const handleAdd = (transformName: string) => {
     const transform = options.find(t => t.name === transformName);
     if (transform) {
-      onTransformsChange([...selectedTransforms, transform]);
+      const newTransform = {
+        ...transform,
+      };
+      updateTransforms([...selectedTransforms, newTransform]);
     }
   };
 
   const handleRemove = (index: number) => {
     const newTransforms = [...selectedTransforms];
     newTransforms.splice(index, 1);
-    onTransformsChange(newTransforms);
+    updateTransforms(newTransforms);
   };
 
   const handleMoveUp = (index: number) => {
     if (index === 0) return;
     const newTransforms = [...selectedTransforms];
     [newTransforms[index - 1], newTransforms[index]] = [newTransforms[index], newTransforms[index - 1]];
-    onTransformsChange(newTransforms);
+    updateTransforms(newTransforms);
   };
 
   const handleMoveDown = (index: number) => {
     if (index === selectedTransforms.length - 1) return;
     const newTransforms = [...selectedTransforms];
     [newTransforms[index], newTransforms[index + 1]] = [newTransforms[index + 1], newTransforms[index]];
-    onTransformsChange(newTransforms);
-  };
-
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index);
+    updateTransforms(newTransforms);
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
@@ -62,7 +61,7 @@ export function TransformPicker({ options, selectedTransforms, onTransformsChang
     const newTransforms = [...selectedTransforms];
     const [draggedTransform] = newTransforms.splice(draggedIndex, 1);
     newTransforms.splice(index, 0, draggedTransform);
-    onTransformsChange(newTransforms);
+    updateTransforms(newTransforms);
     setDraggedIndex(index);
   };
 
@@ -77,7 +76,7 @@ export function TransformPicker({ options, selectedTransforms, onTransformsChang
               label: transform.name,
               description: transform.description
             }))}
-            value={null}
+            value=""
             onChange={(value) => handleAdd(value as string)}
             placeholder="Add a transform..."
           />
@@ -89,9 +88,8 @@ export function TransformPicker({ options, selectedTransforms, onTransformsChang
       <div className="space-y-2">
         {selectedTransforms.map((transform, index) => (
           <div
-            key={`${transform.name}-${index}`}
+            key={transform.id}
             draggable
-            onDragStart={() => handleDragStart(index)}
             onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={() => setDraggedIndex(null)}
             className={`flex items-center gap-3 p-3 bg-white border rounded-lg ${

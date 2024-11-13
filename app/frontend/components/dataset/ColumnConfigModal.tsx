@@ -6,7 +6,7 @@ import { ColumnFilters } from './ColumnFilters';
 import { AutosaveIndicator } from './AutosaveIndicator';
 import { SearchableSelect } from '../SearchableSelect';
 import { useAutosave } from '../../hooks/useAutosave';
-import { Dataset, Column, Transform } from "../../types/dataset";
+import { Dataset, Column } from "../../types/dataset";
 import type { PreprocessingStep } from '../../types/dataset';
 import { TransformPicker } from './TransformPicker';
 
@@ -177,7 +177,6 @@ export function ColumnConfigModal({
     }
   };
 
-  const hasChanges = Object.keys(config.preprocessing).length > 0 || config.transforms.length > 0;
   if (!isOpen) return null;
 
   const selectedColumnData = selectedColumn ? dataset.columns.find(c => c.name === selectedColumn) : null;
@@ -241,7 +240,7 @@ export function ColumnConfigModal({
             </div>
           </button>
 
-          {hasChanges && (
+          {dataset.needs_refresh && (
             <div className="ml-auto px-4 flex items-center">
               <button
                 onClick={handleApplyChanges}
@@ -347,7 +346,7 @@ export function ColumnConfigModal({
           <div className="p-6 h-[calc(90vh-8rem)] overflow-y-auto">
             <TransformPicker
               options={constants.transform_options}
-              selectedTransforms={dataset.transforms}
+              initialTransforms={dataset.transforms}
               onTransformsChange={handleTransformsChange}
             />
           </div>

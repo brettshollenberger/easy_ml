@@ -67,6 +67,7 @@ export interface Dataset {
   name: string;
   description?: string;
   status: DatasetStatus;
+  needs_refresh: boolean;
   workflow_status: DatasetWorkflowStatus;
   target?: string;
   num_rows?: number;

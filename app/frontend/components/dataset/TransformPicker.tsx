@@ -10,65 +10,21 @@ interface Transform {
   config?: Record<string, any>;
 }
 
-const AVAILABLE_TRANSFORMS: Transform[] = [
-  {
-    id: 'days_in_business',
-    name: 'Days in Business',
-    description: 'Calculate the number of days between signup date and current date',
-    type: 'calculation'
-  },
-  {
-    id: 'did_convert',
-    name: 'Did Convert',
-    description: 'Boolean flag indicating if the user converted',
-    type: 'conversion'
-  },
-  {
-    id: 'zip_code_data',
-    name: 'ZIP Code Demographics',
-    description: 'Enrich with demographic data based on ZIP code',
-    type: 'lookup',
-    config: {
-      fields: ['median_income', 'population', 'avg_age']
-    }
-  },
-  {
-    id: 'lifetime_value',
-    name: 'Customer Lifetime Value',
-    description: 'Calculate total revenue from all customer transactions',
-    type: 'calculation'
-  },
-  {
-    id: 'churn_risk',
-    name: 'Churn Risk Score',
-    description: 'Calculate churn probability based on activity patterns',
-    type: 'calculation'
-  },
-  {
-    id: 'industry_segment',
-    name: 'Industry Segment',
-    description: 'Map company to standardized industry segments',
-    type: 'lookup',
-    config: {
-      source: 'industry_mapping'
-    }
-  }
-];
-
 interface TransformPickerProps {
+  options: Transform[];
   selectedTransforms: Transform[];
   onTransformsChange: (transforms: Transform[]) => void;
 }
 
-export function TransformPicker({ selectedTransforms, onTransformsChange }: TransformPickerProps) {
+export function TransformPicker({ options, selectedTransforms, onTransformsChange }: TransformPickerProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-  const availableTransforms = AVAILABLE_TRANSFORMS.filter(
+  const availableTransforms = options.filter(
     transform => !selectedTransforms.find(t => t.id === transform.id)
   );
 
-  const handleAdd = (transformId: string) => {
-    const transform = AVAILABLE_TRANSFORMS.find(t => t.id === transformId);
+  const handleAdd = (transformName: string) => {
+    const transform = options.find(t => t.name === transformName);
     if (transform) {
       onTransformsChange([...selectedTransforms, transform]);
     }
@@ -116,7 +72,7 @@ export function TransformPicker({ selectedTransforms, onTransformsChange }: Tran
         <div className="flex-1">
           <SearchableSelect
             options={availableTransforms.map(transform => ({
-              value: transform.id,
+              value: transform.name,
               label: transform.name,
               description: transform.description
             }))}
@@ -138,7 +94,7 @@ export function TransformPicker({ selectedTransforms, onTransformsChange }: Tran
       <div className="space-y-2">
         {selectedTransforms.map((transform, index) => (
           <div
-            key={transform.id}
+            key={`${transform.name}-${index}`}
             draggable
             onDragStart={() => handleDragStart(index)}
             onDragOver={(e) => handleDragOver(e, index)}
@@ -162,7 +118,7 @@ export function TransformPicker({ selectedTransforms, onTransformsChange }: Tran
                   transform.type === 'lookup' ? 'bg-purple-100 text-purple-800' :
                   'bg-green-100 text-green-800'
                 }`}>
-                  {transform.type}
+                  {'transform'}
                 </span>
               </div>
               <p className="text-sm text-gray-500 truncate">{transform.description}</p>

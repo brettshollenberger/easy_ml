@@ -6,7 +6,7 @@ import { ColumnFilters } from './ColumnFilters';
 import { AutosaveIndicator } from './AutosaveIndicator';
 import { SearchableSelect } from '../SearchableSelect';
 import { useAutosave } from '../../hooks/useAutosave';
-import { Dataset, Column } from "../../types/dataset";
+import { Dataset, Column, Transform } from "../../types/dataset";
 import type { PreprocessingStep } from '../../types/dataset';
 import { TransformPicker } from './TransformPicker';
 
@@ -159,6 +159,13 @@ export function ColumnConfigModal({
     });
   };
 
+  const handleTransformsChange = (transforms: Transform[]) => {
+    setDataset({
+      ...dataset,
+      transforms
+    });
+  };
+
   if (!isOpen) return null;
 
   const selectedColumnData = selectedColumn ? dataset.columns.find(c => c.name === selectedColumn) : null;
@@ -216,11 +223,9 @@ export function ColumnConfigModal({
             <div className="flex items-center gap-2">
               <Wand2 className="w-4 h-4" />
               Transforms
-              {constants.transform_options.length > 0 && (
-                <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-600 rounded-full">
-                  {constants.transform_options.length}
-                </span>
-              )}
+              <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-600 rounded-full">
+                {constants.transform_options.length}
+              </span>
             </div>
           </button>
         </div>
@@ -306,8 +311,9 @@ export function ColumnConfigModal({
         ) : (
           <div className="p-6 h-[calc(90vh-8rem)] overflow-y-auto">
             <TransformPicker
-              selectedTransforms={constants.transform_options}
-              onTransformsChange={() => { console.log(`do somethign!`)}}
+              options={constants.transform_options}
+              selectedTransforms={dataset.transforms}
+              onTransformsChange={handleTransformsChange}
             />
           </div>
         )}

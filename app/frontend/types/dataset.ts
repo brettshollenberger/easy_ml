@@ -9,6 +9,15 @@ export type PreprocessingSteps = {
   inference?: PreprocessingStep;
 }
 
+export type Transform = {
+  id?: number;
+  name: string;
+  description: string;
+  transform_class: string;
+  transform_method: string;
+  position: number;
+}
+
 export type PreprocessingStep = {
   method: 'none' | 'mean' | 'median' | 'forward_fill' | 'most_frequent' | 'categorical' | 'constant' | 'today' | 'label';
   params: {
@@ -65,6 +74,7 @@ export interface Dataset {
   datasource_id: number;
   columns: Array<Column>;
   sample_data: Record<string, any>[];
+  transforms: Array<Transform>;
   preprocessing_steps: {
     training: Record<string, any>;
   };

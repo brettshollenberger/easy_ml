@@ -326,7 +326,7 @@ module EasyML::Data
         { value: "constant", label: "Constant Value" }
       ],
       datetime: [
-        { value: "forward_fill", label: "Forward Fill" },
+        { value: "ffill", label: "Forward Fill" },
         { value: "constant", label: "Constant Value" },
         { value: "today", label: "Current Date" }
       ],

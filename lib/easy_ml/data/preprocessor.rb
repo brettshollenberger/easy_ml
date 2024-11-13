@@ -98,14 +98,23 @@ module EasyML::Data
 
     private
 
-    def standardize_config(config)
-      config.each do |column, strategies|
-        next unless strategies.is_a?(Array)
+    # preprocessing_steps: {
+    #   training: {
+    #     annual_revenue: {
+    #       median: true
+    #     }
+    #   }
+    # },
 
-        config[column] = strategies.reduce({}) do |hash, strategy|
-          hash.tap do
-            hash[strategy] = true
-          end
+    # training: { LATITUDE: method: "mean" }
+    def standardize_config(config)
+      config.reduce({}) do |hash, (col_name, strategies)|
+        next unless strategies.is_a?(Hash)
+
+        hash.tap do
+          hash[col_name] = {
+            strategies[:method] => true
+          }
         end
       end
     end

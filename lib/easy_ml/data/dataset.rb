@@ -112,32 +112,6 @@ module EasyML
         end
       end
 
-      # Here we define the preprocessing logic.
-      # Aka what to do with null values. For instance:
-      #
-      # class YourDataset
-      #   preprocessing_steps: {
-      #     training: {
-      #       annual_revenue: {
-      #         clip: {min: 0, max: 1_000_000} # Clip values between these
-      #         median: true, # Then learn the median based on clipped values
-      #       },
-      #       created_date: { ffill: true } # During training, use the latest value in the dataset
-      #     },
-      #     inference: {
-      #       created_date: { today: true } # During inference, use the current date
-      #     }
-      #   }
-      # end
-      #
-      dependency :preprocessor do |dependency|
-        dependency.set_class EasyML::Data::Preprocessor
-        dependency.bind_attribute :directory, source: :root_dir do |value|
-          Pathname.new(value).append("preprocessor")
-        end
-        dependency.bind_attribute :preprocessing_steps
-      end
-
       # Here we define the raw dataset (uses the Split class)
       # We use this to learn dataset statistics (e.g. median annual revenue)
       # But we NEVER overwrite it
@@ -205,8 +179,6 @@ module EasyML
 
       def refresh
         refresh_datasource
-        return if processed?
-
         process_data
       end
 
@@ -218,7 +190,7 @@ module EasyML
 
       def normalize(df = nil, split_ys: false)
         df = drop_nulls(df)
-        df = apply_transforms(df)
+        # df = apply_transforms(df)
         df = preprocessor.postprocess(df)
         df, = processed.split_features_targets(df, true, target) if split_ys
         df
@@ -303,6 +275,13 @@ module EasyML
           training: training,
           inference: inference
         }.compact
+      end
+
+      def preprocessor
+        @preprocessor ||= EasyML::Data::Preprocessor.new(
+          directory: Pathname.new(root_dir).append("preprocessor"),
+          preprocessing_steps: preprocessing_steps
+        )
       end
 
       def target
@@ -393,6 +372,7 @@ module EasyML
 
         cleanup
         datasource.in_batches do |df|
+          df = apply_transforms(df)
           train_df, valid_df, test_df = splitter.split(df)
           raw.save(:train, train_df)
           raw.save(:valid, valid_df)

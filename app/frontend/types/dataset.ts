@@ -89,6 +89,7 @@ export interface Dataset {
       months_valid: number;
     };
   };
+  stacktrace?: string;
 }
 
 export interface DatasetForm {

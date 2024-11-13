@@ -26,7 +26,7 @@ module EasyML
     include JSONAPI::Serializer
 
     attributes :id, :name, :description, :target, :num_rows, :status,
-               :datasource_id, :preprocessing_steps, :workflow_status
+               :datasource_id, :preprocessing_steps, :workflow_status, :statistics
 
     attribute :splitter do |dataset|
       dataset.splitter
@@ -58,6 +58,15 @@ module EasyML
 
     attribute :needs_refresh do |dataset|
       dataset.needs_refresh?
+    end
+
+    attribute :stacktrace do |object|
+      if !object.failed? || object.events.empty?
+        nil
+      else
+        last_event = object.events.order(id: :desc).limit(1).last
+        last_event&.stacktrace if last_event&.status == "error"
+      end
     end
   end
 end

@@ -48,6 +48,8 @@ module EasyML
     has_many :transforms, -> { ordered }, dependent: :destroy, class_name: "EasyML::Transform"
     accepts_nested_attributes_for :transforms, allow_destroy: true
 
+    has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
+
     before_destroy :cleanup!
 
     # Maybe copy attrs over from training to prod when marking is_live, so we keep 1 for training and one for live?
@@ -84,6 +86,7 @@ module EasyML
     end
 
     def refresh_async
+      update(workflow_status: "analyzing")
       EasyML::RefreshDatasetWorker.perform_async(id)
     end
 
@@ -110,7 +113,6 @@ module EasyML
 
     def refreshing
       return false if locked?
-      return false unless needs_refresh?
 
       update(workflow_status: "analyzing")
       yield

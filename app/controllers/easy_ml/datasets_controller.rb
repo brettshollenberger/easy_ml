@@ -40,7 +40,6 @@ module EasyML
     def create
       datasource = EasyML::Datasource.find_by(id: params.dig(:dataset, :datasource_id))
       dataset = Dataset.new(dataset_params.to_h.merge!(root_dir: datasource.root_dir))
-      dataset.workflow_status = "analyzing"
 
       if dataset.save
         dataset.refresh_async
@@ -90,6 +89,13 @@ module EasyML
           constants: Dataset.constants
         }
       end
+    end
+
+    def refresh
+      dataset = Dataset.find(params[:id])
+      dataset.refresh_async
+
+      redirect_to easy_ml_datasets_path, notice: "Dataset refresh has been initiated."
     end
 
     private

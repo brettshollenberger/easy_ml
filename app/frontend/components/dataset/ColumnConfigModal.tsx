@@ -9,6 +9,7 @@ import { useAutosave } from '../../hooks/useAutosave';
 import { Dataset, Column, Transform } from "../../types/dataset";
 import type { PreprocessingStep } from '../../types/dataset';
 import { TransformPicker } from './TransformPicker';
+import { router } from "@inertiajs/react";
 
 interface ColumnConfig {
   targetColumn?: string;
@@ -42,6 +43,7 @@ export function ColumnConfigModal({
     view: 'all',
     types: []
   });
+  const [needsRefresh, setNeedsRefresh] = useState(initialDataset.needs_refresh || false);
 
   const handleSave = useCallback(async (data: Dataset) => {
     await onSave(data);
@@ -95,6 +97,16 @@ export function ColumnConfigModal({
     setSelectedColumn(columnName);
   };
 
+  const updateDataset = useCallback((datasetOrUpdater: Dataset | ((prev: Dataset) => Dataset)) => {
+    setDataset(prevDataset => {
+      const newDataset = typeof datasetOrUpdater === 'function' 
+        ? datasetOrUpdater(prevDataset)
+        : datasetOrUpdater;
+      setNeedsRefresh(true);
+      return newDataset;
+    });
+  }, []);
+
   const toggleHiddenColumn = (columnName: string) => {
     const updatedColumns = dataset.columns.map(c => ({
       ...c,
@@ -105,11 +117,12 @@ export function ColumnConfigModal({
       ...dataset,
       columns: updatedColumns,
     });
+    setNeedsRefresh(true);
   };
 
   const setTargetColumn = (columnName: string) => {
     const name = String(columnName);
-    setConfig({targetColumn: columnName})
+    setConfig({targetColumn: columnName});
     const updatedColumns = dataset.columns.map(c => ({
       ...c,
       is_target: c.name === name,
@@ -119,6 +132,7 @@ export function ColumnConfigModal({
       ...dataset,
       columns: updatedColumns,
     });
+    setNeedsRefresh(true);
   };
 
   const setColumnType = (columnName: string, datatype: string) => {
@@ -131,6 +145,7 @@ export function ColumnConfigModal({
       ...dataset,
       columns: updatedColumns,
     });
+    setNeedsRefresh(true);
   };
 
   const handlePreprocessingUpdate = (
@@ -158,6 +173,7 @@ export function ColumnConfigModal({
       ...dataset,
       columns: updatedColumns
     });
+    setNeedsRefresh(true);
   };
 
   const handleTransformsChange = (newTransforms: Transform[]) => {
@@ -180,14 +196,23 @@ export function ColumnConfigModal({
       ...prevDataset,
       transforms: transformsWithDatasetId
     }));
+    setNeedsRefresh(true);
   };
 
   const handleApplyChanges = async () => {
     setIsApplying(true);
     try {
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    } finally {
+      router.post(`/easy_ml/datasets/${dataset.id}/refresh`, {}, {
+        onSuccess: () => {
+          setIsApplying(false);
+        },
+        onError: () => {
+          console.error('Error refreshing dataset');
+          setIsApplying(false);
+        }
+      });
+    } catch (error) {
+      console.error('Error refreshing dataset:', error);
       setIsApplying(false);
     }
   };
@@ -255,7 +280,7 @@ export function ColumnConfigModal({
             </div>
           </button>
 
-          {dataset.needs_refresh && (
+          {needsRefresh && (
             <div className="ml-auto px-4 flex items-center">
               <button
                 onClick={handleApplyChanges}

@@ -10,9 +10,10 @@ export type PreprocessingSteps = {
 }
 
 export type Transform = {
-  id?: number;
+  id: string;
   name: string;
   description: string;
+  type: 'calculation' | 'lookup' | 'other';
   transform_class: string;
   transform_method: string;
   position: number;

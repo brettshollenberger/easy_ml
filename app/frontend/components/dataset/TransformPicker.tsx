@@ -13,15 +13,19 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
   const [selectedTransforms, setSelectedTransforms] = useState<Transform[]>(initialTransforms);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-  console.log(options)
+  console.log(selectedTransforms)
   const availableTransforms = options.filter(
     transform => !selectedTransforms.find(t => t.name === transform.name)
   );
-  console.log(availableTransforms)
 
   const updateTransforms = (newTransforms: Transform[]) => {
-    setSelectedTransforms(newTransforms);
-    onTransformsChange(newTransforms);
+    const transformsWithPosition = newTransforms.map((transform, index) => ({
+      ...transform,
+      position: index
+    }));
+    
+    setSelectedTransforms(transformsWithPosition);
+    onTransformsChange(transformsWithPosition);
   };
 
   const handleAdd = (transformName: string) => {
@@ -29,6 +33,7 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
     if (transform) {
       const newTransform = {
         ...transform,
+        position: selectedTransforms.length
       };
       updateTransforms([...selectedTransforms, newTransform]);
     }
@@ -54,6 +59,10 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
     updateTransforms(newTransforms);
   };
 
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+  };
+
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
@@ -63,6 +72,10 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
     newTransforms.splice(index, 0, draggedTransform);
     updateTransforms(newTransforms);
     setDraggedIndex(index);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   return (
@@ -88,13 +101,14 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
       <div className="space-y-2">
         {selectedTransforms.map((transform, index) => (
           <div
-            key={transform.id}
+            key={transform.name}
             draggable
+            onDragStart={(e) => handleDragStart(e, index)}
             onDragOver={(e) => handleDragOver(e, index)}
-            onDragEnd={() => setDraggedIndex(null)}
+            onDragEnd={handleDragEnd}
             className={`flex items-center gap-3 p-3 bg-white border rounded-lg ${
               draggedIndex === index ? 'border-blue-500 shadow-lg' : 'border-gray-200'
-            }`}
+            } ${draggedIndex !== null ? 'cursor-grabbing' : ''}`}
           >
             <button
               type="button"

@@ -57,7 +57,7 @@ module EasyML
     end
 
     attribute :needs_refresh do |dataset|
-      dataset.needs_refresh
+      dataset.needs_refresh?
     end
   end
 end

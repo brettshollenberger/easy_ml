@@ -188,27 +188,27 @@ RSpec.describe EasyML::Datasource do
 
     it "creates computed columns in the correct order" do
       # Create business_inception first since days_in_business depends on it
-      EasyML::DatasetTransform.new(
+      EasyML::Transform.new(
         dataset: dataset,
         transform_class: BusinessInception,
         transform_method: :business_inception
       ).insert
 
-      EasyML::DatasetTransform.new(
+      EasyML::Transform.new(
         dataset: dataset,
         transform_class: DaysInBusiness,
         transform_method: :days_in_business
       ).insert
 
       # Insert age between business_inception and days_in_business
-      EasyML::DatasetTransform.new(
+      EasyML::Transform.new(
         dataset: dataset,
         transform_class: Age,
         transform_method: :age
       ).insert_after(:business_inception)
 
       # Prepend did_convert to be first
-      EasyML::DatasetTransform.new(
+      EasyML::Transform.new(
         dataset: dataset,
         transform_class: DidConvert,
         transform_method: :did_convert
@@ -234,7 +234,7 @@ RSpec.describe EasyML::Datasource do
       EasyML::Transforms::Registry.register(BadTransform)
 
       # Create a transform that will fail
-      transform = EasyML::DatasetTransform.new(
+      transform = EasyML::Transform.new(
         dataset: dataset,
         transform_class: BadTransform,
         transform_method: :bad_transform

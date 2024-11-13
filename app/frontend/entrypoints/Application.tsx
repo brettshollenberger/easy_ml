@@ -6,7 +6,6 @@ import Layout from '../layouts/Layout';
 document.addEventListener('DOMContentLoaded', () => {
   createInertiaApp({
     resolve: name => {
-      console.log(`resolving component ${name}`)
       const pages = import.meta.glob('../pages/**/*.tsx', { eager: true })
       let page = pages[`../${name}.tsx`];
       if (!page.default) {

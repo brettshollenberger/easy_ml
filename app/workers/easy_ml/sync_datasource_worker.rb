@@ -2,14 +2,14 @@ module EasyML
   class SyncDatasourceWorker < ApplicationWorker
     sidekiq_options(
       queue: :easy_ml,
-      retry: false,
-      lock: :until_executed,
-      on_conflict: :log,
-      lock_args_method: ->(args) { args.first }
+      retry: false
+      # lock: :until_executed,
+      # on_conflict: :log,
+      # lock_args_method: ->(args) { args.first }
     )
 
     def perform(id, force = false)
-      EasyML::Support::Lockable.with_lock_client("SyncDatasourceWorker:#{id}") do |client|
+      EasyML::Support::Lockable.with_lock_client("SyncDatasourceWorker:#{id}", stale_timeout: 5) do |client|
         client.lock do
           puts "Locking!"
           datasource = EasyML::Datasource.find(id)

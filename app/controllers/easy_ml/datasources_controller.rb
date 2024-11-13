@@ -71,7 +71,7 @@ module EasyML
       datasource.update(is_syncing: true)
 
       # Start sync in background to avoid blocking
-      EasyML::SyncDatasourceWorker.perform_async(datasource.id, true)
+      EasyML::SyncDatasourceWorker.perform_async(datasource.id)
 
       redirect_to easy_ml_datasources_path, notice: "Datasource is syncing..."
     rescue ActiveRecord::RecordNotFound

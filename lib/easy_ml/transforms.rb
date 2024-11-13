@@ -41,6 +41,7 @@ module EasyML::Transforms
           [namespace, transform[:name]].compact.join("/")
           registry[namespace][transform[:name]] = {
             class: transform_class,
+            name: transform[:name],
             method: transform[:method],
             description: transform[:description]
           }
@@ -49,6 +50,10 @@ module EasyML::Transforms
 
       def list(namespace: nil)
         namespace ? registry[namespace.to_sym] : registry
+      end
+
+      def list_flat
+        (list.try(:values) || []).flat_map(&:values)
       end
 
       def find(name, namespace: nil)

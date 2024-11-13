@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { X, Settings2, AlertCircle, Target, EyeOff, Search } from 'lucide-react';
+import { X, Settings2, AlertCircle, Target, EyeOff, Search, Wand2, Play } from 'lucide-react';
 import { PreprocessingConfig } from './PreprocessingConfig';
 import { ColumnList } from './ColumnList';
 import { ColumnFilters } from './ColumnFilters';
@@ -7,8 +7,8 @@ import { AutosaveIndicator } from './AutosaveIndicator';
 import { SearchableSelect } from '../SearchableSelect';
 import { useAutosave } from '../../hooks/useAutosave';
 import { Dataset, Column } from "../../types/dataset";
-import { PreprocessingStrategy } from "../../types";
 import type { PreprocessingStep } from '../../types/dataset';
+import { TransformPicker } from './TransformPicker';
 
 interface ColumnConfig {
   targetColumn?: string;
@@ -30,7 +30,7 @@ export function ColumnConfigModal({
   constants
 }: ColumnConfigModalProps) {
   const [dataset, setDataset] = useState<Dataset>(initialDataset);
-
+  const [activeTab, setActiveTab] = useState<'columns' | 'transforms'>('columns');
   const [config, setConfig] = useState<ColumnConfig>({ targetColumn: dataset.target });
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -191,86 +191,131 @@ export function ColumnConfigModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-7 h-[calc(90vh-4rem)]">
-          <div className="col-span-3 border-r overflow-hidden flex flex-col">
-            <div className="p-4 border-b">
-              <label className="block text-sm font-medium text-gray-700">
-                Target Column
-              </label>
-              <SearchableSelect
-                options={dataset.columns.map(column => (
-                  {
-                    value: column.name,
-                    label: column.name
-                  }
-                ))}
-                value={config.targetColumn || ''}
-                onChange={(value) => value && setTargetColumn(value)}
-              />
+        <div className="flex border-b">
+          <button
+            onClick={() => setActiveTab('columns')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 ${
+              activeTab === 'columns'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Settings2 className="w-4 h-4" />
+              Column Configuration
             </div>
-            <ColumnFilters
-              types={columnTypes}
-              activeFilters={activeFilters}
-              onFilterChange={setActiveFilters}
-              columnStats={columnStats}
-              columns={dataset.columns}
-              colHasPreprocessingSteps={colHasPreprocessingSteps}
-            />
-
-            <div className="flex-1 overflow-y-auto p-4">
-              <ColumnList
-                columns={filteredColumns}
-                selectedColumn={selectedColumn}
-                onColumnSelect={handleColumnSelect}
-                onToggleHidden={toggleHiddenColumn}
-              />
+          </button>
+          <button
+            onClick={() => setActiveTab('transforms')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 ${
+              activeTab === 'transforms'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Wand2 className="w-4 h-4" />
+              Transforms
+              {constants.transform_options.length > 0 && (
+                <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-600 rounded-full">
+                  {constants.transform_options.length}
+                </span>
+              )}
             </div>
-          </div>
+          </button>
+        </div>
 
-          <div className="col-span-4 overflow-y-auto p-4">
-            {selectedColumnData ? (
-              <PreprocessingConfig
-                column={selectedColumnData}
-                dataset={dataset}
-                setColumnType={setColumnType}
-                setDataset={setDataset}
-                constants={constants}
-                onUpdate={(training, inference, useDistinctInference) => 
-                  handlePreprocessingUpdate(
-                    selectedColumnData.name,
-                    training,
-                    inference,
-                    useDistinctInference
-                  )
-                }
-              />
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-500">
-                Select a column to configure preprocessing
+        {activeTab === 'columns' ? (
+          <React.Fragment>
+            <div className="grid grid-cols-7 h-[calc(90vh-4rem)]">
+              <div className="col-span-3 border-r overflow-hidden flex flex-col">
+                <div className="p-4 border-b">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Target Column
+                  </label>
+                  <SearchableSelect
+                    options={dataset.columns.map(column => (
+                      {
+                        value: column.name,
+                        label: column.name
+                      }
+                    ))}
+                    value={config.targetColumn || ''}
+                    onChange={(value) => value && setTargetColumn(String(value))}
+                  />
+                </div>
+                <ColumnFilters
+                  types={columnTypes}
+                  activeFilters={activeFilters}
+                  onFilterChange={setActiveFilters}
+                  columnStats={columnStats}
+                  columns={dataset.columns}
+                  colHasPreprocessingSteps={colHasPreprocessingSteps}
+                />
+
+                <div className="flex-1 overflow-y-auto p-4">
+                  <ColumnList
+                    columns={filteredColumns}
+                    selectedColumn={selectedColumn}
+                    onColumnSelect={handleColumnSelect}
+                    onToggleHidden={toggleHiddenColumn}
+                  />
+                </div>
               </div>
-            )}
-          </div>
-        </div>
 
-        <div className="border-t p-4 flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            {dataset.columns.filter(c => !c.hidden).length} columns selected for training
+              <div className="col-span-4 overflow-y-auto p-4">
+                {selectedColumnData ? (
+                  <PreprocessingConfig
+                    column={selectedColumnData}
+                    dataset={dataset}
+                    setColumnType={setColumnType}
+                    setDataset={setDataset}
+                    constants={constants}
+                    onUpdate={(training, inference, useDistinctInference) => 
+                      handlePreprocessingUpdate(
+                        selectedColumnData.name,
+                        training,
+                        inference,
+                        useDistinctInference
+                      )
+                    }
+                  />
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    Select a column to configure preprocessing
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="border-t p-4 flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                {dataset.columns.filter(c => !c.hidden).length} columns selected for training
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </React.Fragment>
+        ) : (
+          <div className="p-6 h-[calc(90vh-8rem)] overflow-y-auto">
+            <TransformPicker
+              selectedTransforms={constants.transform_options}
+              onTransformsChange={() => { console.log(`do somethign!`)}}
+            />
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+        )}
+
       </div>
     </div>
   );

@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { Database, Plus, Trash2, ExternalLink, Loader2, AlertCircle } from 'lucide-react';
+import { Database, Plus, Trash2, ExternalLink, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
-import { Dataset, DatasetWorkflowStatus } from "@types/dataset";
+import { Dataset, DatasetWorkflowStatus, Column } from "@types/dataset";
 interface Props {
   datasets: Dataset[];
 }
@@ -34,6 +34,7 @@ export default function DatasetsPage({ datasets, constants }: Props) {
   const { rootPath } = usePage().props;
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedErrors, setExpandedErrors] = useState<number[]>([]);
 
   const filteredDatasets = useMemo(() => {
     return datasets.filter(dataset =>
@@ -75,6 +76,14 @@ export default function DatasetsPage({ datasets, constants }: Props) {
       }
     };
   }, [datasets]);
+
+  const toggleError = (id: number) => {
+    setExpandedErrors(prev =>
+      prev.includes(id)
+        ? prev.filter(expandedId => expandedId !== id)
+        : [...prev, id]
+    );
+  };
 
   if (datasets.length === 0) {
     return (
@@ -193,7 +202,7 @@ export default function DatasetsPage({ datasets, constants }: Props) {
 
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="flex flex-wrap gap-2">
-                      {dataset.columns.slice(0, 3).map((column) => (
+                      {dataset.columns.slice(0, 3).map((column: Column) => (
                         <span
                           key={column.name}
                           className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
@@ -208,6 +217,31 @@ export default function DatasetsPage({ datasets, constants }: Props) {
                       )}
                     </div>
                   </div>
+
+                  {dataset.workflow_status === 'failed' && dataset.stacktrace && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <button
+                        onClick={() => toggleError(dataset.id)}
+                        className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                        <span>View Error Details</span>
+                        {expandedErrors.includes(dataset.id) ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </button>
+                      {expandedErrors.includes(dataset.id) && (
+                        <div className="mt-2 p-3 bg-red-50 rounded-md">
+                          <pre className="text-xs text-red-700 whitespace-pre-wrap font-mono">
+                            {dataset.stacktrace}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                 </div>
               ))}
             </div>

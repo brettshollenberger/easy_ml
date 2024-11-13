@@ -3,26 +3,18 @@ module EasyML
     sidekiq_options(
       queue: :easy_ml,
       retry: false
-      # lock: :until_executed,
-      # on_conflict: :log,
-      # lock_args_method: ->(args) { args.first }
     )
 
     def perform(id, force = false)
-      EasyML::Support::Lockable.with_lock_client("SyncDatasourceWorker:#{id}", stale_timeout: 5) do |client|
-        client.lock do
-          puts "Locking!"
-          datasource = EasyML::Datasource.find(id)
-          create_event(datasource, "started")
+      datasource = EasyML::Datasource.find(id)
+      create_event(datasource, "started")
 
-          begin
-            files = sync_datasource(datasource, force)
-            datasource.after_sync if files.nil?
-          rescue StandardError => e
-            handle_error(datasource, e)
-            create_event(datasource, e)
-          end
-        end
+      begin
+        files = sync_datasource(datasource, force)
+        datasource.after_sync if files.nil?
+      rescue StandardError => e
+        handle_error(datasource, e)
+        create_event(datasource, e)
       end
     end
 

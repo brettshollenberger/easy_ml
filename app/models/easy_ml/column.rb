@@ -43,6 +43,10 @@ module EasyML
       self.datatype = EasyML::Data::PolarsColumn::POLARS_MAP[type.class.to_s]&.to_s
     end
 
+    def preprocessing_steps
+      (read_attribute(:preprocessing_steps) || {}).symbolize_keys
+    end
+
     private
 
     def ensure_valid_datatype

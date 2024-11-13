@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GripVertical, X, Plus, ArrowDown, ArrowUp, Settings2 } from 'lucide-react';
 import { SearchableSelect } from '../SearchableSelect';
+import { TransformConfigPopover } from './TransformConfigPopover';
 
 interface Transform {
   id: string;
@@ -81,13 +82,7 @@ export function TransformPicker({ options, selectedTransforms, onTransformsChang
             placeholder="Add a transform..."
           />
         </div>
-        <button
-          type="button"
-          className="p-2 text-gray-400 hover:text-gray-600"
-          title="Configure transforms"
-        >
-          <Settings2 className="w-5 h-5" />
-        </button>
+        <TransformConfigPopover />
       </div>
 
       {/* Selected Transforms */}

@@ -56,8 +56,8 @@ module EasyML
       end
     end
 
-    attribute :needs_preprocess do |dataset|
-      dataset.needs_preprocess
+    attribute :needs_refresh do |dataset|
+      dataset.needs_refresh
     end
   end
 end

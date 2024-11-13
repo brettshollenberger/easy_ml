@@ -52,12 +52,16 @@ module EasyML
       synced_directory.in_batches(&block)
     end
 
+    def needs_refresh?
+      synced_directory.should_sync?
+    end
+
     def should_sync?
       synced_directory.should_sync?
     end
 
     def refresh
-      return unless synced_directory.should_sync?
+      return unless needs_refresh?
 
       syncing do
         synced_directory.sync

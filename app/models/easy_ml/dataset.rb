@@ -99,11 +99,17 @@ module EasyML
     end
 
     def needs_refresh?
-      refreshed_at.nil? || refreshed_at < updated_at
+      return true if refreshed_at.nil?
+      return true if columns.where("updated_at > ?", refreshed_at).exists?
+      return true if transforms.where("updated_at > ?", refreshed_at).exists?
+      return true if datasource&.needs_refresh?
+
+      false
     end
 
     def refreshing
       return false if locked?
+      return false unless needs_refresh?
 
       update(workflow_status: "analyzing")
       yield

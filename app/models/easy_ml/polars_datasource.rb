@@ -40,6 +40,10 @@ module EasyML
       [] # No files, as this is in-memory
     end
 
+    def needs_refresh?
+      false
+    end
+
     def refresh
       syncing do
         # No need to refresh for in-memory datasource

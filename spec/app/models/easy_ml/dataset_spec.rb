@@ -253,4 +253,78 @@ RSpec.describe EasyML::Datasource do
       end.to raise_error(/Transform 'bad_transform' must return a Polars::DataFrame/)
     end
   end
+
+  describe "needs_refresh?" do
+    let(:df) do
+      Polars::DataFrame.new({
+                              id: [1, 2, 3],
+                              rev: [100, 200, 300],
+                              created_date: %w[2024-01-01 2024-02-01 2024-03-01]
+                            })
+    end
+
+    let(:datasource) do
+      EasyML::Datasource.create(
+        name: "test_source",
+        datasource_type: :polars,
+        df: df
+      )
+    end
+
+    let(:dataset) do
+      EasyML::Dataset.create(
+        name: "Test Dataset",
+        datasource: datasource,
+        splitter: {
+          date: {
+            today: EST.parse("2024-10-01"),
+            date_col: "created_date",
+            months_test: 2,
+            months_valid: 2
+          }
+        }
+      )
+    end
+
+    it "returns true when never refreshed (refreshed_at is nil)" do
+      expect(dataset.refreshed_at).to be_nil
+      expect(dataset).to be_needs_refresh
+    end
+
+    context "when previously refreshed" do
+      before do
+        dataset.refresh!
+      end
+
+      it "returns true when columns have been updated" do
+        # Travel forward in time to make the update
+        Timecop.travel 1.minute do
+          dataset.columns.find_by(name: "rev").update!(is_target: true)
+        end
+
+        expect(dataset).to be_needs_refresh
+      end
+
+      it "returns true when transforms have been updated" do
+        Timecop.travel 1.minute do
+          EasyML::Transform.create!(
+            dataset: dataset,
+            transform_class: Age,
+            transform_method: :age
+          )
+        end
+
+        expect(dataset).to be_needs_refresh
+      end
+
+      it "returns true when datasource needs refresh" do
+        allow(dataset.datasource).to receive(:needs_refresh?).and_return(true)
+        expect(dataset).to be_needs_refresh
+      end
+
+      it "returns false when nothing has changed" do
+        expect(dataset).not_to be_needs_refresh
+      end
+    end
+  end
 end

@@ -31,6 +31,7 @@ export function ColumnConfigModal({
 }: ColumnConfigModalProps) {
   const [dataset, setDataset] = useState<Dataset>(initialDataset);
   const [activeTab, setActiveTab] = useState<'columns' | 'transforms'>('columns');
+  const [isApplying, setIsApplying] = useState(false);
   const [config, setConfig] = useState<ColumnConfig>({ targetColumn: dataset.target });
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,13 +160,24 @@ export function ColumnConfigModal({
     });
   };
 
-  const handleTransformsChange = (transforms: Transform[]) => {
-    setDataset({
-      ...dataset,
+  const handleTransformsChange = (transforms: any[]) => {
+    setConfig(prev => ({
+      ...prev,
       transforms
-    });
+    }));
   };
 
+  const handleApplyChanges = async () => {
+    setIsApplying(true);
+    try {
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } finally {
+      setIsApplying(false);
+    }
+  };
+
+  const hasChanges = Object.keys(config.preprocessing).length > 0 || config.transforms.length > 0;
   if (!isOpen) return null;
 
   const selectedColumnData = selectedColumn ? dataset.columns.find(c => c.name === selectedColumn) : null;
@@ -228,6 +240,29 @@ export function ColumnConfigModal({
               </span>
             </div>
           </button>
+
+          {hasChanges && (
+            <div className="ml-auto px-4 flex items-center">
+              <button
+                onClick={handleApplyChanges}
+                disabled={isApplying}
+                className="group relative inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-medium rounded-md hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg"
+              >
+                <div className="absolute inset-0 bg-white/10 rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                {isApplying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Applying Preprocessing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Apply Preprocessing
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
         {activeTab === 'columns' ? (

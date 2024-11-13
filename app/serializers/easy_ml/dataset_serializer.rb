@@ -17,6 +17,7 @@ require_relative "./column_serializer"
 #  workflow_status :string
 #  statistics      :json
 #  schema          :json
+#  refreshed_at    :datetime
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -53,6 +54,10 @@ module EasyML
       dataset.transforms.ordered.map do |transform|
         TransformSerializer.new(transform).serializable_hash.dig(:data, :attributes)
       end
+    end
+
+    attribute :needs_preprocess do |dataset|
+      dataset.needs_preprocess
     end
   end
 end

@@ -188,6 +188,10 @@ RSpec.describe EasyML::Datasource do
 
     it "creates computed columns in the correct order" do
       # Create business_inception first since days_in_business depends on it
+      expect(dataset).to be_needs_refresh
+      dataset.refresh!
+      expect(dataset).to_not be_needs_refresh
+
       EasyML::Transform.new(
         dataset: dataset,
         transform_class: BusinessInception,
@@ -214,7 +218,9 @@ RSpec.describe EasyML::Datasource do
         transform_method: :did_convert
       ).prepend
 
+      expect(dataset).to be_needs_refresh
       dataset.refresh!
+      expect(dataset).to_not be_needs_refresh
 
       transforms = dataset.transforms.ordered
       expect(transforms.map(&:transform_method)).to eq(

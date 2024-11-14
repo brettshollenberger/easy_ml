@@ -1959,6 +1959,7 @@ DEPENDENCIES
   numpy (~> 0.4.0)
   ostruct
   pg
+  polars-df
   pry
   rake (~> 13.0)
   rspec (~> 3.0)

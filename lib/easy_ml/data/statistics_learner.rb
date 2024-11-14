@@ -9,9 +9,24 @@ module EasyML::Data
 
     def self.learn(raw, processed)
       {
-        raw: learn_df(raw),
-        processed: learn_df(processed)
+        raw: learn_split(raw),
+        processed: learn_split(processed)
       }
+    end
+
+    def self.learn_split(split)
+      df = split.read(:all)
+      train_df = split.read(:train)
+      all_stats = learn_df(df)
+      train_stats = learn_df(train_df)
+
+      all_stats.reduce({}) do |output, (k, _)|
+        output.tap do
+          output[k] = all_stats[k].slice(:num_rows, :null_count, :unique_count, :counts).merge!(
+            train_stats[k].slice(:mean, :median, :min, :max, :std, :last_value, :most_frequent_value)
+          )
+        end
+      end
     end
 
     def self.learn_df(df)
@@ -33,7 +48,7 @@ module EasyML::Data
         case field_type
         when :integer, :float
           allowed_attrs = if id_column?(col)
-                            %i[field_type null_count count min max]
+                            %i[field_type null_count min max]
                           else
                             base_stats[col.to_sym].keys
                           end

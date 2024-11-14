@@ -25,7 +25,7 @@ export type PreprocessingStep = {
   method: 'none' | 'mean' | 'median' | 'ffill' | 'most_frequent' | 'categorical' | 'constant' | 'today' | 'label';
   params: {
     value?: number;
-    constantValue?: string;
+    constant?: string;
     categorical_min?: number;
     clip?: {
       min?: number;
@@ -44,6 +44,7 @@ export interface StatisticSet {
   last_value?: string;
   count?: number;
   null_count?: number;
+  unique_count?: number;
   most_frequent_value?: string;
   counts: object;
   num_rows?: number;

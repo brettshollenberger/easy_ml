@@ -30,7 +30,12 @@ module EasyML::Data::Dataset::Splitters
 
       validation_date_start, test_date_start = splits
 
-      test_df = df.filter(Polars.col(date_col) >= test_date_start)
+      test_df = Polars.concat(
+        [
+          df.filter(Polars.col(date_col) >= test_date_start),
+          df.filter(Polars.col(date_col).is_null)
+        ]
+      )
       remaining_df = df.filter(Polars.col(date_col) < test_date_start)
       valid_df = remaining_df.filter(Polars.col(date_col) >= validation_date_start)
       train_df = remaining_df.filter(Polars.col(date_col) < validation_date_start)

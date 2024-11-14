@@ -22,33 +22,31 @@ module EasyML::Data
       @statistics = stats.deep_symbolize_keys
     end
 
+    def apply_clip(df, preprocessing_steps)
+      df = df.clone
+      preprocessing_steps ||= {}
+      preprocessing_steps.deep_symbolize_keys!
+
+      (preprocessing_steps[:training] || {}).each_key do |col|
+        clip_params = preprocessing_steps.dig(:training, col, :params, :clip)
+        next unless clip_params
+
+        min = clip_params[:min]
+        max = clip_params[:max]
+        df[col.to_s] = df[col.to_s].clip(min, max)
+      end
+
+      df
+    end
+
     def fit(df)
       return if df.nil?
       return if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
       preprocessing_steps.deep_symbolize_keys!
+      df = apply_clip(df, preprocessing_steps)
 
-      puts "Preprocessing..." if verbose
-      imputers = initialize_imputers(preprocessing_steps[:training])
-
-      stats = {}
-      imputers.each do |col, imputers|
-        sorted_strategies(imputers).each do |strategy|
-          imputer = imputers[strategy]
-          if df.columns.map(&:downcase).map(&:to_s).include?(col.downcase.to_s)
-            actual_col = df.columns.map(&:to_s).find { |c| c.to_s.downcase == imputer.attribute.downcase.to_s }
-            stats.deep_merge!(
-              imputer.fit(df[actual_col], df)
-            )
-            if strategy == "clip" # This is the only one to transform during fit
-              df[actual_col] = imputer.transform(df[actual_col])
-            end
-          elsif @verbose
-            puts "Warning: Column '#{col}' not found in DataFrame during fit process."
-          end
-        end
-      end
-      self.statistics = stats
+      self.statistics = StatisticsLearner.learn_df(df).deep_symbolize_keys
     end
 
     def postprocess(df, inference: false)
@@ -98,64 +96,42 @@ module EasyML::Data
 
     private
 
-    # preprocessing_steps: {
-    #   training: {
-    #     annual_revenue: {
-    #       median: true
-    #     }
-    #   }
-    # },
-
-    # training: { LATITUDE: method: "mean" }
-    def standardize_config(config)
-      config.reduce({}) do |hash, (col_name, strategies)|
-        next unless strategies.is_a?(Hash)
-
-        hash.tap do
-          hash[col_name] = {
-            strategies[:method] => true
-          }
-        end
-      end
-    end
-
     def initialize_imputers(config)
-      standardize_config(config).each_with_object({}) do |(col, strategies), hash|
+      config.each_with_object({}) do |(col, conf), hash|
         hash[col] ||= {}
-        strategies.each do |strategy, options|
-          next if strategy.to_sym == :one_hot
+        conf.symbolize_keys!
+        method = conf[:method]
+        params = conf[:params] || {}
 
-          options = {} if options == true
-
-          imputer_stats = deserialize_statistics((statistics || {}).deep_stringify_keys.dig(col.to_s))
-          hash[col][strategy] = EasyML::Data::SimpleImputer.new(
-            strategy: strategy,
-            path: directory,
-            attribute: col,
-            options: options,
-            statistics: imputer_stats
-          )
-        end
+        hash[col][method] = EasyML::Data::SimpleImputer.new(
+          strategy: method,
+          options: params,
+          path: directory,
+          attribute: col,
+          statistics: statistics.dig(col)
+        )
       end
     end
 
     def apply_transformations(df, config)
       imputers = initialize_imputers(config)
+      df = apply_clip(df, { training: config })
 
-      standardize_config(config).each do |col, strategies|
+      config.each do |col, conf|
+        conf.symbolize_keys!
         if df.columns.map(&:downcase).map(&:to_s).include?(col.downcase.to_s)
           actual_col = df.columns.map(&:to_s).find { |c| c.to_s.downcase == col.to_s.downcase }
 
-          sorted_strategies(strategies).each do |strategy|
-            conf = strategies[strategy.to_sym]
-            if conf.is_a?(Hash) && conf.key?(:one_hot) && conf[:one_hot] == true
-              df = apply_one_hot(df, col, imputers)
-            elsif imputers.dig(col, strategy).options.dig(:ordinal_encoding) == true
-              df = apply_ordinal_encoding(df, col, imputers)
-            else
-              imputer = imputers.dig(col, strategy)
-              df[actual_col] = imputer.transform(df[actual_col]) if imputer
-            end
+          strategy = conf[:method]
+          params = conf[:params]
+          imputer = imputers.dig(col, strategy)
+
+          df[actual_col] = imputer.transform(df[actual_col]) if imputer
+
+          if params.is_a?(Hash) && params.key?(:one_hot) && params[:one_hot] == true
+            df = apply_one_hot(df, col, imputers)
+          elsif params.is_a?(Hash) && params.key?(:ordinal_encoding) && params[:ordinal_encoding] == true
+            df = apply_ordinal_encoding(df, col, imputers)
           end
         elsif @verbose
           puts "Warning: Column '#{col}' not found in DataFrame during apply_transformations process."

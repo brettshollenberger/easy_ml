@@ -78,6 +78,7 @@ module EasyML
       attribute :datasource
       attribute :columns
       attribute :schema
+      attribute :statistics
 
       # dependency defines a configurable dependency, with optional args,
       # for example, here we define a datasource:
@@ -269,16 +270,24 @@ module EasyML
         return if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
         return @preprocessing_steps if @preprocessing_steps.present?
 
-        training = columns.map(&:name).zip(columns.map { |col| col.preprocessing_steps&.dig(:training) }).to_h.compact
-        inference = columns.map(&:name).zip(columns.map { |col| col.preprocessing_steps&.dig(:inference) }).to_h.compact
+        training = standardize_preprocessing_steps(:training)
+        inference = standardize_preprocessing_steps(:inference)
+
         @preprocessing_steps = {
           training: training,
           inference: inference
-        }.compact
+        }.compact.deep_symbolize_keys
       end
 
       def preprocessor
-        @preprocessor ||= EasyML::Data::Preprocessor.new(
+        @preprocessor ||= initialize_preprocessor
+        return @preprocessor if @preprocessor.preprocessing_steps == preprocessing_steps
+
+        @preprocessor = initialize_preprocessor
+      end
+
+      def initialize_preprocessor
+        EasyML::Data::Preprocessor.new(
           directory: Pathname.new(root_dir).append("preprocessor"),
           preprocessing_steps: preprocessing_steps
         )
@@ -400,6 +409,12 @@ module EasyML
             result
           end
         end
+      end
+
+      def standardize_preprocessing_steps(type)
+        columns.map(&:name).zip(columns.map do |col|
+          col.preprocessing_steps&.dig(type)
+        end).to_h.compact.reject { |_k, v| v["method"] == "none" }
       end
 
       def alert_nulls

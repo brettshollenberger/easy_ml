@@ -13,6 +13,7 @@ gem "inertia_rails", require: false
 gem "jsonapi-serializer"
 gem "numpy", "~> 0.4.0"
 gem "pg"
+gem "polars-df", ref: "203d16560e73b06a51d06cc66da141d0f5834060"
 gem "rake", "~> 13.0"
 gem "rubocop", "~> 1.21"
 gem "sidekiq", "~> 6.5.6"

@@ -192,6 +192,7 @@ export function ColumnConfigModal({
   const handleApplyChanges = async () => {
     setIsApplying(true);
     try {
+      await onSave(dataset)
       router.post(`/easy_ml/datasets/${dataset.id}/refresh`, {}, {
         onSuccess: () => {
           setIsApplying(false);

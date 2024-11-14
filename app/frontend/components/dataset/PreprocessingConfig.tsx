@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, Wrench, ArrowRight, Pencil } from 'lucide-react';
+import { Settings2, Wrench, ArrowRight, Pencil, Trash2, Database } from 'lucide-react';
 import type { Dataset, Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
 import { Badge } from "@/components/ui/badge";
 interface PreprocessingConfigProps {
@@ -53,10 +53,35 @@ export function PreprocessingConfig({
     }
   }));
 
-  // Update selectedType when column changes
+  // Update all states when column changes
   useEffect(() => {
     setSelectedType(column.datatype as ColumnType);
-  }, [column.datatype]);
+    
+    setUseDistinctInference(
+      Boolean(column.preprocessing_steps?.inference?.method && 
+              column.preprocessing_steps.inference.method !== 'none')
+    );
+
+    setTraining({
+      method: column.preprocessing_steps?.training?.method || 'none',
+      params: {
+        categorical_min: column.preprocessing_steps?.training?.params?.categorical_min ?? 100,
+        one_hot: column.preprocessing_steps?.training?.params?.one_hot ?? true,
+        ordinal_encoding: column.preprocessing_steps?.training?.params?.ordinal_encoding ?? false,
+        clip: column.preprocessing_steps?.training?.params?.clip
+      }
+    });
+
+    setInference({
+      method: column.preprocessing_steps?.inference?.method || 'none',
+      params: {
+        categorical_min: column.preprocessing_steps?.inference?.params?.categorical_min ?? 100,
+        one_hot: column.preprocessing_steps?.inference?.params?.one_hot ?? true,
+        ordinal_encoding: column.preprocessing_steps?.inference?.params?.ordinal_encoding ?? false,
+        clip: column.preprocessing_steps?.inference?.params?.clip
+      }
+    });
+  }, [column]); // Only re-run when column changes
 
   const handleColumnTypeChange = (newType: ColumnType) => {
     setSelectedType(newType);
@@ -235,6 +260,18 @@ export function PreprocessingConfig({
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
 
+  const onToggleDropIfNull = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const updatedColumns = dataset.columns.map(c => ({
+      ...c,
+      drop_if_null: c.name === column.name ? e.target.checked : c.drop_if_null
+    }));
+
+    setDataset({
+      ...dataset,
+      columns: updatedColumns
+    });
+  };
+
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const updatedColumns = dataset.columns.map(c => ({
       ...c,
@@ -264,25 +301,32 @@ export function PreprocessingConfig({
     setIsEditingDescription(true);
   };
 
-  const nullPercentage = column.statistics?.null_count && column.statistics?.num_rows
-    ? Math.round((column.statistics.null_count / column.statistics.num_rows) * 100)
+  let nullCount = (column.statistics?.processed.null_count || column.statistics?.raw.null_count) || 0;
+  const nullPercentage = nullCount && column.statistics?.raw.num_rows
+    ? Math.round((nullCount / column.statistics.raw.num_rows) * 100)
     : 0;
+
+  const nullPercentageProcessed = column.statistics?.processed?.null_count && column.statistics?.raw.num_rows
+    ? Math.round((column.statistics.processed.null_count / column.statistics.raw.num_rows) * 100)
+    : 0;
+
+  const totalRows = column.statistics?.raw.num_rows ?? 0;
 
   const renderStrategySpecificInfo = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
-    if (strategy.method === 'most_frequent' && column.statistics?.most_frequent_value) {
+    if (strategy.method === 'most_frequent' && column.statistics?.raw.most_frequent_value) {
       return (
         <div className="mt-4 bg-blue-50 rounded-lg p-4">
           <span className="text-sm font-medium text-blue-700">
-            Most Frequent Value: {column.statistics.most_frequent_value}
+            Most Frequent Value: {column.statistics.raw.most_frequent_value}
           </span>
         </div>
       );
-    } else if (strategy.method === 'forward_fill' && column.statistics?.last_value) {
+    } else if (strategy.method === 'ffill' && column.statistics?.raw.last_value) {
       return (
         <div className="mt-4 bg-yellow-50 rounded-lg p-4">
           <span className="text-sm font-medium text-yellow-700">
-            Last Value: {column.statistics.last_value}
+            Last Value: {column.statistics.raw.last_value}
           </span>
         </div>
       );
@@ -295,9 +339,9 @@ export function PreprocessingConfig({
       {/* Column Header Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex-1">
+          <div className="flex-1 max-w-[70%]">
             <h2 className="text-2xl font-semibold text-gray-900">{column.name}</h2>
-            <div className="mt-1 flex items-start gap-2">
+            <div className="mt-1 flex items-start gap-1">
               {isEditingDescription ? (
                 <div className="flex-1">
                   <textarea
@@ -315,28 +359,112 @@ export function PreprocessingConfig({
                   </p>
                 </div>
               ) : (
-                <>
+                <div className="flex-3/4 flex items-start gap-1">
                   <p
-                    className="text-sm text-gray-500 flex-1 cursor-pointer"
+                    className="text-sm text-gray-500 cursor-pointer flex-grow truncate"
                     onClick={handleDescriptionClick}
                   >
                     {column.description || 'No description provided'}
                   </p>
                   <button
                     onClick={handleDescriptionClick}
-                    className="p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100"
+                    className="p-1 text-gray-400 hover:text-gray-600 rounded-md hover:bg-gray-100 flex-shrink-0"
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
-                </>
+                </div>
               )}
             </div>
           </div>
-          {column.is_target && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-              Target Column
-            </span>
-          )}
+          <div className="flex items-center gap-4 flex-shrink-0">
+            {column.is_target ? (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                Target Column
+              </span>
+            ) : (
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={column.drop_if_null}
+                    onChange={onToggleDropIfNull}
+                    className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  />
+                  <span className="flex items-center gap-1 text-gray-700">
+                    <Trash2 className="w-4 h-4 text-gray-400" />
+                    Drop if null
+                  </span>
+                </label>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Null Value Statistics */}
+        <div className="mt-6 grid grid-cols-2 gap-6">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Database className="w-4 h-4 text-gray-500" />
+              <h3 className="text-sm font-medium text-gray-900">Raw Data Statistics</h3>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Null Values:</span>
+                <span className="font-medium text-gray-900">{nullCount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Total Rows:</span>
+                <span className="font-medium text-gray-900">{totalRows.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Null Percentage:</span>
+                <span className="font-medium text-gray-900">{nullPercentage.toFixed(2)}%</span>
+              </div>
+              <div className="mt-2">
+                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-blue-600 rounded-full"
+                    style={{ width: `${nullPercentage}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Wrench className="w-4 h-4 text-gray-500" />
+              <h3 className="text-sm font-medium text-gray-900">Processed Data Statistics</h3>
+            </div>
+            {dataset?.preprocessing_steps?.training ? (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Null Values:</span>
+                  <span className="font-medium text-gray-900">{column.statistics?.processed?.null_count?.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Total Rows:</span>
+                  <span className="font-medium text-gray-900">{column.statistics?.raw?.num_rows?.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Null Percentage:</span>
+                  <span className="font-medium text-gray-900">{nullPercentageProcessed.toFixed(2)}%</span>
+                </div>
+                <div className="mt-2">
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-600 rounded-full"
+                      style={{ width: `${nullPercentageProcessed}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 text-center py-2">
+                No preprocessing configured
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mt-6">
@@ -347,18 +475,18 @@ export function PreprocessingConfig({
           <div className="bg-gray-50 rounded-lg p-4">
             <span className="text-sm text-gray-500">Unique Values</span>
             <p className="text-lg font-medium text-gray-900 mt-1">
-              {column.statistics?.unique_count?.toLocaleString() ?? 'N/A'}
+              {column.statistics?.num_rows?.toLocaleString() ?? 'N/A'}
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
             <span className="text-sm text-gray-500">Null Values</span>
             <p className="text-lg font-medium text-gray-900 mt-1">
-              {column.statistics?.null_count?.toLocaleString() ?? '0'}
+              {column.statistics?.raw.null_count?.toLocaleString() ?? '0'}
             </p>
           </div>
         </div>
 
-        {column.statistics?.null_count ? (
+        {column.statistics?.processed.null_count ? (
           <div className="mt-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Null Distribution</span>
@@ -382,12 +510,12 @@ export function PreprocessingConfig({
           </div>
         )}
 
-        {column.statistics?.sample_data && (
+        {column.statistics?.raw?.sample_data && (
           <div className="mt-6">
             <h4 className="text-sm font-medium text-gray-700 mb-2">Sample Values</h4>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex flex-wrap gap-2">
-                {column.statistics.sample_data.map((value, index) => (
+                {column.statistics?.raw?.sample_data && column.statistics.raw.sample_data.map((value, index) => (
                   <span key={index} className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-700">
                     {String(value)}
                   </span>
@@ -397,9 +525,6 @@ export function PreprocessingConfig({
           </div>
         )}
       </div>
-
-      {/* Preprocessing Strategy Section */}
-
 
       {/* Data Type Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">

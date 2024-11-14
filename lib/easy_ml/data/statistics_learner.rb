@@ -7,7 +7,14 @@ module EasyML::Data
 
     attribute :verbose
 
-    def self.learn(df)
+    def self.learn(raw, processed)
+      {
+        raw: learn_df(raw),
+        processed: learn_df(processed)
+      }
+    end
+
+    def self.learn_df(df)
       return if df.nil?
 
       base_stats = describe_to_h(df).deep_symbolize_keys

@@ -49,12 +49,12 @@ export function ColumnFilters({
   };
 
   const calculateNullPercentage = (column: Column) => {
-    if (!column.statistics?.null_count || !column.statistics?.count) return 0;
-    return (column.statistics.null_count / column.statistics.count) * 100;
+    if (!column.statistics?.processed?.null_count || !column.statistics?.processed?.num_rows) return 0;
+    return (column.statistics.processed.null_count / column.statistics.processed.num_rows) * 100;
   };
 
   const columnsWithNulls = columns
-    .filter(col => col.statistics?.null_count && col.statistics.null_count > 0)
+    .filter(col => col.statistics?.processed.null_count && col.statistics.processed.null_count > 0)
     .sort((a, b) => calculateNullPercentage(b) - calculateNullPercentage(a));
 
   const [currentPage, setCurrentPage] = useState(1);

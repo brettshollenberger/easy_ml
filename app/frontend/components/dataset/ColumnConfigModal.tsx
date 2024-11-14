@@ -69,7 +69,7 @@ export function ColumnConfigModal({
           case 'preprocessed':
             return colHasPreprocessingSteps(column);
           case 'nulls':
-            return (column.statistics?.null_count || 0) > 0;
+            return (column.statistics?.processed?.null_count || 0) > 0;
           default:
             return true;
         }
@@ -85,7 +85,7 @@ export function ColumnConfigModal({
     training: dataset.columns.filter(c => !c.hidden && !c.drop_if_null).length,
     hidden: dataset.columns.filter(c => c.hidden).length,
     withPreprocessing: dataset.columns.filter(colHasPreprocessingSteps).length,
-    withNulls: dataset.columns.filter(c => (c.statistics?.null_count || 0) > 0).length
+    withNulls: dataset.columns.filter(c => (c.statistics?.processed?.null_count || 0) > 0).length
   }), [dataset.columns, filteredColumns]);
 
   const columnTypes = useMemo(() => 
@@ -96,16 +96,6 @@ export function ColumnConfigModal({
   const handleColumnSelect = (columnName: string) => {
     setSelectedColumn(columnName);
   };
-
-  const updateDataset = useCallback((datasetOrUpdater: Dataset | ((prev: Dataset) => Dataset)) => {
-    setDataset(prevDataset => {
-      const newDataset = typeof datasetOrUpdater === 'function' 
-        ? datasetOrUpdater(prevDataset)
-        : datasetOrUpdater;
-      setNeedsRefresh(true);
-      return newDataset;
-    });
-  }, []);
 
   const toggleHiddenColumn = (columnName: string) => {
     const updatedColumns = dataset.columns.map(c => ({

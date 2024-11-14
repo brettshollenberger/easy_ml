@@ -36,18 +36,23 @@ export type PreprocessingStep = {
   };
 };
 
-export interface Statistics {
+export interface StatisticSet {
   mean?: number;
   median?: number;
   min?: number;
   max?: number;
-  null_count?: number;
-  unique_count?: number;
   last_value?: string;
+  count?: number;
+  null_count?: number;
   most_frequent_value?: string;
   counts: object;
   num_rows?: number;
   sample_data?: any[];
+}
+
+export interface Statistics {
+  raw: StatisticSet;
+  processed: StatisticSet;
 }
 export interface Column {
   id: number;
@@ -106,11 +111,6 @@ export interface Props {
 export interface PreprocessingConstants {
   column_types: Array<{ value: ColumnType; label: string }>;
   preprocessing_strategies: {
-    float: Array<{ value: string; label: string }>;
-    integer: Array<{ value: string; label: string }>;
-    boolean: Array<{ value: string; label: string }>;
-    datetime: Array<{ value: string; label: string }>;
-    string: Array<{ value: string; label: string }>;
-    categorical: Array<{ value: string; label: string }>;
+    [K in ColumnType]: Array<{ value: string; label: string }>;
   };
 }

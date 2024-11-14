@@ -72,11 +72,6 @@ module EasyML
       FileUtils.rm_rf(File.join(root_dir, "data"))
     end
 
-    def learn_statistics
-      datasource&.learn_statistics
-      sync_columns
-    end
-
     def schema
       read_attribute(:schema) || datasource.schema
     end
@@ -138,7 +133,7 @@ module EasyML
 
     def learn_statistics
       update(
-        statistics: EasyML::Data::StatisticsLearner.learn(data)
+        statistics: EasyML::Data::StatisticsLearner.learn(raw.read(:all), processed.read(:all))
       )
     end
 
@@ -162,7 +157,10 @@ module EasyML
         polars_types = cached_sample.columns.zip(cached_sample.dtypes).to_h
         columns_to_update.each do |column|
           column.assign_attributes(
-            statistics: stats[column.name],
+            statistics: {
+              raw: stats.dig("raw", column.name),
+              processed: stats.dig("processed", column.name)
+            },
             datatype: schema[column.name],
             polars_datatype: polars_types[column.name],
             sample_values: data(unique: true, limit: 5, select: column.name,

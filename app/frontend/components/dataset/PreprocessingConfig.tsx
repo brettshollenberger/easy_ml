@@ -31,7 +31,7 @@ export function PreprocessingConfig({
             column.preprocessing_steps.inference.method !== 'none')
   );
   
-  const [selectedType, setSelectedType] = useState<ColumnType>(column.datatype as ColumnType);
+  const selectedType = column.datatype as ColumnType;
   
   const [training, setTraining] = useState<PreprocessingStep>(() => ({
     method: column.preprocessing_steps?.training?.method || 'none',
@@ -55,13 +55,6 @@ export function PreprocessingConfig({
 
   // Update all states when column changes
   useEffect(() => {
-    setSelectedType(column.datatype as ColumnType);
-    
-    setUseDistinctInference(
-      Boolean(column.preprocessing_steps?.inference?.method && 
-              column.preprocessing_steps.inference.method !== 'none')
-    );
-
     setTraining({
       method: column.preprocessing_steps?.training?.method || 'none',
       params: {
@@ -81,34 +74,7 @@ export function PreprocessingConfig({
         clip: column.preprocessing_steps?.inference?.params?.clip
       }
     });
-  }, [column]); // Only re-run when column changes
-
-  const handleColumnTypeChange = (newType: ColumnType) => {
-    setSelectedType(newType);
-    setColumnType(column.name, newType);
-
-    // Apply default preprocessing strategy based on the new column type
-    let defaultParams: PreprocessingStep['params'] = {};
-    let defaultMethod: PreprocessingStep['method'] = 'none';
-
-    if (newType === 'categorical') {
-        defaultParams = {
-            categorical_min: 100,
-            one_hot: true,
-        };
-        defaultMethod = 'categorical';
-    } else if (isNumericType(newType)) {
-        defaultMethod = 'none'; // or any other default method for numeric types
-    }
-
-    const newTrainingStrategy: PreprocessingStep = {
-        method: defaultMethod,
-        params: defaultParams
-    };
-
-    setTraining(newTrainingStrategy);
-    onUpdate(newTrainingStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
-  };
+  }, [column.id]); // Only re-run when column changes
 
   const handleStrategyChange = (
     type: 'training' | 'inference',
@@ -216,7 +182,7 @@ export function PreprocessingConfig({
       ...strategy,
       params: {
         ...strategy.params,
-        constantValue: value
+        constant: value
       }
     };
 
@@ -240,7 +206,7 @@ export function PreprocessingConfig({
         {isNumericType(selectedType) ? (
           <input
             type="number"
-            value={strategy.params?.constantValue ?? ''}
+            value={strategy.params?.constant ?? ''}
             onChange={(e) => handleConstantValueChange(type, e.target.value)}
             className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Enter a number..."
@@ -248,7 +214,7 @@ export function PreprocessingConfig({
         ) : (
           <input
             type="text"
-            value={strategy.params?.constantValue ?? ''}
+            value={strategy.params?.constant ?? ''}
             onChange={(e) => handleConstantValueChange(type, e.target.value)}
             className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             placeholder="Enter a value..."
@@ -314,24 +280,25 @@ export function PreprocessingConfig({
 
   const renderStrategySpecificInfo = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
+    let content;
     if (strategy.method === 'most_frequent' && column.statistics?.raw.most_frequent_value) {
-      return (
-        <div className="mt-4 bg-blue-50 rounded-lg p-4">
-          <span className="text-sm font-medium text-blue-700">
-            Most Frequent Value: {column.statistics.raw.most_frequent_value}
-          </span>
-        </div>
-      );
+      content = `Most Frequent Value: ${column.statistics.raw.most_frequent_value}`
     } else if (strategy.method === 'ffill' && column.statistics?.raw.last_value) {
-      return (
-        <div className="mt-4 bg-yellow-50 rounded-lg p-4">
-          <span className="text-sm font-medium text-yellow-700">
-            Last Value: {column.statistics.raw.last_value}
-          </span>
-        </div>
-      );
+      content = `Last Value: ${column.statistics.raw.last_value}`
+    } else if (strategy.method === 'median' && column.statistics?.raw?.median) {
+      content = `Median: ${column.statistics.raw.median}`
+    } else if (strategy.method === 'mean' && column.statistics?.raw?.mean) {
+      content = `Mean: ${column.statistics.raw.mean}`
+    } else {
+      return null;
     }
-    return null;
+    return (
+      <div className="mt-4 bg-yellow-50 rounded-lg p-4">
+        <span className="text-sm font-medium text-yellow-700">
+          {content}
+        </span>
+      </div>
+    );
   };
 
   return (
@@ -410,7 +377,7 @@ export function PreprocessingConfig({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Null Values:</span>
-                <span className="font-medium text-gray-900">{nullCount.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">{column.statistics?.raw?.null_count.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Total Rows:</span>
@@ -444,7 +411,7 @@ export function PreprocessingConfig({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Total Rows:</span>
-                  <span className="font-medium text-gray-900">{column.statistics?.raw?.num_rows?.toLocaleString()}</span>
+                  <span className="font-medium text-gray-900">{column.statistics?.processed?.num_rows?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Null Percentage:</span>
@@ -475,13 +442,13 @@ export function PreprocessingConfig({
           <div className="bg-gray-50 rounded-lg p-4">
             <span className="text-sm text-gray-500">Unique Values</span>
             <p className="text-lg font-medium text-gray-900 mt-1">
-              {column.statistics?.num_rows?.toLocaleString() ?? 'N/A'}
+              {column.statistics?.processed?.unique_count?.toLocaleString() ?? 'N/A'}
             </p>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
             <span className="text-sm text-gray-500">Null Values</span>
             <p className="text-lg font-medium text-gray-900 mt-1">
-              {column.statistics?.raw.null_count?.toLocaleString() ?? '0'}
+              {column.statistics?.processed?.null_count?.toLocaleString() ?? '0'}
             </p>
           </div>
         </div>
@@ -530,7 +497,7 @@ export function PreprocessingConfig({
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
           <Settings2 className="w-5 h-5 text-gray-500" />
-          Data Type Configuration
+          Data Type
         </h3>
         
         <div className="space-y-4">
@@ -540,8 +507,8 @@ export function PreprocessingConfig({
             </label>
             <select
               value={selectedType}
-              onChange={(e) => handleColumnTypeChange(e.target.value as ColumnType)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              disabled
+              className="w-full rounded-md border-gray-300 bg-gray-50 shadow-sm text-gray-700 cursor-not-allowed"
             >
               {constants.column_types.map(type => (
                 <option key={type.value} value={type.value}>
@@ -549,6 +516,9 @@ export function PreprocessingConfig({
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-sm text-gray-500">
+              Column type cannot be changed after creation
+            </p>
           </div>
 
           <div className="bg-gray-50 rounded-md p-4">

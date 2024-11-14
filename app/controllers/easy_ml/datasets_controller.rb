@@ -110,7 +110,7 @@ module EasyML
 
     def preprocessing_params
       [:method, { params:
-        [:categorical_min, :one_hot, :ordinal_encoding, { clip: %i[min max] }] }]
+        [:constant, :categorical_min, :one_hot, :ordinal_encoding, { clip: %i[min max] }] }]
     end
 
     def dataset_params

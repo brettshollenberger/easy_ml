@@ -133,7 +133,7 @@ module EasyML
 
     def learn_statistics
       update(
-        statistics: EasyML::Data::StatisticsLearner.learn(raw.read(:all), processed.read(:all))
+        statistics: EasyML::Data::StatisticsLearner.learn(raw, processed)
       )
     end
 

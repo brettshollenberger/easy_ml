@@ -6,7 +6,7 @@ module EasyML
   module Data
     class SimpleImputer
       attr_reader :statistics
-      attr_accessor :path, :attribute, :strategy, :options, :statistics
+      attr_accessor :path, :attribute, :strategy, :options
 
       def initialize(strategy: "mean", path: nil, attribute: nil, options: {}, statistics: {}, &block)
         @strategy = strategy.to_sym
@@ -81,45 +81,47 @@ module EasyML
       end
 
       def transform_polars(x)
-        result = case @strategy
-                 when :mean, :median, :ffill, :most_frequent, :constant
-                   x.fill_null(@statistics[@strategy][:value])
-                 when :clip
-                   min = options["min"] || 0
-                   max = options["max"] || 1_000_000_000_000
-                   if x.null_count != x.len
-                     x.clip(min, max)
-                   else
-                     x
-                   end
-                 when :categorical
-                   allowed_values = @statistics.dig(:categorical, :value).select do |_k, v|
-                     v >= options[:categorical_min]
-                   end.keys.map(&:to_s)
-                   if x.null_count == x.len
-                     x.fill_null(transform_categorical(nil))
-                   else
-                     x.apply do |val|
-                       allowed_values.include?(val) ? val : transform_categorical(val)
-                     end
-                   end
-                 when :today
-                   x.fill_null(transform_today(nil))
-                 when :custom
-                   if x.null_count == x.len
-                     x.fill_null(transform_custom(nil))
-                   else
-                     x.apply do |val|
-                       should_transform_custom?(val) ? transform_custom(val) : val
-                     end
-                   end
-                 else
-                   raise ArgumentError, "Unsupported strategy for Polars::Series: #{@strategy}"
-                 end
-
-        # Cast the result back to the original dtype
-        original_dtype = @statistics.dig(@strategy, :original_dtype)
-        original_dtype ? result.cast(original_dtype) : result
+        case @strategy
+        when :mean, :median
+          x.fill_null(@statistics[@strategy])
+        when :ffill
+          x.fill_null(@statistics[:last_value])
+        when :most_frequent
+          x.fill_null(@statistics[:most_frequent_value])
+        when :constant
+          x.fill_null(@options[:constant])
+        when :clip
+          min = options["min"] || 0
+          max = options["max"] || 1_000_000_000_000
+          if x.null_count != x.len
+            x.clip(min, max)
+          else
+            x
+          end
+        when :categorical
+          allowed_values = @statistics.dig(:categorical, :value).select do |_k, v|
+            v >= options[:categorical_min]
+          end.keys.map(&:to_s)
+          if x.null_count == x.len
+            x.fill_null(transform_categorical(nil))
+          else
+            x.apply do |val|
+              allowed_values.include?(val) ? val : transform_categorical(val)
+            end
+          end
+        when :today
+          x.fill_null(transform_today(nil))
+        when :custom
+          if x.null_count == x.len
+            x.fill_null(transform_custom(nil))
+          else
+            x.apply do |val|
+              should_transform_custom?(val) ? transform_custom(val) : val
+            end
+          end
+        else
+          raise ArgumentError, "Unsupported strategy for Polars::Series: #{@strategy}"
+        end
       end
 
       def file_path
@@ -272,7 +274,20 @@ module EasyML
       def check_is_fitted
         return if %i[clip today custom].include?(strategy)
 
-        raise "SimpleImputer has not been fitted yet for #{attribute}##{strategy}" unless @statistics[strategy]
+        pass_check = case strategy
+                     when :mean
+                       @statistics.dig(:mean).present?
+                     when :median
+                       @statistics.dig(:median).present?
+                     when :ffill
+                       @statistics.dig(:last_value).present?
+                     when :most_frequent
+                       @statistics.dig(:most_frequent_value).present?
+                     when :constant
+                       options.dig(:constant).present?
+                     end
+
+        raise "SimpleImputer has not been fitted yet for #{attribute}##{strategy}" unless pass_check
       end
     end
   end

@@ -104,13 +104,13 @@ module EasyML
     def raw
       return @raw if @raw
 
-      @raw = initialize_split
+      @raw = initialize_split("raw")
     end
 
     def processed
       return @processed if @processed
 
-      @processed = initialize_split
+      @processed = initialize_split("processed")
     end
 
     def refresh!
@@ -368,12 +368,12 @@ module EasyML
       processed
     end
 
-    def initialize_split
+    def initialize_split(type)
       case split_type.to_s
       when EasyML::Data::Splits::InMemorySplit.to_s
         split_type.new
       when EasyML::Data::Splits::FileSplit.to_s
-        split_type.new(dir: Pathname.new(root_dir).append("data").to_s)
+        split_type.new(dir: Pathname.new(root_dir).append("files/splits/#{type}").to_s)
       end
     end
 

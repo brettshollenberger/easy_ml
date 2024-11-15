@@ -11,25 +11,23 @@ RSpec.describe EasyML::Datasource do
     dataset.cleanup
   end
 
+  # preprocessing_steps: {
+  #   training: {
+  #     annual_revenue: {
+  #       median: true
+  #     }
+  #   }
+  # },
   let(:dataset) do
     EasyML::Dataset.create(
-      target: "rev",
       name: "My Dataset",
       datasource: datasource,
-      preprocessing_steps: {
-        training: {
-          annual_revenue: {
-            median: true
-          }
-        }
-      },
-      splitter: {
-        date: {
-          today: EST.parse("2024-10-01"),
-          date_col: "created_date",
-          months_test: 2,
-          months_valid: 2
-        }
+      splitter_attributes: {
+        splitter_type: "DateSplitter",
+        today: EST.parse("2024-10-01"),
+        date_col: "created_date",
+        months_test: 2,
+        months_valid: 2
       }
     )
   end
@@ -60,7 +58,7 @@ RSpec.describe EasyML::Datasource do
       expect(reloaded.splitter.date_col).to eq dataset.splitter.date_col
       expect(reloaded.splitter.months_test).to eq dataset.splitter.months_test
       expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
-      expect(reloaded.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
+      expect(reloaded.splitter).to be_a(EasyML::DateSplitter)
 
       # The original dataset was processed, so the reloaded one is
       expect(reloaded).to be_processed
@@ -275,13 +273,12 @@ RSpec.describe EasyML::Datasource do
       EasyML::Dataset.create(
         name: "Test Dataset",
         datasource: datasource,
-        splitter: {
-          date: {
-            today: EST.parse("2024-10-01"),
-            date_col: "created_date",
-            months_test: 2,
-            months_valid: 2
-          }
+        splitter_attributes: {
+          splitter_type: "DateSplitter",
+          today: EST.parse("2024-10-01"),
+          date_col: "created_date",
+          months_test: 2,
+          months_valid: 2
         }
       )
     end

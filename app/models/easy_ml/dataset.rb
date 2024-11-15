@@ -356,7 +356,7 @@ module EasyML
     end
 
     def drop_if_null
-      @drop_if_null ||= columns.select(&:drop_if_null).map(&:name)
+      @drop_if_null ||= columns.where(drop_if_null: true).map(&:name)
     end
 
     private
@@ -434,6 +434,8 @@ module EasyML
     end
 
     def fit(xs = nil)
+      return false if locked?
+
       xs = raw.train if xs.nil?
 
       preprocessor.fit(xs)

@@ -2,7 +2,7 @@ require "glue_gun"
 require_relative "polars_reader"
 
 module EasyML
-  module Support
+  module Data
     class SyncedDirectory
       include GlueGun::DSL
 
@@ -13,6 +13,8 @@ module EasyML
       attribute :s3_secret_access_key, :string
       attribute :cache_for, default: nil
       attribute :polars_args, :hash, default: {}
+
+      delegate :query, to: :reader
 
       def before_sync
         return unless should_sync?
@@ -121,7 +123,7 @@ module EasyML
       def reader
         return @reader if @reader
 
-        @reader = EasyML::PolarsReader.new(
+        @reader = EasyML::Data::PolarsReader.new(
           root_dir: File.join(root_dir, s3_prefix),
           polars_args: polars_args,
           refresh: false

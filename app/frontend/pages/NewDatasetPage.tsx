@@ -3,38 +3,34 @@ import { Database, AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-r
 import { SearchableSelect } from '../components/SearchableSelect';
 import { useInertiaForm } from 'use-inertia-form';
 import { usePage, router } from '@inertiajs/react';
-import type { DatasetForm, Props } from '../types/dataset';
+import type { NewDatasetForm, NewDatasetFormProps } from '../types/dataset';
 
-export default function NewDatasetPage({ constants, datasources }: Props) {
+export default function NewDatasetPage({ constants, datasources }: NewDatasetFormProps) {
   const [step, setStep] = useState(1);
   const [showError, setShowError] = useState<number | null>(null);
   const { rootPath } = usePage().props;
-  const [availableCols, setAvailableCols] = useState<string[]>([]);
 
-  const form = useInertiaForm<DatasetForm>({
+  const form = useInertiaForm<NewDatasetForm>({
     dataset: {
       name: '',
       description: '',
-      datasource_id: '',
-      drop_cols: [],
-      preprocessing_steps: {
-        training: {}
-      },
-      splitter: {
-        date: {
-          date_col: '',
-          months_test: 2,
-          months_valid: 2
-        }
+      datasource_id: undefined,
+      splitter_attributes: {
+        splitter_type: 'DateSplitter',
+        date_col: '',
+        months_test: 2,
+        months_valid: 2
       }
     }
   });
 
-  const { data: formData, setData, post, processing } = form;
+  const { data: formData, setData, post } = form;
 
   const selectedDatasource = formData.dataset.datasource_id 
     ? datasources.find(d => d.id === Number(formData.dataset.datasource_id))
     : null;
+
+  const availableCols = selectedDatasource?.columns || [];
 
   const isDatasourceReady = selectedDatasource && 
     !selectedDatasource.is_syncing && 
@@ -44,16 +40,7 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
 
   const handleDatasourceSelect = () => {
     if (!canProceedToStep2) return;
-    
-    if (selectedDatasource.columns) {
-      setStep(2);
-    } else {
-      alert("Forgot to do this!");
-    }
-  };
-
-  const handleSplitConfig = () => {
-    setStep(3);
+    setStep(2);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -68,16 +55,6 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
       }
     });
   };
-
-  useEffect(() => {
-    if (selectedDatasource?.columns) {
-      setAvailableCols(
-        selectedDatasource.columns.filter(
-          col => !formData.dataset.drop_cols.includes(col)
-        )
-      );
-    }
-  }, [selectedDatasource?.columns, formData.dataset.drop_cols]);
 
   return (
     <div className="max-w-2xl mx-auto p-8">
@@ -107,27 +84,12 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
             >
               2
             </div>
-            <div
-              className={`flex-1 h-0.5 mx-2 ${
-                step >= 3 ? 'bg-blue-600' : 'bg-gray-200'
-              }`}
-            />
-            <div
-              className={`flex items-center justify-center w-8 h-8 rounded-full ${
-                step >= 3 ? 'bg-blue-600' : 'bg-gray-200'
-              } text-white font-medium text-sm`}
-            >
-              3
-            </div>
           </div>
           <div className="flex justify-between mt-2">
             <span className="text-sm font-medium text-gray-600">
               Basic Info
             </span>
-            <span className="text-sm font-medium text-gray-600">
-              Select Columns
-            </span>
-            <span className="text-sm font-medium text-gray-600">
+            <span className="text-sm font-medium text-gray-600 mr-4">
               Configure Split
             </span>
           </div>
@@ -171,24 +133,19 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
             <div>
               <label
                 htmlFor="datasource"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 mb-1"
               >
                 Datasource
               </label>
-              <select
-                id="datasource"
+              <SearchableSelect
                 value={formData.dataset.datasource_id}
-                onChange={(e) => setData('dataset.datasource_id', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              >
-                <option value="">Select a datasource</option>
-                {datasources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setData('dataset.datasource_id', value)}
+                options={datasources.map(datasource => ({
+                  value: datasource.id,
+                  label: datasource.name
+                }))}
+                placeholder="Select a date column..."
+              />
             </div>
 
             {selectedDatasource && (
@@ -268,55 +225,6 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
               </button>
             </div>
           </div>
-        ) : step === 2 ? (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-4 border-b border-gray-200">
-                <span className="text-sm font-medium text-gray-700">
-                  Column Name
-                </span>
-                <span className="text-sm font-medium text-gray-700">Include</span>
-              </div>
-              {selectedDatasource?.columns?.map((column, index) => {
-                return (
-                  <div
-                    key={column}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="text-sm text-gray-900">{column}</span>
-                    <input
-                      type="checkbox"
-                      checked={!formData.dataset.drop_cols?.includes(column)}
-                      onChange={(e) => {
-                        const newDropCols = !e.target.checked
-                          ? [...(formData.dataset.drop_cols || []), column]
-                          : (formData.dataset.drop_cols || []).filter(col => col !== column);
-                        setData('dataset.drop_cols', newDropCols);
-                      }}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-between">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                onClick={handleSplitConfig}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Next
-              </button>
-            </div>
-          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">
@@ -328,10 +236,10 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
                   Date Column To Split On
                 </label>
                 <SearchableSelect
-                  value={formData.dataset.splitter.date.date_col}
-                  onChange={(value) => setData('dataset.splitter.date.date_col', value)}
+                  value={formData?.dataset?.splitter_attributes?.date_col || null}
+                  onChange={(value) => setData('dataset.splitter_attributes.date_col', value)}
                   options={availableCols.filter(col => {
-                    return selectedDatasource.schema[col] == 'datetime'
+                    return selectedDatasource?.schema[col] === 'datetime'
                   }).map(col => ({
                     value: col,
                     label: col
@@ -353,9 +261,9 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
                     id="monthsTest"
                     min="1"
                     max="12"
-                    value={formData.dataset.splitter.date.months_test}
+                    value={formData.dataset.splitter_attributes.months_test}
                     onChange={(e) =>
-                      setData('dataset.splitter.date.months_test', parseInt(e.target.value) || 0)
+                      setData('dataset.splitter_attributes.months_test', parseInt(e.target.value) || 0)
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
@@ -372,9 +280,9 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
                     id="monthsValid"
                     min="1"
                     max="12"
-                    value={formData.dataset.splitter.date.months_valid}
+                    value={formData.dataset.splitter_attributes.months_valid}
                     onChange={(e) =>
-                      setData('dataset.splitter.date.months_valid', parseInt(e.target.value) || 0)
+                      setData('dataset.splitter_attributes.months_valid', parseInt(e.target.value) || 0)
                     }
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                   />
@@ -385,14 +293,14 @@ export default function NewDatasetPage({ constants, datasources }: Props) {
             <div className="flex justify-between">
               <button
                 type="button"
-                onClick={() => setStep(2)}
+                onClick={() => setStep(1)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
               >
                 Back
               </button>
               <button
                 type="submit"
-                disabled={!formData.dataset.splitter.date.date_col}
+                disabled={!formData.dataset.splitter_attributes.date_col}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Create Dataset

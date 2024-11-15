@@ -31,6 +31,8 @@ module EasyML
 
     add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :cache_for
 
+    delegate :query, to: :synced_directory
+
     def s3_prefix=(value)
       @s3_prefix = value.to_s.gsub(%r{^/|/$}, "")
     end
@@ -116,7 +118,7 @@ module EasyML
     private
 
     def synced_directory
-      @synced_directory ||= EasyML::Support::SyncedDirectory.new(
+      @synced_directory ||= EasyML::Data::SyncedDirectory.new(
         root_dir: root_dir,
         s3_bucket: s3_bucket,
         s3_prefix: s3_prefix,

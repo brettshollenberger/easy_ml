@@ -14,14 +14,14 @@ module EasyML
   class PolarsDatasource < Datasource
     attr_accessor :df
 
-    validate :df_is_dataframe
+    validates :df, presence: true
 
     after_initialize :read_df_from_configuration
     after_find :read_df_from_configuration
     before_save :store_df_in_configuration
 
     def df_is_dataframe
-      return if df.nil? || df.is_a?(Polars::DataFrame)
+      return if df.is_a?(Polars::DataFrame)
 
       errors.add(:df, "Must be an instance of Polars::DataFrame")
     end
@@ -32,6 +32,20 @@ module EasyML
         end_index = [start + of, total_rows].min
         yield df.slice(start, end_index - start)
       end
+    end
+
+    def query(drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false)
+      return if df.nil?
+
+      df = self.df.clone
+      df = df.filter(filter) if filter
+      df = df.select(select) if select.present?
+      df = df.unique if unique
+      drop_cols &= df.columns
+      df = df.drop(drop_cols) unless drop_cols.empty?
+      df = df.sort(sort, reverse: descending) if sort
+      df = df.limit(limit) if limit
+      df
     end
 
     def files

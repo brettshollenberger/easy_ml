@@ -88,21 +88,30 @@ export interface Dataset {
   preprocessing_steps: {
     training: Record<string, any>;
   };
-  splitter: {
-    date: {
-      date_col: string;
-      months_test: number;
-      months_valid: number;
-    };
+  splitter_attributes?: {
+    splitter_type: string;
+    date_col: string;
+    months_test: number;
+    months_valid: number;
   };
   stacktrace?: string;
 }
 
-export interface DatasetForm {
-  dataset: Dataset;
+export interface NewDatasetForm {
+  dataset: {
+    name?: string;
+    description?: string;
+    datasource_id?: number;
+    splitter_attributes: {
+        splitter_type: string;
+        date_col: string;
+        months_test: number;
+        months_valid: number;
+      };
+  }
 }
 
-export interface Props {
+export interface NewDatasetFormProps {
   constants: {
     COLUMN_TYPES: Array<{ value: string; label: string }>;
   };

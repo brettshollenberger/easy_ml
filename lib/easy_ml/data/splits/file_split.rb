@@ -28,27 +28,21 @@ module EasyML
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
-                 unique: nil)
+                 unique: nil, sort: nil, descending: false)
           files = files_for_segment(segment)
           return split_ys ? [nil, nil] : nil if files.empty?
 
-          # Process all files together when no block is given
-          lazy_frames = files.map { |file| Polars.scan_parquet(file) }
-          combined_lazy_df = Polars.concat(lazy_frames)
+          query_params = {
+            filter: filter,
+            limit: limit,
+            select: select,
+            unique: unique,
+            drop_cols: drop_cols,
+            sort: sort,
+            descending: descending
+          }.compact
 
-          # Apply the predicate filter if given
-          combined_lazy_df = combined_lazy_df.filter(filter) if filter
-          # Apply select columns if provided
-          combined_lazy_df = combined_lazy_df.select(select) if select.present?
-          combined_lazy_df = combined_lazy_df.unique if unique
-
-          # Apply drop columns
-          drop_cols &= combined_lazy_df.columns
-          combined_lazy_df = combined_lazy_df.drop(drop_cols) unless drop_cols.empty?
-
-          # Collect the DataFrame (execute the lazy operations)
-          combined_lazy_df = combined_lazy_df.limit(limit) if limit
-          df = combined_lazy_df.collect
+          df = EasyML::Data::PolarsReader.query(files, **query_params)
 
           split_features_targets(df, split_ys, target)
         end

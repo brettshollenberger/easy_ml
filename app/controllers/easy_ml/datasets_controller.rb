@@ -121,9 +121,12 @@ module EasyML
         :datasource_id,
         :target,
         drop_cols: [],
-        splitter: {
-          date: %i[date_col months_test months_valid]
-        },
+        splitter_attributes: %i[
+          splitter_type
+          date_col
+          months_test
+          months_valid
+        ],
         columns_attributes: [
           :id,
           :name,

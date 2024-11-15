@@ -177,4 +177,284 @@ RSpec.describe EasyML::Data::Preprocessor do
     values = @dataset.data["group"].value_counts.to_a.map(&:values).to_h
     expect(values).to match(hash_including({ "other" => 6, "a" => 4 }))
   end
+
+  # Float tests
+  describe "float preprocessing" do
+    let(:float_col) { "points" }
+
+    it "preprocesses float with mean" do
+      @dataset.columns.find_by(name: float_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :mean
+          }
+        }
+      )
+
+      @dataset.refresh
+      statistics_mean = @dataset.statistics.dig("raw", float_col, "mean")
+      null_mask = @dataset.raw.read(:all)[float_col].is_null
+      expect(@dataset.data[null_mask][float_col].to_a).to all(eq statistics_mean)
+    end
+
+    it "preprocesses float with median" do
+      @dataset.columns.find_by(name: float_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :median
+          }
+        }
+      )
+
+      @dataset.refresh
+      statistics_median = @dataset.statistics.dig("raw", float_col, "median")
+      null_mask = @dataset.raw.read(:all)[float_col].is_null
+      expect(@dataset.data[null_mask][float_col].to_a).to all(eq statistics_median)
+    end
+
+    it "preprocesses float with constant" do
+      constant_value = 42.0
+      @dataset.columns.find_by(name: float_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :constant,
+            params: {
+              constant: constant_value
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      null_mask = @dataset.raw.read(:all)[float_col].is_null
+      expect(@dataset.data[null_mask][float_col].to_a).to all(eq constant_value)
+    end
+
+    it "preprocesses float with mean and clip" do
+      @dataset.columns.find_by(name: float_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :mean,
+            params: {
+              clip: {
+                min: 0.3,
+                max: 0.7
+              }
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      processed_values = @dataset.data[float_col].to_a
+      expect(processed_values.compact).to all(be_between(0.3, 0.7))
+    end
+
+    it "preprocesses float with median and clip" do
+      @dataset.columns.find_by(name: float_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :median,
+            params: {
+              clip: {
+                min: 0.3,
+                max: 0.7
+              }
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      processed_values = @dataset.data[float_col].to_a
+      expect(processed_values.compact).to all(be_between(0.3, 0.7))
+    end
+  end
+
+  # Integer tests
+  describe "integer preprocessing" do
+    let(:int_col) { "rev" }
+
+    it "preprocesses integer with mean" do
+      @dataset.columns.find_by(name: int_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :mean
+          }
+        }
+      )
+
+      @dataset.refresh
+      statistics_mean = @dataset.statistics.dig("raw", int_col, "mean")
+      null_mask = @dataset.raw.read(:all)[int_col].is_null
+      expect(@dataset.data[null_mask][int_col].to_a).to all(eq statistics_mean.to_i)
+    end
+
+    it "preprocesses integer with median" do
+      @dataset.columns.find_by(name: int_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :median
+          }
+        }
+      )
+
+      @dataset.refresh
+      statistics_median = @dataset.statistics.dig("raw", int_col, "median")
+      null_mask = @dataset.raw.read(:all)[int_col].is_null
+      expect(@dataset.data[null_mask][int_col].to_a).to all(eq statistics_median.to_i)
+    end
+
+    it "preprocesses integer with constant" do
+      constant_value = 42
+      @dataset.columns.find_by(name: int_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :constant,
+            params: {
+              constant: constant_value
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      null_mask = @dataset.raw.read(:all)[int_col].is_null
+      expect(@dataset.data[null_mask][int_col].to_a).to all(eq constant_value)
+    end
+
+    it "preprocesses integer with mean and clip" do
+      @dataset.columns.find_by(name: int_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :mean,
+            params: {
+              clip: {
+                min: 100,
+                max: 300
+              }
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      processed_values = @dataset.data[int_col].to_a
+      expect(processed_values.compact).to all(be_between(100, 300))
+    end
+  end
+
+  # Boolean, Datetime, String tests
+  describe "other data types preprocessing" do
+    before(:each) do
+      @df_with_bool = @df.with_column(
+        Polars.lit([true, false, true, false, nil, true, false, true, nil, nil]).alias("bool_col")
+      )
+      @datasource.update(df: @df_with_bool)
+      @dataset.refresh
+      binding.pry
+    end
+
+    it "preprocesses boolean with most frequent", :focus do
+      @dataset.columns.find_by(name: "bool_col").update(
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent
+          }
+        }
+      )
+
+      @dataset.refresh
+      most_frequent = @dataset.statistics.dig("raw", "bool_col", "most_frequent_value")
+      null_mask = @dataset.raw.read(:all)["bool_col"].is_null
+      expect(@dataset.data[null_mask]["bool_col"].to_a).to all(eq most_frequent)
+    end
+
+    it "preprocesses boolean with constant" do
+      @dataset.columns.find_by(name: "bool_col").update(
+        preprocessing_steps: {
+          training: {
+            method: :constant,
+            params: {
+              constant: true
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      null_mask = @dataset.raw.read(:all)["bool_col"].is_null
+      expect(@dataset.data[null_mask]["bool_col"].to_a).to all(eq true)
+    end
+
+    it "preprocesses datetime with today" do
+      today = Date.today
+      @dataset.columns.find_by(name: "created_date").update(
+        preprocessing_steps: {
+          training: {
+            method: :today
+          }
+        }
+      )
+
+      @dataset.refresh
+      null_mask = @dataset.raw.read(:all)["created_date"].is_null
+      filled_dates = @dataset.data[null_mask]["created_date"].to_a
+      expect(filled_dates.map { |d| d.to_date }).to all(eq today)
+    end
+  end
+
+  # Categorical tests
+  describe "categorical preprocessing" do
+    it "preprocesses categorical with one_hot encoding" do
+      @dataset.columns.find_by(name: "group").update(
+        preprocessing_steps: {
+          training: {
+            method: :categorical,
+            params: {
+              one_hot: true
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      expect(@dataset.data.columns).to include("group_a", "group_b", "group_c", "group_other")
+    end
+
+    it "preprocesses categorical with ordinal encoding" do
+      @dataset.columns.find_by(name: "group").update(
+        preprocessing_steps: {
+          training: {
+            method: :categorical,
+            params: {
+              ordinal_encoding: true
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      expect(@dataset.data["group"].to_a.uniq.sort).to all(be_a(Integer))
+    end
+
+    it "preprocesses categorical with min count and one_hot encoding" do
+      @dataset.columns.find_by(name: "group").update(
+        preprocessing_steps: {
+          training: {
+            method: :categorical,
+            params: {
+              categorical_min: 3,
+              one_hot: true
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      # Only 'a' appears 3 or more times
+      expect(@dataset.data.columns).to include("group_a", "group_other")
+      expect(@dataset.data.columns).not_to include("group_b", "group_c")
+    end
+  end
 end

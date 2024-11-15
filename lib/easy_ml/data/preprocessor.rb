@@ -9,7 +9,45 @@ module EasyML::Data
     include GlueGun::DSL
 
     CATEGORICAL_COMMON_MIN = 50
-    PREPROCESSING_ORDER = %w[clip mean median constant categorical one_hot ffill custom fill_date add_datepart]
+
+    ALLOWED_PARAMS = {
+      constant: [:constant],
+      categorical: %i[categorical_min one_hot ordinal_encoding],
+      most_frequent: %i[one_hot ordinal_encoding],
+      mean: [:clip],
+      median: [:clip]
+    }
+
+    PREPROCESSING_STRATEGIES = {
+      float: [
+        { value: "mean", label: "Mean" },
+        { value: "median", label: "Median" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      integer: [
+        { value: "mean", label: "Mean" },
+        { value: "median", label: "Median" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      boolean: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      datetime: [
+        { value: "ffill", label: "Forward Fill" },
+        { value: "constant", label: "Constant Value" },
+        { value: "today", label: "Current Date" }
+      ],
+      string: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      categorical: [
+        { value: "categorical", label: "Categorical" },
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ]
+    }.freeze
 
     attribute :directory
     attribute :verbose
@@ -210,12 +248,6 @@ module EasyML::Data
       )
     end
 
-    def sorted_strategies(strategies)
-      strategies.keys.sort_by do |key|
-        PREPROCESSING_ORDER.index(key)
-      end
-    end
-
     def prepare_for_imputation(df, col)
       df = df.with_column(Polars.col(col).cast(Polars::Float64))
       df.with_column(Polars.when(Polars.col(col).is_null).then(Float::NAN).otherwise(Polars.col(col)).alias(col))
@@ -308,37 +340,6 @@ module EasyML::Data
         value
       end
     end
-
-    PREPROCESSING_STRATEGIES = {
-      float: [
-        { value: "mean", label: "Mean" },
-        { value: "median", label: "Median" },
-        { value: "constant", label: "Constant Value" }
-      ],
-      integer: [
-        { value: "mean", label: "Mean" },
-        { value: "median", label: "Median" },
-        { value: "constant", label: "Constant Value" }
-      ],
-      boolean: [
-        { value: "most_frequent", label: "Most Frequent" },
-        { value: "constant", label: "Constant Value" }
-      ],
-      datetime: [
-        { value: "ffill", label: "Forward Fill" },
-        { value: "constant", label: "Constant Value" },
-        { value: "today", label: "Current Date" }
-      ],
-      string: [
-        { value: "most_frequent", label: "Most Frequent" },
-        { value: "constant", label: "Constant Value" }
-      ],
-      categorical: [
-        { value: "categorical", label: "Categorical" },
-        { value: "most_frequent", label: "Most Frequent" },
-        { value: "constant", label: "Constant Value" }
-      ]
-    }.freeze
 
     def self.constants
       {

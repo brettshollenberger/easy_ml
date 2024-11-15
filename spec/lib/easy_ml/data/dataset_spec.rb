@@ -311,7 +311,7 @@ RSpec.describe EasyML::Data::Dataset do
         it "sets up the dataset with correct attributes" do
           expect(dataset.datasource).to be_a(EasyML::S3Datasource)
           expect(dataset.target).to eq(target)
-          expect(dataset.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
+          expect(dataset.splitter).to be_a(EasyML::DateSplitter)
           expect(dataset.raw).to be_a(EasyML::Data::Dataset::Splits::Split)
           expect(dataset.processed).to be_a(EasyML::Data::Dataset::Splits::Split)
         end
@@ -513,7 +513,7 @@ RSpec.describe EasyML::Data::Dataset do
       describe "private methods" do
         describe "#should_split?" do
           before do
-            allow_any_instance_of(EasyML::Data::Dataset).to receive(:should_split?).and_call_original
+            allow_any_instance_of(EasyML::Dataset).to receive(:should_split?).and_call_original
           end
 
           context "when split is outdated" do

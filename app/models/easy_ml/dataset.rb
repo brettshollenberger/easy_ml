@@ -64,12 +64,6 @@ module EasyML
     validates :name, presence: true
     validates :datasource, presence: true
 
-    # Maybe copy attrs over from training to prod when marking is_live, so we keep 1 for training and one for live?
-    #
-    # def fit
-    #   raise "Cannot train live dataset!" if is_live
-    # end
-
     def self.constants
       {
         column_types: EasyML::Data::PolarsColumn::TYPE_MAP.keys.map do |type|

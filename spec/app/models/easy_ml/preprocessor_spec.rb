@@ -159,4 +159,22 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(mean_processed).to eq 10
     expect(@dataset.data["annual_revenue"].to_a).to all(eq 10)
   end
+
+  it "preprocesses categorical with min" do
+    @dataset.columns.find_by(name: "group").update(
+      preprocessing_steps: {
+        training: {
+          method: :categorical,
+          params: {
+            categorical_min: 3
+          }
+        }
+      }
+    )
+
+    # expect(@dataset.statistics.dig("raw", "mean"))
+    @dataset.refresh
+    values = @dataset.data["group"].value_counts.to_a.map(&:values).to_h
+    expect(values).to match(hash_including({ "other" => 6, "a" => 4 }))
+  end
 end

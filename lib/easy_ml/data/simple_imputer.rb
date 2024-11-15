@@ -90,6 +90,15 @@ module EasyML
           x.fill_null(@statistics[:most_frequent_value])
         when :constant
           x.fill_null(@options[:constant])
+        when :categorical
+          allowed_cats = statistics[:allowed_categories]
+          df = Polars::DataFrame.new({ x: x })
+          df.with_column(
+            Polars.when(Polars.col("x").is_in(allowed_cats))
+              .then(Polars.col("x"))
+              .otherwise(Polars.lit("other"))
+              .alias("x")
+          )["x"]
         when :clip
           min = options["min"] || 0
           max = options["max"] || 1_000_000_000_000
@@ -97,17 +106,6 @@ module EasyML
             x.clip(min, max)
           else
             x
-          end
-        when :categorical
-          allowed_values = @statistics.dig(:categorical, :value).select do |_k, v|
-            v >= options[:categorical_min]
-          end.keys.map(&:to_s)
-          if x.null_count == x.len
-            x.fill_null(transform_categorical(nil))
-          else
-            x.apply do |val|
-              allowed_values.include?(val) ? val : transform_categorical(val)
-            end
           end
         when :today
           x.fill_null(transform_today(nil))
@@ -128,24 +126,6 @@ module EasyML
         raise "Need both attribute and path to save/load statistics" unless attribute.present? && path.to_s.present?
 
         File.join(path, "statistics.json")
-      end
-
-      def should_transform_categorical?(val)
-        values = @statistics.dig(:categorical, :value) || {}
-        min_ct = options[:categorical_min] || 25
-        allowed_values = values.select { |_v, c| c >= min_ct }
-
-        allowed_values.keys.map(&:to_s).exclude?(val)
-      end
-
-      def transform_categorical(val)
-        return "other" if val.nil?
-
-        values = @statistics.dig(:categorical, :value) || {}
-        min_ct = options[:categorical_min] || 25
-        allowed_values = values.select { |_v, c| c >= min_ct }.keys.map(&:to_s)
-
-        allowed_values.include?(val.to_s) ? val.to_s : "other"
       end
 
       def transform_today(_val)
@@ -285,6 +265,8 @@ module EasyML
                        @statistics.dig(:most_frequent_value).present?
                      when :constant
                        options.dig(:constant).present?
+                     when :categorical
+                       true
                      end
 
         raise "SimpleImputer has not been fitted yet for #{attribute}##{strategy}" unless pass_check

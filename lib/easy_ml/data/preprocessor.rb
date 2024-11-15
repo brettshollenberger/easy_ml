@@ -39,14 +39,36 @@ module EasyML::Data
       df
     end
 
+    def learn_categorical_min(df, preprocessing_steps)
+      preprocessing_steps ||= {}
+      preprocessing_steps.deep_symbolize_keys!
+
+      allowed_categories = {}
+      (preprocessing_steps[:training] || {}).each_key do |col|
+        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min)
+        next unless cat_min
+
+        val_counts = df[col].value_counts
+        allowed_categories[col] = val_counts[val_counts["count"] >= cat_min][col].to_a
+      end
+      allowed_categories
+    end
+
     def fit(df)
       return if df.nil?
       return if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
       preprocessing_steps.deep_symbolize_keys!
       df = apply_clip(df, preprocessing_steps)
+      allowed_categories = learn_categorical_min(df, preprocessing_steps)
 
       self.statistics = StatisticsLearner.learn_df(df).deep_symbolize_keys
+
+      # Merge allowed categories into statistics
+      allowed_categories.each do |col, categories|
+        statistics[col] ||= {}
+        statistics[col][:allowed_categories] = categories
+      end
     end
 
     def postprocess(df, inference: false)
@@ -115,6 +137,7 @@ module EasyML::Data
 
     def apply_transformations(df, config)
       imputers = initialize_imputers(config)
+
       df = apply_clip(df, { training: config })
 
       config.each do |col, conf|

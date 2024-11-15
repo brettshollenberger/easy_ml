@@ -174,7 +174,7 @@ RSpec.describe EasyML::Datasource do
       expect(reloaded.splitter.date_col).to eq dataset.splitter.date_col
       expect(reloaded.splitter.months_test).to eq dataset.splitter.months_test
       expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
-      expect(reloaded.splitter).to be_a(EasyML::Data::Dataset::Splitters::DateSplitter)
+      expect(reloaded.splitter).to be_a(EasyML::DateSplitter)
 
       # It isn't processed, given that it's an in-memory datasource
       expect(reloaded).to_not be_processed
@@ -229,7 +229,7 @@ RSpec.describe EasyML::Datasource do
       expect(dataset.data["did_convert"].to_a).to eq([
                                                        false, false, true, true, false, true, true, true
                                                      ])
-      expect(dataset.statistics["age"]["mean"]).to be_between(1, 50)
+      expect(dataset.statistics.dig("raw", "age", "mean")).to be_between(1, 50)
       expect(dataset.data["days_in_business"].to_a).to all(be > 0)
     end
 

@@ -165,7 +165,7 @@ RSpec.describe EasyML::Datasource do
       def business_inception(df)
         df.with_column(
           Polars::Series.new("business_inception", Array.new(df.height) do
-            rand(Date.new(1970, 1, 1)..Date.today - 2.years)
+            rand(Date.new(1970, 1, 1)..Date.today - 30.years)
           end).alias("business_inception")
         )
       end
@@ -374,6 +374,7 @@ RSpec.describe EasyML::Datasource do
 
   describe "Column configuration" do
     let(:datasource) { s3_datasource }
+
     it "drops columns" do
       mock_s3_datasource
       dataset.refresh!
@@ -382,6 +383,20 @@ RSpec.describe EasyML::Datasource do
       dataset.columns.find_by(name: "drop_me").update(hidden: true)
       dataset.refresh!
       expect(dataset.train.columns).to_not include("drop_me")
+
+      expect(dataset.train(all_columns: true).columns).to include("drop_me")
+    end
+
+    it "drops rows" do
+      mock_s3_datasource
+      dataset.refresh!
+      expect(dataset.data.count).to eq 8
+      expect(dataset.data[dataset.data["annual_revenue"].is_null].count).to eq 2
+
+      dataset.columns.find_by(name: "annual_revenue").update(drop_if_null: true)
+      dataset.refresh!
+      expect(dataset.data.count).to eq 6
+      expect(dataset.data[dataset.data["annual_revenue"].is_null].count).to eq 0
     end
   end
 end

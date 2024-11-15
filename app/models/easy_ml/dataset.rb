@@ -31,10 +31,9 @@ module EasyML
       locked: "locked"
     }
 
-    self.filter_attributes += %i[configuration statistics schema]
+    SPLIT_ORDER = %i[train valid test]
 
-    include GlueGun::Model
-    service :dataset, EasyML::Data::Dataset
+    self.filter_attributes += %i[configuration statistics schema]
 
     validates :name, presence: true
     belongs_to :datasource,
@@ -50,7 +49,20 @@ module EasyML
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
-    before_destroy :cleanup!
+    before_destroy :destructively_cleanup!
+
+    delegate :new_data_available?, :synced?, :stale?, to: :datasource
+    delegate :train, :test, :valid, to: :split
+    delegate :splits, to: :splitter
+
+    has_one :splitter, class_name: "EasyML::Splitter", dependent: :destroy
+
+    accepts_nested_attributes_for :splitter,
+                                  allow_destroy: true,
+                                  reject_if: :all_blank
+
+    validates :name, presence: true
+    validates :datasource, presence: true
 
     # Maybe copy attrs over from training to prod when marking is_live, so we keep 1 for training and one for live?
     #
@@ -68,7 +80,11 @@ module EasyML
       }
     end
 
-    def cleanup!
+    def root_dir
+      read_attribute(:root_dir) || datasource.root_dir
+    end
+
+    def destructively_cleanup!
       FileUtils.rm_rf(File.join(root_dir, "data"))
     end
 
@@ -85,15 +101,30 @@ module EasyML
       EasyML::RefreshDatasetWorker.perform_async(id)
     end
 
+    def raw
+      return @raw if @raw
+
+      @raw = initialize_split
+    end
+
+    def processed
+      return @processed if @processed
+
+      @processed = initialize_split
+    end
+
     def refresh!
       refreshing do
-        dataset_service.refresh!
+        cleanup
+        refresh_datasource!
+        process_data
       end
     end
 
     def refresh
       refreshing do
-        dataset_service.refresh
+        refresh_datasource
+        process_data
       end
     end
 
@@ -175,6 +206,288 @@ module EasyML
 
     def apply_transforms!
       dataset_transforms.pending.each(&:apply!)
+    end
+
+    def process_data
+      split_data
+      fit
+      normalize_all
+      # alert_nulls
+    end
+
+    def normalize(df = nil, split_ys: false)
+      df = drop_nulls(df)
+      df = apply_transforms(df)
+      df = preprocessor.postprocess(df)
+      df, = processed.split_features_targets(df, true, target) if split_ys
+      df
+    end
+
+    # Filter data using Polars predicates:
+    # dataset.data(filter: Polars.col("CREATED_DATE") > EST.now - 2.days)
+    # dataset.data(limit: 10)
+    # dataset.data(select: ["column1", "column2", "column3"], limit: 10)
+    # dataset.data(split_ys: true)
+    # dataset.data(all_columns: true) # Include all columns, even ones we SHOULDN'T train on (e.g. drop_cols). Be very careful! This is for data analysis purposes ONLY!
+    #
+    def train(**kwargs)
+      load_data(:train, **kwargs)
+    end
+
+    def valid(**kwargs)
+      load_data(:valid, **kwargs)
+    end
+
+    def test(**kwargs)
+      load_data(:test, **kwargs)
+    end
+
+    def data(**kwargs)
+      load_data(:all, **kwargs)
+    end
+
+    def num_batches(segment)
+      processed.num_batches(segment)
+    end
+
+    def cleanup
+      raw.cleanup
+      processed.cleanup
+    end
+
+    def check_nulls(data_type = :processed)
+      result = SPLIT_ORDER.each_with_object({}) do |segment, acc|
+        segment_result = { nulls: {}, total: 0 }
+
+        data_source = data_type == :raw ? raw : processed
+        data_source.read(segment) do |df|
+          df_nulls = null_check(df)
+          df.columns.each do |column|
+            segment_result[:nulls][column] ||= { null_count: 0, total_count: 0 }
+            segment_result[:nulls][column][:null_count] += df_nulls[column][:null_count] if df_nulls && df_nulls[column]
+            segment_result[:nulls][column][:total_count] += df.height
+          end
+        end
+
+        segment_result[:nulls].each do |column, counts|
+          percentage = (counts[:null_count].to_f / counts[:total_count] * 100).round(1)
+          acc[column] ||= {}
+          acc[column][segment] = percentage
+        end
+      end
+
+      # Remove columns that have no nulls across all segments
+      result.reject! { |_, v| v.values.all?(&:zero?) }
+
+      result.empty? ? nil : result
+    end
+
+    def processed?
+      !should_split?
+    end
+
+    def decode_labels(ys, col: nil)
+      preprocessor.decode_labels(ys, col: col.nil? ? target : col)
+    end
+
+    def preprocessing_steps
+      return if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
+      return @preprocessing_steps if @preprocessing_steps.present?
+
+      training = standardize_preprocessing_steps(:training)
+      inference = standardize_preprocessing_steps(:inference)
+
+      @preprocessing_steps = {
+        training: training,
+        inference: inference
+      }.compact.deep_symbolize_keys
+    end
+
+    def preprocessor
+      @preprocessor ||= initialize_preprocessor
+      return @preprocessor if @preprocessor.preprocessing_steps == preprocessing_steps
+
+      @preprocessor = initialize_preprocessor
+    end
+
+    def target
+      @target ||= columns.find_by(is_target: true)&.name
+    end
+
+    def drop_cols
+      @drop_cols ||= columns.select(&:hidden).map(&:name)
+    end
+
+    def drop_if_null
+      @drop_if_null ||= columns.select(&:drop_if_null).map(&:name)
+    end
+
+    private
+
+    def initialize_splits
+      @raw = nil
+      @processesd = nil
+      raw
+      processed
+    end
+
+    def initialize_split
+      case split_type.to_s
+      when EasyML::Data::Splits::InMemorySplit.to_s
+        split_type.new
+      when EasyML::Data::Splits::FileSplit.to_s
+        split_type.new(dir: Pathname.new(root_dir).append("data").to_s)
+      end
+    end
+
+    def split_type
+      datasource.respond_to?(:df) ? EasyML::Data::Splits::InMemorySplit : EasyML::Data::Splits::FileSplit
+    end
+
+    def refresh_datasource
+      datasource.reload.refresh
+    end
+    # log_method :refresh_datasource, "Refreshing datasource", verbose: true
+
+    def refresh_datasource!
+      datasource.reload.refresh!
+    end
+    # log_method :refresh_datasource!, "Refreshing! datasource", verbose: true
+
+    def normalize_all
+      processed.cleanup
+
+      SPLIT_ORDER.each do |segment|
+        df = raw.read(segment)
+        processed_df = normalize(df)
+        processed.save(segment, processed_df)
+      end
+      @normalized = true
+    end
+    # log_method :normalize_all, "Normalizing dataset", verbose: true
+
+    def drop_nulls(df)
+      return df if drop_if_null.nil? || drop_if_null.empty?
+
+      drop = (df.columns & drop_if_null)
+      return df if drop.empty?
+
+      df.drop_nulls(subset: drop)
+    end
+
+    def drop_columns(all_columns: false)
+      if all_columns
+        []
+      else
+        drop_cols
+      end
+    end
+
+    def load_data(segment, **kwargs)
+      drop_cols = drop_columns(all_columns: kwargs[:all_columns] || false)
+      kwargs.delete(:all_columns)
+      kwargs = kwargs.merge!(drop_cols: drop_cols, target: target)
+      if processed?
+        processed.read(segment, **kwargs)
+      else
+        raw.read(segment, **kwargs)
+      end
+    end
+
+    def fit(xs = nil)
+      xs = raw.train if xs.nil?
+
+      preprocessor.fit(xs)
+    end
+    # log_method :fit, "Learning statistics", verbose: true
+
+    def in_batches(segment, processed: true, &block)
+      if processed
+        processed.read(segment, &block)
+      else
+        raw.read(segment, &block)
+      end
+    end
+
+    def split_data!
+      split_data(force: true)
+    end
+
+    def split_data(force: false)
+      return unless force || should_split?
+
+      cleanup
+      datasource.in_batches do |df|
+        df = apply_transforms(df)
+        train_df, valid_df, test_df = splitter.split(df)
+        raw.save(:train, train_df)
+        raw.save(:valid, valid_df)
+        raw.save(:test, test_df)
+      end
+    end
+    # log_method :split_data, "Splitting data", verbose: true
+
+    def should_split?
+      split_timestamp = raw.split_at
+      processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at
+    end
+
+    def apply_transforms(df)
+      if transforms.nil? || transforms.empty?
+        df
+      else
+        transforms.ordered.reduce(df) do |acc_df, transform|
+          result = transform.apply!(acc_df)
+
+          unless result.is_a?(Polars::DataFrame)
+            raise "Transform '#{transform.transform_method}' must return a Polars::DataFrame, got #{result.class}"
+          end
+
+          result
+        end
+      end
+    end
+
+    def standardize_preprocessing_steps(type)
+      columns.map(&:name).zip(columns.map do |col|
+        col.preprocessing_steps&.dig(type)
+      end).to_h.compact.reject { |_k, v| v["method"] == "none" }
+    end
+
+    # def alert_nulls
+    #   processed_nulls = check_nulls(:processed)
+    #   raw_nulls = check_nulls(:raw)
+
+    #   if processed_nulls
+    #     log_warning("Nulls found in the processed dataset:")
+    #     processed_nulls.each do |column, segments|
+    #       segments.each do |segment, percentage|
+    #         log_warning("  #{column} - #{segment}: #{percentage}% nulls")
+    #       end
+    #     end
+    #   else
+    #     log_info("No nulls found in the processed dataset.")
+    #   end
+
+    #   if raw_nulls
+    #     raw_nulls.each do |column, segments|
+    #       segments.each do |segment, percentage|
+    #         if percentage > 50
+    #           log_warning("Data processing issue detected: #{column} - #{segment} has #{percentage}% nulls in the raw dataset")
+    #         end
+    #       end
+    #     end
+    #   end
+
+    #   nil
+    # end
+    # log_method :alert_nulls, "Checking for nulls", verbose: true
+
+    def initialize_preprocessor
+      EasyML::Data::Preprocessor.new(
+        directory: Pathname.new(root_dir).append("preprocessor"),
+        preprocessing_steps: preprocessing_steps
+      )
     end
   end
 end

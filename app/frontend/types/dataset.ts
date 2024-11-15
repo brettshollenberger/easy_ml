@@ -22,7 +22,7 @@ export type Transform = {
 }
 
 export type PreprocessingStep = {
-  method: 'none' | 'mean' | 'median' | 'ffill' | 'most_frequent' | 'categorical' | 'constant' | 'today' | 'label';
+  method: 'none' | 'mean' | 'median' | 'ffill' | 'most_frequent' | 'categorical' | 'constant' | 'today';
   params: {
     value?: number;
     constant?: string;

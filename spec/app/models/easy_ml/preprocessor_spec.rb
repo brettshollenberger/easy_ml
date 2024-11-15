@@ -26,13 +26,12 @@ RSpec.describe EasyML::Data::Preprocessor do
     @dataset = EasyML::Dataset.create(
       name: "My Dataset",
       datasource: @datasource,
-      splitter: {
-        date: {
-          today: EST.parse("2024-10-01"),
-          date_col: "created_date",
-          months_test: 2,
-          months_valid: 2
-        }
+      splitter_attributes: {
+        splitter_type: "DateSplitter",
+        today: EST.parse("2024-10-01"),
+        date_col: "created_date",
+        months_test: 2,
+        months_valid: 2
       }
     )
     @dataset.refresh # Will create columns
@@ -352,10 +351,9 @@ RSpec.describe EasyML::Data::Preprocessor do
       )
       @datasource.update(df: @df_with_bool)
       @dataset.refresh
-      binding.pry
     end
 
-    it "preprocesses boolean with most frequent", :focus do
+    it "preprocesses boolean with most frequent" do
       @dataset.columns.find_by(name: "bool_col").update(
         preprocessing_steps: {
           training: {

@@ -372,7 +372,7 @@ RSpec.describe EasyML::Datasource do
     end
   end
 
-  describe "Column configuration", :focus do
+  describe "Column configuration" do
     let(:datasource) { s3_datasource }
     it "drops columns" do
       mock_s3_datasource

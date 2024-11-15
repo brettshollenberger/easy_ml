@@ -20,11 +20,9 @@
 #  updated_at      :datetime         not null
 #
 require_relative "concerns/statuses"
-require_relative "concerns/fully_reload"
 module EasyML
   class Dataset < ActiveRecord::Base
     include EasyML::Concerns::Statuses
-    include EasyML::Concerns::FullyReload
 
     enum workflow_status: {
       analyzing: "analyzing",
@@ -529,6 +527,17 @@ module EasyML
         directory: Pathname.new(root_dir).append("preprocessor"),
         preprocessing_steps: preprocessing_steps
       )
+    end
+
+    def fully_reload
+      base_vars = self.class.new.instance_variables
+      dirty_vars = (instance_variables - base_vars)
+      in_memory_classes = [EasyML::Data::Splits::InMemorySplit]
+      dirty_vars.each do |ivar|
+        value = instance_variable_get(ivar)
+        remove_instance_variable(ivar) unless in_memory_classes.any? { |in_memory_class| value.is_a?(in_memory_class) }
+      end
+      reload
     end
   end
 end

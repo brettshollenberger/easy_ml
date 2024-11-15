@@ -168,11 +168,46 @@ module EasyML
       )
     end
 
+    def syncable_cols
+      col_names = schema.keys
+
+      return col_names unless preprocessing_steps.present?
+
+      col_names - one_hot_cols
+    end
+
+    def one_hot_cols
+      one_hot_base_cols = preprocessing_steps[:training].select { |_k, v| v.dig(:params, :one_hot) }.keys.map(&:to_s)
+      return [] unless one_hot_base_cols
+
+      col_names = schema.keys
+
+      allowed_values = one_hot_base_cols.inject({}) do |h, col|
+        col = col.to_s
+        h.tap do
+          h[col] = raw.read(:train, select: col)[col].unique.to_a + ["other"]
+        end
+      end
+      col_names.select do |col|
+        col = col.to_s
+        one_hot_base_cols.any? do |base|
+          if !col.start_with?("#{base}_")
+            false
+          else
+            allowed_vals = allowed_values[base]
+            allowed_vals.any? do |val|
+              col.end_with?(val)
+            end
+          end
+        end
+      end
+    end
+
     def sync_columns
       return unless schema.present?
 
       EasyML::Column.transaction do
-        col_names = schema.keys
+        col_names = syncable_cols
         existing_columns = columns.where(name: col_names)
         new_columns = col_names - existing_columns.map(&:name)
         cols_to_insert = new_columns.map do |col_name|

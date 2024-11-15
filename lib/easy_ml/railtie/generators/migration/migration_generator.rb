@@ -38,6 +38,7 @@ module EasyML
           create_easy_ml_settings_migration
           create_easy_ml_events_migration
           create_easy_ml_transforms_migration
+          create_easy_ml_splitters_migration
         end
 
         private
@@ -110,6 +111,13 @@ module EasyML
           migration_template(
             "create_easy_ml_transforms.rb.tt",
             "db/migrate/create_easy_ml_transforms.rb"
+          )
+        end
+
+        def create_easy_ml_splitters_migration
+          migration_template(
+            "create_easy_ml_splitters.rb.tt",
+            "db/migrate/create_easy_ml_splitters.rb"
           )
         end
 

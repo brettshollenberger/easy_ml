@@ -308,12 +308,12 @@ module EasyML
       private
 
       def refresh_datasource
-        datasource.refresh
+        datasource.reload.refresh
       end
       # log_method :refresh_datasource, "Refreshing datasource", verbose: true
 
       def refresh_datasource!
-        datasource.refresh!
+        datasource.reload.refresh!
       end
       log_method :refresh_datasource!, "Refreshing! datasource", verbose: true
 

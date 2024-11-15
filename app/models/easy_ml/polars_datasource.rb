@@ -12,15 +12,13 @@
 #
 module EasyML
   class PolarsDatasource < Datasource
-    attr_accessor :df, :last_updated_at
+    attr_accessor :df
 
     validate :df_is_dataframe
 
     after_initialize :read_df_from_configuration
+    after_find :read_df_from_configuration
     before_save :store_df_in_configuration
-
-    after_initialize :set_defaults
-    after_find :set_defaults
 
     def df_is_dataframe
       return if df.nil? || df.is_a?(Polars::DataFrame)
@@ -64,6 +62,10 @@ module EasyML
       df
     end
 
+    def last_updated_at
+      updated_at
+    end
+
     private
 
     def store_df_in_configuration
@@ -93,10 +95,6 @@ module EasyML
       end
 
       @df = Polars::DataFrame.new(columns)
-    end
-
-    def set_defaults
-      @last_updated_at ||= UTC.now
     end
   end
 end

@@ -46,6 +46,18 @@ module EasyML
       }
     end
 
+    def root_dir
+      persisted = read_attribute(:root_dir)
+      return persisted if persisted.present? && !persisted.to_s.blank?
+
+      default_root_dir
+    end
+
+    def default_root_dir
+      folder = name.gsub(/\s{2,}/, " ").split(" ").join("_").downcase
+      Rails.root.join("easy_ml/datasets").join(folder)
+    end
+
     # Common interface methods
     def in_batches(of: 10_000)
       raise NotImplementedError, "#{self.class} must implement #in_batches"

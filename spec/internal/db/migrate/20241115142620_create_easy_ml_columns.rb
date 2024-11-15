@@ -18,6 +18,8 @@ class CreateEasyMLColumns < ActiveRecord::Migration[6.0]
       t.index [:dataset_id, :name], unique: true
       t.index :datatype
       t.index :hidden
+      t.index :drop_if_null
+      t.index :is_target
     end
   end
 end 

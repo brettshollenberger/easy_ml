@@ -53,8 +53,8 @@ module EasyML::Data
                             base_stats[col.to_sym].keys
                           end
           stats[col].merge!(base_stats[col.to_sym].slice(*allowed_attrs))
-        when :categorical, :string, :text
-          stats[col].merge!(most_frequent_value: series.mode.to_a&.first)
+        when :categorical, :string, :text, :boolean
+          stats[col].merge!(most_frequent_value: series.mode.sort.to_a&.first)
           if field_type == :categorical
             stats[col].merge!(
               unique_count: series.n_unique,

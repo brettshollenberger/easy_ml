@@ -141,6 +141,8 @@ module EasyML
       return false if locked?
 
       update(workflow_status: "analyzing")
+      @preprocessing_steps = nil # Force these to reinitialize, in case any data has changed
+      @preprocessor = nil
       yield
       learn_schema
       learn_statistics
@@ -381,11 +383,13 @@ module EasyML
 
     def refresh_datasource
       datasource.reload.refresh
+      initialize_splits
     end
     # log_method :refresh_datasource, "Refreshing datasource", verbose: true
 
     def refresh_datasource!
       datasource.reload.refresh!
+      initialize_splits
     end
     # log_method :refresh_datasource!, "Refreshing! datasource", verbose: true
 

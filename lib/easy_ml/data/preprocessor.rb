@@ -106,6 +106,9 @@ module EasyML::Data
       allowed_categories.each do |col, categories|
         statistics[col] ||= {}
         statistics[col][:allowed_categories] = categories
+        statistics[col].merge!(
+          fit_categorical(df[col], preprocessing_steps)
+        )
       end
     end
 
@@ -190,9 +193,9 @@ module EasyML::Data
           df[actual_col] = imputer.transform(df[actual_col]) if imputer
 
           if params.is_a?(Hash) && params.key?(:one_hot) && params[:one_hot] == true
-            df = apply_one_hot(df, col, imputers)
+            df = apply_one_hot(df, col)
           elsif params.is_a?(Hash) && params.key?(:ordinal_encoding) && params[:ordinal_encoding] == true
-            df = apply_ordinal_encoding(df, col, imputers)
+            df = apply_ordinal_encoding(df, col)
           end
         elsif @verbose
           puts "Warning: Column '#{col}' not found in DataFrame during apply_transformations process."
@@ -202,7 +205,7 @@ module EasyML::Data
       df
     end
 
-    def apply_one_hot(df, col, _imputers)
+    def apply_one_hot(df, col)
       dtype = df[col].dtype
       approved_values = statistics.dig(col, :allowed_categories)
 
@@ -222,11 +225,8 @@ module EasyML::Data
       df.drop([col.to_s])
     end
 
-    def apply_ordinal_encoding(df, col, imputers)
-      cat_imputer = imputers.dig(col, :categorical)
-      approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
-        v >= cat_imputer.options[:categorical_min]
-      end.keys
+    def apply_ordinal_encoding(df, col)
+      approved_values = statistics.dig(col, :allowed_categories)
 
       df.with_column(
         df[col].map_elements do |value|
@@ -234,12 +234,33 @@ module EasyML::Data
         end.alias(col.to_s)
       )
 
-      label_encoder = cat_imputer.statistics[:categorical][:label_encoder].stringify_keys
+      label_encoder = statistics.dig(col, :label_encoder).stringify_keys
       other_value = label_encoder.values.max + 1
       label_encoder["other"] = other_value
       df.with_column(
         df[col].map { |v| label_encoder[v.to_s] }.alias(col.to_s)
       )
+    end
+
+    def fit_categorical(series, _preprocessing_steps)
+      value_counts = series.value_counts
+      column_names = value_counts.columns
+      value_column = column_names[0]
+      count_column = column_names[1]
+
+      as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&:to_s)
+      label_encoder = as_hash.keys.sort.each.with_index.reduce({}) do |h, (k, i)|
+        h.tap do
+          h[k] = i
+        end
+      end
+      label_decoder = label_encoder.invert
+
+      {
+        value: as_hash,
+        label_encoder: label_encoder,
+        label_decoder: label_decoder
+      }
     end
 
     def prepare_for_imputation(df, col)

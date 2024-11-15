@@ -197,27 +197,6 @@ module EasyML
         { value: most_frequent_value }
       end
 
-      def fit_categorical(x)
-        value_counts = x.value_counts
-        column_names = value_counts.columns
-        value_column = column_names[0]
-        count_column = column_names[1]
-
-        as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&:to_s)
-        label_encoder = as_hash.keys.sort.each.with_index.reduce({}) do |h, (k, i)|
-          h.tap do
-            h[k] = i
-          end
-        end
-        label_decoder = label_encoder.invert
-
-        {
-          value: as_hash,
-          label_encoder: label_encoder,
-          label_decoder: label_decoder
-        }
-      end
-
       def fit_no_op(_x)
         {}
       end
@@ -262,7 +241,7 @@ module EasyML
                      when :ffill
                        @statistics.dig(:last_value).present?
                      when :most_frequent
-                       @statistics.dig(:most_frequent_value).present?
+                       @statistics.key?(:most_frequent_value)
                      when :constant
                        options.dig(:constant).present?
                      when :categorical

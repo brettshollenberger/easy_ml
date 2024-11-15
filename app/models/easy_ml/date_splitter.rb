@@ -45,6 +45,10 @@ module EasyML
     #   options[:today] ||= UTC.now
     #   super(options)
     # end
+    def prepare(datasource)
+      @datasource_end = datasource.query(sort: date_col, descending: true, limit: 1,
+                                         select: date_col)[date_col]&.to_a&.first
+    end
 
     def split(df)
       raise "Split by date requires argument: date_col" unless date_col.present?
@@ -75,13 +79,28 @@ module EasyML
     end
 
     def splits
-      test_date_start = today.advance(months: -months_test).beginning_of_day
-      validation_date_start = today.advance(months: -(months_test + months_valid)).beginning_of_day
+      reference_date = datasource_end || today
+      test_date_start = reference_date.advance(months: -months_test).beginning_of_day
+      validation_date_start = test_date_start.advance(months: -months_valid).beginning_of_day
       [validation_date_start, test_date_start]
     end
 
+    def datasource_end
+      return @datasource_end if @datasource_end
+
+      @datasource_end = dataset.datasource.query(sort: date_col, descending: true, limit: 1,
+                                                 select: date_col)[date_col]&.to_a&.first
+    end
+
     def today
-      @today.is_a?(String) ? UTC.parse(@today) : @today
+      case @today
+      when String
+        UTC.parse(@today)
+      when NilClass
+        UTC.today
+      else
+        @today
+      end
     end
   end
 end

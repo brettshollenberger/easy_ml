@@ -1,6 +1,6 @@
-require_relative "../../date_converter"
+require_relative "../date_converter"
 
-module EasyML::Data::Dataset::Splitters
+module EasyML::Data::Splitters
   class DateSplitter
     include GlueGun::DSL
 

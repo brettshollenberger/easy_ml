@@ -14,6 +14,8 @@ module EasyML
   class FileDatasource < Datasource
     attr_accessor :polars_args
 
+    delegate :query, to: :reader
+
     def polars_args=(args)
       args[:dtypes] = args[:dtypes].stringify_keys if args&.key?(:dtypes)
       @polars_args = args
@@ -64,7 +66,7 @@ module EasyML
     private
 
     def reader
-      @reader ||= EasyML::PolarsReader.new(
+      @reader ||= EasyML::Data::PolarsReader.new(
         root_dir: root_dir,
         polars_args: polars_args
       )

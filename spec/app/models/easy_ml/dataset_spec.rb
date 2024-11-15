@@ -3,6 +3,10 @@ require "support/model_spec_helper"
 require "support/file_spec_helper"
 
 RSpec.describe EasyML::Datasource do
+  let(:today) do
+    EST.parse("2024-10-01")
+  end
+
   before(:each) do
     dataset.cleanup
   end
@@ -39,7 +43,7 @@ RSpec.describe EasyML::Datasource do
       datasource: datasource,
       splitter_attributes: {
         splitter_type: "DateSplitter",
-        today: EST.parse("2024-10-01"),
+        today: today,
         date_col: "created_date",
         months_test: 2,
         months_valid: 2
@@ -53,8 +57,8 @@ RSpec.describe EasyML::Datasource do
                                  rev: [0, 0, 100, 200, 0, 300, 400, 500],
                                  annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
                                  points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
-                                 created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
-                                                  2024-08-01 2024-09-01]
+                                 created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-07-15 2024-08-01
+                                                  2024-09-01 2024-10-01]
                                })
 
     # Convert the 'created_date' column to datetime
@@ -71,7 +75,7 @@ RSpec.describe EasyML::Datasource do
   end
 
   let(:synced_directory) do
-    EasyML::Support::SyncedDirectory
+    EasyML::Data::SyncedDirectory
   end
 
   def mock_s3_datasource
@@ -102,6 +106,7 @@ RSpec.describe EasyML::Datasource do
       # The original dataset was processed, so the reloaded one is
       expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
+      # datetime[μs]
     end
   end
 
@@ -321,7 +326,7 @@ RSpec.describe EasyML::Datasource do
   describe "Splitting files" do
     let(:datasource) { s3_datasource }
     let(:synced_directory) do
-      EasyML::Support::SyncedDirectory
+      EasyML::Data::SyncedDirectory
     end
 
     def mock_s3_datasource

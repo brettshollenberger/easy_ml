@@ -452,6 +452,7 @@ module EasyML
       return unless force || should_split?
 
       cleanup
+      splitter.prepare(datasource)
       datasource.in_batches do |df|
         df = apply_transforms(df)
         train_df, valid_df, test_df = splitter.split(df)

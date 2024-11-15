@@ -417,7 +417,11 @@ RSpec.describe EasyML::Data::Preprocessor do
       )
 
       @dataset.refresh
-      expect(@dataset.data.columns).to include("group_a", "group_b", "group_c", "group_other")
+      # Group c isn't in the training set
+      expect(@dataset.data.columns).to include("group_a", "group_b", "group_other")
+      # We don't add one_hot columns to the official columns join
+      expect(@dataset.columns.map(&:name)).to_not include("group_a", "group_b", "group_other")
+      expect(@dataset.columns.map(&:name)).to include("group")
     end
 
     it "preprocesses categorical with ordinal encoding" do

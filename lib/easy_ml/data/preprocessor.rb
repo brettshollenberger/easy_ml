@@ -83,9 +83,9 @@ module EasyML::Data
 
       allowed_categories = {}
       (preprocessing_steps[:training] || {}).each_key do |col|
-        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min)
-        next unless cat_min
+        next unless preprocessing_steps.dig(:training, col, :method).to_s == "categorical"
 
+        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min) || 0
         val_counts = df[col].value_counts
         allowed_categories[col] = val_counts[val_counts["count"] >= cat_min][col].to_a
       end
@@ -202,21 +202,15 @@ module EasyML::Data
       df
     end
 
-    def apply_one_hot(df, col, imputers)
-      imputers = imputers.deep_symbolize_keys
-      approved_values = if (cat_imputer = imputers.dig(col, :categorical)).present?
-                          cat_imputer.statistics[:categorical][:value].select do |_k, v|
-                            v >= cat_imputer.options[:categorical_min]
-                          end.keys
-                        else
-                          df[col].uniq.to_a
-                        end
+    def apply_one_hot(df, col, _imputers)
+      dtype = df[col].dtype
+      approved_values = statistics.dig(col, :allowed_categories)
 
       # Create one-hot encoded columns
       approved_values.each do |value|
         new_col_name = "#{col}_#{value}".gsub(/-/, "_")
         df = df.with_column(
-          df[col].eq(value.to_s).cast(Polars::Int64).alias(new_col_name)
+          df[col].eq(value.to_s).cast(dtype).alias(new_col_name)
         )
       end
 
@@ -224,7 +218,7 @@ module EasyML::Data
       other_col_name = "#{col}_other"
       df[other_col_name] = df[col].map_elements do |value|
         approved_values.map(&:to_s).exclude?(value)
-      end.cast(Polars::Int64)
+      end.cast(dtype)
       df.drop([col.to_s])
     end
 

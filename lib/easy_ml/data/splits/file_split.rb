@@ -24,6 +24,7 @@ module EasyML
 
           file_path = new_file_path_for_segment(segment)
           df.write_parquet(file_path)
+          file_path
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,

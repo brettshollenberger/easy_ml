@@ -20,9 +20,11 @@
 #  updated_at      :datetime         not null
 #
 require_relative "concerns/statuses"
+require_relative "concerns/fully_reload"
 module EasyML
   class Dataset < ActiveRecord::Base
     include EasyML::Concerns::Statuses
+    include EasyML::Concerns::FullyReload
 
     enum workflow_status: {
       analyzing: "analyzing",
@@ -149,7 +151,7 @@ module EasyML
       sync_columns
       now = UTC.now
       update(workflow_status: "ready", refreshed_at: now, updated_at: now)
-      reload
+      fully_reload
     rescue StandardError => e
       update(workflow_status: "failed")
       raise e

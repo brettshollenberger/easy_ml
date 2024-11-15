@@ -11,13 +11,28 @@ RSpec.describe EasyML::Datasource do
     dataset.cleanup
   end
 
-  # preprocessing_steps: {
-  #   training: {
-  #     annual_revenue: {
-  #       median: true
-  #     }
-  #   }
-  # },
+  let(:dir) do
+    SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
+  end
+
+  let(:s3_datasource) do
+    EasyML::Datasource.create(
+      name: "S3",
+      datasource_type: :s3,
+      s3_bucket: "abc",
+      s3_prefix: nil,
+      root_dir: dir
+    )
+  end
+
+  let(:file_datasource) do
+    EasyML::Datasource.create(
+      name: "Local dir",
+      datasource_type: :file,
+      root_dir: dir
+    )
+  end
+
   let(:dataset) do
     EasyML::Dataset.create(
       name: "My Dataset",
@@ -32,18 +47,42 @@ RSpec.describe EasyML::Datasource do
     )
   end
 
-  describe "File datasource" do
-    let(:dir) do
-      SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
-    end
+  let(:df) do
+    df = Polars::DataFrame.new({
+                                 id: [1, 2, 3, 4, 5, 6, 7, 8],
+                                 rev: [0, 0, 100, 200, 0, 300, 400, 500],
+                                 annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
+                                 points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
+                                 created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
+                                                  2024-08-01 2024-09-01]
+                               })
 
-    let(:datasource) do
-      EasyML::Datasource.create(
-        name: "Local dir",
-        datasource_type: :file,
-        root_dir: dir
-      )
-    end
+    # Convert the 'created_date' column to datetime
+    df.with_column(
+      Polars.col("created_date").str.strptime(Polars::Datetime, "%Y-%m-%d").alias("created_date")
+    )
+  end
+  let(:polars_datasource) do
+    EasyML::Datasource.create(
+      name: "dataset",
+      datasource_type: :polars,
+      df: df
+    )
+  end
+
+  let(:synced_directory) do
+    EasyML::Support::SyncedDirectory
+  end
+
+  def mock_s3_datasource
+    allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
+    allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
+    allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
+    allow_any_instance_of(EasyML::S3Datasource).to receive(:refresh!).and_return(true)
+  end
+
+  describe "File datasource" do
+    let(:datasource) { file_datasource }
 
     it "saves and reloads the dataset" do
       dataset.refresh!
@@ -67,28 +106,32 @@ RSpec.describe EasyML::Datasource do
   end
 
   describe "Polars datasource" do
-    let(:df) do
-      df = Polars::DataFrame.new({
-                                   id: [1, 2, 3, 4, 5, 6, 7, 8],
-                                   rev: [0, 0, 100, 200, 0, 300, 400, 500],
-                                   annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
-                                   points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
-                                   created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
-                                                    2024-08-01 2024-09-01]
-                                 })
+    let(:datasource) { polars_datasource }
 
-      # Convert the 'created_date' column to datetime
-      df.with_column(
-        Polars.col("created_date").str.strptime(Polars::Datetime, "%Y-%m-%d").alias("created_date")
-      )
+    it "saves and reloads the dataset" do
+      dataset.refresh!
+      dataset.columns.find_by(name: "rev").update(is_target: true)
+
+      reloaded = EasyML::Dataset.find(dataset.id)
+      expect(reloaded.datasource).to eq datasource
+      expect(reloaded.datasource.data).to eq datasource.data
+      expect(reloaded.target).to eq "rev"
+      expect(reloaded.splitter.today).to eq dataset.splitter.today
+      expect(reloaded.splitter.date_col).to eq dataset.splitter.date_col
+      expect(reloaded.splitter.months_test).to eq dataset.splitter.months_test
+      expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
+      expect(reloaded.splitter).to be_a(EasyML::DateSplitter)
+
+      expect(reloaded).to_not be_processed
+      expect(reloaded.train).to be_nil
+      reloaded.refresh!
+      expect(reloaded).to be_processed
+      expect(reloaded.train).to be_a(Polars::DataFrame)
     end
-    let(:datasource) do
-      EasyML::Datasource.create(
-        name: "dataset",
-        datasource_type: :polars,
-        df: df
-      )
-    end
+  end
+
+  describe "Transforms" do
+    let(:datasource) { polars_datasource }
 
     class DidConvert
       include EasyML::Transforms
@@ -162,28 +205,6 @@ RSpec.describe EasyML::Datasource do
       EasyML::Transforms::Registry.register(DaysInBusiness)
     end
 
-    it "saves and reloads the dataset" do
-      dataset.refresh!
-      dataset.columns.find_by(name: "rev").update(is_target: true)
-
-      reloaded = EasyML::Dataset.find(dataset.id)
-      expect(reloaded.datasource).to eq datasource
-      expect(reloaded.datasource.data).to eq datasource.data
-      expect(reloaded.target).to eq "rev"
-      expect(reloaded.splitter.today).to eq dataset.splitter.today
-      expect(reloaded.splitter.date_col).to eq dataset.splitter.date_col
-      expect(reloaded.splitter.months_test).to eq dataset.splitter.months_test
-      expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
-      expect(reloaded.splitter).to be_a(EasyML::DateSplitter)
-
-      # It isn't processed, given that it's an in-memory datasource
-      expect(reloaded).to_not be_processed
-      expect(reloaded.train).to be_nil
-      reloaded.refresh!
-      expect(reloaded).to be_processed
-      expect(reloaded.train).to be_a(Polars::DataFrame)
-    end
-
     it "creates computed columns in the correct order" do
       # Create business_inception first since days_in_business depends on it
       expect(dataset).to be_needs_refresh
@@ -252,36 +273,8 @@ RSpec.describe EasyML::Datasource do
     end
   end
 
-  describe "needs_refresh?" do
-    let(:df) do
-      Polars::DataFrame.new({
-                              id: [1, 2, 3],
-                              rev: [100, 200, 300],
-                              created_date: %w[2024-01-01 2024-02-01 2024-03-01]
-                            })
-    end
-
-    let(:datasource) do
-      EasyML::Datasource.create(
-        name: "test_source",
-        datasource_type: :polars,
-        df: df
-      )
-    end
-
-    let(:dataset) do
-      EasyML::Dataset.create(
-        name: "Test Dataset",
-        datasource: datasource,
-        splitter_attributes: {
-          splitter_type: "DateSplitter",
-          today: EST.parse("2024-10-01"),
-          date_col: "created_date",
-          months_test: 2,
-          months_valid: 2
-        }
-      )
-    end
+  describe "Refreshing Dataset" do
+    let(:datasource) { polars_datasource }
 
     it "returns true when never refreshed (refreshed_at is nil)" do
       expect(dataset.refreshed_at).to be_nil
@@ -322,6 +315,73 @@ RSpec.describe EasyML::Datasource do
       it "returns false when nothing has changed" do
         expect(dataset).not_to be_needs_refresh
       end
+    end
+  end
+
+  describe "Splitting files" do
+    let(:datasource) { s3_datasource }
+    let(:synced_directory) do
+      EasyML::Support::SyncedDirectory
+    end
+
+    def mock_s3_datasource
+      allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
+      allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
+      allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
+      allow_any_instance_of(EasyML::S3Datasource).to receive(:refresh!).and_return(true)
+    end
+
+    it "splits files" do
+      mock_s3_datasource
+      dataset.refresh!
+      expect(dataset.train.count).to eq 6
+      expect(dataset.test.count).to eq 1
+      expect(dataset.valid.count).to eq 1
+      expect(dataset.data.count).to eq 8 # Entire dataset
+    end
+
+    it "splits targets" do
+      mock_s3_datasource
+      dataset.refresh!
+      dataset.columns.find_by(name: "rev").update(is_target: true)
+      dataset.refresh!
+      _, ys = dataset.train(split_ys: true)
+      expect(ys["rev"]).to eq dataset.train["rev"]
+    end
+  end
+
+  describe "Splitting files" do
+    let(:datasource) { s3_datasource }
+
+    it "splits files" do
+      mock_s3_datasource
+      dataset.refresh!
+      expect(dataset.train.count).to eq 6
+      expect(dataset.test.count).to eq 1
+      expect(dataset.valid.count).to eq 1
+      expect(dataset.data.count).to eq 8 # Entire dataset
+    end
+
+    it "splits targets" do
+      mock_s3_datasource
+      dataset.refresh!
+      dataset.columns.find_by(name: "rev").update(is_target: true)
+      dataset.refresh!
+      _, ys = dataset.train(split_ys: true)
+      expect(ys["rev"]).to eq dataset.train["rev"]
+    end
+  end
+
+  describe "Column configuration", :focus do
+    let(:datasource) { s3_datasource }
+    it "drops columns" do
+      mock_s3_datasource
+      dataset.refresh!
+      expect(dataset.train.columns).to include("drop_me")
+
+      dataset.columns.find_by(name: "drop_me").update(hidden: true)
+      dataset.refresh!
+      expect(dataset.train.columns).to_not include("drop_me")
     end
   end
 end

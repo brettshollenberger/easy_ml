@@ -215,19 +215,45 @@ module EasyML
         columns_to_update = columns.where(name: col_names)
         stats = statistics
         cached_sample = data(limit: 100, all_columns: true)
-        polars_types = cached_sample.columns.zip(cached_sample.dtypes).to_h
+        existing_types = existing_columns.map(&:name).zip(existing_columns.map(&:datatype)).to_h
+        polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
+          EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
+        end)).to_h
+        type_differences = find_type_differences(existing_types, polars_types)
+
+        # Log type changes if any are found
+        Rails.logger.info "Column type changes detected: #{type_differences}" if type_differences.any?
+
         columns_to_update.each do |column|
+          new_polars_type = polars_types[column.name]
+          existing_type = existing_types[column.name]
+          schema_type = schema[column.name]
+
+          # Keep both datatype and polars_datatype if it's an ordinal encoding case
+          actual_type = if ordinal_encoding?(existing_type, new_polars_type)
+                          existing_type
+                        else
+                          new_polars_type
+                        end
+
+          actual_schema_type = if ordinal_encoding?(existing_type, schema_type)
+                                 existing_type
+                               else
+                                 schema_type
+                               end
+
           column.assign_attributes(
             statistics: {
               raw: stats.dig("raw", column.name),
               processed: stats.dig("processed", column.name)
             },
-            datatype: schema[column.name],
-            polars_datatype: polars_types[column.name],
+            datatype: actual_schema_type,
+            polars_datatype: actual_type,
             sample_values: data(unique: true, limit: 5, select: column.name,
                                 all_columns: true)[column.name].to_a.uniq[0...5]
           )
         end
+
         EasyML::Column.import(columns_to_update.to_a,
                               { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
                                                                        sample_values] } })
@@ -489,35 +515,6 @@ module EasyML
       end).to_h.compact.reject { |_k, v| v["method"] == "none" }
     end
 
-    # def alert_nulls
-    #   processed_nulls = check_nulls(:processed)
-    #   raw_nulls = check_nulls(:raw)
-
-    #   if processed_nulls
-    #     log_warning("Nulls found in the processed dataset:")
-    #     processed_nulls.each do |column, segments|
-    #       segments.each do |segment, percentage|
-    #         log_warning("  #{column} - #{segment}: #{percentage}% nulls")
-    #       end
-    #     end
-    #   else
-    #     log_info("No nulls found in the processed dataset.")
-    #   end
-
-    #   if raw_nulls
-    #     raw_nulls.each do |column, segments|
-    #       segments.each do |segment, percentage|
-    #         if percentage > 50
-    #           log_warning("Data processing issue detected: #{column} - #{segment} has #{percentage}% nulls in the raw dataset")
-    #         end
-    #       end
-    #     end
-    #   end
-
-    #   nil
-    # end
-    # log_method :alert_nulls, "Checking for nulls", verbose: true
-
     def initialize_preprocessor
       EasyML::Data::Preprocessor.new(
         directory: Pathname.new(root_dir).append("preprocessor"),
@@ -536,6 +533,31 @@ module EasyML
         remove_instance_variable(ivar) unless in_memory_classes.any? { |in_memory_class| value.is_a?(in_memory_class) }
       end
       reload
+    end
+
+    def find_type_differences(existing_types, polars_types)
+      differences = {}
+
+      polars_types.each do |column_name, polars_type|
+        existing_type = existing_types[column_name]
+        next if existing_type.nil?
+        next if existing_type == polars_type
+
+        # Skip reporting differences for ordinal encoding cases
+        next if ordinal_encoding?(existing_type, polars_type)
+
+        differences[column_name] = {
+          old: existing_type,
+          new: polars_type
+        }
+      end
+
+      differences
+    end
+
+    def ordinal_encoding?(old_type, new_type)
+      string_like_types = %w[text string categorical]
+      new_type == "integer" && string_like_types.include?(old_type)
     end
   end
 end

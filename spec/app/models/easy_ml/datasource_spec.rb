@@ -60,7 +60,6 @@ RSpec.describe EasyML::Datasource do
         )
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
-        binding.pry
         expect(datasource.s3_bucket).to eq "bucket"
         expect(datasource.data).to eq(Polars.read_csv(csv_file))
         expect(datasource.s3_access_key_id).to eq "12345"

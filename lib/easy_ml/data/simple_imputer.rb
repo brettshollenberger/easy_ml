@@ -129,7 +129,7 @@ module EasyML
       end
 
       def transform_today(_val)
-        EST.now.beginning_of_day
+        UTC.now.beginning_of_day
       end
 
       def fit_custom(x)

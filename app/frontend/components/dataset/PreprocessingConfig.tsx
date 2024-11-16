@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Settings2, Wrench, ArrowRight, Pencil, Trash2, Database } from 'lucide-react';
 import type { Dataset, Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
 import { Badge } from "@/components/ui/badge";
+
 interface PreprocessingConfigProps {
   column: Column;
   dataset: Dataset;
@@ -18,6 +19,17 @@ interface PreprocessingConfigProps {
 const isNumericType = (type: ColumnType): boolean => 
   type === 'float' || type === 'integer';
 
+const createPreprocessingStep = (steps?: PreprocessingStep): PreprocessingStep => ({
+  method: steps?.method || 'none',
+  params: {
+    constant: steps?.params?.constant,
+    categorical_min: steps?.params?.categorical_min ?? 100,
+    one_hot: steps?.params?.one_hot ?? true,
+    ordinal_encoding: steps?.params?.ordinal_encoding ?? false,
+    clip: steps?.params?.clip
+  }
+});
+
 export function PreprocessingConfig({ 
   column,
   dataset,
@@ -33,51 +45,18 @@ export function PreprocessingConfig({
   
   const selectedType = column.datatype as ColumnType;
   
-  const [training, setTraining] = useState<PreprocessingStep>(() => ({
-    method: column.preprocessing_steps?.training?.method || 'none',
-    params: {
-      constant: column.preprocessing_steps?.training?.params?.constant,
-      categorical_min: column.preprocessing_steps?.training?.params?.categorical_min ?? 100,
-      one_hot: column.preprocessing_steps?.training?.params?.one_hot ?? true,
-      ordinal_encoding: column.preprocessing_steps?.training?.params?.ordinal_encoding ?? false,
-      clip: column.preprocessing_steps?.training?.params?.clip
-    }
-  }));
+  const [training, setTraining] = useState<PreprocessingStep>(() => 
+    createPreprocessingStep(column.preprocessing_steps?.training)
+  );
   
-  const [inference, setInference] = useState<PreprocessingStep>(() => ({
-    method: column.preprocessing_steps?.inference?.method || 'none',
-    params: {
-      constant: column.preprocessing_steps?.inference?.params?.constant,
-      categorical_min: column.preprocessing_steps?.inference?.params?.categorical_min ?? 100,
-      one_hot: column.preprocessing_steps?.inference?.params?.one_hot ?? true,
-      ordinal_encoding: column.preprocessing_steps?.inference?.params?.ordinal_encoding ?? false,
-      clip: column.preprocessing_steps?.inference?.params?.clip
-    }
-  }));
+  const [inference, setInference] = useState<PreprocessingStep>(() => 
+    createPreprocessingStep(column.preprocessing_steps?.inference)
+  );
 
   // Update all states when column changes
   useEffect(() => {
-    setTraining({
-      method: column.preprocessing_steps?.training?.method || 'none',
-      params: {
-      constant: column.preprocessing_steps?.training?.params?.constant,
-        categorical_min: column.preprocessing_steps?.training?.params?.categorical_min ?? 100,
-        one_hot: column.preprocessing_steps?.training?.params?.one_hot ?? true,
-        ordinal_encoding: column.preprocessing_steps?.training?.params?.ordinal_encoding ?? false,
-        clip: column.preprocessing_steps?.training?.params?.clip
-      }
-    });
-
-    setInference({
-      method: column.preprocessing_steps?.inference?.method || 'none',
-      params: {
-        constant: column.preprocessing_steps?.inference?.params?.constant,
-        categorical_min: column.preprocessing_steps?.inference?.params?.categorical_min ?? 100,
-        one_hot: column.preprocessing_steps?.inference?.params?.one_hot ?? true,
-        ordinal_encoding: column.preprocessing_steps?.inference?.params?.ordinal_encoding ?? false,
-        clip: column.preprocessing_steps?.inference?.params?.clip
-      }
-    });
+    setTraining(createPreprocessingStep(column.preprocessing_steps?.training));
+    setInference(createPreprocessingStep(column.preprocessing_steps?.inference));
   }, [column.id]); // Only re-run when column changes
 
   const handleStrategyChange = (

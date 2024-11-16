@@ -61,7 +61,7 @@ module EasyML::Data
     attr_reader :statistics
 
     def statistics=(stats)
-      @statistics = stats.deep_symbolize_keys
+      @statistics = (stats || {}).deep_symbolize_keys
     end
 
     def apply_clip(df, preprocessing_steps)

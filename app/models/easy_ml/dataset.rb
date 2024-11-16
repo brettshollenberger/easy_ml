@@ -135,8 +135,7 @@ module EasyML
       return false if locked?
 
       update(workflow_status: "analyzing")
-      @preprocessing_steps = nil # Force these to reinitialize, in case any data has changed
-      @preprocessor = nil
+      fully_reload
       yield
       learn_schema
       learn_statistics
@@ -246,10 +245,10 @@ module EasyML
       # alert_nulls
     end
 
-    def normalize(df = nil, split_ys: false)
+    def normalize(df = nil, split_ys: false, inference: false)
       df = drop_nulls(df)
       df = apply_transforms(df)
-      df = preprocessor.postprocess(df)
+      df = preprocessor.postprocess(df, inference: inference)
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
@@ -523,7 +522,9 @@ module EasyML
       EasyML::Data::Preprocessor.new(
         directory: Pathname.new(root_dir).append("preprocessor"),
         preprocessing_steps: preprocessing_steps
-      )
+      ).tap do |preprocessor|
+        preprocessor.statistics = statistics
+      end
     end
 
     def fully_reload

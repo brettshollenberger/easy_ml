@@ -386,7 +386,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     end
 
     it "preprocesses datetime with today" do
-      today = Date.today
+      today = UTC.today.beginning_of_day
       @dataset.columns.find_by(name: "created_date").update(
         preprocessing_steps: {
           training: {
@@ -505,6 +505,70 @@ RSpec.describe EasyML::Data::Preprocessor do
       null_mask = @dataset.raw.read(:all)["bool_col"].is_null
       expect(@dataset.data[null_mask]["bool_col"].to_a).to all(eq true)
       expect(@dataset.data["bool_col"].dtype).to eq Polars::Boolean
+    end
+
+    it "allows change of constant value" do
+      constant_value = "42"
+      @dataset.columns.find_by(name: float_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :constant,
+            params: {
+              constant: constant_value
+            }
+          }
+        }
+      )
+
+      expect(@dataset.data[float_col].dtype).to eq Polars::Float64
+      @dataset.refresh
+      null_mask = @dataset.raw.read(:all)[float_col].is_null
+      expect(@dataset.data[null_mask][float_col].to_a).to all(eq 42)
+      expect(@dataset.data[float_col].dtype).to eq Polars::Float64
+
+      constant_value = 100
+      @dataset.columns.find_by(name: float_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :constant,
+            params: {
+              constant: constant_value
+            }
+          }
+        }
+      )
+
+      @dataset.refresh
+      expect(@dataset.data[null_mask][float_col].to_a).to all(eq 100)
+    end
+
+    it "allows different strategy for inference" do
+      @dataset.columns.find_by(name: "created_date").update(
+        preprocessing_steps: {
+          training: {
+            method: :ffill
+          },
+          inference: {
+            method: :today
+          }
+        }
+      )
+
+      @dataset.refresh
+
+      statistics_last_val = @dataset.statistics.dig("raw", "created_date", "last_value")
+      last_train_val = @dataset.train.sort("created_date")["created_date"][-1]
+      raw_dataset = @dataset.raw.read(:all)
+      null_mask = raw_dataset["created_date"].is_null
+      expect(UTC.parse(statistics_last_val)).to eq last_train_val
+      expect(@dataset.data[null_mask]["created_date"].to_a).to all(eq last_train_val)
+      expect(@dataset.data[null_mask].count).to eq 2
+
+      inference_df = Polars::DataFrame.new({
+                                             created_date: [nil]
+                                           })
+      normalized = @dataset.normalize(inference_df, inference: true)
+      expect(normalized["created_date"].to_a).to all(eq UTC.today.beginning_of_day)
     end
   end
 end

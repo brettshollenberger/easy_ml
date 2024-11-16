@@ -438,6 +438,7 @@ RSpec.describe EasyML::Data::Preprocessor do
 
       @dataset.refresh
       expect(@dataset.data["group"].to_a.uniq.sort).to all(be_a(Integer))
+      expect(@dataset.columns.find_by(name: "group").datatype).to eq "text"
     end
 
     it "preprocesses categorical with min count and one_hot encoding" do

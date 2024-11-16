@@ -217,7 +217,7 @@ module EasyML::Data
       approved_values.each do |value|
         new_col_name = "#{col}_#{value}".gsub(/-/, "_")
         df = df.with_column(
-          df[col].eq(value.to_s).cast(dtype).alias(new_col_name)
+          df[col].cast(Polars::String).eq(value.to_s).cast(dtype).alias(new_col_name)
         )
       end
 

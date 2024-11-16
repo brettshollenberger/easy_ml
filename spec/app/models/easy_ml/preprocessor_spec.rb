@@ -459,4 +459,52 @@ RSpec.describe EasyML::Data::Preprocessor do
       expect(@dataset.data.columns).not_to include("group_b", "group_c")
     end
   end
+
+  describe "edge cases" do
+    let(:float_col) { "points" }
+
+    it "preprocesses constant with different type" do
+      constant_value = "42"
+      @dataset.columns.find_by(name: float_col).update(
+        preprocessing_steps: {
+          training: {
+            method: :constant,
+            params: {
+              constant: constant_value
+            }
+          }
+        }
+      )
+
+      expect(@dataset.data[float_col].dtype).to eq Polars::Float64
+      @dataset.refresh
+      null_mask = @dataset.raw.read(:all)[float_col].is_null
+      expect(@dataset.data[null_mask][float_col].to_a).to all(eq 42)
+      expect(@dataset.data[float_col].dtype).to eq Polars::Float64
+    end
+
+    it "preprocesses constant with different type (bool -> string)" do
+      @df_with_bool = @df.with_column(
+        Polars.lit([true, false, true, false, nil, true, false, true, nil, nil]).alias("bool_col")
+      )
+      @datasource.update(df: @df_with_bool)
+      @dataset.refresh
+      @dataset.columns.find_by(name: "bool_col").update(
+        preprocessing_steps: {
+          training: {
+            method: :constant,
+            params: {
+              constant: "true"
+            }
+          }
+        }
+      )
+
+      expect(@dataset.data["bool_col"].dtype).to eq Polars::Boolean
+      @dataset.refresh
+      null_mask = @dataset.raw.read(:all)["bool_col"].is_null
+      expect(@dataset.data[null_mask]["bool_col"].to_a).to all(eq true)
+      expect(@dataset.data["bool_col"].dtype).to eq Polars::Boolean
+    end
+  end
 end

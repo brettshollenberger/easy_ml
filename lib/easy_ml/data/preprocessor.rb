@@ -42,6 +42,10 @@ module EasyML::Data
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" }
       ],
+      text: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ],
       categorical: [
         { value: "categorical", label: "Categorical" },
         { value: "most_frequent", label: "Most Frequent" },

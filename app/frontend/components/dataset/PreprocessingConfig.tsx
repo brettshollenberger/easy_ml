@@ -36,6 +36,7 @@ export function PreprocessingConfig({
   const [training, setTraining] = useState<PreprocessingStep>(() => ({
     method: column.preprocessing_steps?.training?.method || 'none',
     params: {
+      constant: column.preprocessing_steps?.training?.params?.constant,
       categorical_min: column.preprocessing_steps?.training?.params?.categorical_min ?? 100,
       one_hot: column.preprocessing_steps?.training?.params?.one_hot ?? true,
       ordinal_encoding: column.preprocessing_steps?.training?.params?.ordinal_encoding ?? false,
@@ -46,6 +47,7 @@ export function PreprocessingConfig({
   const [inference, setInference] = useState<PreprocessingStep>(() => ({
     method: column.preprocessing_steps?.inference?.method || 'none',
     params: {
+      constant: column.preprocessing_steps?.inference?.params?.constant,
       categorical_min: column.preprocessing_steps?.inference?.params?.categorical_min ?? 100,
       one_hot: column.preprocessing_steps?.inference?.params?.one_hot ?? true,
       ordinal_encoding: column.preprocessing_steps?.inference?.params?.ordinal_encoding ?? false,
@@ -58,6 +60,7 @@ export function PreprocessingConfig({
     setTraining({
       method: column.preprocessing_steps?.training?.method || 'none',
       params: {
+      constant: column.preprocessing_steps?.training?.params?.constant,
         categorical_min: column.preprocessing_steps?.training?.params?.categorical_min ?? 100,
         one_hot: column.preprocessing_steps?.training?.params?.one_hot ?? true,
         ordinal_encoding: column.preprocessing_steps?.training?.params?.ordinal_encoding ?? false,
@@ -68,6 +71,7 @@ export function PreprocessingConfig({
     setInference({
       method: column.preprocessing_steps?.inference?.method || 'none',
       params: {
+        constant: column.preprocessing_steps?.inference?.params?.constant,
         categorical_min: column.preprocessing_steps?.inference?.params?.categorical_min ?? 100,
         one_hot: column.preprocessing_steps?.inference?.params?.one_hot ?? true,
         ordinal_encoding: column.preprocessing_steps?.inference?.params?.ordinal_encoding ?? false,

@@ -19,32 +19,6 @@ module EasyML
 
     attr_accessor :today, :date_col, :months_test, :months_valid
 
-    # def split
-    #   reference_date = today || Time.current
-
-    #   test_start = reference_date - months_test.months
-    #   valid_start = test_start - months_valid.months
-
-    #   {
-    #     train: ->(df) { df[df[date_col] < valid_start] },
-    #     validation: ->(df) { df[(df[date_col] >= valid_start) & (df[date_col] < test_start)] },
-    #     test: ->(df) { df[df[date_col] >= test_start] }
-    #   }
-    # end
-    # attribute :today, :datetime
-    # def today=(value)
-    #   value = UTC.parse(value) if value.is_a?(String)
-    #   super(value.in_time_zone(UTC).to_datetime)
-    # end
-    # attribute :date_col, :string
-    # attribute :date_format, :string, default: "%Y-%m-%d"
-    # attribute :months_test, :integer, default: 2
-    # attribute :months_valid, :integer, default: 2
-
-    # def initialize(options)
-    #   options[:today] ||= UTC.now
-    #   super(options)
-    # end
     def prepare(datasource)
       @datasource_end = datasource.query(sort: date_col, descending: true, limit: 1,
                                          select: date_col)[date_col]&.to_a&.first

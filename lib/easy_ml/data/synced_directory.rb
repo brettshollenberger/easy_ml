@@ -62,7 +62,7 @@ module EasyML
       end
 
       def age(format: "human")
-        Age.age(last_updated_at, EST.now, format: format)
+        EasyML::Support::Age.age(last_updated_at, EST.now, format: format)
       end
 
       def stale?

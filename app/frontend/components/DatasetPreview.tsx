@@ -66,7 +66,7 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                   <p className="text-sm text-gray-600 mb-3">{column.description}</p>
                   {column.statistics && (
                     <div className="space-y-1">
-                      {Object.entries(column.statistics).map(([key, value]) => {
+                      {Object.entries(column.statistics.raw).map(([key, value]) => {
                         if (key === "counts") { 
                           return null;
                         }

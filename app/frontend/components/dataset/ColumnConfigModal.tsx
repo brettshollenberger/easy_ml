@@ -52,7 +52,7 @@ export function ColumnConfigModal({
   const { saving, saved, error } = useAutosave(dataset, handleSave, 2000);
 
   const colHasPreprocessingSteps = (col: Column) => {
-    return col.preprocessing_steps != null && col.preprocessing_steps?.training?.method !== 'none'
+    return col.preprocessing_steps?.training != null && col.preprocessing_steps?.training?.method !== 'none'
   }
 
   const filteredColumns = useMemo(() => {

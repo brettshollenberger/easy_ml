@@ -41,42 +41,51 @@ module ModelSpecHelper
                             )
     end
 
+    base.let(:datasource) do
+      EasyML::Datasource.create(name: "Polars Datasource", datasource_type: :polars, df: df)
+    end
+
+    base.let(:drop_if_null) do
+      %w[loan_purpose]
+    end
+
+    base.let(:hidden) do
+      %w[business_name state date id]
+    end
+
     base.let(:dataset_config) do
       {
-        verbose: false,
-        drop_if_null: ["loan_purpose"],
-        drop_cols: %w[business_name state date id],
-        datasource: EasyML::Datasource.new(datasource_type: :polars, df: df),
-        target: target,
-        preprocessing_steps: preprocessing_steps,
-        splitter: {
-          date: {
-            today: today,
-            date_col: date_col,
-            months_test: months_test,
-            months_valid: months_valid
-          }
+        name: "My Dataset",
+        datasource: datasource,
+        splitter_attributes: {
+          splitter_type: "DateSplitter",
+          today: today,
+          date_col: date_col,
+          months_test: months_test,
+          months_valid: months_valid
         }
       }
     end
 
-    base.let(:dataset) { EasyML::Data::Dataset.new(**dataset_config) }
+    base.let(:dataset) do
+      dataset = EasyML::Dataset.create(**dataset_config)
+      dataset.refresh
+
+      dataset.columns.find_by(name: target).update(is_target: true)
+      dataset.columns.where(name: drop_if_null).update_all(drop_if_null: true)
+      dataset.columns.where(name: hidden).update_all(hidden: true)
+
+      update_preprocessing_steps(dataset, preprocessing_steps)
+      dataset
+    end
 
     base.let(:hyperparameters) do
       {
         learning_rate: 0.05,
         max_depth: 8,
-        n_estimators: 150,
+        n_estimators: 1,
         booster: "gbtree",
         objective: "reg:squarederror"
-      }
-    end
-
-    base.let(:config) do
-      {
-        root_dir: root_dir,
-        verbose: false,
-        hyperparameters: hyperparameters
       }
     end
 
@@ -86,8 +95,9 @@ module ModelSpecHelper
     base.let(:objective) { "reg:squarederror" }
     base.let(:model_config) do
       {
+        name: "My model",
         root_dir: root_dir,
-        model: :xgboost,
+        model_type: :xgboost,
         task: task,
         dataset: dataset,
         hyperparameters: {
@@ -114,12 +124,10 @@ module ModelSpecHelper
     base.before(:each) do
       dataset.cleanup
       dataset.refresh!
-      # model.cleanup!
     end
 
     base.after(:each) do
       dataset.cleanup
-      # model.cleanup!
     end
   end
 
@@ -147,5 +155,43 @@ module ModelSpecHelper
     paths.each do |path|
       FileUtils.rm(path) if File.exist?(path)
     end
+  end
+
+  private
+
+  def update_preprocessing_steps(dataset, steps)
+    return unless steps&.dig(:training)
+
+    steps[:training].each do |column_name, config|
+      column = dataset.columns.find_by(name: column_name.to_s)
+      next unless column
+
+      method, params = extract_preprocessing_config(config)
+
+      column.update(
+        preprocessing_steps: {
+          training: {
+            method: method,
+            params: params
+          }
+        }
+      )
+    end
+  end
+
+  def extract_preprocessing_config(config)
+    if config[:median]
+      [:median, { clip: config[:clip] }.compact]
+    elsif config[:categorical]
+      [:categorical, config[:categorical]]
+    else
+      raise ArgumentError, "Unknown preprocessing configuration: #{config}"
+    end
+  end
+
+  def mock_file_upload
+    allow_any_instance_of(Aws::S3::Client).to receive(:put_object) do |_s3_client, args|
+      expect(args[:bucket]).to eq "my-bucket"
+    end.and_return(true)
   end
 end

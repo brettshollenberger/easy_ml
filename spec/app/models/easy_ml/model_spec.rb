@@ -75,7 +75,7 @@ RSpec.describe EasyML::Models do
     {
       learning_rate: 0.05,
       max_depth: 8,
-      n_estimators: 150,
+      n_estimators: 1,
       booster: "gbtree",
       objective: "reg:squarederror"
     }

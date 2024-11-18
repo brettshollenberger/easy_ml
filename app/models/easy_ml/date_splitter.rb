@@ -19,11 +19,6 @@ module EasyML
 
     attr_accessor :today, :date_col, :months_test, :months_valid
 
-    def prepare(datasource)
-      @datasource_end = datasource.query(sort: date_col, descending: true, limit: 1,
-                                         select: date_col)[date_col]&.to_a&.first
-    end
-
     def split(df)
       raise "Split by date requires argument: date_col" unless date_col.present?
 

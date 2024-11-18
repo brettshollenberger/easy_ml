@@ -176,7 +176,7 @@ RSpec.describe EasyML::Models do
   end
 
   describe "#load" do
-    it "loads the model from a file", :focus do
+    it "loads the model from a file" do
       mock_file_upload
 
       model.name = "My Model" # Model name + version must be unique
@@ -198,7 +198,7 @@ RSpec.describe EasyML::Models do
   end
 
   describe "#promote" do
-    it "marks all other models of the same name as inference: false, and sets inference: true to itself" do
+    it "marks all other models of the same name as inference: false, and sets inference: true to itself", :focus do
       mock_file_upload
 
       @time = EST.now
@@ -246,6 +246,8 @@ RSpec.describe EasyML::Models do
       expect(model6.reload).to_not be_inference
 
       # Newly promoted model can predict (downloads its file again when calling predict)
+      Thread.current[:stop]
+      model1 = EasyML::Model.find(model1.id)
       expect(model1.model_file).to receive(:download).once do |_model|
         # Mock downloading from s3
         FileUtils.cp(@mock_s3_location, model1.model_file.full_path)

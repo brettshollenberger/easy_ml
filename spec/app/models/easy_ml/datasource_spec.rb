@@ -61,7 +61,14 @@ RSpec.describe EasyML::Datasource do
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
         expect(datasource.s3_bucket).to eq "bucket"
-        expect(datasource.data).to eq(Polars.read_csv(csv_file))
+
+        correct_file = Polars.read_csv(csv_file)
+        correct_file = EasyML::Data::DateConverter.maybe_convert_date(correct_file, "created_date")
+        correct_file = correct_file.with_columns(
+          Polars.col("loan_purpose").cast(Polars::Categorical),
+          Polars.col("state").cast(Polars::Categorical)
+        )
+        expect(datasource.data).to eq(correct_file)
         expect(datasource.s3_access_key_id).to eq "12345"
         expect(datasource.configuration.keys).to include "s3_bucket"
         expect(datasource.configuration.keys).to_not include "s3_access_key_id"

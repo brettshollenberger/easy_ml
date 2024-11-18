@@ -145,6 +145,39 @@ module EasyML
       cannot_promote_reasons.none?
     end
 
+    def decode_labels(ys, col: nil)
+      dataset.decode_labels(ys, col: col)
+    end
+
+    def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
+      evaluator ||= self.evaluator
+      EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true,
+                                            evaluator: evaluator)
+    end
+
+    def get_params
+      @hyperparameters.to_h
+    end
+
+    def allowed_metrics
+      return [] unless task.present?
+
+      case task.to_sym
+      when :regression
+        %w[mean_absolute_error mean_squared_error root_mean_squared_error r2_score]
+      when :classification
+        %w[accuracy_score precision_score recall_score f1_score auc roc_auc]
+      else
+        []
+      end
+    end
+
+    def attributes
+      super.merge!(
+        hyperparameters: hyperparameters.to_h
+      )
+    end
+
     private
 
     def get_model_file
@@ -175,7 +208,7 @@ module EasyML
     end
 
     def loading_model_file
-      return unless File.exist?(model_file.full_path)
+      return unless model_file&.full_path && File.exist?(model_file.full_path)
 
       yield(model_file.full_path)
     end

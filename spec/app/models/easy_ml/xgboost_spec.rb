@@ -1,7 +1,7 @@
 require "spec_helper"
 require "support/model_spec_helper"
 
-RSpec.describe EasyML::Core::Models::XGBoost do
+RSpec.describe EasyML::Models::XGBoost do
   include ModelSpecHelper
 
   describe "XGBoost" do
@@ -9,7 +9,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
       :gbtree
     end
     let(:model) do
-      EasyML::Core::Models::XGBoost.new(
+      EasyML::Model.new(
         model_type: :xgboost,
         root_dir: root_dir,
         task: task,
@@ -153,7 +153,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
   describe "hyperparameter configurations" do
     describe "gbtree booster" do
       let(:model) do
-        EasyML::Core::Models::XGBoost.new(
+        EasyML::Model.new(
           model_type: :xgboost,
           root_dir: root_dir,
           task: :regression,
@@ -180,11 +180,16 @@ RSpec.describe EasyML::Core::Models::XGBoost do
                                                                                     subsample: 0.8,
                                                                                     colsample_bytree: 0.8
                                                                                   }))
-        m = EasyML::Model.create(name: "My Model", model_type: :xgboost, hyperparameters: {
-                                   booster: :gbtree,
-                                   learning_rate: 1.0,
-                                   gamma: 0.01
-                                 })
+        m = EasyML::Model.create(
+          name: "My Model",
+          task: :classification,
+          model_type: :xgboost,
+          hyperparameters: {
+            booster: :gbtree,
+            learning_rate: 1.0,
+            gamma: 0.01
+          }
+        )
         m = EasyML::Model.find(m.id)
         expect(m.hyperparameters.booster).to eq "gbtree"
         expect(m.hyperparameters.gamma).to eq 0.01
@@ -203,7 +208,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
 
     describe "dart booster" do
       let(:model) do
-        EasyML::Core::Models::XGBoost.new(
+        EasyML::Model.new(
           model_type: :xgboost,
           root_dir: root_dir,
           task: :regression,
@@ -238,7 +243,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
 
     describe "gblinear booster" do
       let(:model) do
-        EasyML::Core::Models::XGBoost.new(
+        EasyML::Model.new(
           model_type: :xgboost,
           root_dir: root_dir,
           task: :regression,
@@ -269,7 +274,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
     describe "parameter validation" do
       it "raises error for invalid booster type" do
         expect do
-          EasyML::Core::Models::XGBoost.new(
+          EasyML::Model.new(
             model_type: :xgboost,
             root_dir: root_dir,
             task: :regression,
@@ -280,7 +285,7 @@ RSpec.describe EasyML::Core::Models::XGBoost do
       end
 
       it "raises error for invalid objective" do
-        model = EasyML::Core::Models::XGBoost.new(
+        model = EasyML::Model.new(
           model_type: :xgboost,
           root_dir: root_dir,
           task: :regression,

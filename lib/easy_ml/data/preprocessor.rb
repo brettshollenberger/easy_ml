@@ -133,9 +133,7 @@ module EasyML::Data
     end
 
     def decode_labels(values, col: nil)
-      imputers = initialize_imputers(preprocessing_steps[:training])
-      imputer = imputers.dig(col.to_sym, :categorical)
-      decoder = imputer.statistics.dig(:categorical, :label_decoder)
+      decoder = statistics.dig(col.to_sym, :label_decoder)
       other_value = decoder.keys.map(&:to_s).map(&:to_i).max + 1
       decoder[other_value] = "other"
       decoder.stringify_keys!

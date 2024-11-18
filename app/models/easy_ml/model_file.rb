@@ -44,6 +44,8 @@ module EasyML
 
     def full_path(filename = nil)
       filename = self.filename if filename.nil?
+      return nil if filename.nil?
+
       Rails.root.join(relative_dir, filename).to_s
     end
 

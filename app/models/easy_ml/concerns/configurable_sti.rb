@@ -15,7 +15,7 @@ module EasyML
       end
 
       class_methods do
-        def type_column(column_name)
+        def sti_type_column(column_name)
           self.inheritance_column = column_name
           self.sti_column_name = column_name
 
@@ -24,11 +24,11 @@ module EasyML
           end
         end
 
-        def register_module(module_name)
+        def sti_module(module_name)
           self.parent_module = module_name
         end
 
-        def register_types(mapping)
+        def register_sti_types(mapping)
           self.type_map = mapping.freeze
         end
 
@@ -60,6 +60,31 @@ module EasyML
 
         def add_configuration_attributes(*attrs)
           self.configuration_attributes += attrs
+        end
+
+        def new(*args, &block)
+          attributes = args.first.is_a?(Hash) ? args.first : {}
+          unless attributes[sti_column_name] || attributes[sti_column_name.to_s]
+            # Set default sti_column_name if not provided
+            default_type = default_sti_type || sti_name
+            attributes = attributes.merge(sti_column_name => default_type)
+            args[0] = attributes
+          end
+
+          type_value = attributes[sti_column_name] || attributes[sti_column_name.to_s]
+          klass = find_sti_class(type_value)
+          return klass.new(*args, &block) if klass != self
+
+          super(*args, &block)
+        end
+
+        # Helper method to set the default STI type
+        def default_sti_type(value = nil)
+          if value
+            @default_sti_type = value
+          else
+            @default_sti_type || sti_name
+          end
         end
       end
 

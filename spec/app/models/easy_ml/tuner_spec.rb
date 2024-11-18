@@ -15,14 +15,6 @@ RSpec.describe EasyML::Core::Tuner do
     )
   end
 
-  let(:dataset) do
-    dataset_config[:datasource] = datasource
-    EasyML::Dataset.create(
-      name: "Dataset",
-      **dataset_config
-    )
-  end
-
   let(:model) do
     model_config[:name] = "My Model"
     model_config[:task] = "regression"
@@ -44,6 +36,7 @@ RSpec.describe EasyML::Core::Tuner do
   let(:model_config) do
     {
       root_dir: root_dir,
+      model_type: "EasyML::Models::XGBoost",
       task: task,
       dataset: dataset,
       callbacks: [

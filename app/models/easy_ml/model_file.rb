@@ -24,6 +24,10 @@ module EasyML
     validates :filename, presence: true
     belongs_to :model, class_name: "EasyML::Model"
 
+    def exist?
+      fit?
+    end
+
     def fit?
       File.exist?(full_path)
     end

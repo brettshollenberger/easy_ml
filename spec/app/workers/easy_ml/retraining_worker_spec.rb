@@ -13,6 +13,7 @@ RSpec.describe EasyML::RetrainingWorker do
       EasyML::Model.create(**model_config).tap do |model|
         model.model_file = model_file
         model.version = model_file.filename.gsub(/\.json/, "")
+        model.fit
         model.save
         model.promote
       end

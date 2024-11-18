@@ -1,6 +1,8 @@
 require "spec_helper"
+require "support/model_spec_helper"
 
 RSpec.describe EasyML::Models do
+  include ModelSpecHelper
   let(:root_dir) do
     SPEC_ROOT.join("internal/app/data")
   end
@@ -159,12 +161,6 @@ RSpec.describe EasyML::Models do
     paths.each do |path|
       FileUtils.rm(path) if File.exist?(path)
     end
-  end
-
-  def mock_file_upload
-    allow_any_instance_of(Aws::S3::Client).to receive(:put_object) do |_s3_client, args|
-      expect(args[:bucket]).to eq "my-bucket"
-    end.and_return(true)
   end
 
   describe "#load" do

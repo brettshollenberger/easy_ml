@@ -52,7 +52,7 @@ module EasyML
     after_initialize :check_model_status
     after_initialize :generate_version_string
     after_initialize :set_defaults
-    before_save :save_model_file, if: -> { fit? }
+    before_save :save_model_file, if: -> { is_fit? && model_changed? }
 
     VALID_TASKS = %i[regression classification].freeze
 
@@ -72,7 +72,7 @@ module EasyML
     end
 
     def around_save_model_file
-      raise "No trained model! Need to train model before saving (call model.fit)" unless fit?
+      raise "No trained model! Need to train model before saving (call model.fit)" unless is_fit?
 
       model_file = get_model_file
 
@@ -80,7 +80,6 @@ module EasyML
       # NO UPDATES to production inference models!
       if training?
         path = model_file.full_path(version)
-        # full_path = model_service.save_model_file(full_path)
         full_path = yield(path)
         model_file.upload(full_path)
       end
@@ -104,6 +103,10 @@ module EasyML
       loaded = yield
       load_model_file unless loaded
       yield
+    end
+
+    def model_changed?
+      raise "#model_changed? not implemented! Must be implemented by subclasses"
     end
 
     def fork
@@ -131,15 +134,15 @@ module EasyML
     end
     attr_accessor :is_fit
 
-    def fit?
+    def around_is_fit?
       return true if model_file.present? && model_file.fit?
 
-      is_fit
+      yield
     end
 
     def cannot_promote_reasons
       [
-        fit? ? nil : "Model has not been trained"
+        is_fit? ? nil : "Model has not been trained"
       ].compact
     end
 

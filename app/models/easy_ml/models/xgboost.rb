@@ -112,6 +112,12 @@ module EasyML
         end
       end
 
+      def is_fit?
+        around_is_fit? do
+          @booster.present? && @booster.feature_names.any?
+        end
+      end
+
       def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
         around_fit(x_train) do
           validate_objective
@@ -190,6 +196,20 @@ module EasyML
             booster_class.new(**attrs)
           end
         end
+      end
+
+      def model_changed?
+        return false unless @booster.present? && @booster.feature_names.any?
+        return true unless model_file.present? && model_file.persisted?
+
+        saved_model_hash = Digest::SHA256.file(model_file.full_path).hexdigest
+        current_model_hash = nil
+        Tempfile.create(["xgboost_model", ".json"]) do |tempfile|
+          @booster.save_model(tempfile.path)
+          tempfile.rewind
+          current_model_hash = Digest::SHA256.file(tempfile.path).hexdigest
+        end
+        current_model_hash != saved_model_hash
       end
 
       def save_model_file

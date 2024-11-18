@@ -27,8 +27,8 @@ RSpec.describe EasyML::Transforms do
       it "registers transforms with their metadata" do
         transforms = EasyML::Transforms::Registry.list(namespace: :text)
         expect(transforms["text_to_upper"]).to include(
-          class: test_transform_class,
-          method: :uppercase_text,
+          transform_class: test_transform_class,
+          transform_method: :uppercase_text,
           description: "Converts text to uppercase"
         )
       end
@@ -37,7 +37,7 @@ RSpec.describe EasyML::Transforms do
     describe ".find" do
       it "finds transform by name and namespace" do
         transform = EasyML::Transforms::Registry.find("text_to_upper", namespace: :text)
-        expect(transform[:method]).to eq(:uppercase_text)
+        expect(transform[:transform_method]).to eq(:uppercase_text)
       end
 
       it "returns nil for non-existent transform" do

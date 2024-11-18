@@ -52,6 +52,8 @@ module EasyML
       end
 
       def hyperparameters
+        return @_hyperparameters if @_hyperparameters
+
         raw_params = super # Fetch the stored value
 
         return nil if raw_params.nil? || !raw_params.is_a?(Hash)
@@ -71,7 +73,43 @@ module EasyML
                   raise "Unknown booster type: #{booster}"
                 end
 
-        klass.new(raw_params)
+        @_hyperparameters = klass.new(raw_params)
+      end
+
+      def callbacks=(params)
+        return [] unless params.is_a?(Array)
+
+        params.map do |conf|
+          callback_type = conf.keys.first.to_sym
+          conf.values.first.symbolize_keys!
+
+          klass = case callback_type
+                  when :wandb then Wandb::XGBoostCallback
+                  end
+          raise "Unknown callback type #{callback_type}" unless klass.present?
+        end
+
+        super(params)
+      end
+
+      def callbacks
+        return @_callbacks if @_callbacks
+
+        raw_params = super # Fetch the stored value
+
+        return [] if raw_params.nil? || !raw_params.is_a?(Array)
+
+        @_callbacks = raw_params.map do |conf|
+          callback_type = conf.keys.first.to_sym
+          callback_config = conf.values.first.symbolize_keys!
+
+          klass = case callback_type
+                  when :wandb then Wandb::XGBoostCallback
+                  end
+          raise "Unknown callback type #{callback_type}" unless klass.present?
+
+          klass.new(**callback_config)
+        end
       end
 
       def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
@@ -133,8 +171,9 @@ module EasyML
 
       def loaded?
         around_loaded do
-          binding.pry if Thread.current[:stop] == true
-          return File.exist?(model_file.full_path) if model_file.present?
+          if model_file.present? && model_file.persisted? && model_file.full_path.present?
+            return File.exist?(model_file.full_path)
+          end
 
           @booster.present? && @booster.feature_names.any?
         end
@@ -143,7 +182,6 @@ module EasyML
       def load_model_file
         loading_model_file do |path|
           initialize_model do
-            binding.pry if Thread.current[:stop] == true
             attrs = {
               params: hyperparameters.to_h.symbolize_keys,
               model_file: path,

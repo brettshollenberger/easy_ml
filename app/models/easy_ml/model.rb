@@ -33,12 +33,13 @@ module EasyML
         description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines"
       }
     ].freeze
-    type_column :model_type
-    register_module "EasyML::Models"
-    register_types(
+    sti_type_column :model_type
+    default_sti_type "EasyML::Models::XGBoost"
+    sti_module "EasyML::Models"
+    register_sti_types(
       xgboost: "XGBoost"
     )
-    attr_accessor :task, :metrics, :objective, :hyperparameters, :evaluator, :callbacks
+    attr_accessor :task, :metrics, :hyperparameters, :objective, :evaluator, :callbacks
 
     add_configuration_attributes :task, :objective, :hyperparameters, :evaluator, :callbacks
 
@@ -97,7 +98,8 @@ module EasyML
     end
 
     def around_loaded
-      return false unless File.exist?(get_model_file.full_path.to_s)
+      model_file = get_model_file
+      return false if model_file.persisted? && !File.exist?(model_file.full_path.to_s)
 
       loaded = yield
       load_model_file unless loaded
@@ -257,6 +259,7 @@ module EasyML
     def set_defaults
       self.model_type ||= "EasyML::Models::XGBoost"
       self.status ||= :training
+      self.metrics ||= allowed_metrics
     end
   end
 end

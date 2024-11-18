@@ -238,7 +238,6 @@ RSpec.describe EasyML::Models do
       expect(model6.reload).to_not be_inference
 
       # Newly promoted model can predict (downloads its file again when calling predict)
-      Thread.current[:stop]
       model1 = EasyML::Model.find(model1.id)
       expect(model1.model_file).to receive(:download).once do |_model|
         # Mock downloading from s3

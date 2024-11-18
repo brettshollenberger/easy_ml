@@ -21,8 +21,8 @@ module EasyML
       }
     ].freeze
 
-    type_column :splitter_type
-    register_types(
+    sti_type_column :splitter_type
+    register_sti_types(
       date: "DateSplitter"
     )
 

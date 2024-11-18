@@ -24,8 +24,8 @@ module EasyML
       }
     ].freeze
 
-    type_column :datasource_type
-    register_types(
+    sti_type_column :datasource_type
+    register_sti_types(
       polars: "PolarsDatasource",
       s3: "S3Datasource",
       file: "FileDatasource"

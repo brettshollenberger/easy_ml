@@ -33,7 +33,7 @@ module EasyML
 
         params.symbolize_keys!
 
-        raise "Must supply booster type!" unless params.key?(:booster)
+        params[:booster] = :gbtree unless params.key?(:booster)
 
         klass = case params[:booster].to_sym
                 when :gbtree
@@ -45,22 +45,20 @@ module EasyML
                 else
                   raise "Unknown booster type: #{booster}"
                 end
-        super(klass.new(params))
+        raise "Unknown booster type #{booster}" unless klass.present?
+
+        hyperparams = klass.new(params)
+        super(hyperparams.attributes) # Store only the attributes hash
       end
 
       def hyperparameters
         raw_params = super # Fetch the stored value
 
-        # If already an instance of a subclass, return as-is
-        return raw_params if raw_params.is_a?(EasyML::Models::Hyperparameters::Base)
-
-        # Fallback logic to initialize from a hash (for safety)
         return nil if raw_params.nil? || !raw_params.is_a?(Hash)
 
-        attributes = raw_params["attributes"] || raw_params
-        booster = attributes[:booster] || attributes["booster"]
+        raw_params = raw_params.deep_symbolize_keys # Ensure all keys are symbols
 
-        raise "Missing booster type in hyperparameters!" unless booster
+        booster = raw_params[:booster] || :gbtree
 
         klass = case booster.to_sym
                 when :gbtree
@@ -73,11 +71,11 @@ module EasyML
                   raise "Unknown booster type: #{booster}"
                 end
 
-        klass.new(attributes)
+        klass.new(raw_params)
       end
 
       def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
-        fitting(x_train) do
+        around_fit(x_train) do
           validate_objective
 
           d_train, d_valid, = prepare_data if x_train.nil?
@@ -91,7 +89,7 @@ module EasyML
       end
 
       def predict(xs)
-        predicting do
+        around_predict do
           raise "No trained model! Train a model before calling predict" unless @booster.present?
           raise "Cannot predict on nil — XGBoost" if xs.nil?
 
@@ -134,24 +132,30 @@ module EasyML
       end
 
       def loaded?
-        @booster.present?
+        around_loaded do
+          binding.pry if Thread.current[:stop] == true
+          return File.exist?(model_file.full_path) if model_file.present?
+
+          @booster.present? && @booster.feature_names.any?
+        end
       end
 
       def load_model_file
-        path = model_file.full_path
-
-        initialize_model do
-          attrs = {
-            params: hyperparameters.to_h.symbolize_keys,
-            model_file: path,
-            early_stopping_rounds: hyperparameters.to_h.symbolize_keys.dig(:early_stopping_rounds)
-          }.compact!
-          booster_class.new(**attrs)
+        loading_model_file do |path|
+          initialize_model do
+            binding.pry if Thread.current[:stop] == true
+            attrs = {
+              params: hyperparameters.to_h.symbolize_keys,
+              model_file: path,
+              early_stopping_rounds: hyperparameters.to_h.symbolize_keys.dig(:early_stopping_rounds)
+            }.compact!
+            booster_class.new(**attrs)
+          end
         end
       end
 
       def save_model_file
-        saving_model_file do |path|
+        around_save_model_file do |path|
           path = path.to_s
           ensure_directory_exists(File.dirname(path))
           extension = Pathname.new(path).extname.gsub("\.", "")

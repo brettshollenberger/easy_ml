@@ -65,12 +65,12 @@ module EasyML
       raise "#predict not implemented! Must be implemented by subclasses"
     end
 
-    def predicting
+    def around_predict
       load_model!
       yield
     end
 
-    def saving_model_file
+    def around_save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless fit?
 
       model_file = get_model_file
@@ -96,11 +96,12 @@ module EasyML
       get_model_file&.cleanup(files_to_keep)
     end
 
-    def loaded?
+    def around_loaded
       return false unless File.exist?(get_model_file.full_path.to_s)
 
-      load_model_file
-      # model_service.loaded?
+      loaded = yield
+      load_model_file unless loaded
+      yield
     end
 
     def fork
@@ -116,7 +117,7 @@ module EasyML
       raise "#fit not implemented! Must be implemented by subclasses"
     end
 
-    def fitting(x_train)
+    def around_fit(x_train)
       raise "Cannot train #{status} model!" unless training?
 
       if x_train.nil?
@@ -174,9 +175,9 @@ module EasyML
     end
 
     def loading_model_file
-      return if loaded?
+      return unless File.exist?(model_file.full_path)
 
-      yield
+      yield(model_file.full_path)
     end
 
     def download_model_file(force: false)

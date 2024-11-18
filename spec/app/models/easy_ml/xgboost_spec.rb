@@ -10,6 +10,7 @@ RSpec.describe EasyML::Models::XGBoost do
     end
     let(:model) do
       EasyML::Model.new(
+        name: "My Model",
         model_type: :xgboost,
         root_dir: root_dir,
         task: task,
@@ -37,6 +38,39 @@ RSpec.describe EasyML::Models::XGBoost do
       it "calls fit multiple times" do
         model.fit
         expect { model.fit }.to_not raise_error
+      end
+    end
+
+    describe "#model_changed?" do
+      it "returns false when no model is fit" do
+        expect(model.model_changed?).to be false
+      end
+
+      it "returns true when no model file is saved" do
+        model.fit
+        expect(model.model_changed?).to be true
+      end
+
+      context "with saved model" do
+        before do
+          mock_file_upload
+          model.fit
+          model.save
+        end
+
+        it "returns false when model hasn't changed" do
+          expect(model.model_changed?).to be false
+        end
+
+        it "returns true when model parameters have changed" do
+          # Fit a new model with different hyperparameters
+          model.hyperparameters.max_depth = model.hyperparameters.max_depth + 1
+          model.hyperparameters.learning_rate = 0.01
+          model.hyperparameters.n_estimators = 10
+          model.fit
+
+          expect(model.model_changed?).to be true
+        end
       end
     end
 
@@ -163,7 +197,7 @@ RSpec.describe EasyML::Models::XGBoost do
             booster: :gbtree,
             learning_rate: 0.1,
             max_depth: 6,
-            n_estimators: 100,
+            n_estimators: 1,
             gamma: 0.1,
             min_child_weight: 1,
             subsample: 0.8,
@@ -217,7 +251,7 @@ RSpec.describe EasyML::Models::XGBoost do
             booster: :dart,
             learning_rate: 0.1,
             max_depth: 6,
-            n_estimators: 100,
+            n_estimators: 1,
             rate_drop: 0.1,
             skip_drop: 0.5,
             sample_type: "uniform",
@@ -251,7 +285,7 @@ RSpec.describe EasyML::Models::XGBoost do
           hyperparameters: {
             booster: :gblinear,
             learning_rate: 0.1,
-            n_estimators: 100,
+            n_estimators: 1,
             updater: "coord_descent",
             feature_selector: "cyclic",
             objective: "reg:squarederror"

@@ -28,6 +28,10 @@ module EasyML
       File.exist?(full_path)
     end
 
+    def read
+      File.read(full_path)
+    end
+
     def upload(path)
       model_file_service.upload(path)
 

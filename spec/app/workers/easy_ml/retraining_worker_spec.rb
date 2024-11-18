@@ -4,26 +4,6 @@ require "support/model_spec_helper"
 RSpec.describe EasyML::RetrainingWorker do
   include ModelSpecHelper
   describe "#perform" do
-    let(:root_dir) do
-      Rails.root
-    end
-
-    let(:datasource) do
-      EasyML::Datasource.create(
-        name: "Polars Datasource",
-        datasource_type: :polars,
-        df: df
-      )
-    end
-
-    let(:dataset) do
-      dataset_config[:datasource] = datasource
-      EasyML::Dataset.create(
-        name: "Dataset",
-        **dataset_config
-      )
-    end
-
     let(:model_name) do
       "My Model"
     end

@@ -200,7 +200,7 @@ module EasyML
 
       def model_changed?
         return false unless @booster.present? && @booster.feature_names.any?
-        return true unless model_file.present? && model_file.persisted?
+        return true unless model_file.present? && model_file.persisted? && model_file.fit?
 
         saved_model_hash = Digest::SHA256.file(model_file.full_path).hexdigest
         current_model_hash = nil

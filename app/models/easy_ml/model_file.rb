@@ -39,6 +39,7 @@ module EasyML
 
     def download
       model_file_service.download(full_path) unless File.exist?(full_path)
+      full_path
     end
 
     def full_path(filename = nil)

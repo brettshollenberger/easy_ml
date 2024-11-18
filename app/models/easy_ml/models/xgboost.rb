@@ -1,0 +1,345 @@
+module EasyML
+  module Models
+    class XGBoost < EasyML::Model
+      self.table_name = "easy_ml_models"
+
+      include EasyML::FileSupport
+      Hyperparameters = EasyML::Models::Hyperparameters::XGBoost
+
+      OBJECTIVES = {
+        classification: {
+          binary: %w[binary:logistic binary:hinge],
+          multiclass: %w[multi:softmax multi:softprob]
+        },
+        regression: %w[reg:squarederror reg:logistic]
+      }
+
+      attribute :early_stopping_rounds
+      attr_accessor :model, :booster
+
+      # dependency :callbacks, { array: true } do |dep|
+      #   dep.option :wandb do |opt|
+      #     opt.set_class Wandb::XGBoostCallback
+      #     opt.bind_attribute :log_model, default: false
+      #     opt.bind_attribute :log_feature_importance, default: true
+      #     opt.bind_attribute :importance_type, default: "gain"
+      #     opt.bind_attribute :define_metric, default: true
+      #     opt.bind_attribute :project_name
+      #   end
+      # end
+
+      def hyperparameters=(params)
+        return nil unless params.is_a?(Hash)
+
+        params.symbolize_keys!
+
+        raise "Must supply booster type!" unless params.key?(:booster)
+
+        klass = case params[:booster].to_sym
+                when :gbtree
+                  Hyperparameters::GBTree
+                when :dart
+                  Hyperparameters::Dart
+                when :gblinear
+                  Hyperparameters::GBLinear
+                else
+                  raise "Unknown booster type: #{booster}"
+                end
+        super(klass.new(params))
+      end
+
+      def hyperparameters
+        raw_params = super # Fetch the stored value
+
+        # If already an instance of a subclass, return as-is
+        return raw_params if raw_params.is_a?(EasyML::Models::Hyperparameters::Base)
+
+        # Fallback logic to initialize from a hash (for safety)
+        return nil if raw_params.nil? || !raw_params.is_a?(Hash)
+
+        attributes = raw_params["attributes"] || raw_params
+        booster = attributes[:booster] || attributes["booster"]
+
+        raise "Missing booster type in hyperparameters!" unless booster
+
+        klass = case booster.to_sym
+                when :gbtree
+                  Hyperparameters::GBTree
+                when :dart
+                  Hyperparameters::Dart
+                when :gblinear
+                  Hyperparameters::GBLinear
+                else
+                  raise "Unknown booster type: #{booster}"
+                end
+
+        klass.new(attributes)
+      end
+
+      def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
+        fitting(x_train) do
+          validate_objective
+
+          d_train, d_valid, = prepare_data if x_train.nil?
+          evals = [[d_train, "train"], [d_valid, "eval"]]
+          @booster = base_model.train(hyperparameters.to_h, d_train,
+                                      evals: evals,
+                                      num_boost_round: hyperparameters["n_estimators"],
+                                      callbacks: callbacks || [],
+                                      early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
+        end
+      end
+
+      def predict(xs)
+        predicting do
+          raise "No trained model! Train a model before calling predict" unless @booster.present?
+          raise "Cannot predict on nil — XGBoost" if xs.nil?
+
+          begin
+            y_pred = @booster.predict(preprocess(xs))
+          rescue StandardError => e
+            raise e unless e.message.match?(/Number of columns does not match/)
+
+            raise %(
+                >>>>><<<<<
+                XGBoost received predict with unexpected features!
+                >>>>><<<<<
+
+                Model expects features:
+                #{feature_names}
+                Model received features:
+                #{xs.columns}
+              )
+          end
+
+          case task.to_sym
+          when :classification
+            to_classification(y_pred)
+          else
+            y_pred
+          end
+        end
+      end
+
+      def predict_proba(data)
+        dmat = DMatrix.new(data)
+        y_pred = @booster.predict(dmat)
+
+        if y_pred.first.is_a?(Array)
+          # multiple classes
+          y_pred
+        else
+          y_pred.map { |v| [1 - v, v] }
+        end
+      end
+
+      def loaded?
+        @booster.present?
+      end
+
+      def load_model_file
+        path = model_file.full_path
+
+        initialize_model do
+          attrs = {
+            params: hyperparameters.to_h.symbolize_keys,
+            model_file: path,
+            early_stopping_rounds: hyperparameters.to_h.symbolize_keys.dig(:early_stopping_rounds)
+          }.compact!
+          booster_class.new(**attrs)
+        end
+      end
+
+      def save_model_file
+        saving_model_file do |path|
+          path = path.to_s
+          ensure_directory_exists(File.dirname(path))
+          extension = Pathname.new(path).extname.gsub("\.", "")
+          path = "#{path}.json" unless extension == "json"
+
+          @booster.save_model(path)
+          path
+        end
+      end
+
+      def feature_names
+        @booster.feature_names
+      end
+
+      def feature_importances
+        score = @booster.score(importance_type: @importance_type || "gain")
+        scores = @booster.feature_names.map { |k| score[k] || 0.0 }
+        total = scores.sum.to_f
+        fi = scores.map { |s| s / total }
+        @booster.feature_names.zip(fi).to_h
+      end
+
+      def base_model
+        ::XGBoost
+      end
+
+      def prepare_data
+        if @d_train.nil?
+          x_train, y_train = dataset.train(split_ys: true, limit: 1000)
+          x_valid, y_valid = dataset.valid(split_ys: true)
+          x_test, y_test = dataset.test(split_ys: true)
+          @d_train = preprocess(x_train, y_train)
+          @d_valid = preprocess(x_valid, y_valid)
+          @d_test = preprocess(x_test, y_test)
+        end
+
+        [@d_train, @d_valid, @d_test]
+      end
+
+      def preprocess(xs, ys = nil)
+        orig_xs = xs.dup
+        column_names = xs.columns
+        xs = _preprocess(xs)
+        ys = ys.nil? ? nil : _preprocess(ys).flatten
+        kwargs = { label: ys }.compact
+        begin
+          ::XGBoost::DMatrix.new(xs, **kwargs).tap do |dmat|
+            dmat.feature_names = column_names
+          end
+        rescue StandardError => e
+          raise %(
+            Error building data for XGBoost. Consider preprocessing your
+            features. The error is:
+            >>>>><<<<<
+            #{e.message}
+            >>>>><<<<<
+            A sample of your dataset:
+            #{orig_xs[0..5]}
+            Which was normalized to:
+            #{xs[0..5]}
+
+            This may also be due to string-based targets, your targets:
+            #{ys[0..5]}
+          )
+        end
+      end
+
+      private
+
+      def booster_class
+        ::XGBoost::Booster
+      end
+
+      def d_matrix_class
+        ::XGBoost::DMatrix
+      end
+
+      def model_class
+        ::XGBoost::Model
+      end
+
+      def train_in_batches
+        validate_objective
+
+        # Initialize the model with the first batch
+        @model = nil
+        @booster = nil
+        x_valid, y_valid = dataset.valid(split_ys: true)
+        d_valid = preprocess(x_valid, y_valid)
+
+        num_iterations = hyperparameters.to_h["n_estimators"]
+        current_iteration = 0
+        num_batches = dataset.num_batches(:train)
+        iterations_per_batch = num_iterations / num_batches
+        stopping_points = (1..num_batches).to_a.map { |n| n * iterations_per_batch }
+        stopping_points[-1] = num_iterations
+        current_batch = 0
+
+        callbacks = self.callbacks.nil? ? [] : self.callbacks.dup
+        callbacks << ::XGBoost::EvaluationMonitor.new(period: 1)
+        cb_container = ::XGBoost::CallbackContainer.new(callbacks)
+
+        dataset.train(split_ys: true) do |x_train, y_train|
+          d_train = preprocess(x_train, y_train)
+
+          evals = [[d_train, "train"], [d_valid, "eval"]]
+
+          until current_iteration == stopping_points[current_batch]
+            fit_batch(d_train, current_iteration, evals, cb_container)
+            current_iteration += 1
+          end
+          current_batch += 1
+        end
+
+        @booster = cb_container.after_training(@booster)
+      end
+
+      def fit_batch(d_train, current_iteration, evals, cb_container)
+        if @booster.nil?
+          @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map do |d|
+            d[0]
+          end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
+        end
+
+        @booster = cb_container.before_training(@booster)
+        cb_container.before_iteration(@booster, current_iteration, d_train, evals)
+        @booster.update(d_train, current_iteration)
+        cb_container.after_iteration(@booster, current_iteration, d_train, evals)
+      end
+
+      def _preprocess(df)
+        df.to_a.map do |row|
+          row.values.map do |value|
+            case value
+            when Time
+              value.to_i # Convert Time to Unix timestamp
+            when Date
+              value.to_time.to_i # Convert Date to Unix timestamp
+            when String
+              value
+            when TrueClass, FalseClass
+              value ? 1.0 : 0.0 # Convert booleans to 1.0 and 0.0
+            when Integer
+              value
+            else
+              value.to_f # Ensure everything else is converted to a float
+            end
+          end
+        end
+      end
+
+      def initialize_model
+        @model = model_class.new(n_estimators: @hyperparameters.to_h.dig(:n_estimators))
+        @booster = yield
+        @model.instance_variable_set(:@booster, @booster)
+      end
+
+      def validate_objective
+        objective = hyperparameters.objective
+        unless task.present?
+          raise ArgumentError,
+                "cannot train model without task. Please specify either regression or classification (model.task = :regression)"
+        end
+
+        case task.to_sym
+        when :classification
+          _, ys = dataset.data(split_ys: true)
+          classification_type = ys[ys.columns.first].uniq.count <= 2 ? :binary : :multi_class
+          allowed_objectives = OBJECTIVES[:classification][classification_type]
+        else
+          allowed_objectives = OBJECTIVES[task.to_sym]
+        end
+        return if allowed_objectives.map(&:to_sym).include?(objective.to_sym)
+
+        raise ArgumentError,
+              "cannot use #{objective} for #{task} task. Allowed objectives are: #{allowed_objectives.join(", ")}"
+      end
+
+      def to_classification(y_pred)
+        if y_pred.first.is_a?(Array)
+          # multiple classes
+          y_pred.map do |v|
+            v.map.with_index.max_by { |v2, _| v2 }.last
+          end
+        else
+          y_pred.map { |v| v > 0.5 ? 1 : 0 }
+        end
+      end
+    end
+  end
+end

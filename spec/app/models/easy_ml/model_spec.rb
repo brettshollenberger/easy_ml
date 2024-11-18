@@ -13,22 +13,6 @@ RSpec.describe EasyML::Models do
     )
   end
 
-  let(:preprocessing_steps) do
-    {
-      training: {
-        annual_revenue: {
-          median: true,
-          clip: { min: 0, max: 1_000_000 }
-        },
-        loan_purpose: {
-          categorical: {
-            categorical_min: 2,
-            one_hot: true
-          }
-        }
-      }
-    }
-  end
   let(:target) { "rev" }
   let(:date_col) { "created_date" }
   let(:months_test) { 2 }
@@ -37,25 +21,53 @@ RSpec.describe EasyML::Models do
 
   let(:dataset_config) do
     {
-      verbose: false,
       name: "My Dataset",
       datasource: datasource,
-      drop_if_null: ["loan_purpose"],
-      drop_cols: %w[business_name state drop_me created_date],
-      target: target,
-      preprocessing_steps: preprocessing_steps,
-      splitter: {
-        date: {
-          today: today,
-          date_col: date_col,
-          months_test: months_test,
-          months_valid: months_valid
-        }
+      splitter_attributes: {
+        splitter_type: "DateSplitter",
+        today: today,
+        date_col: date_col,
+        months_test: months_test,
+        months_valid: months_valid
       }
     }
   end
 
-  let(:dataset) { EasyML::Dataset.create(**dataset_config) }
+  let(:hidden_cols) do
+    %w[business_name state drop_me created_date]
+  end
+
+  let(:drop_if_null_cols) do
+    %w[loan_purpose]
+  end
+
+  let(:dataset) do
+    EasyML::Dataset.create(**dataset_config).tap do |dataset|
+      dataset.refresh
+      dataset.columns.find_by(name: target).update(is_target: true)
+      dataset.columns.where(name: drop_if_null_cols).update_all(drop_if_null: true)
+      dataset.columns.where(name: hidden_cols).update_all(hidden: true)
+      dataset.columns.find_by(name: "annual_revenue").update(preprocessing_steps: {
+                                                               training: {
+                                                                 method: :median,
+                                                                 params: {
+                                                                   clip: {
+                                                                     min: 0, max: 1_000_000
+                                                                   }
+                                                                 }
+                                                               }
+                                                             })
+      dataset.columns.find_by(name: "loan_purpose").update(preprocessing_steps: {
+                                                             training: {
+                                                               method: :categorical,
+                                                               params: {
+                                                                 categorical_min: 2,
+                                                                 one_hot: true
+                                                               }
+                                                             }
+                                                           })
+    end
+  end
 
   let(:hyperparameters) do
     {
@@ -164,14 +176,14 @@ RSpec.describe EasyML::Models do
   end
 
   describe "#load" do
-    it "loads the model from a file" do
+    it "loads the model from a file", :focus do
       mock_file_upload
 
       model.name = "My Model" # Model name + version must be unique
       model.metrics = ["mean_absolute_error"]
       model.fit
       model.save
-      expect(model.model_type).to eq "xgboost"
+      expect(model.model_type).to eq "XGBoost"
       expect(File).to exist(model.model_file.full_path)
 
       loaded_model = EasyML::Model.find(model.id)
@@ -255,7 +267,7 @@ RSpec.describe EasyML::Models do
           drop_cols: %w[business_name state id date],
           datasource: df,
           target: target,
-          preprocessing_steps: preprocessing_steps,
+          preprocessing_steps: {},
           splitter: {
             date: {
               today: today,

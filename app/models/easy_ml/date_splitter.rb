@@ -53,7 +53,7 @@ module EasyML
     end
 
     def splits
-      reference_date = datasource_end || today
+      reference_date = to_datetime(datasource_end) || today
       test_date_start = reference_date.advance(months: -months_test).beginning_of_day
       validation_date_start = test_date_start.advance(months: -months_valid).beginning_of_day
       [validation_date_start, test_date_start]
@@ -66,15 +66,19 @@ module EasyML
                                                  select: date_col)[date_col]&.to_a&.first
     end
 
-    def today
-      case @today
+    def to_datetime(field, default: nil)
+      case field
       when String
-        UTC.parse(@today)
+        UTC.parse(field)
       when NilClass
-        UTC.today
+        default
       else
-        @today
+        field
       end
+    end
+
+    def today
+      to_datetime(@today, default: UTC.today)
     end
   end
 end

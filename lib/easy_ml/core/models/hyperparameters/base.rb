@@ -11,7 +11,7 @@ module EasyML
         attribute :early_stopping_rounds
 
         def to_h
-          attributes
+          attributes.with_indifferent_access
         end
 
         def merge(other)

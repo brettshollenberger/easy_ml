@@ -210,14 +210,13 @@ module EasyML::Data
     end
 
     def apply_one_hot(df, col)
-      dtype = df[col].dtype
       approved_values = statistics.dig(col, :allowed_categories)
 
       # Create one-hot encoded columns
       approved_values.each do |value|
         new_col_name = "#{col}_#{value}".gsub(/-/, "_")
         df = df.with_column(
-          df[col].cast(Polars::String).eq(value.to_s).cast(dtype).alias(new_col_name)
+          df[col].cast(Polars::String).eq(value.to_s).cast(Polars::Boolean).alias(new_col_name)
         )
       end
 
@@ -225,7 +224,7 @@ module EasyML::Data
       other_col_name = "#{col}_other"
       df[other_col_name] = df[col].map_elements do |value|
         approved_values.map(&:to_s).exclude?(value)
-      end.cast(dtype)
+      end.cast(Polars::Boolean)
       df.drop([col.to_s])
     end
 

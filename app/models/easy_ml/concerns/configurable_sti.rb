@@ -6,6 +6,7 @@ module EasyML
       included do
         self.filter_attributes += [:configuration]
         class_attribute :type_map, instance_writer: false
+        class_attribute :parent_module, instance_writer: false
         class_attribute :sti_column_name, instance_writer: false
         class_attribute :configuration_attributes, instance_writer: false, default: []
 
@@ -23,17 +24,34 @@ module EasyML
           end
         end
 
+        def register_module(module_name)
+          self.parent_module = module_name
+        end
+
         def register_types(mapping)
           self.type_map = mapping.freeze
         end
 
         def find_sti_class(type_name)
-          return "#{module_parent_name}::#{type_name}".constantize if type_name.in?(type_map.values)
+          return get_sti_class(type_name) if type_name.in?(type_map.values)
 
           type_key = type_name.to_s.underscore.to_sym
           normalized_type = type_map[type_key] || type_name
 
-          "#{module_parent_name}::#{normalized_type}".constantize
+          get_sti_class(normalized_type)
+        end
+
+        def get_sti_class(type_name)
+          type_name = type_name.to_s
+          if get_parent_module.constants.include?(type_name.to_sym)
+            get_parent_module.const_get(type_name)
+          else
+            type_name.constantize
+          end
+        end
+
+        def get_parent_module
+          parent_module&.constantize || module_parent_name.constantize
         end
 
         def sti_name

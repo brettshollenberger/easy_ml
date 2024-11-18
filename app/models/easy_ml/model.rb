@@ -19,11 +19,28 @@ require_relative "concerns/statuses"
 module EasyML
   class Model < ActiveRecord::Base
     include EasyML::Concerns::Statuses
+    include EasyML::Concerns::ConfigurableSTI
     include EasyML::FileSupport
 
     self.filter_attributes += [:configuration]
 
     self.table_name = "easy_ml_models"
+
+    MODEL_TYPES = [
+      {
+        value: "xgboost",
+        label: "XGBoost",
+        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines"
+      }
+    ].freeze
+    type_column :model_type
+    register_module "EasyML::Models"
+    register_types(
+      xgboost: "XGBoost"
+    )
+    attr_accessor :task, :metrics, :objective, :hyperparameters, :evaluator, :callbacks
+
+    add_configuration_attributes :task, :objective, :hyperparameters, :evaluator, :callbacks
 
     belongs_to :dataset
     has_one :model_file,
@@ -31,22 +48,29 @@ module EasyML
 
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
 
-    include GlueGun::Model
-    service :xgboost, EasyML::Core::Models::XGBoost
-
     after_initialize :check_model_status
     after_initialize :generate_version_string
-    around_save :save_model_file, if: -> { fit? }
+    after_initialize :set_defaults
+    before_save :save_model_file, if: -> { fit? }
 
-    validates :task, inclusion: { in: %w[regression classification] }
+    VALID_TASKS = %i[regression classification].freeze
+
     validates :task, presence: true
+    validates :task, inclusion: {
+      in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
+      message: "must be one of: #{VALID_TASKS.join(", ")}"
+    }
 
-    def predict(xs)
-      load_model!
-      model_service.predict(xs)
+    def predict(_xs)
+      raise "#predict not implemented! Must be implemented by subclasses"
     end
 
-    def save_model_file
+    def predicting
+      load_model!
+      yield
+    end
+
+    def saving_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless fit?
 
       model_file = get_model_file
@@ -54,13 +78,11 @@ module EasyML
       # Only save new model file updates if the file is in training,
       # NO UPDATES to production inference models!
       if training?
-        load_model_file
-        full_path = model_file.full_path(version)
-        full_path = model_service.save_model_file(full_path)
+        path = model_file.full_path(version)
+        # full_path = model_service.save_model_file(full_path)
+        full_path = yield(path)
         model_file.upload(full_path)
       end
-
-      yield
 
       model_file.save if training?
       cleanup
@@ -78,7 +100,7 @@ module EasyML
       return false unless File.exist?(get_model_file.full_path.to_s)
 
       load_model_file
-      model_service.loaded?
+      # model_service.loaded?
     end
 
     def fork
@@ -90,14 +112,26 @@ module EasyML
       end
     end
 
-    def fit
-      raise "Cannot train #{status} model!" unless training?
-
-      model_service.fit
+    def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
+      raise "#fit not implemented! Must be implemented by subclasses"
     end
 
+    def fitting(x_train)
+      raise "Cannot train #{status} model!" unless training?
+
+      if x_train.nil?
+        puts "Refreshing dataset"
+        dataset.refresh
+      end
+      yield
+      @is_fit = true
+    end
+    attr_accessor :is_fit
+
     def fit?
-      model_service.fit? || (model_file.present? && model_file.fit?)
+      return true if model_file.present? && model_file.fit?
+
+      is_fit
     end
 
     def cannot_promote_reasons
@@ -116,7 +150,7 @@ module EasyML
       model_file || build_model_file(
         root_dir: root_dir,
         model: self,
-        model_file_type: EasyML::Configuration.storage.to_sym,
+        model_file_type: EasyML::Configuration.storage&.to_sym || "s3",
         s3_bucket: EasyML::Configuration.s3_bucket,
         s3_region: EasyML::Configuration.s3_region,
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,
@@ -139,10 +173,10 @@ module EasyML
       load_model_file
     end
 
-    def load_model_file
-      return if model_service.loaded?
+    def loading_model_file
+      return if loaded?
 
-      model_service.load(get_model_file.full_path.to_s) if File.exist?(get_model_file.full_path.to_s)
+      yield
     end
 
     def download_model_file(force: false)
@@ -184,6 +218,11 @@ module EasyML
       return unless new_record? && !training?
 
       raise "Models must begin as status=training! You may not initialize a model as inference —— explicitly use model.promote to promote the model to production."
+    end
+
+    def set_defaults
+      self.model_type ||= "EasyML::Models::XGBoost"
+      self.status ||= :training
     end
   end
 end

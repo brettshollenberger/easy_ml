@@ -458,6 +458,7 @@ module EasyML
       xs = raw.train if xs.nil?
 
       preprocessor.fit(xs)
+      self.preprocessor_statistics = preprocessor.statistics
     end
     # log_method :fit, "Learning statistics", verbose: true
 
@@ -520,7 +521,7 @@ module EasyML
         directory: Pathname.new(root_dir).append("preprocessor"),
         preprocessing_steps: preprocessing_steps
       ).tap do |preprocessor|
-        preprocessor.statistics = statistics
+        preprocessor.statistics = preprocessor_statistics
       end
     end
 

@@ -79,14 +79,6 @@ RSpec.describe EasyML::Models do
     }
   end
 
-  let(:config) do
-    {
-      root_dir: root_dir,
-      verbose: false,
-      hyperparameters: hyperparameters
-    }
-  end
-
   let(:learning_rate) { 0.05 }
   let(:max_depth) { 8 }
   let(:task) { :regression }

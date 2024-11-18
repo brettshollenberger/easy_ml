@@ -15,7 +15,7 @@
 #  updated_at    :datetime         not null
 #
 require_relative "concerns/statuses"
-
+require_relative "models/hyperparameters"
 module EasyML
   class Model < ActiveRecord::Base
     include EasyML::Concerns::Statuses

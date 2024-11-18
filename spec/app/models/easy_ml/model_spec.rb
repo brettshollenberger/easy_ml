@@ -198,7 +198,7 @@ RSpec.describe EasyML::Models do
   end
 
   describe "#promote" do
-    it "marks all other models of the same name as inference: false, and sets inference: true to itself", :focus do
+    it "marks all other models of the same name as inference: false, and sets inference: true to itself" do
       mock_file_upload
 
       @time = EST.now
@@ -259,87 +259,6 @@ RSpec.describe EasyML::Models do
       FileUtils.rm(@mock_s3_location)
       model1.cleanup!
       other_model.cleanup!
-    end
-
-    def make_orchestrator
-      dataset = EasyML::Data::Dataset.new(
-        {
-          verbose: false,
-          drop_if_null: ["loan_purpose"],
-          drop_cols: %w[business_name state id date],
-          datasource: df,
-          target: target,
-          preprocessing_steps: {},
-          splitter: {
-            date: {
-              today: today,
-              date_col: date_col,
-              months_test: months_test,
-              months_valid: months_valid
-            }
-          }
-        }
-      )
-      model = EasyML::Model.new({
-                                  name: "My model",
-                                  model: :xgboost,
-                                  root_dir: root_dir,
-                                  task: task,
-                                  dataset: dataset,
-                                  hyperparameters: {
-                                    learning_rate: learning_rate,
-                                    max_depth: max_depth,
-                                    objective: objective
-                                  }
-                                })
-
-      EasyML::Orchestrator.new(
-        model: model,
-        dataset: model.dataset,
-        tuner: EasyML::Core::Tuner.new(
-          n_trials: 1,
-          model: model,
-          objective: :mean_absolute_error,
-          config: {
-            learning_rate: { min: 0.01, max: 0.1 },
-            n_estimators: { min: 1, max: 100 },
-            max_depth: { min: 1, max: 8 }
-          }
-        )
-      )
-    end
-
-    def new_df
-      Polars::DataFrame.new({
-                              business_name: ["Business X"],
-                              annual_revenue: [nil],
-                              loan_purpose: ["payroll"],
-                              state: ["VIRGINIA"],
-                              rev: [0],
-                              date: "2024-01-01"
-                            })
-    end
-
-    xit "saves and reuses statistics for inference" do
-      @time = EST.now
-      Timecop.freeze(@time)
-
-      orchestrator = make_orchestrator
-      orchestrator.train # Model is now saved
-      orchestrator.model.mark_live
-
-      # Simulate another request, after the model has been marked live
-      orchestrator2 = make_orchestrator
-
-      df1 = orchestrator.features(new_df)
-      df2 = orchestrator2.features(new_df)
-      df1.columns.each do |col|
-        expect(df1[col][0]).to eq(df2[col][0])
-      end
-      expect(df1["annual_revenue"]).to eq 3_000 # Median revenue
-      expect(df1["loan_purpose_payroll"]).to eq 1
-
-      expect(orchestrator.predict(new_df).first).to be_within(0.001).of(orchestrator2.predict(new_df).first)
     end
   end
 

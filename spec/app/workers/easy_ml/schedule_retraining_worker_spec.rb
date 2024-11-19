@@ -10,8 +10,8 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
   let(:datasource) do
     EasyML::Datasource.create(
       name: "Polars Datasource",
-      datasource_type: :polars,
-      df: df
+      datasource_type: "EasyML::PolarsDatasource",
+      df: df,
     )
   end
 
@@ -19,7 +19,7 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
     dataset_config[:datasource] = datasource
     EasyML::Dataset.create(
       name: "Dataset",
-      **dataset_config
+      **dataset_config,
     )
   end
 
@@ -49,9 +49,9 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 }
-        }
-      }
+          max_depth: { min: 1, max: 5 },
+        },
+      },
     )
   end
   describe "#perform" do

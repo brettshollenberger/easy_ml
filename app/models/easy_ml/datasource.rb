@@ -12,28 +12,28 @@
 #
 module EasyML
   class Datasource < ActiveRecord::Base
-    include EasyML::Concerns::ConfigurableSTI
+    include EasyML::Concerns::Configurable
 
     scope :s3, -> { where(datasource_type: "S3Datasource") }
 
     DATASOURCE_TYPES = [
       {
-        value: "s3",
+        value: "EasyML::S3Datasource",
         label: "Amazon S3",
-        description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets"
-      }
+        description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets",
+      },
     ].freeze
 
-    sti_type_column :datasource_type
-    register_sti_types(
-      polars: "PolarsDatasource",
-      s3: "S3Datasource",
-      file: "FileDatasource"
-    )
+    TYPE_CLASSES = [
+      EasyML::PolarsDatasource,
+      EasyML::FileDatasource,
+      EasyML::S3Datasource,
+    ]
+    self.inheritance_column = :datasource_type
 
     validates :name, presence: true
     validates :datasource_type, presence: true
-    validates :datasource_type, inclusion: { in: type_map.values }
+    validates :datasource_type, inclusion: { in: TYPE_CLASSES.map(&:name) }
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
     attr_accessor :schema, :columns, :num_rows, :is_syncing
@@ -42,7 +42,7 @@ module EasyML
 
     def self.constants
       {
-        DATASOURCE_TYPES: DATASOURCE_TYPES
+        DATASOURCE_TYPES: DATASOURCE_TYPES,
       }
     end
 

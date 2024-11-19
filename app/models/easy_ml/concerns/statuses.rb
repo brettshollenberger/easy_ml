@@ -75,7 +75,7 @@ module EasyML
         end
 
         transaction do
-          self.class.where(name: name).inference.where.not(id: id).update_all(status: :retired)
+          # self.class.where(name: name).inference.where.not(id: id).update_all(status: :retired)
           update!(status: :inference)
         end
       end

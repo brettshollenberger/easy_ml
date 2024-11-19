@@ -13,7 +13,7 @@ RSpec.describe EasyML::Datasource do
                                    annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
                                    points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
                                    created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
-                                                    2024-08-01 2024-09-01]
+                                                    2024-08-01 2024-09-01],
                                  })
 
       # Convert the 'created_date' column to datetime
@@ -26,8 +26,8 @@ RSpec.describe EasyML::Datasource do
       # Save the serialized DataFrame to the database
       datasource = EasyML::Datasource.create!(
         name: "My Polars Df",
-        datasource_type: :polars,
-        df: df
+        datasource_type: "EasyML::PolarsDatasource",
+        df: df,
       )
 
       datasource = EasyML::Datasource.find(datasource.id)
@@ -53,10 +53,10 @@ RSpec.describe EasyML::Datasource do
 
         s3_datasource = EasyML::Datasource.create!(
           name: "s3 Datasource",
-          datasource_type: :s3,
+          datasource_type: "EasyML::S3Datasource",
           root_dir: path,
           s3_bucket: "bucket",
-          s3_prefix: "raw"
+          s3_prefix: "raw",
         )
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
@@ -86,15 +86,15 @@ RSpec.describe EasyML::Datasource do
             'business_name': "str",
             'annual_revenue': "f64",
             'rev': "f64",
-            'created_date': "datetime"
-          }
+            'created_date': "datetime",
+          },
         }
 
         file_datasource = EasyML::Datasource.create!(
           name: "File Datasource",
-          datasource_type: :file,
+          datasource_type: "EasyML::FileDatasource",
           root_dir: root_dir,
-          polars_args: polars_args
+          polars_args: polars_args,
         )
 
         # Invoking this splits the file

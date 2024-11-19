@@ -16,10 +16,14 @@
 #
 require_relative "concerns/statuses"
 require_relative "models/hyperparameters"
+
 module EasyML
   class Model < ActiveRecord::Base
+    # include Historiographer::Silent
+    # historiographer_mode :snapshot_only
+
     include EasyML::Concerns::Statuses
-    include EasyML::Concerns::ConfigurableSTI
+    include EasyML::Concerns::Configurable
     include EasyML::FileSupport
 
     self.filter_attributes += [:configuration]
@@ -30,18 +34,14 @@ module EasyML
       {
         value: "xgboost",
         label: "XGBoost",
-        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines"
-      }
+        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines",
+      },
     ].freeze
-    sti_type_column :model_type
-    default_sti_type "EasyML::Models::XGBoost"
-    sti_module "EasyML::Models"
-    register_sti_types(
-      xgboost: "XGBoost"
-    )
-    attr_accessor :task, :metrics, :hyperparameters, :objective, :evaluator, :callbacks
+
+    self.inheritance_column = :model_type
 
     add_configuration_attributes :task, :objective, :hyperparameters, :evaluator, :callbacks
+    attr_accessor :task, :metrics, :hyperparameters, :objective, :evaluator, :callbacks
 
     belongs_to :dataset
     has_one :model_file,
@@ -58,9 +58,9 @@ module EasyML
 
     validates :task, presence: true
     validates :task, inclusion: {
-      in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
-      message: "must be one of: #{VALID_TASKS.join(", ")}"
-    }
+                       in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
+                       message: "must be one of: #{VALID_TASKS.join(", ")}",
+                     }
 
     def predict(_xs)
       raise "#predict not implemented! Must be implemented by subclasses"
@@ -132,6 +132,7 @@ module EasyML
       yield
       @is_fit = true
     end
+
     attr_accessor :is_fit
 
     def around_is_fit?
@@ -142,7 +143,7 @@ module EasyML
 
     def cannot_promote_reasons
       [
-        is_fit? ? nil : "Model has not been trained"
+        is_fit? ? nil : "Model has not been trained",
       ].compact
     end
 
@@ -179,7 +180,7 @@ module EasyML
 
     def attributes
       super.merge!(
-        hyperparameters: hyperparameters.to_h
+        hyperparameters: hyperparameters.to_h,
       )
     end
 
@@ -194,7 +195,7 @@ module EasyML
         s3_region: EasyML::Configuration.s3_region,
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,
         s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
-        s3_prefix: prefix
+        s3_prefix: prefix,
       )
     end
 

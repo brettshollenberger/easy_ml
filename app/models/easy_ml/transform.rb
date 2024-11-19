@@ -22,12 +22,12 @@ module EasyML
     # Validations
     validates :transform_class, presence: true
     validates :transform_method, presence: true
-    validates :position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+    validates :transform_position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
-    before_validation :set_position, on: :create
+    before_validation :set_transform_position, on: :create
 
     # Scopes
-    scope :ordered, -> { order(position: :asc) }
+    scope :ordered, -> { order(transform_position: :asc) }
 
     # Instance methods
     def transform_class_constant
@@ -49,9 +49,9 @@ module EasyML
     def insert_where(transform_method)
       transforms = dataset.transforms.reload
       target = transforms.detect { |t| t.transform_method.to_sym == transform_method }
-      target_position = target&.position
+      target_position = target&.transform_position
       yield target_position
-      transforms.select { |t| target_position.nil? || t.position > target_position }.each { |t| t.position += 1 }
+      transforms.select { |t| target_position.nil? || t.transform_position > target_position }.each { |t| t.transform_position += 1 }
       transforms += [self]
 
       bulk_update_positions(transforms)
@@ -60,19 +60,19 @@ module EasyML
 
     def prepend
       insert_where(nil) do |_position|
-        self.position = 0
+        self.transform_position = 0
       end
     end
 
     def insert_before(transform_method)
       insert_where(transform_method) do |position|
-        self.position = position - 1
+        self.transform_position = position - 1
       end
     end
 
     def insert_after(transform_method)
       insert_where(transform_method) do |position|
-        self.position = position + 1
+        self.transform_position = position + 1
       end
     end
 
@@ -85,23 +85,23 @@ module EasyML
       existing_transforms = transforms.select(&:persisted?)
       Transform.import(
         existing_transforms,
-        on_duplicate_key_update: [:position],
-        validate: false
+        on_duplicate_key_update: [:transform_position],
+        validate: false,
       )
       Transform.import(new_transforms)
     end
 
     def order_transforms(transforms)
-      transforms.sort_by { |t| t.position }.each_with_index do |transform, index|
-        transform.position = index
+      transforms.sort_by { |t| t.transform_position }.each_with_index do |transform, index|
+        transform.transform_position = index
       end
     end
 
-    def set_position
-      return if position.present?
+    def set_transform_position
+      return if transform_position.present?
 
-      max_position = dataset&.transforms&.maximum(:position) || -1
-      self.position = max_position + 1
+      max_transform_position = dataset&.transforms&.maximum(:transform_position) || -1
+      self.transform_position = max_transform_position + 1
     end
   end
 

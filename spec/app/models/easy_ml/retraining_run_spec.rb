@@ -3,25 +3,6 @@ require "support/model_spec_helper"
 
 RSpec.describe EasyML::RetrainingRun do
   include ModelSpecHelper
-  let(:root_dir) do
-    Rails.root
-  end
-
-  let(:datasource) do
-    EasyML::Datasource.create(
-      name: "Polars Datasource",
-      datasource_type: :polars,
-      df: df
-    )
-  end
-
-  let(:dataset) do
-    dataset_config[:datasource] = datasource
-    EasyML::Dataset.create(
-      name: "Dataset",
-      **dataset_config
-    )
-  end
 
   let(:model_name) do
     "My Model"
@@ -30,11 +11,12 @@ RSpec.describe EasyML::RetrainingRun do
     model_config[:name] = model_name
     model_config[:task] = "regression"
     model_config[:callbacks] = [
-      { wandb: { project_name: "Fancy Project" } }
+      { wandb: { project_name: "Fancy Project" } },
     ]
     EasyML::Model.create(**model_config).tap do |model|
       model.model_file = model_file
       model.version = model_file.filename.gsub(/\.json/, "")
+      model.fit
       model.save
       model.promote
     end
@@ -59,7 +41,7 @@ RSpec.describe EasyML::RetrainingRun do
       active: true,
       evaluator: {
         metric: :root_mean_squared_error,
-        max: 1000
+        max: 1000,
       },
       tuner_config: {
         n_trials: 5,
@@ -67,16 +49,16 @@ RSpec.describe EasyML::RetrainingRun do
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 }
-        }
-      }
+          max_depth: { min: 1, max: 5 },
+        },
+      },
     )
   end
 
   let(:retraining_run) do
     described_class.create!(
       retraining_job: retraining_job,
-      status: "pending"
+      status: "pending",
     )
   end
 
@@ -98,8 +80,8 @@ RSpec.describe EasyML::RetrainingRun do
         allow(retraining_job).to receive(:should_tune?).and_return(true)
 
         expect(EasyML::Orchestrator).to receive(:train)
-          .with(model.name, tuner: retraining_job.tuner_config, evaluator: retraining_job.evaluator)
-          .and_call_original
+            .with(model.name, tuner: retraining_job.tuner_config, evaluator: retraining_job.evaluator)
+            .and_call_original
 
         expect(retraining_run.perform_retraining!).to be true
         expect(retraining_job.reload.last_tuning_at).to be_present
@@ -109,8 +91,8 @@ RSpec.describe EasyML::RetrainingRun do
         allow(retraining_job).to receive(:should_tune?).and_return(false)
 
         expect(EasyML::Orchestrator).to receive(:train)
-          .with(model.name, evaluator: retraining_job.evaluator)
-          .and_call_original
+            .with(model.name, evaluator: retraining_job.evaluator)
+            .and_call_original
 
         expect(retraining_run.perform_retraining!).to be true
         expect(retraining_job.reload.last_tuning_at).to be_nil
@@ -140,7 +122,7 @@ RSpec.describe EasyML::RetrainingRun do
           # Set up our test expectations on the forked model
           allow(training_model).to receive_message_chain(:dataset, :refresh).and_return(true)
           allow(training_model).to receive_message_chain(:dataset, :test)
-            .and_return([[1, 2, 3], y_true])
+              .and_return([[1, 2, 3], y_true])
           allow(training_model).to receive(:predict).and_return(y_pred)
           allow(training_model).to receive(:promotable?).and_return(true)
 
@@ -151,6 +133,7 @@ RSpec.describe EasyML::RetrainingRun do
 
         a.and_call_original
       end
+
       let(:custom_evaluator) do
         Class.new do
           def metric
@@ -174,8 +157,8 @@ RSpec.describe EasyML::RetrainingRun do
           retraining_job.update!(
             evaluator: {
               metric: :root_mean_squared_error,
-              max: 100
-            }
+              max: 100,
+            },
           )
         end
 
@@ -214,8 +197,8 @@ RSpec.describe EasyML::RetrainingRun do
           retraining_job.update!(
             evaluator: {
               metric: :custom,
-              max: 1000
-            }
+              max: 1000,
+            },
           )
         end
 

@@ -11,7 +11,7 @@ RSpec.describe EasyML::Models::XGBoost do
     let(:model) do
       EasyML::Model.new(
         name: "My Model",
-        model_type: :xgboost,
+        model_type: "EasyML::Models::XGBoost",
         root_dir: root_dir,
         task: task,
         dataset: dataset,
@@ -20,8 +20,8 @@ RSpec.describe EasyML::Models::XGBoost do
           learning_rate: 0.05,
           max_depth: 8,
           objective: objective,
-          n_estimators: 1
-        }
+          n_estimators: 1,
+        },
       )
     end
 
@@ -117,7 +117,7 @@ RSpec.describe EasyML::Models::XGBoost do
                                  Polars::Series.new("did_convert",
                                                     %w[converts not_converts converts converts converts not_converts
                                                        not_converts converts converts not_converts]),
-                                 Polars::Series.new("passive_rev", [0, 30, 0, 0, 0, 50, 60, 0, 0, 70])
+                                 Polars::Series.new("passive_rev", [0, 30, 0, 0, 0, 50, 60, 0, 0, 70]),
                                ])
         end
         let(:preprocessing_steps) do
@@ -125,21 +125,21 @@ RSpec.describe EasyML::Models::XGBoost do
             training: {
               annual_revenue: {
                 median: true,
-                clip: { min: 0, max: 1_000_000 }
+                clip: { min: 0, max: 1_000_000 },
               },
               loan_purpose: {
                 categorical: {
                   categorical_min: 2,
-                  one_hot: true
-                }
+                  one_hot: true,
+                },
               },
               did_convert: {
                 categorical: {
                   categorical_min: 1,
-                  ordinal_encoding: true
-                }
-              }
-            }
+                  ordinal_encoding: true,
+                },
+              },
+            },
           }
         end
         let(:drop_columns) do
@@ -178,8 +178,8 @@ RSpec.describe EasyML::Models::XGBoost do
       it "supports feature importances" do
         model.fit
         expect(model.feature_importances).to match(hash_including({ "annual_revenue" => a_value_between(0.0, 1.0),
-                                                                    "loan_purpose_payroll" => a_value_between(0.0,
-                                                                                                              1.0) }))
+                                                                   "loan_purpose_payroll" => a_value_between(0.0,
+                                                                                                             1.0) }))
       end
     end
   end
@@ -188,7 +188,7 @@ RSpec.describe EasyML::Models::XGBoost do
     describe "gbtree booster" do
       let(:model) do
         EasyML::Model.new(
-          model_type: :xgboost,
+          model_type: "EasyML::Models::XGBoost",
           root_dir: root_dir,
           task: :regression,
           dataset: dataset,
@@ -202,8 +202,8 @@ RSpec.describe EasyML::Models::XGBoost do
             min_child_weight: 1,
             subsample: 0.8,
             colsample_bytree: 0.8,
-            objective: "reg:squarederror"
-          }
+            objective: "reg:squarederror",
+          },
         )
       end
 
@@ -212,17 +212,17 @@ RSpec.describe EasyML::Models::XGBoost do
                                                                                     gamma: 0.1,
                                                                                     min_child_weight: 1,
                                                                                     subsample: 0.8,
-                                                                                    colsample_bytree: 0.8
+                                                                                    colsample_bytree: 0.8,
                                                                                   }))
         m = EasyML::Model.create(
           name: "My Model",
           task: :classification,
-          model_type: :xgboost,
+          model_type: "EasyML::Models::XGBoost",
           hyperparameters: {
             booster: :gbtree,
             learning_rate: 1.0,
-            gamma: 0.01
-          }
+            gamma: 0.01,
+          },
         )
         m = EasyML::Model.find(m.id)
         expect(m.hyperparameters.booster).to eq "gbtree"
@@ -243,7 +243,7 @@ RSpec.describe EasyML::Models::XGBoost do
     describe "dart booster" do
       let(:model) do
         EasyML::Model.new(
-          model_type: :xgboost,
+          model_type: "EasyML::Models::XGBoost",
           root_dir: root_dir,
           task: :regression,
           dataset: dataset,
@@ -256,8 +256,8 @@ RSpec.describe EasyML::Models::XGBoost do
             skip_drop: 0.5,
             sample_type: "uniform",
             normalize_type: "tree",
-            objective: "reg:squarederror"
-          }
+            objective: "reg:squarederror",
+          },
         )
       end
 
@@ -266,7 +266,7 @@ RSpec.describe EasyML::Models::XGBoost do
                                                                                     rate_drop: 0.1,
                                                                                     skip_drop: 0.5,
                                                                                     sample_type: "uniform",
-                                                                                    normalize_type: "tree"
+                                                                                    normalize_type: "tree",
                                                                                   }))
       end
 
@@ -278,7 +278,7 @@ RSpec.describe EasyML::Models::XGBoost do
     describe "gblinear booster" do
       let(:model) do
         EasyML::Model.new(
-          model_type: :xgboost,
+          model_type: "EasyML::Models::XGBoost",
           root_dir: root_dir,
           task: :regression,
           dataset: dataset,
@@ -288,15 +288,15 @@ RSpec.describe EasyML::Models::XGBoost do
             n_estimators: 1,
             updater: "coord_descent",
             feature_selector: "cyclic",
-            objective: "reg:squarederror"
-          }
+            objective: "reg:squarederror",
+          },
         )
       end
 
       it "accepts gblinear-specific parameters" do
         expect(model.hyperparameters.to_h.symbolize_keys).to match(hash_including({
                                                                                     updater: "coord_descent",
-                                                                                    feature_selector: "cyclic"
+                                                                                    feature_selector: "cyclic",
                                                                                   }))
       end
 
@@ -309,25 +309,25 @@ RSpec.describe EasyML::Models::XGBoost do
       it "raises error for invalid booster type" do
         expect do
           EasyML::Model.new(
-            model_type: :xgboost,
+            model_type: "EasyML::Models::XGBoost",
             root_dir: root_dir,
             task: :regression,
             dataset: dataset,
-            hyperparameters: { booster: :invalid_booster }
+            hyperparameters: { booster: :invalid_booster },
           )
         end.to raise_error(/Unknown booster type/)
       end
 
       it "raises error for invalid objective" do
         model = EasyML::Model.new(
-          model_type: :xgboost,
+          model_type: "EasyML::Models::XGBoost",
           root_dir: root_dir,
           task: :regression,
           dataset: dataset,
           hyperparameters: {
             booster: :gbtree,
-            objective: "invalid_objective"
-          }
+            objective: "invalid_objective",
+          },
         )
         expect { model.fit }.to raise_error(ArgumentError, /cannot use invalid_objective for regression task/)
       end

@@ -10,8 +10,8 @@ RSpec.describe EasyML::Core::Tuner do
   let(:datasource) do
     EasyML::Datasource.create(
       name: "Polars Datasource",
-      datasource_type: :polars,
-      df: df
+      datasource_type: "EasyML::PolarsDatasource",
+      df: df,
     )
   end
 
@@ -29,7 +29,7 @@ RSpec.describe EasyML::Core::Tuner do
   let(:mock_model) { instance_double(XGBoost::Booster) }
   let(:callback_params) do
     {
-      project_name: "my-great-project"
+      project_name: "my-great-project",
     }
   end
 
@@ -40,14 +40,14 @@ RSpec.describe EasyML::Core::Tuner do
       task: task,
       dataset: dataset,
       callbacks: [
-        { wandb: { project_name: "my-great-project" } }
+        { wandb: { project_name: "my-great-project" } },
       ],
       hyperparameters: {
         booster: :gbtree,
         learning_rate: learning_rate,
         max_depth: max_depth,
-        objective: objective
-      }
+        objective: objective,
+      },
     }
   end
 
@@ -59,8 +59,8 @@ RSpec.describe EasyML::Core::Tuner do
       config: {
         learning_rate: { min: 0.01, max: 0.1 },
         n_estimators: { min: 1, max: 2 },
-        max_depth: { min: 1, max: 5 }
-      }
+        max_depth: { min: 1, max: 5 },
+      },
     }
   end
 
@@ -87,10 +87,10 @@ RSpec.describe EasyML::Core::Tuner do
         objective: :mean_absolute_error,
         config: {
           learning_rate: {
-            min: 0.01
+            min: 0.01,
           },
-          n_estimators: { min: 1, max: 2 }
-        }
+          n_estimators: { min: 1, max: 2 },
+        },
       ).tune
     end
 
@@ -105,10 +105,10 @@ RSpec.describe EasyML::Core::Tuner do
         objective: :mean_absolute_error,
         config: {
           learning_rate: {
-            min: 0.01
+            min: 0.01,
           },
-          n_estimators: { min: 1, max: 2 }
-        }
+          n_estimators: { min: 1, max: 2 },
+        },
       ).tune
     end
 
@@ -156,8 +156,8 @@ RSpec.describe EasyML::Core::Tuner do
           "hyperparameter_ranges" => {
             "learning_rate" => { "min" => 0.01, "max" => 0.1 },
             "n_estimators" => { "min" => 1, "max" => 2 },
-            "max_depth" => { "min" => 1, "max" => 5 }
-          }
+            "max_depth" => { "min" => 1, "max" => 5 },
+          },
         )
       end
 

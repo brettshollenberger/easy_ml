@@ -22,18 +22,18 @@ RSpec.describe EasyML::Datasource do
   let(:s3_datasource) do
     EasyML::Datasource.create(
       name: "S3",
-      datasource_type: :s3,
+      datasource_type: "EasyML::S3Datasource",
       s3_bucket: "abc",
       s3_prefix: nil,
-      root_dir: dir
+      root_dir: dir,
     )
   end
 
   let(:file_datasource) do
     EasyML::Datasource.create(
       name: "Local dir",
-      datasource_type: :file,
-      root_dir: dir
+      datasource_type: "EasyML::FileDatasource",
+      root_dir: dir,
     )
   end
 
@@ -42,12 +42,12 @@ RSpec.describe EasyML::Datasource do
       name: "My Dataset",
       datasource: datasource,
       splitter_attributes: {
-        splitter_type: "DateSplitter",
+        splitter_type: "EasyML::DateSplitter",
         today: today,
         date_col: "created_date",
         months_test: 2,
-        months_valid: 2
-      }
+        months_valid: 2,
+      },
     )
   end
 
@@ -58,7 +58,7 @@ RSpec.describe EasyML::Datasource do
                                  annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
                                  points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
                                  created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-07-15 2024-08-01
-                                                  2024-09-01 2024-10-01]
+                                                  2024-09-01 2024-10-01],
                                })
 
     # Convert the 'created_date' column to datetime
@@ -69,8 +69,8 @@ RSpec.describe EasyML::Datasource do
   let(:polars_datasource) do
     EasyML::Datasource.create(
       name: "dataset",
-      datasource_type: :polars,
-      df: df
+      datasource_type: "EasyML::PolarsDatasource",
+      df: df,
     )
   end
 
@@ -146,6 +146,7 @@ RSpec.describe EasyML::Datasource do
           (Polars.col("rev") > 0).alias("did_convert")
         )
       end
+
       transform :did_convert,
                 name: "did_convert",
                 description: "Boolean true/false, did the loan application fund?"
@@ -159,6 +160,7 @@ RSpec.describe EasyML::Datasource do
           Polars::Series.new("age", Array.new(df.height) { rand(1..50) })
         )
       end
+
       transform :age,
                 name: "age",
                 description: "Age of the owner"
@@ -174,6 +176,7 @@ RSpec.describe EasyML::Datasource do
           end).alias("business_inception")
         )
       end
+
       transform :business_inception,
                 name: "Business Inception",
                 description: "Business inception date"
@@ -187,6 +190,7 @@ RSpec.describe EasyML::Datasource do
           (Polars.col("created_date") - Polars.col("business_inception")).dt.days.alias("days_in_business")
         )
       end
+
       transform :days_in_business,
                 name: "Days in business",
                 description: "Days since the business inception date"
@@ -198,6 +202,7 @@ RSpec.describe EasyML::Datasource do
       def bad_transform(_df)
         "not a dataframe" # Intentionally return wrong type
       end
+
       transform :bad_transform,
                 name: "Bad Transform",
                 description: "A transform that doesn't return a DataFrame"
@@ -219,27 +224,27 @@ RSpec.describe EasyML::Datasource do
       EasyML::Transform.new(
         dataset: dataset,
         transform_class: BusinessInception,
-        transform_method: :business_inception
+        transform_method: :business_inception,
       ).insert
 
       EasyML::Transform.new(
         dataset: dataset,
         transform_class: DaysInBusiness,
-        transform_method: :days_in_business
+        transform_method: :days_in_business,
       ).insert
 
       # Insert age between business_inception and days_in_business
       EasyML::Transform.new(
         dataset: dataset,
         transform_class: Age,
-        transform_method: :age
+        transform_method: :age,
       ).insert_after(:business_inception)
 
       # Prepend did_convert to be first
       EasyML::Transform.new(
         dataset: dataset,
         transform_class: DidConvert,
-        transform_method: :did_convert
+        transform_method: :did_convert,
       ).prepend
 
       expect(dataset).to be_needs_refresh
@@ -253,7 +258,7 @@ RSpec.describe EasyML::Datasource do
 
       # Verify the data is computed correctly
       expect(dataset.data["did_convert"].to_a).to eq([
-                                                       false, false, true, true, false, true, true, true
+                                                       false, false, true, true, false, true, true, true,
                                                      ])
       expect(dataset.statistics.dig("raw", "age", "mean")).to be_between(1, 50)
       expect(dataset.data["days_in_business"].to_a).to all(be > 0)
@@ -267,7 +272,7 @@ RSpec.describe EasyML::Datasource do
       transform = EasyML::Transform.new(
         dataset: dataset,
         transform_class: BadTransform,
-        transform_method: :bad_transform
+        transform_method: :bad_transform,
       )
       transform.insert
 
@@ -305,7 +310,7 @@ RSpec.describe EasyML::Datasource do
           EasyML::Transform.create!(
             dataset: dataset,
             transform_class: Age,
-            transform_method: :age
+            transform_method: :age,
           )
         end
 

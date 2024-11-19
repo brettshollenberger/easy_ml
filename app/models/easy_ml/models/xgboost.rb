@@ -1,6 +1,9 @@
 module EasyML
   module Models
     class XGBoost < EasyML::Model
+      include Historiographer::Silent
+      historiographer_mode :snapshot_only
+
       self.table_name = "easy_ml_models"
 
       include EasyML::FileSupport
@@ -16,17 +19,6 @@ module EasyML
 
       attribute :early_stopping_rounds
       attr_accessor :model, :booster
-
-      # dependency :callbacks, { array: true } do |dep|
-      #   dep.option :wandb do |opt|
-      #     opt.set_class Wandb::XGBoostCallback
-      #     opt.bind_attribute :log_model, default: false
-      #     opt.bind_attribute :log_feature_importance, default: true
-      #     opt.bind_attribute :importance_type, default: "gain"
-      #     opt.bind_attribute :define_metric, default: true
-      #     opt.bind_attribute :project_name
-      #   end
-      # end
 
       def hyperparameters=(params)
         return nil unless params.is_a?(Hash)

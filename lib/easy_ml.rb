@@ -16,7 +16,6 @@ module EasyML
 
   require_relative "easy_ml/configuration"
   require_relative "easy_ml/support"
-  require_relative "easy_ml/db_options"
   require_relative "easy_ml/core_ext"
   require_relative "easy_ml/logging"
   require_relative "easy_ml/data"

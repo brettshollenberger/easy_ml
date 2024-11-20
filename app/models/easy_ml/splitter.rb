@@ -11,6 +11,11 @@
 #
 module EasyML
   class Splitter < ActiveRecord::Base
+    self.inheritance_column = :splitter_type
+    self.table_name = "easy_ml_splitters"
+    include Historiographer::Silent
+    historiographer_mode :snapshot_only
+
     include EasyML::Concerns::Configurable
 
     SPLITTER_TYPES = [
@@ -20,8 +25,6 @@ module EasyML
         description: "Split dataset based on date ranges for training, validation, and testing",
       },
     ].freeze
-
-    self.inheritance_column = :splitter_type
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy

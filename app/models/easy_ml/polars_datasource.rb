@@ -12,6 +12,11 @@
 #
 module EasyML
   class PolarsDatasource < Datasource
+    self.inheritance_column = :datasource_type
+    self.table_name = "easy_ml_datasources"
+    include Historiographer::Silent
+    historiographer_mode :snapshot_only
+
     attr_accessor :df
 
     validates :df, presence: true
@@ -86,7 +91,7 @@ module EasyML
       return unless df
 
       self.configuration = (configuration || {}).merge(
-        "df" => JSON.parse(df.write_json)
+        "df" => JSON.parse(df.write_json),
       )
     end
 
@@ -96,15 +101,15 @@ module EasyML
       df_data = configuration["df"]
       columns = df_data["columns"].map do |col|
         dtype = case col["datatype"]
-                when Hash
-                  if col["datatype"]["Datetime"]
-                    Polars::Datetime.new(col["datatype"]["Datetime"][0].downcase.to_sym).class
-                  else
-                    Polars::Utf8
-                  end
-                else
-                  Polars.const_get(col["datatype"])
-                end
+          when Hash
+            if col["datatype"]["Datetime"]
+              Polars::Datetime.new(col["datatype"]["Datetime"][0].downcase.to_sym).class
+            else
+              Polars::Utf8
+            end
+          else
+            Polars.const_get(col["datatype"])
+          end
         Polars::Series.new(col["name"], col["values"], dtype: dtype)
       end
 

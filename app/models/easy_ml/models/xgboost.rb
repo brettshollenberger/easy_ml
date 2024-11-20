@@ -1,3 +1,19 @@
+# == Schema Information
+#
+# Table name: easy_ml_models
+#
+#  id            :bigint           not null, primary key
+#  name          :string           not null
+#  model_type    :string
+#  status        :string
+#  dataset_id    :bigint
+#  configuration :json
+#  version       :string           not null
+#  root_dir      :string
+#  file          :json
+#  created_at    :datetime         not null
+#  updated_at    :datetime         not null
+#
 module EasyML
   module Models
     class XGBoost < EasyML::Model
@@ -6,15 +22,14 @@ module EasyML
 
       self.table_name = "easy_ml_models"
 
-      include EasyML::FileSupport
       Hyperparameters = EasyML::Models::Hyperparameters::XGBoost
 
       OBJECTIVES = {
         classification: {
           binary: %w[binary:logistic binary:hinge],
-          multiclass: %w[multi:softmax multi:softprob]
+          multiclass: %w[multi:softmax multi:softprob],
         },
-        regression: %w[reg:squarederror reg:logistic]
+        regression: %w[reg:squarederror reg:logistic],
       }
 
       attribute :early_stopping_rounds
@@ -23,20 +38,20 @@ module EasyML
       def hyperparameters=(params)
         return nil unless params.is_a?(Hash)
 
-        params.symbolize_keys!
+        params.to_h.symbolize_keys!
 
         params[:booster] = :gbtree unless params.key?(:booster)
 
         klass = case params[:booster].to_sym
-                when :gbtree
-                  Hyperparameters::GBTree
-                when :dart
-                  Hyperparameters::Dart
-                when :gblinear
-                  Hyperparameters::GBLinear
-                else
-                  raise "Unknown booster type: #{booster}"
-                end
+          when :gbtree
+            Hyperparameters::GBTree
+          when :dart
+            Hyperparameters::Dart
+          when :gblinear
+            Hyperparameters::GBLinear
+          else
+            raise "Unknown booster type: #{booster}"
+          end
         raise "Unknown booster type #{booster}" unless klass.present?
 
         hyperparams = klass.new(params)
@@ -50,20 +65,20 @@ module EasyML
 
         return nil if raw_params.nil? || !raw_params.is_a?(Hash)
 
-        raw_params = raw_params.deep_symbolize_keys # Ensure all keys are symbols
+        raw_params = raw_params.to_h.deep_symbolize_keys # Ensure all keys are symbols
 
         booster = raw_params[:booster] || :gbtree
 
         klass = case booster.to_sym
-                when :gbtree
-                  Hyperparameters::GBTree
-                when :dart
-                  Hyperparameters::Dart
-                when :gblinear
-                  Hyperparameters::GBLinear
-                else
-                  raise "Unknown booster type: #{booster}"
-                end
+          when :gbtree
+            Hyperparameters::GBTree
+          when :dart
+            Hyperparameters::Dart
+          when :gblinear
+            Hyperparameters::GBLinear
+          else
+            raise "Unknown booster type: #{booster}"
+          end
 
         @_hyperparameters = klass.new(raw_params)
       end
@@ -76,8 +91,8 @@ module EasyML
           conf.values.first.symbolize_keys!
 
           klass = case callback_type
-                  when :wandb then Wandb::XGBoostCallback
-                  end
+            when :wandb then Wandb::XGBoostCallback
+            end
           raise "Unknown callback type #{callback_type}" unless klass.present?
         end
 
@@ -96,8 +111,8 @@ module EasyML
           callback_config = conf.values.first.symbolize_keys!
 
           klass = case callback_type
-                  when :wandb then Wandb::XGBoostCallback
-                  end
+            when :wandb then Wandb::XGBoostCallback
+            end
           raise "Unknown callback type #{callback_type}" unless klass.present?
 
           klass.new(**callback_config)
@@ -183,7 +198,7 @@ module EasyML
             attrs = {
               params: hyperparameters.to_h.symbolize_keys,
               model_file: path,
-              early_stopping_rounds: hyperparameters.to_h.symbolize_keys.dig(:early_stopping_rounds)
+              early_stopping_rounds: hyperparameters.to_h.symbolize_keys.dig(:early_stopping_rounds),
             }.compact!
             booster_class.new(**attrs)
           end
@@ -326,8 +341,8 @@ module EasyML
       def fit_batch(d_train, current_iteration, evals, cb_container)
         if @booster.nil?
           @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map do |d|
-            d[0]
-          end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
+                                         d[0]
+                                       end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
         end
 
         @booster = cb_container.before_training(@booster)

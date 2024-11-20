@@ -12,11 +12,16 @@
 #
 module EasyML
   class S3Datasource < Datasource
+    self.inheritance_column = :datasource_type
+    self.table_name = "easy_ml_datasources"
+    include Historiographer::Silent
+    historiographer_mode :snapshot_only
+
     REGIONS = [
       { value: "us-east-1", label: "US East (N. Virginia)" },
       { value: "us-east-2", label: "US East (Ohio)" },
       { value: "us-west-1", label: "US West (N. California)" },
-      { value: "us-west-2", label: "US West (Oregon)" }
+      { value: "us-west-2", label: "US West (Oregon)" },
     ].freeze
 
     def self.constants
@@ -125,7 +130,7 @@ module EasyML
         s3_access_key_id: s3_access_key_id,
         s3_secret_access_key: s3_secret_access_key,
         polars_args: polars_args,
-        cache_for: cache_for
+        cache_for: cache_for,
       )
     end
   end

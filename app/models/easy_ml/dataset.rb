@@ -2,33 +2,39 @@
 #
 # Table name: easy_ml_datasets
 #
-#  id              :bigint           not null, primary key
-#  name            :string           not null
-#  description     :string
-#  dataset_type    :string
-#  status          :string
-#  version         :string
-#  datasource_id   :bigint
-#  root_dir        :string
-#  configuration   :json
-#  num_rows        :bigint
-#  workflow_status :string
-#  statistics      :json
-#  schema          :json
-#  refreshed_at    :datetime
-#  created_at      :datetime         not null
-#  updated_at      :datetime         not null
+#  id                      :bigint           not null, primary key
+#  name                    :string           not null
+#  description             :string
+#  dataset_type            :string
+#  status                  :string
+#  version                 :string
+#  datasource_id           :bigint
+#  root_dir                :string
+#  configuration           :json
+#  num_rows                :bigint
+#  workflow_status         :string
+#  statistics              :json
+#  preprocessor_statistics :json
+#  schema                  :json
+#  refreshed_at            :datetime
+#  created_at              :datetime         not null
+#  updated_at              :datetime         not null
 #
 require_relative "concerns/statuses"
+
 module EasyML
   class Dataset < ActiveRecord::Base
+    self.table_name = "easy_ml_datasets"
+    include Historiographer::Silent
+    historiographer_mode :snapshot_only
+
     include EasyML::Concerns::Statuses
 
     enum workflow_status: {
       analyzing: "analyzing",
       ready: "ready",
       failed: "failed",
-      locked: "locked"
+      locked: "locked",
     }
 
     SPLIT_ORDER = %i[train valid test]
@@ -37,7 +43,6 @@ module EasyML
 
     validates :name, presence: true
     belongs_to :datasource,
-               foreign_key: :datasource_id,
                class_name: "EasyML::Datasource"
 
     has_many :models, class_name: "EasyML::Model"
@@ -70,7 +75,7 @@ module EasyML
           { value: type.to_s, label: type.to_s.titleize }
         end,
         preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies],
-        transform_options: EasyML::Transforms::Registry.list_flat
+        transform_options: EasyML::Transforms::Registry.list_flat,
       }
     end
 
@@ -159,7 +164,7 @@ module EasyML
 
     def learn_statistics
       update(
-        statistics: EasyML::Data::StatisticsLearner.learn(raw, processed)
+        statistics: EasyML::Data::StatisticsLearner.learn(raw, processed),
       )
     end
 
@@ -208,7 +213,7 @@ module EasyML
         cols_to_insert = new_columns.map do |col_name|
           EasyML::Column.new(
             name: col_name,
-            dataset_id: id
+            dataset_id: id,
           )
         end
         EasyML::Column.import(cols_to_insert)
@@ -231,32 +236,32 @@ module EasyML
 
           # Keep both datatype and polars_datatype if it's an ordinal encoding case
           actual_type = if ordinal_encoding?(existing_type, new_polars_type)
-                          existing_type
-                        else
-                          new_polars_type
-                        end
+              existing_type
+            else
+              new_polars_type
+            end
 
           actual_schema_type = if ordinal_encoding?(existing_type, schema_type)
-                                 existing_type
-                               else
-                                 schema_type
-                               end
+              existing_type
+            else
+              schema_type
+            end
 
           column.assign_attributes(
             statistics: {
               raw: stats.dig("raw", column.name),
-              processed: stats.dig("processed", column.name)
+              processed: stats.dig("processed", column.name),
             },
             datatype: actual_schema_type,
             polars_datatype: actual_type,
             sample_values: data(unique: true, limit: 5, select: column.name,
-                                all_columns: true)[column.name].to_a.uniq[0...5]
+                                all_columns: true)[column.name].to_a.uniq[0...5],
           )
         end
 
         EasyML::Column.import(columns_to_update.to_a,
                               { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
-                                                                       sample_values] } })
+                                                                     sample_values] } })
       end
     end
 
@@ -355,7 +360,7 @@ module EasyML
 
       @preprocessing_steps = {
         training: training,
-        inference: inference
+        inference: inference,
       }.compact.deep_symbolize_keys
     end
 
@@ -404,12 +409,14 @@ module EasyML
       datasource.reload.refresh
       initialize_splits
     end
+
     # log_method :refresh_datasource, "Refreshing datasource", verbose: true
 
     def refresh_datasource!
       datasource.reload.refresh!
       initialize_splits
     end
+
     # log_method :refresh_datasource!, "Refreshing! datasource", verbose: true
 
     def normalize_all
@@ -422,6 +429,7 @@ module EasyML
       end
       @normalized = true
     end
+
     # log_method :normalize_all, "Normalizing dataset", verbose: true
 
     def drop_nulls(df)
@@ -460,6 +468,7 @@ module EasyML
       preprocessor.fit(xs)
       self.preprocessor_statistics = preprocessor.statistics
     end
+
     # log_method :fit, "Learning statistics", verbose: true
 
     def in_batches(segment, processed: true, &block)
@@ -486,6 +495,7 @@ module EasyML
         raw.save(:test, test_df)
       end
     end
+
     # log_method :split_data, "Splitting data", verbose: true
 
     def should_split?
@@ -518,7 +528,7 @@ module EasyML
     def initialize_preprocessor
       EasyML::Data::Preprocessor.new(
         directory: Pathname.new(root_dir).append("preprocessor"),
-        preprocessing_steps: preprocessing_steps
+        preprocessing_steps: preprocessing_steps,
       ).tap do |preprocessor|
         preprocessor.statistics = preprocessor_statistics
       end
@@ -548,7 +558,7 @@ module EasyML
 
         differences[column_name] = {
           old: existing_type,
-          new: polars_type
+          new: polars_type,
         }
       end
 

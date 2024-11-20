@@ -8,10 +8,10 @@
 #  description         :string
 #  datatype            :string
 #  polars_datatype     :string
-#  preprocessing_steps :json
 #  is_target           :boolean
 #  hidden              :boolean          default(FALSE)
 #  drop_if_null        :boolean          default(FALSE)
+#  preprocessing_steps :json
 #  sample_values       :json
 #  statistics          :json
 #  created_at          :datetime         not null

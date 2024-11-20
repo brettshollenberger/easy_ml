@@ -22,7 +22,7 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
   const updateTransforms = (newTransforms: Transform[]) => {
     const transformsWithPosition = newTransforms.map((transform, index) => ({
       ...transform,
-      position: index
+      transform_position: index
     }));
     
     setSelectedTransforms(transformsWithPosition);
@@ -34,7 +34,7 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
     if (transform) {
       const newTransform = {
         ...transform,
-        position: selectedTransforms.length
+        transform_position: selectedTransforms.length
       };
       updateTransforms([...selectedTransforms, newTransform]);
     }

@@ -17,15 +17,19 @@ require "vite_ruby"
 require "rails/engine"
 require "activerecord-import"
 require "historiographer"
+
 module EasyML
   class Engine < Rails::Engine
     isolate_namespace EasyML
 
+    config.autoload_paths << root.join("app/models")
+    config.eager_load_paths << root.join("app/models")
     paths["lib"] << EasyML::Engine.root.join("lib")
     paths["lib"].autoload!
 
     initializer "easy_ml.inflections" do
       require_relative "initializers/inflections"
+      EasyML::Initializers::Inflections.inflect
     end
 
     initializer "easy_ml.enable_string_cache" do
@@ -54,7 +58,7 @@ module EasyML
     end
 
     initializer "easy_ml.setup_generators" do |app|
-      generators_path = File.expand_path("railtie/generators", __dir__)
+      generators_path = EasyML::Engine.root.join("lib/easy_ml/railtie/generators")
       generators_dirs = Dir[File.join(generators_path, "**", "*.rb")]
       generators_dirs.each { |file| require file }
 

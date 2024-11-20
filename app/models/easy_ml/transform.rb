@@ -2,19 +2,21 @@
 #
 # Table name: easy_ml_transforms
 #
-#  id               :bigint           not null, primary key
-#  dataset_id       :bigint           not null
-#  name             :string
-#  transform_class  :string           not null
-#  transform_method :string           not null
-#  position         :integer
-#  applied_at       :datetime
-#  created_at       :datetime         not null
-#  updated_at       :datetime         not null
+#  id                 :bigint           not null, primary key
+#  dataset_id         :bigint           not null
+#  name               :string
+#  transform_class    :string           not null
+#  transform_method   :string           not null
+#  transform_position :integer
+#  applied_at         :datetime
+#  created_at         :datetime         not null
+#  updated_at         :datetime         not null
 #
 module EasyML
   class Transform < ActiveRecord::Base
     self.table_name = "easy_ml_transforms"
+    include Historiographer::Silent
+    historiographer_mode :snapshot_only
 
     # Associations
     belongs_to :dataset, class_name: "EasyML::Dataset"

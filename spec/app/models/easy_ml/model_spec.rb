@@ -186,7 +186,7 @@ RSpec.describe EasyML::Models do
   end
 
   describe "#promote" do
-    it "snapshots the current model for predictions" do
+    it "snapshots the current model for predictions", :focus do
       mock_file_upload
 
       @time = EST.now
@@ -200,6 +200,8 @@ RSpec.describe EasyML::Models do
       model1 = build_model(name: "Test Model", status: :training)
       FileUtils.cp(model1.model_file.full_path, @mock_s3_location)
 
+      model1.snapshot
+      binding.pry
       # model2 = build_model(name: "Test Model", status: :training)
       # model3 = build_model(name: "Test Model", status: :training)
       # model4 = build_model(name: "Test Model", status: :training)

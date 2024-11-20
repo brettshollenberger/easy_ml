@@ -12,6 +12,11 @@
 #
 module EasyML
   class FileDatasource < Datasource
+    self.inheritance_column = :datasource_type
+    self.table_name = "easy_ml_datasources"
+    include Historiographer::Silent
+    historiographer_mode :snapshot_only
+
     attr_accessor :polars_args
 
     delegate :query, to: :reader
@@ -68,7 +73,7 @@ module EasyML
     def reader
       @reader ||= EasyML::Data::PolarsReader.new(
         root_dir: root_dir,
-        polars_args: polars_args
+        polars_args: polars_args,
       )
     end
   end

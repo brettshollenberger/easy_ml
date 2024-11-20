@@ -179,7 +179,7 @@ export function ColumnConfigModal({
     ].map((transform, index) => ({
       ...transform,
       dataset_id: dataset.id,
-      position: index,
+      transform_position: index,
     }));
 
     setDataset(prevDataset => ({

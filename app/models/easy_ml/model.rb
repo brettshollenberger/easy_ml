@@ -19,16 +19,16 @@ require_relative "models/hyperparameters"
 
 module EasyML
   class Model < ActiveRecord::Base
-    # include Historiographer::Silent
-    # historiographer_mode :snapshot_only
+    self.inheritance_column = :model_type
+    self.table_name = "easy_ml_models"
+    include Historiographer::Silent
+    historiographer_mode :snapshot_only
 
     include EasyML::Concerns::Statuses
     include EasyML::Concerns::Configurable
-    include EasyML::FileSupport
+    include EasyML::Support::FileSupport
 
     self.filter_attributes += [:configuration]
-
-    self.table_name = "easy_ml_models"
 
     MODEL_TYPES = [
       {
@@ -136,6 +136,7 @@ module EasyML
     attr_accessor :is_fit
 
     def around_is_fit?
+      model_file = get_model_file
       return true if model_file.present? && model_file.fit?
 
       yield
@@ -190,7 +191,6 @@ module EasyML
       model_file || build_model_file(
         root_dir: root_dir,
         model: self,
-        model_file_type: EasyML::Configuration.storage&.to_sym || "s3",
         s3_bucket: EasyML::Configuration.s3_bucket,
         s3_region: EasyML::Configuration.s3_region,
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,
@@ -267,3 +267,5 @@ module EasyML
     end
   end
 end
+
+require_relative "models/xgboost"

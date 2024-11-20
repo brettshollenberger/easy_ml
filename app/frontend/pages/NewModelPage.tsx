@@ -1,17 +1,39 @@
 import React from 'react';
 import { ModelForm } from '../components/ModelForm';
 
-export default function NewModelPage() {
+interface Props {
+  datasets: Array<{
+    id: number;
+    name: string;
+    rowCount: number;
+  }>;
+  constants: {
+    TASKS: Array<{
+      value: string;
+      label: string;
+      description: string;
+    }>;
+    OBJECTIVES: Record<string, Array<{
+      value: string;
+      label: string;
+      description: string;
+    }>>;
+    METRICS: Record<string, Array<{
+      value: string;
+      label: string;
+      direction: string;
+    }>>;
+  };
+}
+
+export default function NewModelPage({ datasets, constants }: Props) {
   return (
-    <div className="max-w-2xl mx-auto p-8">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          Create New Model
-        </h2>
-        <ModelForm onSubmit={(data) => {
-          console.log('Creating new model:', data);
-        }} />
-      </div>
+    <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <h1 className="text-2xl font-semibold text-gray-900 mb-6">Create New Model</h1>
+      <ModelForm 
+        datasets={datasets}
+        constants={constants}
+      />
     </div>
   );
 }

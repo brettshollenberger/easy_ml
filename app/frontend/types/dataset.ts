@@ -14,7 +14,7 @@ export type Transform = {
   name: string;
   transform_class: string;
   transform_method: string;
-  position: number;
+  transform_position: number;
   dataset_id?: number;
   description?: string;
   transform_type?: 'calculation' | 'lookup' | 'other';

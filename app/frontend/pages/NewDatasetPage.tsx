@@ -144,7 +144,7 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
                   value: datasource.id,
                   label: datasource.name
                 }))}
-                placeholder="Select a date column..."
+                placeholder="Select a datasource..."
               />
             </div>
 

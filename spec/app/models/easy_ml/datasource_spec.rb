@@ -29,7 +29,6 @@ RSpec.describe EasyML::Datasource do
         datasource_type: "EasyML::PolarsDatasource",
         df: df,
       )
-
       datasource = EasyML::Datasource.find(datasource.id)
       expect(datasource.data).to eq df
     end

@@ -22,29 +22,14 @@ running_rails_specs = RSpec.configuration.files_to_run.any? { |file| file.includ
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")
 
-require "sprockets/railtie"
+require "rails/generators"
+Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
+
 Combustion.initialize! :active_record do |config|
   config.assets = ActiveSupport::OrderedOptions.new # Stub to avoid errors
   config.assets.enabled = false # Set false since assets are handled by Vite
 end
 require "rspec/rails"
-
-if Dir.glob(Rails.root.join("db/migrate/**/*")).none?
-  Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
-
-  migration_paths = ActiveRecord::Migrator.migrations_paths
-  migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
-
-  case Rails::VERSION::MAJOR
-  when 7
-    ActiveRecord::MigrationContext.new(migration_paths).migrate
-  when 6
-    migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
-    migration_context.migrate
-  else
-    ActiveRecord::Migrator.migrate(migration_paths)
-  end
-end
 
 Dir[Rails.root.join("spec/support/**/*.rb")].each { |f| require f }
 
@@ -100,3 +85,5 @@ end
 
 # Enable fake mode for Sidekiq testing
 Sidekiq::Testing.fake!
+EST = EasyML::Support::EST
+UTC = EasyML::Support::UTC

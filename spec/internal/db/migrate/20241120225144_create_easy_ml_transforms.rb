@@ -5,15 +5,15 @@ class CreateEasyMLTransforms < ActiveRecord::Migration[6.0]
       t.string :name
       t.string :transform_class, null: false
       t.string :transform_method, null: false
-      t.integer :position
+      t.integer :transform_position
       t.datetime :applied_at
 
       t.timestamps
 
-      t.index [:dataset_id, :position]
-      t.index [:dataset_id, :name], unique: true
+      t.index %i[dataset_id transform_position], name: "idx_transforms_on_dataset_and_position"
+      t.index %i[dataset_id name], unique: true, name: "idx_transforms_on_dataset_and_name"
       t.index :transform_class
       t.index :applied_at
     end
   end
-end 
+end

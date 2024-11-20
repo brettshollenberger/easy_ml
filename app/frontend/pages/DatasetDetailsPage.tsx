@@ -54,7 +54,7 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
       name: transform.name,
       transform_class: transform.transform_class,
       transform_method: transform.transform_method,
-      position: index,
+      transform_position: index,
       _destroy: transform._destroy
     }));
 

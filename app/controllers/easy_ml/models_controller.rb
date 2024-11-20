@@ -24,15 +24,33 @@ module EasyML
       #               .order(created_at: :desc)
 
       render inertia: "pages/ModelsPage", props: {
-        models: models.map { |model| model_data(model) }
+        models: models.map { |model| model_data(model) },
 
-        # retraining_jobs: RetrainingJob.current_jobs.map { |job| job_data(job) },
-        # retraining_runs: RetrainingRun.recent.map { |run| run_data(run) }
+      # retraining_jobs: RetrainingJob.current_jobs.map { |job| job_data(job) },
+      # retraining_runs: RetrainingRun.recent.map { |run| run_data(run) }
       }
     end
 
     def new
-      render inertia: "pages/NewModelPage", props: {}
+      render inertia: "pages/NewModelPage", props: {
+        datasets: Dataset.all.map { |dataset| dataset_data(dataset) },
+        constants: Model.constants,
+      }
+    end
+
+    def create
+      model = Model.new(model_params)
+
+      if model.save
+        flash[:notice] = "Model was successfully created."
+        redirect_to models_path
+      else
+        render inertia: "pages/NewModelPage", props: {
+          datasets: Dataset.all.map { |dataset| dataset_data(dataset) },
+          constants: Model.constants,
+          errors: model.errors,
+        }
+      end
     end
 
     def show
@@ -42,7 +60,7 @@ module EasyML
       render inertia: "Models/Show", props: {
         model: model_data(model),
         runs: model.retraining_runs.map { |run| run_data(run) },
-        job: model.current_retraining_job&.then { |job| job_data(job) }
+        job: model.current_retraining_job&.then { |job| job_data(job) },
       }
     end
 
@@ -56,7 +74,7 @@ module EasyML
         status: model.status,
         accuracy: model.current_accuracy,
         last_trained_at: model.last_trained_at&.iso8601,
-        created_at: model.created_at.iso8601
+        created_at: model.created_at.iso8601,
       }
     end
 
@@ -67,7 +85,7 @@ module EasyML
         status: job.status,
         progress: job.progress,
         started_at: job.started_at&.iso8601,
-        estimated_completion: job.estimated_completion_at&.iso8601
+        estimated_completion: job.estimated_completion_at&.iso8601,
       }
     end
 
@@ -79,7 +97,26 @@ module EasyML
         accuracy: run.accuracy,
         training_duration: run.training_duration,
         completed_at: run.completed_at&.iso8601,
-        error_message: run.error_message
+        error_message: run.error_message,
+      }
+    end
+
+    def model_params
+      params.require(:model).permit(
+        :name,
+        :model_type,
+        :dataset_id,
+        :task,
+        :objective,
+        metrics: [],
+      )
+    end
+
+    def dataset_data(dataset)
+      {
+        id: dataset.id,
+        name: dataset.name,
+        rowCount: dataset.row_count,
       }
     end
   end

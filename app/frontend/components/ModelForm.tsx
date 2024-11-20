@@ -5,6 +5,8 @@ import { SearchableSelect } from './SearchableSelect';
 import { ScheduleModal } from './ScheduleModal';
 import { mockDatasets } from '../mockData';
 import { router } from '@inertiajs/react';
+import { useInertiaForm } from 'use-inertia-form';
+import { usePage } from '@inertiajs/react';
 
 
 let datasets = mockDatasets;
@@ -17,7 +19,16 @@ interface ModelFormProps {
     objective?: string;
     metrics?: string[];
   };
-  onSubmit: (data: any) => void;
+  datasets: Array<{
+    id: number;
+    name: string;
+    rowCount: number;
+  }>;
+  constants: {
+    TASKS: typeof TASKS;
+    OBJECTIVES: typeof OBJECTIVES;
+    METRICS: typeof METRICS;
+  };
   isEditing?: boolean;
 }
 
@@ -62,40 +73,57 @@ const METRICS = {
   ]
 };
 
-export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelFormProps) {
+export function ModelForm({ initialData, datasets, constants, isEditing }: ModelFormProps) {
+  const { rootPath } = usePage().props;
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [formData, setFormData] = useState({
-    name: initialData?.name || '',
-    modelType: initialData?.modelType || 'xgboost',
-    datasetId: initialData?.datasetId || '',
-    task: initialData?.task || 'classification',
-    objective: initialData?.objective || 'binary:logistic',
-    metrics: initialData?.metrics || ['accuracy']
+  
+  const form = useInertiaForm({
+    model: {
+      name: initialData?.name || '',
+      model_type: initialData?.modelType || 'xgboost',
+      dataset_id: initialData?.datasetId || '',
+      task: initialData?.task || 'classification',
+      objective: initialData?.objective || 'binary:logistic',
+      metrics: initialData?.metrics || ['accuracy']
+    }
   });
 
-  // Update objective and metrics when task changes
+  const { data, setData, post, processing, errors } = form;
+
+  // Update useEffect to use form data
   useEffect(() => {
-    if (formData.task === 'classification') {
-      setFormData(prev => ({
-        ...prev,
-        objective: 'binary:logistic',
-        metrics: ['accuracy']
-      }));
+    if (data.model.task === 'classification') {
+      setData({
+        ...data,
+        model: {
+          ...data.model,
+          objective: 'binary:logistic',
+          metrics: ['accuracy']
+        }
+      });
     } else {
-      setFormData(prev => ({
-        ...prev,
-        objective: 'reg:squarederror',
-        metrics: ['rmse']
-      }));
+      setData({
+        ...data,
+        model: {
+          ...data.model,
+          objective: 'reg:squarederror',
+          metrics: ['rmse']
+        }
+      });
     }
-  }, [formData.task]);
+  }, [data.model.task]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    post(`${rootPath}/models`, {
+      onSuccess: () => {
+        router.visit(`${rootPath}/models`);
+      }
+    });
   };
 
-  const selectedDataset = datasets.find(d => d.id === formData.datasetId);
+  const selectedDataset = datasets.find(d => d.id === data.model.dataset_id);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -120,8 +148,8 @@ export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelF
             <input
               type="text"
               id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              value={data.model.name}
+              onChange={(e) => setData('model.name', e.target.value)}
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
             />
@@ -133,8 +161,8 @@ export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelF
             </label>
             <SearchableSelect
               options={[{ value: 'xgboost', label: 'XGBoost', description: 'Gradient boosting framework' }]}
-              value={formData.modelType}
-              onChange={(value) => setFormData({ ...formData, modelType: value as string })}
+              value={data.model.model_type}
+              onChange={(value) => setData('model.model_type', value as string)}
               placeholder="Select model type"
             />
           </div>
@@ -155,8 +183,8 @@ export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelF
                   label: dataset.name,
                   description: `${dataset.rowCount.toLocaleString()} rows`
                 }))}
-                value={formData.datasetId}
-                onChange={(value) => setFormData({ ...formData, datasetId: value as number })}
+                value={data.model.dataset_id}
+                onChange={(value) => setData('model.dataset_id', value)}
                 placeholder="Select dataset"
               />
             )}
@@ -167,9 +195,9 @@ export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelF
               Task
             </label>
             <SearchableSelect
-              options={TASKS}
-              value={formData.task}
-              onChange={(value) => setFormData({ ...formData, task: value as string })}
+              options={constants.TASKS}
+              value={data.model.task}
+              onChange={(value) => setData('model.task', value as string)}
               placeholder="Select task"
             />
           </div>
@@ -179,9 +207,9 @@ export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelF
               Objective
             </label>
             <SearchableSelect
-              options={OBJECTIVES[formData.task as keyof typeof OBJECTIVES]}
-              value={formData.objective}
-              onChange={(value) => setFormData({ ...formData, objective: value as string })}
+              options={constants.OBJECTIVES[data.model.task as keyof typeof constants.OBJECTIVES]}
+              value={data.model.objective}
+              onChange={(value) => setData('model.objective', value as string)}
               placeholder="Select objective"
             />
           </div>
@@ -192,19 +220,19 @@ export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelF
             Metrics
           </label>
           <div className="grid grid-cols-2 gap-4">
-            {METRICS[formData.task as keyof typeof METRICS].map(metric => (
+            {constants.METRICS[data.model.task as keyof typeof constants.METRICS].map(metric => (
               <label
                 key={metric.value}
                 className="relative flex items-center px-4 py-3 bg-white border rounded-lg hover:bg-gray-50 cursor-pointer"
               >
                 <input
                   type="checkbox"
-                  checked={formData.metrics.includes(metric.value)}
+                  checked={data.model.metrics.includes(metric.value)}
                   onChange={(e) => {
                     const metrics = e.target.checked
-                      ? [...formData.metrics, metric.value]
-                      : formData.metrics.filter(m => m !== metric.value);
-                    setFormData({ ...formData, metrics });
+                      ? [...data.model.metrics, metric.value]
+                      : data.model.metrics.filter(m => m !== metric.value);
+                    setData('model.metrics', metrics);
                   }}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
@@ -242,15 +270,15 @@ export function ModelForm({ initialData, onSubmit, isEditing, rootPath }: ModelF
         isOpen={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
         onSave={(scheduleData) => {
-          setFormData(prev => ({
+          setData(prev => ({
             ...prev,
             ...scheduleData
           }));
           setShowScheduleModal(false);
         }}
         initialData={{
-          task: formData.task,
-          metrics: formData.metrics
+          task: data.model.task,
+          metrics: data.model.metrics
         }}
       />
     </form>

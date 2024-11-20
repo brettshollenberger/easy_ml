@@ -2,14 +2,14 @@
 #
 # Table name: easy_ml_tuner_runs
 #
-#  id              :bigint           not null, primary key
-#  tuner_job_id    :bigint           not null
-#  hyperparameters :json             not null
-#  value           :float
-#  trial_number    :integer
-#  status          :string
-#  created_at      :datetime         not null
-#  updated_at      :datetime         not null
+#  id                   :bigint           not null, primary key
+#  easy_ml_tuner_job_id :bigint           not null
+#  hyperparameters      :json             not null
+#  value                :float
+#  trial_number         :integer
+#  status               :string
+#  created_at           :datetime         not null
+#  updated_at           :datetime         not null
 #
 module EasyML
   class TunerRun < ActiveRecord::Base

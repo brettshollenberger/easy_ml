@@ -10,13 +10,12 @@
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
-require_relative "../../options/datasource_options"
 module EasyML
   class DatasourcesController < ApplicationController
     def index
       @datasources = Datasource.all.order(id: :asc)
       render inertia: "pages/DatasourcesPage", props: {
-        datasources: @datasources.map { |datasource| to_json(datasource) }
+        datasources: @datasources.map { |datasource| to_json(datasource) },
       }
     end
 
@@ -30,13 +29,13 @@ module EasyML
 
       render inertia: "pages/DatasourceFormPage", props: {
         datasource: to_json(datasource),
-        constants: EasyML::DatasourceOptions.constants
+        constants: EasyML::Datasource.constants,
       }
     end
 
     def new
       render inertia: "pages/DatasourceFormPage", props: {
-        constants: EasyML::DatasourceOptions.constants
+        constants: EasyML::Datasource.constants,
       }
     end
 
@@ -82,9 +81,9 @@ module EasyML
 
     def datasource_params
       params.require(:datasource).permit(:name, :s3_bucket, :s3_prefix, :s3_region, :datasource_type, :s3_access_key_id, :s3_secret_access_key, :root_dir).merge!(
-        datasource_type: :s3,
+        datasource_type: "EasyML::S3Datasource",
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,
-        s3_secret_access_key: EasyML::Configuration.s3_secret_access_key
+        s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
       )
     end
 

@@ -8,15 +8,15 @@ module ModelSpecHelper
         training: {
           annual_revenue: {
             median: true,
-            clip: { min: 0, max: 1_000_000 }
+            clip: { min: 0, max: 1_000_000 },
           },
           loan_purpose: {
             categorical: {
               categorical_min: 2,
-              one_hot: true
-            }
-          }
-        }
+              one_hot: true,
+            },
+          },
+        },
       }
     end
     base.let(:target) { "rev" }
@@ -35,14 +35,14 @@ module ModelSpecHelper
                               "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
                               "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
                               "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                           2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
+                                           2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01],
                             }).with_column(
-                              Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                            )
+        Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
+      )
     end
 
     base.let(:datasource) do
-      EasyML::Datasource.create(name: "Polars Datasource", datasource_type: :polars, df: df)
+      EasyML::Datasource.create(name: "Polars Datasource", datasource_type: "EasyML::PolarsDatasource", df: df)
     end
 
     base.let(:drop_if_null) do
@@ -58,12 +58,12 @@ module ModelSpecHelper
         name: "My Dataset",
         datasource: datasource,
         splitter_attributes: {
-          splitter_type: "DateSplitter",
+          splitter_type: "EasyML::DateSplitter",
           today: today,
           date_col: date_col,
           months_test: months_test,
-          months_valid: months_valid
-        }
+          months_valid: months_valid,
+        },
       }
     end
 
@@ -79,16 +79,6 @@ module ModelSpecHelper
       dataset
     end
 
-    base.let(:hyperparameters) do
-      {
-        learning_rate: 0.05,
-        max_depth: 8,
-        n_estimators: 1,
-        booster: "gbtree",
-        objective: "reg:squarederror"
-      }
-    end
-
     base.let(:learning_rate) { 0.05 }
     base.let(:max_depth) { 8 }
     base.let(:task) { :regression }
@@ -97,15 +87,16 @@ module ModelSpecHelper
       {
         name: "My model",
         root_dir: root_dir,
-        model_type: :xgboost,
+        model_type: "EasyML::Models::XGBoost",
         task: task,
         dataset: dataset,
         hyperparameters: {
           booster: :gbtree,
+          n_estimators: 1,
           learning_rate: learning_rate,
           max_depth: max_depth,
-          objective: objective
-        }
+          objective: objective,
+        },
       }
     end
     base.let(:model_file) do
@@ -113,7 +104,7 @@ module ModelSpecHelper
         root_dir: root_dir,
         model_file_type: :file,
         filename: "xgboost_20241028130305.json",
-        path: "easy_ml_models/My Model"
+        path: "easy_ml_models/My Model",
       )
     end
 
@@ -136,7 +127,7 @@ module ModelSpecHelper
     EasyML::Model.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
                                             task: :regression,
                                             hyperparameters: {
-                                              objective: "reg:squarederror"
+                                              objective: "reg:squarederror",
                                             })).tap do |model|
       model.fit
       model.save
@@ -150,7 +141,7 @@ module ModelSpecHelper
   def cleanup
     paths = [
       File.join(root_dir, "xgboost_model.json"),
-      File.join(root_dir, "xg_boost.bin")
+      File.join(root_dir, "xg_boost.bin"),
     ]
     paths.each do |path|
       FileUtils.rm(path) if File.exist?(path)
@@ -172,9 +163,9 @@ module ModelSpecHelper
         preprocessing_steps: {
           training: {
             method: method,
-            params: params
-          }
-        }
+            params: params,
+          },
+        },
       )
     end
   end

@@ -31,7 +31,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "awesome_print"
   spec.add_runtime_dependency "aws-sdk"
   # spec.add_runtime_dependency "glue_gun_dsl", "~> 0.1.34"
-  spec.add_runtime_dependency "historiographer", "~> 4.1.1"
+  #spec.add_runtime_dependency "historiographer", "~> 4.1.2"
   spec.add_runtime_dependency "inertia_rails"
   spec.add_runtime_dependency "jsonapi-serializer"
   spec.add_runtime_dependency "numo-narray"
@@ -50,7 +50,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "wandb", "~> 0.1.9"
   spec.add_runtime_dependency "xgb"
 
-  # Uncomment to register a new dependency of your gem
   spec.add_development_dependency "annotate"
   spec.add_development_dependency "appraisal"
   spec.add_development_dependency "guard"

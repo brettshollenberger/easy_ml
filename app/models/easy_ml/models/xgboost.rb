@@ -32,8 +32,8 @@ module EasyML
         regression: %w[reg:squarederror reg:logistic],
       }
 
-      attribute :early_stopping_rounds
-      attr_accessor :model, :booster
+      add_configuration_attributes :early_stopping_rounds
+      attr_accessor :early_stopping_rounds, :model, :booster
 
       def hyperparameters=(params)
         return nil unless params.is_a?(Hash)
@@ -185,7 +185,7 @@ module EasyML
       def loaded?
         around_loaded do
           if model_file.present? && model_file.persisted? && model_file.full_path.present?
-            return File.exist?(model_file.full_path)
+            return File.exist?(model_file.full_path) && @booster.present?
           end
 
           @booster.present? && @booster.feature_names.any?
@@ -198,8 +198,7 @@ module EasyML
             attrs = {
               params: hyperparameters.to_h.symbolize_keys,
               model_file: path,
-              early_stopping_rounds: hyperparameters.to_h.symbolize_keys.dig(:early_stopping_rounds),
-            }.compact!
+            }.deep_compact
             booster_class.new(**attrs)
           end
         end

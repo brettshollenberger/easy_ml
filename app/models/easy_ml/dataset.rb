@@ -20,15 +20,11 @@
 #  created_at              :datetime         not null
 #  updated_at              :datetime         not null
 #
-require_relative "concerns/statuses"
-
 module EasyML
   class Dataset < ActiveRecord::Base
     self.table_name = "easy_ml_datasets"
     include Historiographer::Silent
     historiographer_mode :snapshot_only
-
-    include EasyML::Concerns::Statuses
 
     enum workflow_status: {
       analyzing: "analyzing",
@@ -80,7 +76,7 @@ module EasyML
     end
 
     def root_dir
-      read_attribute(:root_dir) || datasource.root_dir
+      read_attribute(:root_dir) || Pathname.new(datasource.root_dir).join(underscored_name).to_s
     end
 
     def destructively_cleanup!
@@ -101,15 +97,25 @@ module EasyML
     end
 
     def raw
-      return @raw if @raw
+      return @raw if @raw && @raw.dataset
 
       @raw = initialize_split("raw")
     end
 
     def processed
-      return @processed if @processed
+      return @processed if @processed && @processed.dataset
 
       @processed = initialize_split("processed")
+    end
+
+    def lock
+      @locked = processed.cp(locked.dir)
+    end
+
+    def locked
+      return @locked if @locked
+
+      @locked = initialize_split("locked")
     end
 
     def refresh!
@@ -194,7 +200,7 @@ module EasyML
           if !col.start_with?("#{base}_")
             false
           else
-            allowed_vals = allowed_values[base]
+            allowed_vals = allowed_values[base].compact
             allowed_vals.any? do |val|
               col.end_with?(val)
             end
@@ -383,21 +389,32 @@ module EasyML
       @drop_if_null ||= columns.where(drop_if_null: true).map(&:name)
     end
 
+    def drop_columns(all_columns: false)
+      if all_columns
+        []
+      else
+        drop_cols
+      end
+    end
+
     private
 
     def initialize_splits
       @raw = nil
-      @processesd = nil
+      @processed = nil
       raw
       processed
     end
 
     def initialize_split(type)
+      args = { dataset: self }
       case split_type.to_s
       when EasyML::Data::Splits::InMemorySplit.to_s
-        split_type.new
+        split_type.new(**args)
       when EasyML::Data::Splits::FileSplit.to_s
-        split_type.new(dir: Pathname.new(root_dir).append("files/splits/#{type}").to_s)
+        split_type.new(**args.merge(
+                         dir: Pathname.new(root_dir).append("files/splits/#{type}").to_s,
+                       ))
       end
     end
 
@@ -441,22 +458,11 @@ module EasyML
       df.drop_nulls(subset: drop)
     end
 
-    def drop_columns(all_columns: false)
-      if all_columns
-        []
-      else
-        drop_cols
-      end
-    end
-
     def load_data(segment, **kwargs)
-      drop_cols = drop_columns(all_columns: kwargs[:all_columns] || false)
-      kwargs.delete(:all_columns)
-      kwargs = kwargs.merge!(drop_cols: drop_cols, target: target)
       if processed?
-        processed.read(segment, **kwargs)
+        processed.load_data(segment, **kwargs)
       else
-        raw.read(segment, **kwargs)
+        raw.load_data(segment, **kwargs)
       end
     end
 
@@ -568,6 +574,10 @@ module EasyML
     def ordinal_encoding?(old_type, new_type)
       string_like_types = %w[text string categorical]
       new_type == "integer" && string_like_types.include?(old_type)
+    end
+
+    def underscored_name
+      name.gsub(/\s{2,}/, " ").gsub(/\s/, "_").downcase
     end
   end
 end

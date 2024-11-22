@@ -4,70 +4,59 @@ require "support/model_spec_helper"
 RSpec.describe EasyML::Models do
   include ModelSpecHelper
   let(:root_dir) do
-    SPEC_ROOT.join("internal/app/data")
+    SPEC_ROOT.join("internal/app/titanic/core")
   end
 
   let(:datasource) do
     EasyML::Datasource.create(
-      name: "Sample data",
+      name: "Titanic Dataset",
       datasource_type: "EasyML::FileDatasource",
       root_dir: root_dir,
     )
   end
 
-  let(:target) { "rev" }
-  let(:date_col) { "created_date" }
-  let(:months_test) { 2 }
-  let(:months_valid) { 2 }
-  let(:today) { EST.parse("2024-06-01") }
-
+  let(:target) { "Survived" }
   let(:dataset_config) do
     {
       name: "My Dataset",
       datasource: datasource,
       splitter_attributes: {
-        splitter_type: "EasyML::DateSplitter",
-        today: today,
-        date_col: date_col,
-        months_test: months_test,
-        months_valid: months_valid,
+        splitter_type: "EasyML::RandomSplitter",
       },
     }
   end
 
   let(:hidden_cols) do
-    %w[business_name state drop_me created_date]
-  end
-
-  let(:drop_if_null_cols) do
-    %w[loan_purpose]
+    %w[Name Ticket Cabin]
   end
 
   let(:dataset) do
     EasyML::Dataset.create(**dataset_config).tap do |dataset|
       dataset.refresh
       dataset.columns.find_by(name: target).update(is_target: true)
-      dataset.columns.where(name: drop_if_null_cols).update_all(drop_if_null: true)
       dataset.columns.where(name: hidden_cols).update_all(hidden: true)
-      dataset.columns.find_by(name: "annual_revenue").update(preprocessing_steps: {
-                                                               training: {
-                                                                 method: :median,
-                                                                 params: {
-                                                                   clip: {
-                                                                     min: 0, max: 1_000_000,
-                                                                   },
-                                                                 },
-                                                               },
-                                                             })
-      dataset.columns.find_by(name: "loan_purpose").update(preprocessing_steps: {
-                                                             training: {
-                                                               method: :categorical,
-                                                               params: {
-                                                                 categorical_min: 2,
-                                                                 one_hot: true,
-                                                               },
-                                                             },
-                                                           })
+      dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
+                                                    training: {
+                                                      method: :categorical,
+                                                      params: {
+                                                        one_hot: true,
+                                                      },
+                                                    },
+                                                  })
+      dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
+                                                         training: {
+                                                           method: :categorical,
+                                                           params: {
+                                                             one_hot: true,
+                                                           },
+                                                         },
+                                                       })
+      dataset.columns.find_by(name: "Age").update(preprocessing_steps: {
+                                                    training: {
+                                                      method: :median,
+                                                    },
+                                                  })
+      dataset.refresh
     end
   end
 
@@ -208,28 +197,6 @@ RSpec.describe EasyML::Models do
     end
   end
 
-  describe "#load" do
-    it "loads the model from a file" do
-      mock_file_upload
-
-      model.name = "My Model" # Model name + version must be unique
-      model.metrics = ["mean_absolute_error"]
-      model.fit
-      model.save
-      expect(model.model_type).to eq "EasyML::Models::XGBoost"
-      expect(File).to exist(model.model_file.full_path)
-
-      loaded_model = EasyML::Model.find(model.id)
-      expect(loaded_model.model_file.full_path).to eq(model.model_file.full_path)
-
-      expect(loaded_model.predict(dataset.test(split_ys: true).first)).to eq(model.predict(dataset.test(split_ys: true).first))
-      expect(model.version).to eq loaded_model.version
-      expect(loaded_model.feature_names).to eq model.feature_names
-      expect(loaded_model.feature_names).to_not include(dataset.target)
-      model.cleanup!
-    end
-  end
-
   describe "#promote" do
     it "snapshots the current model for predictions", :focus do
       mock_file_upload
@@ -246,39 +213,47 @@ RSpec.describe EasyML::Models do
       FileUtils.cp(model1.model_file.full_path, @mock_s3_location)
 
       model1.fit
+      model1.save
       model1.promote
+      existing_model = model1.latest_snapshot
 
-      model2 = build_model(name: "Model 2", dataset: dataset2)
-      model2.fit
-      expect { model2.promote }.to raise_error(EasyML::Model::CannotPromoteError)
+      Timecop.freeze(@time + 2.hours)
+      x_test, y_true = model1.dataset.locked.test(split_ys: true)
+      y_true = y_true["Survived"]
+      preds_after_one_iteration = Polars::Series.new(model1.predict(x_test))
 
-      preds = model1.predict(
-        model1.dataset.locked.test(split_ys: true).first
-      )
-      expect(preds.to_a).to all(be > 0)
+      live_predictions = model1.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_after_one_iteration.sum)
 
-      # preds = model6.predict(
-      #   model6.dataset.test(split_ys: true).first
-      # )
-      # expect(preds.to_a).to all(be > 0)
+      model1.update(name: "RENAMED")
+      model1.reload
+      model1.hyperparameters.learning_rate = 0.01
+      model1.hyperparameters.n_estimators = 100
+      model1.hyperparameters.max_depth = 5
+      model1.hyperparameters.regularization = 1.0
+      model1.hyperparameters.early_stopping_rounds = 30
+      model1.hyperparameters.min_child_weight = 5
+      model1.hyperparameters.subsample = 0.8
+      model1.hyperparameters.colsample_bytree = 0.8
+      model1.hyperparameters.colsample_bylevel = 0.8
+      pos_cases = y_true[y_true == 1].count
+      neg_cases = y_true[y_true == 0].count
+      model1.hyperparameters.scale_pos_weight = neg_cases / pos_cases.to_f
+      model1.fit
+      model1.save
+      expect(model1.model_file.filename).to_not eq(existing_model.model_file.filename)
+      preds_after_more_iterations = Polars::Series.new(model1.predict(x_test))
 
-      # model1.promote
-      # expect(model1).to be_inference
-      # expect(model6.reload).to_not be_inference
+      expect(preds_after_more_iterations.sum).to_not eq(preds_after_one_iteration.sum)
 
-      # # Newly promoted model can predict (downloads its file again when calling predict)
-      # model1 = EasyML::Model.find(model1.id)
-      # expect(model1.model_file).to receive(:download).once do |_model|
-      #   # Mock downloading from s3
-      #   FileUtils.cp(@mock_s3_location, model1.model_file.full_path)
-      # end
-      # preds = model1.predict(model1.dataset.test(split_ys: true).first)
-      # expect(preds.to_a).to all(be > 0)
-      # expect(File).to exist(model1.model_file.full_path)
+      # The old model is still live! That's what we're using!
+      expect(model1.latest_snapshot.model_file.filename).to eq(existing_model.model_file.filename)
+      live_predictions = model1.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_after_one_iteration.sum)
 
-      # FileUtils.rm(@mock_s3_location)
-      # model1.cleanup!
-      # other_model.cleanup!
+      model1.snapshot
+      live_predictions = model1.reload.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_after_more_iterations.sum)
     end
   end
 

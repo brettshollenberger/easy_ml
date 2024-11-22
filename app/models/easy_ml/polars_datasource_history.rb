@@ -16,7 +16,7 @@
 #  snapshot_id        :string
 #
 module EasyML
-  class PolarsDatasourceHistory < EasyML::DatasourceHistory
+  class PolarsDatasourceHistory < DatasourceHistory
     self.inheritance_column = :datasource_type
     self.table_name = "easy_ml_datasource_histories"
     include Historiographer::History

@@ -1,13 +1,12 @@
 # == Schema Information
 #
-# Table name: easy_ml_datasource_histories
+# Table name: easy_ml_splitter_histories
 #
 #  id                 :bigint           not null, primary key
-#  datasource_id      :integer          not null
-#  name               :string           not null
-#  datasource_type    :string
-#  root_dir           :string
+#  splitter_id        :integer          not null
+#  splitter_type      :string           not null
 #  configuration      :json
+#  dataset_id         :integer          not null
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  history_started_at :datetime         not null
@@ -15,10 +14,12 @@
 #  history_user_id    :integer
 #  snapshot_id        :string
 #
+require_relative "splitter_history"
+
 module EasyML
-  class FileDatasourceHistory < DatasourceHistory
-    self.inheritance_column = :datasource_type
-    self.table_name = "easy_ml_datasource_histories"
+  class RandomSplitterHistory < SplitterHistory
+    self.inheritance_column = :splitter_type
+    self.table_name = "easy_ml_splitter_histories"
     include Historiographer::History
   end
 end

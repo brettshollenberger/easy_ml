@@ -38,7 +38,7 @@ module EasyML
       end
 
       def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil,
-                descending: false)
+                             descending: false)
         files ||= self.files
         PolarsReader.query(files, drop_cols: drop_cols, filter: filter, limit: limit,
                                   select: select, unique: unique, sort: sort, descending: descending)
@@ -111,7 +111,6 @@ module EasyML
 
         puts "Converting to Parquet..."
 
-        # Parallel.each(csv_files, in_threads: 8) do |path|
         csv_files.each do |path|
           puts path
           df = read_file(path)
@@ -122,7 +121,6 @@ module EasyML
           filename = filename.to_s.gsub(Regexp.new(ext), "parquet")
           path = parquet_dir.join(filename).to_s
           df.write_parquet(path)
-          # FileUtils.rm(orig_path) unless Rails.env.test?
         end
       end
 
@@ -156,15 +154,15 @@ module EasyML
           h.tap do
             values = v.map { |klass| klass.to_s.gsub(/Polars::/, "") }
             h[k] = if values.any? { |v| v.match?(/Float/) }
-                     Polars::Float64
-                   elsif values.any? { |v| v.match?(/Int/) }
-                     Polars::Int64
-                   else
-                     type = EasyML::Data::PolarsColumn.determine_type(first_file[k], true)
-                     raise "Cannot determine polars type for field #{k}" if type.nil?
+                Polars::Float64
+              elsif values.any? { |v| v.match?(/Int/) }
+                Polars::Int64
+              else
+                type = EasyML::Data::PolarsColumn.determine_type(first_file[k], true)
+                raise "Cannot determine polars type for field #{k}" if type.nil?
 
-                     type
-                   end
+                type
+              end
           end
         end
 

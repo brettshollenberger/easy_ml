@@ -30,7 +30,7 @@ module EasyML
         s3.put_object(
           bucket: s3_bucket,
           key: s3_key,
-          body: File.open(file_path)
+          body: File.open(file_path),
         )
 
         file_path
@@ -43,7 +43,7 @@ module EasyML
         s3.get_object(
           response_target: full_path,
           bucket: s3_bucket,
-          key: base_path
+          key: base_path,
         )
 
         full_path
@@ -91,9 +91,9 @@ module EasyML
 
       def s3
         @s3 ||= begin
-          credentials = Aws::Credentials.new(s3_access_key_id, s3_secret_access_key)
-          Aws::S3::Client.new(credentials: credentials)
-        end
+            credentials = Aws::Credentials.new(s3_access_key_id, s3_secret_access_key)
+            Aws::S3::Client.new(credentials: credentials)
+          end
       end
     end
   end

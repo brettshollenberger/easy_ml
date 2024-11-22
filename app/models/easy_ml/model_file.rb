@@ -5,13 +5,12 @@
 #  id            :bigint           not null, primary key
 #  filename      :string           not null
 #  path          :string           not null
-#  model_id      :bigint
 #  configuration :json
+#  model_id      :bigint
+#  model_type    :string
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
 #
-require_relative "concerns/statuses"
-
 module EasyML
   class ModelFile < ActiveRecord::Base
     self.inheritance_column = :model_file_type
@@ -22,7 +21,7 @@ module EasyML
     self.filter_attributes += [:configuration]
 
     validates :filename, presence: true
-    belongs_to :model, class_name: "EasyML::Model"
+    belongs_to :model, polymorphic: true
 
     include EasyML::Concerns::Configurable
     add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :s3_access_key_id, :s3_secret_access_key, :root_dir
@@ -30,6 +29,7 @@ module EasyML
 
     def synced_file
       EasyML::Support::SyncedFile.new(
+        filename: filename,
         s3_bucket: s3_bucket,
         s3_prefix: s3_prefix,
         s3_region: s3_region,
@@ -63,7 +63,11 @@ module EasyML
     end
 
     def download
-      synced_file.download(full_path) unless File.exist?(full_path)
+      begin
+        synced_file.download(full_path) unless File.exist?(full_path)
+      rescue => e
+        binding.pry
+      end
       full_path
     end
 

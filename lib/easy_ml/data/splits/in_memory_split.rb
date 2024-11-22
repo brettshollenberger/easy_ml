@@ -2,8 +2,11 @@ module EasyML
   module Data
     module Splits
       class InMemorySplit < Split
-        def initialize(_options = {})
+        attr_accessor :dataset
+
+        def initialize(options = {})
           @data = {}
+          @dataset = options[:dataset]
         end
 
         def save(segment, df)
@@ -11,12 +14,12 @@ module EasyML
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
-                 unique: nil)
+                          unique: nil)
           df = if segment.to_s == "all"
-                 Polars.concat(EasyML::Dataset::SPLIT_ORDER.map { |segment| @data[segment] })
-               else
-                 @data[segment]
-               end
+              Polars.concat(EasyML::Dataset::SPLIT_ORDER.map { |segment| @data[segment] })
+            else
+              @data[segment]
+            end
           return nil if df.nil?
 
           df = df.filter(filter) if filter.present?

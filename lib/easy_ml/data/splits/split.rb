@@ -6,6 +6,13 @@ module EasyML
 
         VALID_SEGMENTS = %w[train test valid all].freeze
 
+        def load_data(segment, **kwargs)
+          drop_cols = dataset.drop_columns(all_columns: kwargs[:all_columns] || false)
+          kwargs.delete(:all_columns)
+          kwargs = kwargs.merge!(drop_cols: drop_cols, target: dataset.target)
+          read(segment, **kwargs)
+        end
+
         def save(segment, _df)
           validate_segment!(segment)
           raise NotImplementedError, "Subclasses must implement #save"
@@ -17,16 +24,16 @@ module EasyML
           raise NotImplementedError, "Subclasses must implement #read"
         end
 
-        def train(&block)
-          read(:train, &block)
+        def train(**kwargs, &block)
+          load_data(:train, **kwargs, &block)
         end
 
-        def test(&block)
-          read(:test, &block)
+        def test(**kwargs, &block)
+          load_data(:test, **kwargs, &block)
         end
 
-        def valid(&block)
-          read(:valid, &block)
+        def valid(**kwargs, &block)
+          load_data(:valid, **kwargs, &block)
         end
 
         def cleanup

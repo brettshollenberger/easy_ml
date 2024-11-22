@@ -18,6 +18,7 @@ module EasyML
     validates :months_valid, presence: true, numericality: { greater_than: 0 }
 
     attr_accessor :today, :date_col, :months_test, :months_valid
+    add_configuration_attributes :today, :date_col, :months_test, :months_valid
 
     def split(df)
       raise "Split by date requires argument: date_col" unless date_col.present?
@@ -33,7 +34,7 @@ module EasyML
       test_df = Polars.concat(
         [
           df.filter(Polars.col(date_col) >= test_date_start),
-          df.filter(Polars.col(date_col).is_null)
+          df.filter(Polars.col(date_col).is_null),
         ]
       )
       remaining_df = df.filter(Polars.col(date_col) < test_date_start)

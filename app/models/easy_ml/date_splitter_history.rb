@@ -15,7 +15,7 @@
 #  snapshot_id        :string
 #
 module EasyML
-  class DateSplitterHistory < ActiveRecord::Base
+  class DateSplitterHistory < SplitterHistory
     self.inheritance_column = :splitter_type
     self.table_name = "easy_ml_splitter_histories"
     include Historiographer::History

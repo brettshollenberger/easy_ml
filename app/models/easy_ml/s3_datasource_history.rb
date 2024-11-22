@@ -16,7 +16,7 @@
 #  snapshot_id        :string
 #
 module EasyML
-  class S3DatasourceHistory < EasyML::DatasourceHistory
+  class S3DatasourceHistory < DatasourceHistory
     self.inheritance_column = :datasource_type
     self.table_name = "easy_ml_datasource_histories"
     include Historiographer::History

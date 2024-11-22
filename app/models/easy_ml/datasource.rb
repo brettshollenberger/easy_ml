@@ -40,6 +40,7 @@ module EasyML
     validates :datasource_type, presence: true
     validates :datasource_type, inclusion: { in: TYPE_CLASSES }
 
+    after_initialize :set_default_root_dir
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
     attr_accessor :schema, :columns, :num_rows, :is_syncing
 
@@ -50,6 +51,10 @@ module EasyML
         DATASOURCE_TYPES: DATASOURCE_TYPES,
         s3: EasyML::S3Datasource.constants,
       }
+    end
+
+    def in_memory?
+      datasource_type == "EasyML::PolarsDatasource"
     end
 
     def root_dir
@@ -107,6 +112,10 @@ module EasyML
       yield.tap do
         after_sync
       end
+    end
+
+    def set_default_root_dir
+      self.root_dir ||= default_root_dir
     end
 
     delegate :s3_bucket, :s3_prefix, :s3_region, to: :configuration, allow_nil: true

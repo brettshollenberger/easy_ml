@@ -14,7 +14,6 @@
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
 #
-require_relative "concerns/statuses"
 require_relative "models/hyperparameters"
 
 module EasyML
@@ -24,7 +23,6 @@ module EasyML
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
-    include EasyML::Concerns::Statuses
     include EasyML::Concerns::Configurable
     include EasyML::Support::FileSupport
 
@@ -44,15 +42,13 @@ module EasyML
     attr_accessor :task, :metrics, :hyperparameters, :objective, :evaluator, :callbacks
 
     belongs_to :dataset
-    has_one :model_file,
-            class_name: "EasyML::ModelFile"
+    has_one :model_file, class_name: "EasyML::ModelFile"
 
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
 
-    after_initialize :check_model_status
     after_initialize :generate_version_string
     after_initialize :set_defaults
-    before_save :save_model_file, if: -> { is_fit? && model_changed? }
+    before_save :save_model_file, if: -> { is_fit? && !is_history_class? }
 
     VALID_TASKS = %i[regression classification].freeze
 
@@ -76,15 +72,12 @@ module EasyML
 
       model_file = get_model_file
 
-      # Only save new model file updates if the file is in training,
-      # NO UPDATES to production inference models!
-      if training?
-        path = model_file.full_path(version)
-        full_path = yield(path)
-        model_file.upload(full_path)
-      end
+      generate_version_string(force: true)
+      path = model_file.full_path(version)
+      full_path = yield(path)
+      model_file.upload(full_path)
 
-      model_file.save if training?
+      model_file.save
       cleanup
     end
 
@@ -123,8 +116,6 @@ module EasyML
     end
 
     def around_fit(x_train)
-      raise "Cannot train #{status} model!" unless training?
-
       if x_train.nil?
         puts "Refreshing dataset"
         dataset.refresh
@@ -185,6 +176,27 @@ module EasyML
       )
     end
 
+    class CannotPromoteError < StandardError
+    end
+
+    def promote
+      raise CannotPromoteError, cannot_promote_reasons.first if cannot_promote_reasons.any?
+
+      dataset.lock
+      snapshot
+    end
+
+    def inference_pipeline(df)
+    end
+
+    def cannot_promote_reasons
+      [
+        is_fit? ? nil : "Model has not been trained",
+        dataset.target.present? ? nil : "Dataset has no target",
+        !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource",
+      ]
+    end
+
     private
 
     def get_model_file
@@ -221,43 +233,29 @@ module EasyML
 
     def download_model_file(force: false)
       return unless persisted?
-      return unless force || inference?
+      return unless force
       return if loaded?
 
       get_model_file.download
     end
 
     def files_to_keep
-      live_models = self.class.inference
+      inference_models = EasyML::ModelHistory.latest_snapshots
+      training_models = EasyML::Model.all
 
-      recent_copies = live_models.flat_map do |live|
-        # Fetch all models with the same name
-        self.class.where(name: live.name).where.not(status: :inference).order(created_at: :desc).limit(live.name == name ? 4 : 5)
-      end
-
-      recent_versions = self.class
-                            .where.not(
-                              "EXISTS (SELECT 1 FROM easy_ml_models e2
-                                WHERE e2.name = easy_ml_models.name AND e2.status = 'inference')"
-                            )
-                            .where("created_at >= ?", 2.days.ago)
-                            .order(created_at: :desc)
-                            .group_by(&:name)
-                            .flat_map { |_, models| models.take(5) }
-      ([self] + recent_versions + recent_copies + live_models).compact.map(&:model_file).compact.map(&:full_path).uniq
+      ([self] + training_models + inference_models).compact.map(&:model_file).compact.map(&:full_path).uniq
     end
 
     def generate_version_string(force: false)
       return version if version.present? && !force
 
       timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
-      self.version = "#{model_type}_#{timestamp}"
+      self.version = "#{underscored_name}_#{timestamp}"
     end
 
-    def check_model_status
-      return unless new_record? && !training?
-
-      raise "Models must begin as status=training! You may not initialize a model as inference —— explicitly use model.promote to promote the model to production."
+    def underscored_name
+      name = self.name || self.class.name.split("::").last
+      name.gsub(/\s{2,}/, " ").gsub(/\s/, "_").downcase
     end
 
     def set_defaults

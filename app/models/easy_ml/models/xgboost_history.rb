@@ -21,7 +21,7 @@
 #
 module EasyML
   module Models
-    class XGBoostHistory < ActiveRecord::Base
+    class XGBoostHistory < ModelHistory
       self.table_name = "easy_ml_model_histories"
       self.inheritance_column = :model_type
       include Historiographer::History

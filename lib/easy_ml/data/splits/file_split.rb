@@ -12,10 +12,30 @@ module EasyML
         attribute :max_rows_per_file, :integer, default: 1_000_000
         attribute :batch_size, :integer, default: 10_000
         attribute :verbose, :boolean, default: false
+        attribute :dataset
 
         def initialize(options)
           super
           FileUtils.mkdir_p(dir)
+        end
+
+        def cp(target_dir)
+          FileUtils.mkdir_p(target_dir)
+
+          files_to_move = Dir.glob(Pathname.new(dir).join("**/*")).select { |f| File.file?(f) }
+
+          files_to_move.each do |file|
+            target_parts = target_dir.split("/")
+            file_parts = file.split("/")
+            _, not_shared = file_parts.partition.with_index { |part, index| target_parts[index] == part }
+            not_shared = not_shared[1..-1].join("/") # remove leading "processed", "raw", etc
+
+            target_file = File.join(target_dir, not_shared)
+            FileUtils.mkdir_p(File.dirname(target_file))
+            FileUtils.cp(file, target_file)
+          end
+
+          self.class.new(dir: target_dir, **attributes.except("dir"))
         end
 
         def save(segment, df)
@@ -28,7 +48,7 @@ module EasyML
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
-                 unique: nil, sort: nil, descending: false)
+                          unique: nil, sort: nil, descending: false)
           files = files_for_segment(segment)
           return split_ys ? [nil, nil] : nil if files.empty?
 
@@ -39,7 +59,7 @@ module EasyML
             unique: unique,
             drop_cols: drop_cols,
             sort: sort,
-            descending: descending
+            descending: descending,
           }.compact
 
           df = EasyML::Data::PolarsReader.query(files, **query_params)

@@ -24,16 +24,18 @@ module EasyML
         label: "Date Splitter",
         description: "Split dataset based on date ranges for training, validation, and testing",
       },
+      {
+        value: "random",
+        label: "Random Splitter",
+        description: "Randomly split dataset into training, validation, and testing sets with configurable ratios",
+      },
     ].freeze
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
     validates :splitter_type, presence: true
-    validates :splitter_type, inclusion: { in: ["EasyML::DateSplitter"] }
-
-    # Configuration attributes for DateSplitter
-    add_configuration_attributes :today, :date_col, :months_test, :months_valid
+    validates :splitter_type, inclusion: { in: ["EasyML::DateSplitter", "EasyML::RandomSplitter"] }
 
     def self.constants
       {

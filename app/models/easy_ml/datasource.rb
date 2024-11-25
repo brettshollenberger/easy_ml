@@ -18,9 +18,9 @@ module EasyML
     include EasyML::Concerns::Configurable
 
     DATASOURCE_OPTIONS = {
-      "s3" => "EasyML::Datasources::S3",
-      "file" => "EasyML::Datasources::File",
-      "polars" => "EasyML::Datasources::Polars"
+      "s3" => "EasyML::Datasources::S3Datasource",
+      "file" => "EasyML::Datasources::FileDatasource",
+      "polars" => "EasyML::Datasources::PolarsDatasource"
     }
     DATASOURCE_TYPES = [
       {

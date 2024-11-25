@@ -1,6 +1,6 @@
 module EasyML
   module Datasources
-    class Polars < Base
+    class PolarsDatasource < BaseDatasource
       validates :df, presence: true
       add_configuration_attributes :df
 
@@ -60,17 +60,17 @@ module EasyML
           dtype = case col["datatype"]
                   when Hash
                     if col["datatype"]["Datetime"]
-                      ::Polars::Datetime.new(col["datatype"]["Datetime"][0].downcase.to_sym).class
+                      Polars::Datetime.new(col["datatype"]["Datetime"][0].downcase.to_sym).class
                     else
-                      ::Polars::Utf8
+                      Polars::Utf8
                     end
                   else
-                    ::Polars.const_get(col["datatype"])
+                    Polars.const_get(col["datatype"])
                   end
-          ::Polars::Series.new(col["name"], col["values"], dtype: dtype)
+          Polars::Series.new(col["name"], col["values"], dtype: dtype)
         end
 
-        datasource.df = ::Polars::DataFrame.new(columns)
+        datasource.df = Polars::DataFrame.new(columns)
       end
     end
   end

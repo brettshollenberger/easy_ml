@@ -1,6 +1,6 @@
 module EasyML
   module Datasources
-    class S3 < Base
+    class S3Datasource < BaseDatasource
       REGIONS = [
         { value: "us-east-1", label: "US East (N. Virginia)" },
         { value: "us-east-2", label: "US East (Ohio)" },

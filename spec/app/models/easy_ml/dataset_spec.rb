@@ -82,7 +82,7 @@ RSpec.describe EasyML::Datasource do
     allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
     allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
     allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
-    allow_any_instance_of(EasyML::Datasources::S3).to receive(:refresh!).and_return(true)
+    allow_any_instance_of(EasyML::Datasources::S3Datasource).to receive(:refresh!).and_return(true)
   end
 
   describe "File datasource" do
@@ -103,10 +103,8 @@ RSpec.describe EasyML::Datasource do
       expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
       expect(reloaded.splitter).to be_a(EasyML::DateSplitter)
 
-      # The original dataset was processed, so the reloaded one is
       expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
-      # datetime[μs]
     end
   end
 
@@ -338,7 +336,7 @@ RSpec.describe EasyML::Datasource do
       allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
       allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
       allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
-      allow_any_instance_of(EasyML::Datasources::S3).to receive(:refresh!).and_return(true)
+      allow_any_instance_of(EasyML::Datasources::S3Datasource).to receive(:refresh!).and_return(true)
     end
 
     it "splits files" do

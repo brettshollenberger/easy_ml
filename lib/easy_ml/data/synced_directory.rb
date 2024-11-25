@@ -120,11 +120,15 @@ module EasyML
 
       private
 
+      def dir
+        s3_prefix.present? ? File.join(root_dir, s3_prefix).to_s : root_dir
+      end
+
       def reader
         return @reader if @reader
 
         @reader = EasyML::Data::PolarsReader.new(
-          root_dir: File.join(root_dir, s3_prefix),
+          root_dir: dir,
           polars_args: polars_args,
           refresh: false
         )

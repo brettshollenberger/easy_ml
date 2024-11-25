@@ -1,6 +1,6 @@
 module EasyML
   module Datasources
-    class Base
+    class BaseDatasource
       include ActiveModel::Validations
       include EasyML::Concerns::Configurable
 

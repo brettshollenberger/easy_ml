@@ -1,6 +1,6 @@
 module EasyML
   module Datasources
-    class File < Base
+    class FileDatasource < BaseDatasource
       delegate :query, to: :reader
 
       def in_batches(&block)
@@ -34,7 +34,7 @@ module EasyML
       def reader
         @reader ||= EasyML::Data::PolarsReader.new(
           root_dir: datasource.root_dir,
-          polars_args: datasource.configuration["polars_args"]
+          polars_args: (datasource.configuration || {}).dig("polars_args")
         )
       end
     end

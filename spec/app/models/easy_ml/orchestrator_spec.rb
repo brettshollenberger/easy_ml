@@ -6,8 +6,8 @@ RSpec.describe EasyML::Orchestrator do
   let(:datasource) do
     EasyML::Datasource.create(
       name: "Polars Datasource",
-      datasource_type: "EasyML::PolarsDatasource",
-      df: df,
+      datasource_type: "polars",
+      df: df
     )
   end
 
@@ -168,14 +168,14 @@ RSpec.describe EasyML::Orchestrator do
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 },
-        },
+          max_depth: { min: 1, max: 5 }
+        }
       }
 
       expect_any_instance_of(EasyML::Core::Tuner).to receive(:tune).and_return({
                                                                                  "learning_rate" => 0.05,
                                                                                  "n_estimators" => 2,
-                                                                                 "max_depth" => 3,
+                                                                                 "max_depth" => 3
                                                                                })
 
       training_model = described_class.train(model.name, tuner: tuner)
@@ -217,8 +217,8 @@ RSpec.describe EasyML::Orchestrator do
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 },
-        },
+          max_depth: { min: 1, max: 5 }
+        }
       }
 
       # Expect the tuner to be created with the config
@@ -227,7 +227,7 @@ RSpec.describe EasyML::Orchestrator do
       expect_any_instance_of(EasyML::Core::Tuner).to receive(:tune).and_return({
                                                                                  "learning_rate" => 0.05,
                                                                                  "n_estimators" => 2,
-                                                                                 "max_depth" => 3,
+                                                                                 "max_depth" => 3
                                                                                })
 
       training_model = described_class.train(model.name, tuner: tuner)

@@ -1,0 +1,42 @@
+module EasyML
+  module Datasources
+    class File < Base
+      delegate :query, to: :reader
+
+      def in_batches(&block)
+        reader.in_batches(&block)
+      end
+
+      def files
+        reader.files
+      end
+
+      def last_updated_at
+        files.map { |file| File.mtime(file) }.max
+      end
+
+      def needs_refresh?
+        false
+      end
+
+      def data
+        return @combined_df if @combined_df.present?
+
+        combined_df = nil
+        reader.in_batches do |df|
+          combined_df = combined_df.nil? ? df : combined_df.vstack(df)
+        end
+        @combined_df = combined_df
+      end
+
+      private
+
+      def reader
+        @reader ||= EasyML::Data::PolarsReader.new(
+          root_dir: datasource.root_dir,
+          polars_args: datasource.configuration["polars_args"]
+        )
+      end
+    end
+  end
+end

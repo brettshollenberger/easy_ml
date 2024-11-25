@@ -4,16 +4,23 @@ module EasyML
       extend ActiveSupport::Concern
 
       included do
-        self.filter_attributes += [:configuration]
+        is_model = ancestors.include?(ActiveRecord::Base)
+        self.filter_attributes += [:configuration] if is_model
         class_attribute :configuration_attributes, instance_writer: false, default: []
 
-        after_initialize :read_from_configuration
-        before_save :store_in_configuration
+        after_initialize :read_from_configuration if is_model
+        before_save :store_in_configuration if is_model
       end
 
       class_methods do
         def add_configuration_attributes(*attrs)
           self.configuration_attributes += attrs
+          self.configuration_attributes = self.configuration_attributes.uniq
+
+          # Define attr_accessor for each configuration attribute
+          attrs.each do |attr|
+            attr_accessor attr
+          end
         end
       end
 

@@ -17,7 +17,6 @@
 #
 module EasyML
   class DatasourceHistory < ActiveRecord::Base
-    self.inheritance_column = :datasource_type
     self.table_name = "easy_ml_datasource_histories"
     include Historiographer::History
   end

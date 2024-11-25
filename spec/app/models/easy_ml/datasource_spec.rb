@@ -13,7 +13,7 @@ RSpec.describe EasyML::Datasource do
                                    annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
                                    points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
                                    created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
-                                                    2024-08-01 2024-09-01],
+                                                    2024-08-01 2024-09-01]
                                  })
 
       # Convert the 'created_date' column to datetime
@@ -26,11 +26,24 @@ RSpec.describe EasyML::Datasource do
       # Save the serialized DataFrame to the database
       datasource = EasyML::Datasource.create!(
         name: "My Polars Df",
-        datasource_type: "EasyML::PolarsDatasource",
-        df: df,
+        datasource_type: "polars",
+        df: df
       )
       datasource = EasyML::Datasource.find(datasource.id)
       expect(datasource.data).to eq df
+    end
+
+    it "creates histories" do
+      datasource = EasyML::Datasource.create!(
+        name: "My Polars Df",
+        datasource_type: "polars",
+        df: df
+      )
+      datasource = EasyML::Datasource.find(datasource.id)
+      datasource.snapshot
+      snapshot = datasource.latest_snapshot
+
+      expect(snapshot.data).to eq df
     end
   end
 
@@ -39,7 +52,7 @@ RSpec.describe EasyML::Datasource do
       path = SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files")
       file_spec do |_, csv_file, _|
         synced_directory = EasyML::Data::SyncedDirectory
-        s3_datasource = EasyML::S3Datasource
+        s3_datasource = EasyML::Datasources::S3
 
         allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
         allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
@@ -52,10 +65,10 @@ RSpec.describe EasyML::Datasource do
 
         s3_datasource = EasyML::Datasource.create!(
           name: "s3 Datasource",
-          datasource_type: "EasyML::S3Datasource",
+          datasource_type: "s3",
           root_dir: path,
           s3_bucket: "bucket",
-          s3_prefix: "raw",
+          s3_prefix: "raw"
         )
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
@@ -85,15 +98,15 @@ RSpec.describe EasyML::Datasource do
             'business_name': "str",
             'annual_revenue': "f64",
             'rev': "f64",
-            'created_date': "datetime",
-          },
+            'created_date': "datetime"
+          }
         }
 
         file_datasource = EasyML::Datasource.create!(
           name: "File Datasource",
-          datasource_type: "EasyML::FileDatasource",
+          datasource_type: "file",
           root_dir: root_dir,
-          polars_args: polars_args,
+          polars_args: polars_args
         )
 
         # Invoking this splits the file

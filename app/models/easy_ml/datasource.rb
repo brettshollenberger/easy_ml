@@ -12,49 +12,65 @@
 #
 module EasyML
   class Datasource < ActiveRecord::Base
-    self.inheritance_column = :datasource_type
     self.table_name = "easy_ml_datasources"
     include Historiographer::Silent
     historiographer_mode :snapshot_only
-
     include EasyML::Concerns::Configurable
 
-    scope :s3, -> { where(datasource_type: "S3Datasource") }
-
+    DATASOURCE_OPTIONS = {
+      "s3" => "EasyML::Datasources::S3",
+      "file" => "EasyML::Datasources::File",
+      "polars" => "EasyML::Datasources::Polars"
+    }
     DATASOURCE_TYPES = [
       {
-        value: "EasyML::S3Datasource",
+        value: "s3",
         label: "Amazon S3",
-        description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets",
+        description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets"
       },
+      {
+        value: "file",
+        label: "Local Files",
+        description: "Connect to data stored in local files"
+      },
+      {
+        value: "polars",
+        label: "Polars DataFrame",
+        description: "In-memory dataframe storage using Polars"
+      }
     ].freeze
-
-    TYPE_CLASSES = %w(
-      EasyML::PolarsDatasource
-      EasyML::FileDatasource
-      EasyML::S3Datasource
-    )
-    self.inheritance_column = :datasource_type
+    DATASOURCE_NAMES = DATASOURCE_OPTIONS.keys.freeze
+    DATASOURCE_CONSTANTS = DATASOURCE_OPTIONS.values.map(&:constantize)
 
     validates :name, presence: true
     validates :datasource_type, presence: true
-    validates :datasource_type, inclusion: { in: TYPE_CLASSES }
+    validates :datasource_type, inclusion: { in: DATASOURCE_NAMES }
 
     after_initialize :set_default_root_dir
+    after_initialize :read_adapter_from_configuration
+    after_find :read_adapter_from_configuration
+    before_save :store_adapter_in_configuration
+
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
     attr_accessor :schema, :columns, :num_rows, :is_syncing
 
     add_configuration_attributes :schema, :columns, :num_rows, :polars_args, :verbose, :is_syncing
+    DATASOURCE_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
+      add_configuration_attributes attribute
+    end
+
+    delegate :query, :in_batches, :files, :last_updated_at, :data, :needs_refresh?,
+             :refresh, :refresh!, :s3_access_key_id, :s3_secret_access_key, to: :adapter
 
     def self.constants
       {
         DATASOURCE_TYPES: DATASOURCE_TYPES,
-        s3: EasyML::S3Datasource.constants,
+        s3: EasyML::Datasources::S3Datasource.constants
       }
     end
 
     def in_memory?
-      datasource_type == "EasyML::PolarsDatasource"
+      datasource_type == "polars"
     end
 
     def root_dir
@@ -62,28 +78,6 @@ module EasyML
       return persisted if persisted.present? && !persisted.to_s.blank?
 
       default_root_dir
-    end
-
-    def default_root_dir
-      folder = name.gsub(/\s{2,}/, " ").split(" ").join("_").downcase
-      Rails.root.join("easy_ml/datasets").join(folder)
-    end
-
-    # Common interface methods
-    def in_batches(of: 10_000)
-      raise NotImplementedError, "#{self.class} must implement #in_batches"
-    end
-
-    def files
-      raise NotImplementedError, "#{self.class} must implement #files"
-    end
-
-    def last_updated_at
-      raise NotImplementedError, "#{self.class} must implement #last_updated_at"
-    end
-
-    def data
-      raise NotImplementedError, "#{self.class} must implement #data"
     end
 
     def refresh_async
@@ -114,10 +108,32 @@ module EasyML
       end
     end
 
+    private
+
+    def adapter
+      @adapter ||= begin
+        adapter_class = DATASOURCE_OPTIONS[datasource_type]
+        raise "Don't know how to use datasource adapter #{datasource_type}!" unless adapter_class.present?
+
+        adapter_class.constantize.new(self)
+      end
+    end
+
+    def default_root_dir
+      folder = name.gsub(/\s{2,}/, " ").split(" ").join("_").downcase
+      Rails.root.join("easy_ml/datasets").join(folder)
+    end
+
     def set_default_root_dir
       self.root_dir ||= default_root_dir
     end
 
-    delegate :s3_bucket, :s3_prefix, :s3_region, to: :configuration, allow_nil: true
+    def read_adapter_from_configuration
+      adapter.read_from_configuration if adapter.respond_to?(:read_from_configuration)
+    end
+
+    def store_adapter_in_configuration
+      adapter.store_in_configuration if adapter.respond_to?(:store_in_configuration)
+    end
   end
 end

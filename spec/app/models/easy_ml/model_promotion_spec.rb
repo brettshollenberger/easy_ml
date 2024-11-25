@@ -4,7 +4,7 @@ require "support/model_spec_helper"
 RSpec.describe EasyML::Models do
   include ModelSpecHelper
   let(:root_dir) do
-    SPEC_ROOT.join("internal/app/titanic/core")
+    SPEC_ROOT.join("internal/app/data/titanic/core")
   end
 
   let(:datasource) do
@@ -239,6 +239,9 @@ RSpec.describe EasyML::Models do
       pos_cases = y_true[y_true == 1].count
       neg_cases = y_true[y_true == 0].count
       model1.hyperparameters.scale_pos_weight = neg_cases / pos_cases.to_f
+
+      model1.dataset.columns.where(name: "Age").update_all(hidden: true)
+      model1.dataset.refresh
       model1.fit
       model1.save
       expect(model1.model_file.filename).to_not eq(existing_model.model_file.filename)
@@ -247,6 +250,7 @@ RSpec.describe EasyML::Models do
       expect(preds_after_more_iterations.sum).to_not eq(preds_after_one_iteration.sum)
 
       # The old model is still live! That's what we're using!
+      expect(model1.dataset.train.columns).to_not include("Age")
       expect(model1.latest_snapshot.model_file.filename).to eq(existing_model.model_file.filename)
       live_predictions = model1.latest_snapshot.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_after_one_iteration.sum)

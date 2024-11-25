@@ -230,58 +230,6 @@ RSpec.describe EasyML::Models do
     end
   end
 
-  describe "#promote" do
-    it "snapshots the current model for predictions", :focus do
-      mock_file_upload
-
-      @time = EST.now
-      Timecop.freeze(@time)
-
-      # When model1 gets promoted, we want to have a copy of its file!
-      # We're mocking the download from s3...
-      #
-      @mock_s3_location = SPEC_ROOT.join("saved_file.json")
-      FileUtils.rm(@mock_s3_location) if File.exist?(@mock_s3_location)
-      model1 = build_model(name: "Model 1")
-      FileUtils.cp(model1.model_file.full_path, @mock_s3_location)
-
-      model1.fit
-      model1.promote
-
-      model2 = build_model(name: "Model 2", dataset: dataset2)
-      model2.fit
-      expect { model2.promote }.to raise_error(EasyML::Model::CannotPromoteError)
-
-      preds = model1.predict(
-        model1.dataset.locked.test(split_ys: true).first
-      )
-      expect(preds.to_a).to all(be > 0)
-
-      # preds = model6.predict(
-      #   model6.dataset.test(split_ys: true).first
-      # )
-      # expect(preds.to_a).to all(be > 0)
-
-      # model1.promote
-      # expect(model1).to be_inference
-      # expect(model6.reload).to_not be_inference
-
-      # # Newly promoted model can predict (downloads its file again when calling predict)
-      # model1 = EasyML::Model.find(model1.id)
-      # expect(model1.model_file).to receive(:download).once do |_model|
-      #   # Mock downloading from s3
-      #   FileUtils.cp(@mock_s3_location, model1.model_file.full_path)
-      # end
-      # preds = model1.predict(model1.dataset.test(split_ys: true).first)
-      # expect(preds.to_a).to all(be > 0)
-      # expect(File).to exist(model1.model_file.full_path)
-
-      # FileUtils.rm(@mock_s3_location)
-      # model1.cleanup!
-      # other_model.cleanup!
-    end
-  end
-
   describe "#cleanup" do
     it "keeps the live model, deletes the oldest version when training, and retains up to 5 versions per model name" do
       @time = EST.now

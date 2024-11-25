@@ -7,13 +7,12 @@ PATH
       activesupport
       awesome_print
       aws-sdk
-      historiographer (~> 4.1.1)
       inertia_rails
       jsonapi-serializer
       numo-narray
       numpy
       parallel
-      polars-df
+      polars-df (~> 0.15.0)
       pycall
       rails
       red-optuna
@@ -34,6 +33,16 @@ PATH
       activerecord (>= 6, < 8)
       activesupport (>= 6, < 8)
       awesome_print
+
+PATH
+  remote: /Users/brettshollenberger/programming/historiographer
+  specs:
+    historiographer (4.1.7)
+      activerecord (>= 6)
+      activerecord-import
+      activesupport
+      rails (>= 6)
+      rollbar
 
 GEM
   remote: https://rubygems.org/
@@ -1723,12 +1732,6 @@ GEM
       pry (>= 0.13.0)
       shellany (~> 0.0)
       thor (>= 0.18.1)
-    historiographer (4.1.1)
-      activerecord (>= 6)
-      activerecord-import
-      activesupport
-      rails (>= 6)
-      rollbar
     i18n (1.14.6)
       concurrent-ruby (~> 1.0)
     inertia_rails (3.4.0)
@@ -1785,7 +1788,7 @@ GEM
       ast (~> 2.4.1)
       racc
     pg (1.5.9)
-    polars-df (0.14.0-arm64-darwin)
+    polars-df (0.15.0-arm64-darwin)
       bigdecimal
     pry (0.14.2)
       coderay (~> 1.1)
@@ -1954,12 +1957,13 @@ DEPENDENCIES
   easy_ml!
   glue_gun_dsl!
   guard
+  historiographer!
   inertia_rails
   jsonapi-serializer
   numpy (~> 0.4.0)
   ostruct
   pg
-  polars-df
+  polars-df (~> 0.15.0)
   pry
   rake (~> 13.0)
   rspec (~> 3.0)

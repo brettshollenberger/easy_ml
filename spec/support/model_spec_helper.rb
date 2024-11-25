@@ -102,7 +102,6 @@ module ModelSpecHelper
     base.let(:model_file) do
       EasyML::ModelFile.create(
         root_dir: root_dir,
-        model_file_type: :file,
         filename: "xgboost_20241028130305.json",
         path: "easy_ml_models/My Model",
       )

@@ -469,7 +469,7 @@ module EasyML
     def fit(xs = nil)
       return false if locked?
 
-      xs = raw.train if xs.nil?
+      xs = raw.train(all_columns: true) if xs.nil?
 
       preprocessor.fit(xs)
       self.preprocessor_statistics = preprocessor.statistics

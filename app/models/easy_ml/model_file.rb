@@ -13,7 +13,6 @@
 #
 module EasyML
   class ModelFile < ActiveRecord::Base
-    self.inheritance_column = :model_file_type
     self.table_name = "easy_ml_model_files"
     include Historiographer::Silent
     historiographer_mode :snapshot_only
@@ -63,11 +62,7 @@ module EasyML
     end
 
     def download
-      begin
-        synced_file.download(full_path) unless File.exist?(full_path)
-      rescue => e
-        binding.pry
-      end
+      synced_file.download(full_path) unless File.exist?(full_path)
       full_path
     end
 
@@ -79,7 +74,7 @@ module EasyML
     end
 
     def relative_dir
-      base_path = root_dir.gsub(Regexp.new(Rails.root.to_s), "")
+      base_path = root_dir.to_s.gsub(Regexp.new(Rails.root.to_s), "")
       path = File.join(base_path, store_dir)
       path.gsub!(%r{^/}, "")
       path

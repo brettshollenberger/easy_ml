@@ -78,7 +78,7 @@ RSpec.describe EasyML::Models do
     {
       name: "My model",
       root_dir: root_dir,
-      model_type: "EasyML::Models::XGBoost",
+      model_type: "xgboost",
       task: task,
       dataset: dataset,
       hyperparameters: {
@@ -172,7 +172,7 @@ RSpec.describe EasyML::Models do
                         dataset: dataset,
                         metrics: %w[mean_absolute_error],
                         task: :regression,
-                        model_type: "EasyML::Models::XGBoost",
+                        model_type: "xgboost",
                         hyperparameters: {
                           objective: "reg:squarederror",
                           n_estimators: 1

@@ -18,28 +18,31 @@ require_relative "models/hyperparameters"
 
 module EasyML
   class Model < ActiveRecord::Base
-    self.inheritance_column = :model_type
     self.table_name = "easy_ml_models"
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
     include EasyML::Concerns::Configurable
-    include EasyML::Support::FileSupport
 
     self.filter_attributes += [:configuration]
 
+    MODEL_OPTIONS = {
+      "xgboost" => "EasyML::Models::XGBoost"
+    }
     MODEL_TYPES = [
       {
         value: "xgboost",
         label: "XGBoost",
-        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines",
-      },
+        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines"
+      }
     ].freeze
+    MODEL_NAMES = MODEL_OPTIONS.keys.freeze
+    MODEL_CONSTANTS = MODEL_OPTIONS.values.map(&:constantize)
 
-    self.inheritance_column = :model_type
-
-    add_configuration_attributes :task, :objective, :hyperparameters, :evaluator, :callbacks
-    attr_accessor :task, :metrics, :hyperparameters, :objective, :evaluator, :callbacks
+    add_configuration_attributes :task, :objective, :hyperparameters, :evaluator, :callbacks, :metrics
+    MODEL_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
+      add_configuration_attributes attribute
+    end
 
     belongs_to :dataset
     has_one :model_file, class_name: "EasyML::ModelFile"
@@ -54,27 +57,29 @@ module EasyML
 
     validates :task, presence: true
     validates :task, inclusion: {
-                       in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
-                       message: "must be one of: #{VALID_TASKS.join(", ")}",
-                     }
+      in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
+      message: "must be one of: #{VALID_TASKS.join(", ")}"
+    }
+    validates :model_type, inclusion: { in: MODEL_NAMES }
+    validates :dataset_id, presence: true
 
-    def predict(_xs)
-      raise "#predict not implemented! Must be implemented by subclasses"
+    def hyperparameters
+      @hyperparams ||= model_adapter.build_hyperparameters(@hyperparameters)
     end
 
-    def around_predict
+    def predict(xs)
       load_model!
-      yield
+      model_adapter.predict(xs)
     end
 
-    def around_save_model_file
+    def save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless is_fit?
 
       model_file = get_model_file
 
       generate_version_string(force: true)
       path = model_file.full_path(version)
-      full_path = yield(path)
+      full_path = model_adapter.save_model_file(path)
       model_file.upload(full_path)
 
       model_file.save
@@ -89,17 +94,26 @@ module EasyML
       get_model_file&.cleanup(files_to_keep)
     end
 
-    def around_loaded
+    def loaded?
       model_file = get_model_file
       return false if model_file.persisted? && !File.exist?(model_file.full_path.to_s)
 
-      loaded = yield
+      file_exists = true
+      if model_file.present? && model_file.persisted? && model_file.full_path.present?
+        file_exists = File.exist?(model_file.full_path)
+      end
+
+      loaded = model_adapter.loaded?
       load_model_file unless loaded
-      yield
+      file_exists && model_adapter.loaded?
     end
 
     def model_changed?
-      raise "#model_changed? not implemented! Must be implemented by subclasses"
+      return false unless is_fit?
+      return true if model_file.present? && !model_file.persisted?
+
+      prev_hash = Digest::SHA256.file(model_file.full_path).hexdigest
+      model_adapter.model_changed?(prev_hash)
     end
 
     def fork
@@ -111,31 +125,31 @@ module EasyML
       end
     end
 
-    def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
-      raise "#fit not implemented! Must be implemented by subclasses"
+    def feature_importances
+      model_adapter.feature_importances
     end
 
-    def around_fit(x_train)
+    def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
       if x_train.nil?
         puts "Refreshing dataset"
         dataset.refresh
       end
-      yield
+      model_adapter.fit(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid)
       @is_fit = true
     end
 
     attr_accessor :is_fit
 
-    def around_is_fit?
+    def is_fit?
       model_file = get_model_file
       return true if model_file.present? && model_file.fit?
 
-      yield
+      model_adapter.is_fit?
     end
 
     def cannot_promote_reasons
       [
-        is_fit? ? nil : "Model has not been trained",
+        is_fit? ? nil : "Model has not been trained"
       ].compact
     end
 
@@ -172,7 +186,7 @@ module EasyML
 
     def attributes
       super.merge!(
-        hyperparameters: hyperparameters.to_h,
+        hyperparameters: hyperparameters.to_h
       )
     end
 
@@ -186,18 +200,29 @@ module EasyML
       snapshot
     end
 
-    def inference_pipeline(df)
-    end
+    def inference_pipeline(df); end
 
     def cannot_promote_reasons
       [
         is_fit? ? nil : "Model has not been trained",
         dataset.target.present? ? nil : "Dataset has no target",
-        !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource",
+        !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource"
       ]
     end
 
+    def root_dir
+      stored_dir = read_attribute(:root_dir)
+      return stored_dir if stored_dir.present?
+
+      shared_root = Pathname.new(dataset.root_dir.to_s.split("datasets").first)
+      shared_root.join("models").join(underscored_name).to_s
+    end
+
     private
+
+    def underscored_name
+      name.gsub(/\s{2,}/, " ").gsub(/\s/, "_").downcase
+    end
 
     def get_model_file
       model_file || build_model_file(
@@ -207,7 +232,7 @@ module EasyML
         s3_region: EasyML::Configuration.s3_region,
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,
         s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
-        s3_prefix: prefix,
+        s3_prefix: prefix
       )
     end
 
@@ -225,10 +250,10 @@ module EasyML
       load_model_file
     end
 
-    def loading_model_file
+    def load_model_file
       return unless model_file&.full_path && File.exist?(model_file.full_path)
 
-      yield(model_file.full_path)
+      model_adapter.load_model_file(model_file.full_path)
     end
 
     def download_model_file(force: false)
@@ -259,9 +284,18 @@ module EasyML
     end
 
     def set_defaults
-      self.model_type ||= "EasyML::Models::XGBoost"
+      self.model_type ||= "xgboost"
       self.status ||= :training
       self.metrics ||= allowed_metrics
+    end
+
+    def model_adapter
+      @model_adapter ||= begin
+        adapter_class = MODEL_OPTIONS[model_type]
+        raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
+
+        adapter_class.constantize.new(self)
+      end
     end
   end
 end

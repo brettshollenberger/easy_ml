@@ -34,7 +34,7 @@ module EasyML
         s3_region: s3_region,
         s3_access_key_id: s3_access_key_id,
         s3_secret_access_key: s3_secret_access_key,
-        root_dir: root_dir,
+        root_dir: root_dir
       )
     end
 
@@ -104,7 +104,9 @@ module EasyML
       base = ENV["EASY_ML_MODEL_DIRECTORY"] || "easy_ml_models"
       return base unless model.present?
 
-      File.join(base, model.name)
+      model_name = model.name || "default_model"
+
+      File.join(base, model_name)
     end
   end
 end

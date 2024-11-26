@@ -16,26 +16,22 @@
 #
 module EasyML
   module Models
-    class XGBoost < EasyML::Model
-      include Historiographer::Silent
-      historiographer_mode :snapshot_only
-
-      self.table_name = "easy_ml_models"
-
+    class XGBoost < BaseModel
       Hyperparameters = EasyML::Models::Hyperparameters::XGBoost
 
       OBJECTIVES = {
         classification: {
           binary: %w[binary:logistic binary:hinge],
-          multiclass: %w[multi:softmax multi:softprob],
+          multiclass: %w[multi:softmax multi:softprob]
         },
-        regression: %w[reg:squarederror reg:logistic],
+        regression: %w[reg:squarederror reg:logistic]
       }
 
       add_configuration_attributes :early_stopping_rounds
-      attr_accessor :early_stopping_rounds, :model, :booster
+      attr_accessor :model, :booster
 
-      def hyperparameters=(params)
+      def build_hyperparameters(params)
+        params = {} if params.nil?
         return nil unless params.is_a?(Hash)
 
         params.to_h.symbolize_keys!
@@ -43,44 +39,18 @@ module EasyML
         params[:booster] = :gbtree unless params.key?(:booster)
 
         klass = case params[:booster].to_sym
-          when :gbtree
-            Hyperparameters::GBTree
-          when :dart
-            Hyperparameters::Dart
-          when :gblinear
-            Hyperparameters::GBLinear
-          else
-            raise "Unknown booster type: #{booster}"
-          end
+                when :gbtree
+                  Hyperparameters::GBTree
+                when :dart
+                  Hyperparameters::Dart
+                when :gblinear
+                  Hyperparameters::GBLinear
+                else
+                  raise "Unknown booster type: #{booster}"
+                end
         raise "Unknown booster type #{booster}" unless klass.present?
 
-        hyperparams = klass.new(params)
-        super(hyperparams.attributes) # Store only the attributes hash
-      end
-
-      def hyperparameters
-        return @_hyperparameters if @_hyperparameters
-
-        raw_params = super # Fetch the stored value
-
-        return nil if raw_params.nil? || !raw_params.is_a?(Hash)
-
-        raw_params = raw_params.to_h.deep_symbolize_keys # Ensure all keys are symbols
-
-        booster = raw_params[:booster] || :gbtree
-
-        klass = case booster.to_sym
-          when :gbtree
-            Hyperparameters::GBTree
-          when :dart
-            Hyperparameters::Dart
-          when :gblinear
-            Hyperparameters::GBLinear
-          else
-            raise "Unknown booster type: #{booster}"
-          end
-
-        @_hyperparameters = klass.new(raw_params)
+        klass.new(params)
       end
 
       def callbacks=(params)
@@ -91,8 +61,8 @@ module EasyML
           conf.values.first.symbolize_keys!
 
           klass = case callback_type
-            when :wandb then Wandb::XGBoostCallback
-            end
+                  when :wandb then Wandb::XGBoostCallback
+                  end
           raise "Unknown callback type #{callback_type}" unless klass.present?
         end
 
@@ -102,7 +72,7 @@ module EasyML
       def callbacks
         return @_callbacks if @_callbacks
 
-        raw_params = super # Fetch the stored value
+        raw_params = model.callbacks
 
         return [] if raw_params.nil? || !raw_params.is_a?(Array)
 
@@ -111,8 +81,8 @@ module EasyML
           callback_config = conf.values.first.symbolize_keys!
 
           klass = case callback_type
-            when :wandb then Wandb::XGBoostCallback
-            end
+                  when :wandb then Wandb::XGBoostCallback
+                  end
           raise "Unknown callback type #{callback_type}" unless klass.present?
 
           klass.new(**callback_config)
@@ -120,53 +90,47 @@ module EasyML
       end
 
       def is_fit?
-        around_is_fit? do
-          @booster.present? && @booster.feature_names.any?
-        end
+        @booster.present? && @booster.feature_names.any?
       end
 
       def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
-        around_fit(x_train) do
-          validate_objective
+        validate_objective
 
-          d_train, d_valid, = prepare_data if x_train.nil?
-          evals = [[d_train, "train"], [d_valid, "eval"]]
-          @booster = base_model.train(hyperparameters.to_h, d_train,
-                                      evals: evals,
-                                      num_boost_round: hyperparameters["n_estimators"],
-                                      callbacks: callbacks || [],
-                                      early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
-        end
+        d_train, d_valid, = prepare_data if x_train.nil?
+        evals = [[d_train, "train"], [d_valid, "eval"]]
+        @booster = base_model.train(hyperparameters.to_h, d_train,
+                                    evals: evals,
+                                    num_boost_round: hyperparameters["n_estimators"],
+                                    callbacks: callbacks || [],
+                                    early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
       end
 
       def predict(xs)
-        around_predict do
-          raise "No trained model! Train a model before calling predict" unless @booster.present?
-          raise "Cannot predict on nil — XGBoost" if xs.nil?
+        raise "No trained model! Train a model before calling predict" unless @booster.present?
+        raise "Cannot predict on nil — XGBoost" if xs.nil?
 
-          begin
-            y_pred = @booster.predict(preprocess(xs))
-          rescue StandardError => e
-            raise e unless e.message.match?(/Number of columns does not match/)
+        begin
+          y_pred = @booster.predict(preprocess(xs))
+        rescue StandardError => e
+          raise e unless e.message.match?(/Number of columns does not match/)
 
-            raise %(
-                >>>>><<<<<
-                XGBoost received predict with unexpected features!
-                >>>>><<<<<
+          raise %(
+              >>>>><<<<<
+              XGBoost received predict with unexpected features!
+              >>>>><<<<<
 
-                Model expects features:
-                #{feature_names}
-                Model received features:
-                #{xs.columns}
-              )
-          end
+              Model expects features:
+              #{feature_names}
+              Model received features:
+              #{xs.columns}
+            )
+        end
 
-          case task.to_sym
-          when :classification
-            to_classification(y_pred)
-          else
-            y_pred
-          end
+        case task.to_sym
+        when :classification
+          to_classification(y_pred)
+        else
+          y_pred
         end
       end
 
@@ -183,51 +147,39 @@ module EasyML
       end
 
       def loaded?
-        around_loaded do
-          if model_file.present? && model_file.persisted? && model_file.full_path.present?
-            return File.exist?(model_file.full_path) && @booster.present?
-          end
-
-          @booster.present? && @booster.feature_names.any?
-        end
+        @booster.present? && @booster.feature_names.any?
       end
 
       def load_model_file
-        loading_model_file do |path|
-          initialize_model do
-            attrs = {
-              params: hyperparameters.to_h.symbolize_keys,
-              model_file: path,
-            }.deep_compact
-            booster_class.new(**attrs)
-          end
+        initialize_model do
+          attrs = {
+            params: hyperparameters.to_h.symbolize_keys,
+            model_file: path
+          }.deep_compact
+          booster_class.new(**attrs)
         end
       end
 
-      def model_changed?
+      def model_changed?(prev_hash)
         return false unless @booster.present? && @booster.feature_names.any?
-        return true unless model_file.present? && model_file.persisted? && model_file.fit?
 
-        saved_model_hash = Digest::SHA256.file(model_file.full_path).hexdigest
         current_model_hash = nil
         Tempfile.create(["xgboost_model", ".json"]) do |tempfile|
           @booster.save_model(tempfile.path)
           tempfile.rewind
           current_model_hash = Digest::SHA256.file(tempfile.path).hexdigest
         end
-        current_model_hash != saved_model_hash
+        current_model_hash != prev_hash
       end
 
-      def save_model_file
-        around_save_model_file do |path|
-          path = path.to_s
-          ensure_directory_exists(File.dirname(path))
-          extension = Pathname.new(path).extname.gsub("\.", "")
-          path = "#{path}.json" unless extension == "json"
+      def save_model_file(path)
+        path = path.to_s
+        ensure_directory_exists(File.dirname(path))
+        extension = Pathname.new(path).extname.gsub("\.", "")
+        path = "#{path}.json" unless extension == "json"
 
-          @booster.save_model(path)
-          path
-        end
+        @booster.save_model(path)
+        path
       end
 
       def feature_names
@@ -340,8 +292,8 @@ module EasyML
       def fit_batch(d_train, current_iteration, evals, cb_container)
         if @booster.nil?
           @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map do |d|
-                                         d[0]
-                                       end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
+            d[0]
+          end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
         end
 
         @booster = cb_container.before_training(@booster)

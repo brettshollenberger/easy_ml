@@ -22,13 +22,12 @@
 module EasyML
   class ModelHistory < ActiveRecord::Base
     self.table_name = "easy_ml_model_histories"
-    self.inheritance_column = :model_type
     include Historiographer::History
 
-    scope :latest_snapshots, -> {
-            where.not(snapshot_id: nil)
-              .select("DISTINCT ON (model_id) *")
-              .order("model_id, id DESC")
-          }
+    scope :latest_snapshots, lambda {
+      where.not(snapshot_id: nil)
+           .select("DISTINCT ON (model_id) *")
+           .order("model_id, id DESC")
+    }
   end
 end

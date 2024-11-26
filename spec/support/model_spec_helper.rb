@@ -2,7 +2,6 @@ require "spec_helper"
 
 module ModelSpecHelper
   def self.included(base)
-    base.let(:root_dir) { File.expand_path("..", Pathname.new(__FILE__)) }
     base.let(:preprocessing_steps) do
       {
         training: {
@@ -86,8 +85,7 @@ module ModelSpecHelper
     base.let(:model_config) do
       {
         name: "My model",
-        root_dir: root_dir,
-        model_type: "EasyML::Models::XGBoost",
+        model_type: "xgboost",
         task: task,
         dataset: dataset,
         hyperparameters: {
@@ -101,7 +99,6 @@ module ModelSpecHelper
     end
     base.let(:model_file) do
       EasyML::ModelFile.create(
-        root_dir: root_dir,
         filename: "xgboost_20241028130305.json",
         path: "easy_ml_models/My Model"
       )
@@ -118,6 +115,7 @@ module ModelSpecHelper
 
     base.after(:each) do
       dataset.cleanup
+      model.cleanup!
     end
   end
 
@@ -135,16 +133,6 @@ module ModelSpecHelper
 
   def incr_time
     @time += 1.second
-  end
-
-  def cleanup
-    paths = [
-      File.join(root_dir, "xgboost_model.json"),
-      File.join(root_dir, "xg_boost.bin")
-    ]
-    paths.each do |path|
-      FileUtils.rm(path) if File.exist?(path)
-    end
   end
 
   private

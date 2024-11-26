@@ -121,7 +121,7 @@ module EasyML
 
     def default_root_dir
       folder = name.gsub(/\s{2,}/, " ").split(" ").join("_").downcase
-      Rails.root.join("easy_ml/datasets").join(folder)
+      Rails.root.join("easy_ml/datasources").join(folder)
     end
 
     def set_default_root_dir

@@ -36,7 +36,7 @@ RSpec.describe EasyML::Core::Tuner do
   let(:model_config) do
     {
       root_dir: root_dir,
-      model_type: "EasyML::Models::XGBoost",
+      model_type: "xgboost",
       task: task,
       dataset: dataset,
       callbacks: [

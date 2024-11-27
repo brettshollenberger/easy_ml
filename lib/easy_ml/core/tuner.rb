@@ -130,7 +130,7 @@ module EasyML
 
       def adapter_class
         case model.model_type
-        when "EasyML::Models::XGBoost"
+        when "xgboost"
           Adapters::XGBoostAdapter
         end
       end

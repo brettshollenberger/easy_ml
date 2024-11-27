@@ -7,6 +7,10 @@ module EasyML
         reader.in_batches(&block)
       end
 
+      def all_files
+        reader.all_files
+      end
+
       def files
         reader.files
       end

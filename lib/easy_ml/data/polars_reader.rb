@@ -25,6 +25,10 @@ module EasyML
         end
       end
 
+      def all_files
+        (parquet_files + csv_files)
+      end
+
       def files
         if parquet_files.any? && !refresh
           parquet_files
@@ -38,7 +42,7 @@ module EasyML
       end
 
       def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil,
-                             descending: false)
+                descending: false)
         files ||= self.files
         PolarsReader.query(files, drop_cols: drop_cols, filter: filter, limit: limit,
                                   select: select, unique: unique, sort: sort, descending: descending)
@@ -154,15 +158,15 @@ module EasyML
           h.tap do
             values = v.map { |klass| klass.to_s.gsub(/Polars::/, "") }
             h[k] = if values.any? { |v| v.match?(/Float/) }
-                Polars::Float64
-              elsif values.any? { |v| v.match?(/Int/) }
-                Polars::Int64
-              else
-                type = EasyML::Data::PolarsColumn.determine_type(first_file[k], true)
-                raise "Cannot determine polars type for field #{k}" if type.nil?
+                     Polars::Float64
+                   elsif values.any? { |v| v.match?(/Int/) }
+                     Polars::Int64
+                   else
+                     type = EasyML::Data::PolarsColumn.determine_type(first_file[k], true)
+                     raise "Cannot determine polars type for field #{k}" if type.nil?
 
-                type
-              end
+                     type
+                   end
           end
         end
 

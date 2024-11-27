@@ -22,6 +22,10 @@ module EasyML
         synced_directory.in_batches(&block)
       end
 
+      def all_files
+        synced_directory.all_files
+      end
+
       def files
         synced_directory.files
       end

@@ -74,39 +74,31 @@ module EasyML
     end
 
     def relative_dir
-      base_path = root_dir.to_s.gsub(Regexp.new(Rails.root.to_s), "")
-      path = File.join(base_path, store_dir)
-      path.gsub!(%r{^/}, "")
-      path
+      root_dir.to_s.gsub(Regexp.new(Rails.root.to_s), "").gsub!(%r{^/}, "")
     end
 
     def full_dir
       Rails.root.join(relative_dir)
     end
 
+    def model_root
+      File.expand_path("..", full_dir)
+    end
+
     def cleanup!
-      [full_dir].each do |dir|
+      [model_root].each do |dir|
         EasyML::Support::FileRotate.new(dir, []).cleanup(extension_allowlist)
       end
     end
 
     def cleanup(files_to_keep)
-      [full_dir].each do |dir|
+      [model_root].each do |dir|
         EasyML::Support::FileRotate.new(dir, files_to_keep).cleanup(extension_allowlist)
       end
     end
 
     def extension_allowlist
       %w[bin model json]
-    end
-
-    def store_dir
-      base = ENV["EASY_ML_MODEL_DIRECTORY"] || "easy_ml_models"
-      return base unless model.present?
-
-      model_name = model.name || "default_model"
-
-      File.join(base, model_name)
     end
   end
 end

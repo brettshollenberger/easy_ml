@@ -28,7 +28,7 @@ module EasyML
       }
 
       add_configuration_attributes :early_stopping_rounds
-      attr_accessor :model, :booster
+      attr_accessor :xgboost_model, :booster
 
       def build_hyperparameters(params)
         params = {} if params.nil?
@@ -150,7 +150,7 @@ module EasyML
         @booster.present? && @booster.feature_names.any?
       end
 
-      def load_model_file
+      def load_model_file(path)
         initialize_model do
           attrs = {
             params: hyperparameters.to_h.symbolize_keys,
@@ -257,7 +257,7 @@ module EasyML
         validate_objective
 
         # Initialize the model with the first batch
-        @model = nil
+        @xgboost_model = nil
         @booster = nil
         x_valid, y_valid = dataset.valid(split_ys: true)
         d_valid = preprocess(x_valid, y_valid)
@@ -324,9 +324,9 @@ module EasyML
       end
 
       def initialize_model
-        @model = model_class.new(n_estimators: @hyperparameters.to_h.dig(:n_estimators))
+        @xgboost_model = model_class.new(n_estimators: @hyperparameters.to_h.dig(:n_estimators))
         @booster = yield
-        @model.instance_variable_set(:@booster, @booster)
+        @xgboost_model.instance_variable_set(:@booster, @booster)
       end
 
       def validate_objective

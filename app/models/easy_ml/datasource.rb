@@ -59,7 +59,7 @@ module EasyML
       add_configuration_attributes attribute
     end
 
-    delegate :query, :in_batches, :files, :last_updated_at, :data, :needs_refresh?,
+    delegate :query, :in_batches, :files, :all_files, :last_updated_at, :data, :needs_refresh?,
              :refresh, :refresh!, :s3_access_key_id, :s3_secret_access_key, to: :adapter
 
     def self.constants

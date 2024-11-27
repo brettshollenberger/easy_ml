@@ -77,7 +77,6 @@ RSpec.describe EasyML::Models do
   let(:model_config) do
     {
       name: "My model",
-      root_dir: root_dir,
       model_type: "xgboost",
       task: task,
       dataset: dataset,
@@ -157,18 +156,16 @@ RSpec.describe EasyML::Models do
   end
 
   before(:each) do
-    dataset.cleanup
-    dataset.refresh!
+    EasyML::Cleaner.clean!
   end
 
   after(:each) do
-    dataset.cleanup
+    EasyML::Cleaner.clean!
   end
 
   def build_model(params)
     Timecop.freeze(incr_time)
     EasyML::Model.new(params.reverse_merge!(
-                        root_dir: root_dir,
                         dataset: dataset,
                         metrics: %w[mean_absolute_error],
                         task: :regression,
@@ -185,16 +182,6 @@ RSpec.describe EasyML::Models do
 
   def incr_time
     @time += 1.second
-  end
-
-  def cleanup
-    paths = [
-      File.join(root_dir, "xgboost_model.json"),
-      File.join(root_dir, "xg_boost.bin")
-    ]
-    paths.each do |path|
-      FileUtils.rm(path) if File.exist?(path)
-    end
   end
 
   describe "#promote" do
@@ -228,7 +215,7 @@ RSpec.describe EasyML::Models do
       model1.update(name: "RENAMED")
       model1.reload
       model1.hyperparameters.learning_rate = 0.01
-      model1.hyperparameters.n_estimators = 100
+      model1.hyperparameters.n_estimators = 10
       model1.hyperparameters.max_depth = 5
       model1.hyperparameters.regularization = 1.0
       model1.hyperparameters.early_stopping_rounds = 30

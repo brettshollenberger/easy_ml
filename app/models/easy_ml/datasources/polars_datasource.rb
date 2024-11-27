@@ -26,6 +26,10 @@ module EasyML
         end
       end
 
+      def all_files
+        []
+      end
+
       def files
         []
       end

@@ -46,7 +46,7 @@ module EasyML
     validates :datasource_type, presence: true
     validates :datasource_type, inclusion: { in: DATASOURCE_NAMES }
 
-    after_initialize :set_default_root_dir
+    before_save :set_default_root_dir
     after_initialize :read_adapter_from_configuration
     after_find :read_adapter_from_configuration
     before_save :store_adapter_in_configuration
@@ -60,7 +60,8 @@ module EasyML
     end
 
     delegate :query, :in_batches, :files, :all_files, :last_updated_at, :data, :needs_refresh?,
-             :refresh, :refresh!, :s3_access_key_id, :s3_secret_access_key, to: :adapter
+             :refresh, :refresh!, :should_sync?, :files_to_sync, :s3_access_key_id, :s3_secret_access_key,
+             :download_file, :clean, to: :adapter
 
     def self.constants
       {
@@ -86,10 +87,12 @@ module EasyML
 
     def before_sync
       update!(is_syncing: true)
+      adapter.before_sync
       Rails.logger.info("Starting sync for datasource #{id}")
     end
 
     def after_sync
+      adapter.after_sync
       self.schema = data.schema.reduce({}) do |h, (k, v)|
         h.tap do
           h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
@@ -125,10 +128,12 @@ module EasyML
     end
 
     def set_default_root_dir
-      self.root_dir ||= default_root_dir
+      write_attribute(:root_dir, default_root_dir) unless read_attribute(:root_dir).present?
     end
 
     def read_adapter_from_configuration
+      return unless persisted?
+
       adapter.read_from_configuration if adapter.respond_to?(:read_from_configuration)
     end
 

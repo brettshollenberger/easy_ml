@@ -116,6 +116,10 @@ module EasyML
       @locked = processed.cp(locked.dir)
     end
 
+    def locked?
+      false
+    end
+
     def locked
       return @locked if @locked
 
@@ -463,7 +467,9 @@ module EasyML
     end
 
     def load_data(segment, **kwargs)
-      if processed?
+      if locked?
+        locked.load_data(segment, **kwargs)
+      elsif processed?
         processed.load_data(segment, **kwargs)
       else
         raw.load_data(segment, **kwargs)

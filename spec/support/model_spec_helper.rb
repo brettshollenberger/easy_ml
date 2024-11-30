@@ -2,6 +2,22 @@ require "spec_helper"
 
 module ModelSpecHelper
   def self.included(base)
+    base.let(:multi_file_dir) do
+      SPEC_ROOT.join("internal/data/multi_file/raw")
+    end
+
+    base.let(:single_file_dir) do
+      SPEC_ROOT.join("internal/data/single_file/raw")
+    end
+
+    base.let(:titanic_core) do
+      SPEC_ROOT.join("internal/data/titanic/core")
+    end
+
+    base.let(:titanic_core) do
+      SPEC_ROOT.join("internal/data/titanic/extended")
+    end
+
     base.let(:preprocessing_steps) do
       {
         training: {
@@ -108,15 +124,15 @@ module ModelSpecHelper
       EasyML::Model.new(model_config)
     end
 
-    base.before(:each) do
-      dataset.cleanup
-      dataset.refresh!
-    end
+    # base.before(:each) do
+    #   dataset.cleanup
+    #   dataset.refresh!
+    # end
 
-    base.after(:each) do
-      dataset.cleanup
-      model.cleanup!
-    end
+    # base.after(:each) do
+    #   dataset.cleanup
+    #   model.cleanup!
+    # end
   end
 
   def build_model(params)
@@ -167,9 +183,25 @@ module ModelSpecHelper
     end
   end
 
-  def mock_file_upload
+  def mock_s3_upload
     allow_any_instance_of(Aws::S3::Client).to receive(:put_object) do |_s3_client, args|
       expect(args[:bucket]).to eq "my-bucket"
     end.and_return(true)
+  end
+
+  def mock_s3_download(path)
+    synced_directory = EasyML::Data::SyncedDirectory
+    allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
+    allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
+    allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
+    allow_any_instance_of(synced_directory).to receive(:files_to_sync).and_return(Dir.glob("#{path}/**/*.csv").map do |f|
+      OpenStruct.new(key: f)
+    end)
+    allow_any_instance_of(synced_directory).to receive(:download_file).and_return(true)
+
+    reader = EasyML::Data::PolarsReader.new(
+      root_dir: path
+    )
+    allow_any_instance_of(synced_directory).to receive(:reader).and_return(reader)
   end
 end

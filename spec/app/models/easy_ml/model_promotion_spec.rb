@@ -3,15 +3,19 @@ require "support/model_spec_helper"
 
 RSpec.describe EasyML::Models do
   include ModelSpecHelper
-  let(:root_dir) do
+  let(:day_1_dir) do
     SPEC_ROOT.join("internal/app/data/titanic/core")
+  end
+
+  let(:day_2_dir) do
+    SPEC_ROOT.join("internal/app/data/titanic/extended")
   end
 
   let(:datasource) do
     EasyML::Datasource.create(
       name: "Titanic Dataset",
-      datasource_type: "file",
-      root_dir: root_dir
+      datasource_type: "s3",
+      s3_bucket: "titanic"
     )
   end
 
@@ -32,6 +36,8 @@ RSpec.describe EasyML::Models do
 
   let(:dataset) do
     EasyML::Dataset.create(**dataset_config).tap do |dataset|
+      mock_s3_download(day_1_dir)
+
       dataset.refresh
       dataset.columns.find_by(name: target).update(is_target: true)
       dataset.columns.where(name: hidden_cols).update_all(hidden: true)
@@ -84,7 +90,8 @@ RSpec.describe EasyML::Models do
         booster: :gbtree,
         learning_rate: learning_rate,
         max_depth: max_depth,
-        objective: objective
+        objective: objective,
+        n_estimators: 1
       }
     }
   end
@@ -184,68 +191,141 @@ RSpec.describe EasyML::Models do
     @time += 1.second
   end
 
+  def randomize_hypers(model)
+    _, y_true = model.dataset.locked.test(split_ys: true)
+    y_true = y_true["Survived"]
+
+    model.hyperparameters.learning_rate = rand(0.01..0.1)
+    model.hyperparameters.max_depth = rand(3..10)
+    model.hyperparameters.regularization = rand(0.1..2.0)
+    model.hyperparameters.early_stopping_rounds = rand(10..50)
+    model.hyperparameters.min_child_weight = rand(1..10)
+    model.hyperparameters.subsample = rand(0.5..1.0)
+    model.hyperparameters.colsample_bytree = rand(0.5..1.0)
+    model.hyperparameters.colsample_bylevel = rand(0.5..1.0)
+    model.hyperparameters.n_estimators = 10
+    pos_cases = y_true[y_true == 1].count
+    neg_cases = y_true[y_true == 0].count
+    model.hyperparameters.scale_pos_weight = neg_cases / pos_cases.to_f
+  end
+
   describe "#promote" do
-    it "snapshots the current model for predictions", :focus do
-      mock_file_upload
+    it "uses snapshot model for prediction" do
+      mock_s3_upload
 
       @time = EST.now
       Timecop.freeze(@time)
+
+      model.fit
+      model.save
+      model.promote
+      model_v1 = model.latest_snapshot
+
+      Timecop.freeze(@time + 2.hours)
+      x_test, y_true = model.dataset.locked.test(split_ys: true)
+      y_true["Survived"]
+      preds_v1 = Polars::Series.new(model.predict(x_test))
+
+      live_predictions = model.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
+
+      # Change dataset configuration
+      model.dataset.columns.where(name: "Age").update_all(hidden: true)
+      model.dataset.refresh
+
+      # Re-train
+      randomize_hypers(model)
+      model.fit
+      model.save
+      model_v2 = model
+      model_v1.reload
+
+      # retrained model_file is distinct from v1 model_file
+      expect(model_v2.model_file.filename).to_not eq(model_v1.model_file.filename)
+
+      retrain_preds = Polars::Series.new(model_v2.predict(x_test))
+      expect(retrain_preds.sum).to_not eq(preds_v1.sum)
+
+      # The v1 model dataset configuration is NOT the same as the current model dataset
+      expect(model_v2.dataset.train.columns).to_not include("Age")
+      expect(model_v1.dataset.train.columns).to include("Age")
+
+      expect(model_v2.latest_snapshot.model_file.filename).to eq(model_v1.model_file.filename)
+      live_predictions = model_v2.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum) # Even though we use "v2" model to load the snapshot, the latest LIVE snapshot is v1
+
+      model.snapshot # Now the latest snapshot becomes v2
+      live_predictions = model.reload.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
+    end
+
+    it "uses locked dataset when running predictions", :focus do
+      mock_s3_upload
+
+      @time = EST.now
+      Timecop.freeze(@time)
+
+      model.fit
+      model.save
 
       # When model1 gets promoted, we want to have a copy of its file!
       # We're mocking the download from s3...
       #
       @mock_s3_location = SPEC_ROOT.join("saved_file.json")
       FileUtils.rm(@mock_s3_location) if File.exist?(@mock_s3_location)
-      model1 = build_model(name: "Model 1")
-      FileUtils.cp(model1.model_file.full_path, @mock_s3_location)
+      FileUtils.cp(model.model_file.full_path, @mock_s3_location)
 
-      model1.fit
-      model1.save
-      model1.promote
-      existing_model = model1.latest_snapshot
+      model.promote
+      model_v1 = model.latest_snapshot
 
       Timecop.freeze(@time + 2.hours)
-      x_test, y_true = model1.dataset.locked.test(split_ys: true)
-      y_true = y_true["Survived"]
-      preds_after_one_iteration = Polars::Series.new(model1.predict(x_test))
 
-      live_predictions = model1.latest_snapshot.predict(x_test)
-      expect(live_predictions.sum).to be_within(0.01).of(preds_after_one_iteration.sum)
+      x_test, y_true = model.dataset.locked.test(split_ys: true)
+      y_true["Survived"]
+      preds_v1 = Polars::Series.new(model.predict(x_test))
 
-      model1.update(name: "RENAMED")
-      model1.reload
-      model1.hyperparameters.learning_rate = 0.01
-      model1.hyperparameters.n_estimators = 10
-      model1.hyperparameters.max_depth = 5
-      model1.hyperparameters.regularization = 1.0
-      model1.hyperparameters.early_stopping_rounds = 30
-      model1.hyperparameters.min_child_weight = 5
-      model1.hyperparameters.subsample = 0.8
-      model1.hyperparameters.colsample_bytree = 0.8
-      model1.hyperparameters.colsample_bylevel = 0.8
-      pos_cases = y_true[y_true == 1].count
-      neg_cases = y_true[y_true == 0].count
-      model1.hyperparameters.scale_pos_weight = neg_cases / pos_cases.to_f
+      live_predictions = model.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
 
-      model1.dataset.columns.where(name: "Age").update_all(hidden: true)
-      model1.dataset.refresh
-      model1.fit
-      model1.save
-      expect(model1.model_file.filename).to_not eq(existing_model.model_file.filename)
-      preds_after_more_iterations = Polars::Series.new(model1.predict(x_test))
+      # Re-train
+      mock_s3_download(day_2_dir) # Download a DIFFERENT version of the dataset
 
-      expect(preds_after_more_iterations.sum).to_not eq(preds_after_one_iteration.sum)
+      # Change dataset configuration
+      model.dataset.columns.where(name: "Age").update_all(hidden: true)
+      Thread.current[:refresh] = true
+      model.dataset.refresh
 
-      # The old model is still live! That's what we're using!
-      expect(model1.dataset.train.columns).to_not include("Age")
-      expect(model1.latest_snapshot.model_file.filename).to eq(existing_model.model_file.filename)
-      live_predictions = model1.latest_snapshot.predict(x_test)
-      expect(live_predictions.sum).to be_within(0.01).of(preds_after_one_iteration.sum)
+      randomize_hypers(model)
+      model.fit
+      model.save
+      model_v2 = model
+      model_v1.reload
+      binding.pry
 
-      model1.snapshot
-      live_predictions = model1.reload.latest_snapshot.predict(x_test)
-      expect(live_predictions.sum).to be_within(0.01).of(preds_after_more_iterations.sum)
+      # retrained model_file is distinct from v1 model_file
+      expect(model_v2.model_file.filename).to_not eq(model_v1.model_file.filename)
+
+      retrain_preds = Polars::Series.new(model_v2.predict(x_test))
+      expect(retrain_preds.sum).to_not eq(preds_v1.sum)
+
+      # The v1 model dataset configuration is NOT the same as the current model dataset
+      expect(model_v2.dataset.train.columns).to_not include("Age")
+      expect(model_v1.dataset.train.columns).to include("Age")
+
+      expect(model_v2.latest_snapshot.model_file.filename).to eq(model_v1.model_file.filename)
+      live_predictions = model_v2.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum) # Even though we use "v2" model to load the snapshot, the latest LIVE snapshot is v1
+
+      model.snapshot # Now the latest snapshot becomes v2
+      live_predictions = model.reload.latest_snapshot.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
     end
+
+    # Expect model to allow refresh/preprocess to not affect #locked
+    # Expect snapshot#locked to be separate from model#processed
+    # Expect snapshot#predictions to eq original_model#preds
+    # Expect snapshot to download snapshot file from s3 if not local
+    # Create clean spec
   end
 
   describe "#cleanup" do
@@ -253,7 +333,7 @@ RSpec.describe EasyML::Models do
       @time = EST.now
       Timecop.freeze(@time)
       # Create test models
-      mock_file_upload
+      mock_s3_upload
       live_model_x = build_model(name: "Model X", status: :training, created_at: 1.year.ago, dataset: dataset,
                                  metrics: %w[mean_absolute_error])
       live_model_x.promote

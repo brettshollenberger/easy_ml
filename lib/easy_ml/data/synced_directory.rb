@@ -14,13 +14,18 @@ module EasyML
       attribute :cache_for, default: nil
       attribute :polars_args, :hash, default: {}
 
-      delegate :query, to: :reader
+      delegate :query, :data, to: :reader
 
       def before_sync
         return unless should_sync?
 
+        clean
+      end
+
+      def clean
         mk_dir
         clean_dir!
+        reader.clean
       end
 
       def should_sync?(force = false)
@@ -143,6 +148,7 @@ module EasyML
       end
 
       def clean_dir!
+        binding.pry
         unless root_dir.start_with?(Rails.root.to_s)
           raise "Refusing to wipe directory #{root_dir}, as it is not in the scope of #{Rails.root}"
         end

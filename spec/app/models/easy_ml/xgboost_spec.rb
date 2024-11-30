@@ -52,7 +52,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
 
       context "with saved model" do
         before do
-          mock_file_upload
+          mock_s3_upload
           model.fit
           model.save
         end

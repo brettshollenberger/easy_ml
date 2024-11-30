@@ -17,6 +17,10 @@ module EasyML
         files
       end
 
+      def clean
+        FileUtils.rm(parquet_files)
+      end
+
       def in_batches
         normalize
 
@@ -41,6 +45,10 @@ module EasyML
         polars_args[:dtypes]
       end
 
+      def data
+        query
+      end
+
       def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil,
                 descending: false)
         files ||= self.files
@@ -50,6 +58,9 @@ module EasyML
 
       def self.query(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false)
         # Process all files together when no block is given
+        files = files.select { |f| Pathname.new(f).extname == ".parquet" }
+        return Polars::DataFrame.new if files.empty?
+
         lazy_frames = files.map { |file| Polars.scan_parquet(file) }
         combined_lazy_df = Polars.concat(lazy_frames)
 

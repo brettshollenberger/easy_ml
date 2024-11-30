@@ -84,6 +84,9 @@ RSpec.configure do |config|
 end
 
 # Enable fake mode for Sidekiq testing
-Sidekiq::Testing.fake!
+# Sidekiq::Testing.fake!
+Sidekiq::Testing.server_middleware do |chain|
+  chain.add Sidekiq::Batch::Middleware::ServerMiddleware
+end
 EST = EasyML::Support::EST
 UTC = EasyML::Support::UTC

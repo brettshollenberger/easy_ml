@@ -210,7 +210,7 @@ RSpec.describe EasyML::Models do
 
   describe "#load" do
     it "loads the model from a file" do
-      mock_file_upload
+      mock_s3_upload
 
       model.name = "My Model" # Model name + version must be unique
       model.metrics = ["mean_absolute_error"]
@@ -235,7 +235,7 @@ RSpec.describe EasyML::Models do
       @time = EST.now
       Timecop.freeze(@time)
       # Create test models
-      mock_file_upload
+      mock_s3_upload
       live_model_x = build_model(name: "Model X", status: :training, created_at: 1.year.ago, dataset: dataset,
                                  metrics: %w[mean_absolute_error])
       live_model_x.promote

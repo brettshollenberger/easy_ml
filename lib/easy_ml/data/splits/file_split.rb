@@ -20,6 +20,7 @@ module EasyML
         end
 
         def cp(target_dir)
+          puts "copying #{dir} to #{target_dir}"
           FileUtils.mkdir_p(target_dir)
 
           files_to_move = Dir.glob(Pathname.new(dir).join("**/*")).select { |f| File.file?(f) }
@@ -48,7 +49,7 @@ module EasyML
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
-                          unique: nil, sort: nil, descending: false)
+                 unique: nil, sort: nil, descending: false)
           files = files_for_segment(segment)
           return split_ys ? [nil, nil] : nil if files.empty?
 
@@ -59,7 +60,7 @@ module EasyML
             unique: unique,
             drop_cols: drop_cols,
             sort: sort,
-            descending: descending,
+            descending: descending
           }.compact
 
           df = EasyML::Data::PolarsReader.query(files, **query_params)

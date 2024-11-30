@@ -3,6 +3,7 @@ require "support/model_spec_helper"
 require "support/file_spec_helper"
 
 RSpec.describe EasyML::Datasource do
+  include ModelSpecHelper
   include FileSpecHelper
 
   describe "Polars Datasource" do
@@ -49,16 +50,7 @@ RSpec.describe EasyML::Datasource do
 
   describe "S3 Datasource" do
     it "saves and loads the s3 datasource" do
-      path = SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files")
       file_spec do |_, csv_file, _|
-        synced_directory = EasyML::Data::SyncedDirectory
-        s3_datasource = EasyML::Datasources::S3Datasource
-
-        allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
-        allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
-        allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
-        allow_any_instance_of(s3_datasource).to receive(:refresh!).and_return(true)
-
         EasyML::Configuration.configure do |config|
           config.s3_access_key_id = "12345"
         end
@@ -66,10 +58,10 @@ RSpec.describe EasyML::Datasource do
         s3_datasource = EasyML::Datasource.create!(
           name: "s3 Datasource",
           datasource_type: "s3",
-          root_dir: path,
           s3_bucket: "bucket",
           s3_prefix: "raw"
         )
+        mock_s3_download(single_file_dir)
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
         expect(datasource.s3_bucket).to eq "bucket"
@@ -80,12 +72,46 @@ RSpec.describe EasyML::Datasource do
           Polars.col("loan_purpose").cast(Polars::Categorical),
           Polars.col("state").cast(Polars::Categorical)
         )
+        datasource.clean
+        datasource.refresh!
+
         expect(datasource.data).to eq(correct_file)
         expect(datasource.s3_access_key_id).to eq "12345"
         expect(datasource.configuration.keys).to include "s3_bucket"
         expect(datasource.configuration.keys).to_not include "s3_access_key_id"
         expect(datasource.configuration.keys).to_not include "s3_secret_access_key"
       end
+    end
+
+    it "refreshes synchronously" do
+      mock_s3_download(multi_file_dir)
+      s3_datasource = EasyML::Datasource.create!(
+        name: "s3 Datasource",
+        datasource_type: "s3",
+        root_dir: multi_file_dir,
+        s3_bucket: "bucket"
+      )
+      s3_datasource.clean
+      expect(s3_datasource.data.count).to eq 0
+      s3_datasource.refresh
+      expect(s3_datasource.data.count).to eq 16
+    end
+
+    it "refreshes asynchronously" do
+      mock_s3_download(multi_file_dir)
+      s3_datasource = EasyML::Datasource.create!(
+        name: "s3 Datasource",
+        datasource_type: "s3",
+        root_dir: multi_file_dir,
+        s3_bucket: "bucket"
+      )
+      s3_datasource.clean
+      expect(s3_datasource.data.count).to eq 0
+
+      s3_datasource.refresh_async
+      expect(EasyML::SyncDatasourceWorker.jobs.count).to eq 1
+      Sidekiq::Worker.drain_all
+      expect(s3_datasource.data.count).to eq 16
     end
   end
 

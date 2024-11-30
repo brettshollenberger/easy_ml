@@ -28,5 +28,9 @@
 module EasyML
   class DatasetHistory < ActiveRecord::Base
     include Historiographer::History
+
+    def locked?
+      true
+    end
   end
 end

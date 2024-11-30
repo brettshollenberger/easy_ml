@@ -16,7 +16,8 @@ module EasyML
 
       add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :cache_for
 
-      delegate :query, :s3_access_key_id, :s3_secret_access_key, to: :synced_directory
+      delegate :query, :data, :s3_access_key_id, :s3_secret_access_key, :before_sync, :after_sync, :clean,
+               to: :synced_directory
 
       def in_batches(&block)
         synced_directory.in_batches(&block)
@@ -49,19 +50,6 @@ module EasyML
       def refresh!
         datasource.syncing do
           synced_directory.sync!
-        end
-      end
-
-      def data
-        return @data if @data.present?
-
-        dfs = []
-        in_batches do |df|
-          dfs.push(df)
-        end
-
-        ::Polars.concat(dfs).tap do |data|
-          @data = data
         end
       end
 

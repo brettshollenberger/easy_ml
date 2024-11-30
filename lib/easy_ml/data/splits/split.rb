@@ -24,6 +24,10 @@ module EasyML
           raise NotImplementedError, "Subclasses must implement #read"
         end
 
+        def data(**kwargs, &block)
+          load_data(:all, **kwargs, &block)
+        end
+
         def train(**kwargs, &block)
           load_data(:train, **kwargs, &block)
         end

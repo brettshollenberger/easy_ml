@@ -3,6 +3,8 @@ require "support/model_spec_helper"
 require "support/file_spec_helper"
 
 RSpec.describe EasyML::Datasource do
+  include ModelSpecHelper
+
   let(:today) do
     EST.parse("2024-10-01")
   end
@@ -282,46 +284,66 @@ RSpec.describe EasyML::Datasource do
   end
 
   describe "Refreshing Dataset" do
-    let(:datasource) { polars_datasource }
+    describe "S3 Datasource" do
+      let(:datasource) { s3_datasource }
 
-    it "returns true when never refreshed (refreshed_at is nil)" do
-      expect(dataset.refreshed_at).to be_nil
-      expect(dataset).to be_needs_refresh
+      it "refreshes synchronously" do
+        mock_s3_download(multi_file_dir)
+        dataset.refresh
+        expect(dataset.data.count).to eq 16
+      end
+
+      it "refreshes asynchronously" do
+        mock_s3_download(multi_file_dir)
+        dataset.refresh_async
+        expect(EasyML::RefreshDatasetWorker.jobs.count).to eq 1
+        Sidekiq::Worker.drain_all
+        expect(dataset.data.count).to eq 16
+      end
     end
 
-    context "when previously refreshed" do
-      before do
-        dataset.refresh!
+    describe "Polars datasource" do
+      let(:datasource) { polars_datasource }
+
+      it "returns true when never refreshed (refreshed_at is nil)" do
+        expect(dataset.refreshed_at).to be_nil
+        expect(dataset).to be_needs_refresh
       end
 
-      it "returns true when columns have been updated" do
-        # Travel forward in time to make the update
-        Timecop.travel 1.minute do
-          dataset.columns.find_by(name: "rev").update!(is_target: true)
+      context "when previously refreshed" do
+        before do
+          dataset.refresh!
         end
 
-        expect(dataset).to be_needs_refresh
-      end
+        it "returns true when columns have been updated" do
+          # Travel forward in time to make the update
+          Timecop.travel 1.minute do
+            dataset.columns.find_by(name: "rev").update!(is_target: true)
+          end
 
-      it "returns true when transforms have been updated" do
-        Timecop.travel 1.minute do
-          EasyML::Transform.create!(
-            dataset: dataset,
-            transform_class: Age,
-            transform_method: :age
-          )
+          expect(dataset).to be_needs_refresh
         end
 
-        expect(dataset).to be_needs_refresh
-      end
+        it "returns true when transforms have been updated" do
+          Timecop.travel 1.minute do
+            EasyML::Transform.create!(
+              dataset: dataset,
+              transform_class: Age,
+              transform_method: :age
+            )
+          end
 
-      it "returns true when datasource needs refresh" do
-        allow(dataset.datasource).to receive(:needs_refresh?).and_return(true)
-        expect(dataset).to be_needs_refresh
-      end
+          expect(dataset).to be_needs_refresh
+        end
 
-      it "returns false when nothing has changed" do
-        expect(dataset).not_to be_needs_refresh
+        it "returns true when datasource needs refresh" do
+          allow(dataset.datasource).to receive(:needs_refresh?).and_return(true)
+          expect(dataset).to be_needs_refresh
+        end
+
+        it "returns false when nothing has changed" do
+          expect(dataset).not_to be_needs_refresh
+        end
       end
     end
   end

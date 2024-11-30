@@ -3,7 +3,7 @@ id,rev,annual_revenue,created_date,loan_purpose,drop_me,state
 2,0,400,2021-01-01,payroll,false,PENNSYLVANIA
 3,100,5000,2022-02-02,expansion,true,DELAWARE
 4,200,10000,2024-01-01,buying_an_existing_business,false,WISCONSIN
-5,0,20000,2024-06-15,working_capital,true,CALIFORNIA
-6,300,30,2024-07-01,working_capital,false,FL
-7,400,,2024-08-01,payroll,true,FLORIDA
+5,0,20000,2024-03-15,working_capital,true,CALIFORNIA
+6,300,30,2024-04-01,working_capital,false,FL
+7,400,,2024-06-01,payroll,true,FLORIDA
 8,500,,2024-09-01,payroll,true,RANDOM

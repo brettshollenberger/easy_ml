@@ -14,7 +14,6 @@ module EasyML
         datasource.after_sync if files.nil?
       rescue StandardError => e
         handle_error(datasource, e)
-        create_event(datasource, e)
       end
     end
 
@@ -48,7 +47,7 @@ module EasyML
     private
 
     def sync_datasource(datasource, force = false)
-      return unless datasource.should_sync? || force
+      return unless datasource.needs_refresh? || force
 
       datasource.before_sync
       files = datasource.files_to_sync

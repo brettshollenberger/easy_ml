@@ -1,0 +1,9 @@
+id,rev,annual_revenue,created_date,loan_purpose,drop_me,state
+9,10,700,2021-02-01,payroll,TRUE,PA
+10,10,900,2021-03-01,payroll,FALSE,PENNSYLVANIA
+11,10,10,2022-05-02,expansion,TRUE,DELAWARE
+12,10,0,2024-02-01,buying_an_existing_business,FALSE,WISCONSIN
+13,100,900,2024-04-15,working_capital,TRUE,CALIFORNIA
+14,0,200,2024-05-01,working_capital,FALSE,FL
+15,0,0,2024-07-01,payroll,TRUE,FLORIDA
+16,0,1,2024-09-15,payroll,TRUE,RANDOM

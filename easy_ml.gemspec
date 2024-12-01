@@ -37,7 +37,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "numo-narray"
   spec.add_runtime_dependency "numpy"
   spec.add_runtime_dependency "parallel"
-  spec.add_runtime_dependency "polars-df"
+  spec.add_runtime_dependency "polars-df", "~> 0.15.0"
   spec.add_runtime_dependency "pycall"
   spec.add_runtime_dependency "rails"
   spec.add_runtime_dependency "red-optuna"

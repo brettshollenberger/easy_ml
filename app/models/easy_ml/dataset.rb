@@ -326,6 +326,7 @@ module EasyML
     end
 
     def cleanup
+      datasource.clean
       raw.cleanup
       processed.cleanup
     end
@@ -467,9 +468,7 @@ module EasyML
     end
 
     def load_data(segment, **kwargs)
-      if locked?
-        locked.load_data(segment, **kwargs)
-      elsif processed?
+      if processed?
         processed.load_data(segment, **kwargs)
       else
         raw.load_data(segment, **kwargs)

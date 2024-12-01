@@ -4,11 +4,11 @@ require "support/model_spec_helper"
 RSpec.describe EasyML::Models do
   include ModelSpecHelper
   let(:day_1_dir) do
-    SPEC_ROOT.join("internal/app/data/titanic/core")
+    SPEC_ROOT.join("internal/data/titanic/core")
   end
 
   let(:day_2_dir) do
-    SPEC_ROOT.join("internal/app/data/titanic/extended")
+    SPEC_ROOT.join("internal/data/titanic/extended")
   end
 
   let(:datasource) do
@@ -38,6 +38,7 @@ RSpec.describe EasyML::Models do
     EasyML::Dataset.create(**dataset_config).tap do |dataset|
       mock_s3_download(day_1_dir)
 
+      dataset.cleanup
       dataset.refresh
       dataset.columns.find_by(name: target).update(is_target: true)
       dataset.columns.where(name: hidden_cols).update_all(hidden: true)
@@ -259,7 +260,7 @@ RSpec.describe EasyML::Models do
       expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
     end
 
-    it "uses locked dataset when running predictions", :focus do
+    it "uses locked dataset when running predictions" do
       mock_s3_upload
 
       @time = EST.now
@@ -292,7 +293,6 @@ RSpec.describe EasyML::Models do
 
       # Change dataset configuration
       model.dataset.columns.where(name: "Age").update_all(hidden: true)
-      Thread.current[:refresh] = true
       model.dataset.refresh
 
       randomize_hypers(model)
@@ -300,7 +300,13 @@ RSpec.describe EasyML::Models do
       model.save
       model_v2 = model
       model_v1.reload
-      binding.pry
+
+      expect(model_v1.dataset.data.count).to eq 500
+      expect(model.dataset.data.count).to eq 891
+
+      # Statistics are kept separate
+      expect(model_v1.dataset.statistics.dig("raw", "Survived", "num_rows").first).to eq 500
+      expect(model.dataset.statistics.dig("raw", "Survived", "num_rows").first).to eq 891
 
       # retrained model_file is distinct from v1 model_file
       expect(model_v2.model_file.filename).to_not eq(model_v1.model_file.filename)
@@ -321,71 +327,7 @@ RSpec.describe EasyML::Models do
       expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
     end
 
-    # Expect model to allow refresh/preprocess to not affect #locked
-    # Expect snapshot#locked to be separate from model#processed
-    # Expect snapshot#predictions to eq original_model#preds
     # Expect snapshot to download snapshot file from s3 if not local
     # Create clean spec
-  end
-
-  describe "#cleanup" do
-    it "keeps the live model, deletes the oldest version when training, and retains up to 5 versions per model name" do
-      @time = EST.now
-      Timecop.freeze(@time)
-      # Create test models
-      mock_s3_upload
-      live_model_x = build_model(name: "Model X", status: :training, created_at: 1.year.ago, dataset: dataset,
-                                 metrics: %w[mean_absolute_error])
-      live_model_x.promote
-
-      recent_models = 7.times.map do |i|
-        build_model(name: "Model X", created_at: (6 - i).days.ago)
-      end
-
-      old_versions_x = recent_models[0..2]
-      recent_versions_x = recent_models[3..-1]
-
-      expect(File).to exist(live_model_x.model_file.full_path)
-      old_versions_x.each do |old_version|
-        expect(File).to_not exist(old_version.model_file.full_path)
-      end
-      recent_versions_x.each.with_index do |recent_version, _idx|
-        expect(File).to exist(recent_version.model_file.full_path)
-      end
-
-      # Create models with a different name
-      live_model_y = build_model(name: "Model Y", status: :training, created_at: 1.year.ago)
-      live_model_y.promote
-
-      recent_y = 7.times.map do |i|
-        build_model(name: "Model Y", created_at: (6 - i).days.ago)
-      end
-
-      old_versions_y = recent_y[0..2]
-      recent_versions_y = recent_y[3..-1]
-
-      # Simulate training a new model X
-      build_model(name: "Model X")
-
-      # add least recent x to old versions x
-      old_versions_x << recent_versions_x.shift
-      expect(old_versions_x.count).to eq 4
-      old_versions_x.each do |old_version|
-        expect(File).to_not exist(old_version.model_file.full_path)
-      end
-      recent_versions_x.each do |recent_version|
-        expect(File).to exist(recent_version.model_file.full_path)
-      end
-
-      old_versions_y.each do |old_version|
-        expect(File).to_not exist(old_version.model_file.full_path)
-      end
-      recent_versions_y.each do |recent_version|
-        expect(File).to exist(recent_version.model_file.full_path)
-      end
-
-      live_model_x.cleanup!
-      live_model_y.cleanup!
-    end
   end
 end

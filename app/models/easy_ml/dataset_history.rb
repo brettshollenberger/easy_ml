@@ -32,5 +32,9 @@ module EasyML
     def locked?
       true
     end
+
+    def load_data(segment, **kwargs)
+      locked.load_data(segment, **kwargs)
+    end
   end
 end

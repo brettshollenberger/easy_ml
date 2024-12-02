@@ -112,7 +112,7 @@ module EasyML
       def parquet_files
         Dir.glob(File.join(parquet_dir, "**/*.{parquet}")).concat(
           Dir.glob(File.join(root_dir, "**/*.{parquet}"))
-        )
+        ).uniq
       end
 
       def parquet_dir

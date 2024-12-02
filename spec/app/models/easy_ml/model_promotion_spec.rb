@@ -211,10 +211,10 @@ RSpec.describe EasyML::Models do
   end
 
   describe "#promote" do
-    it "uses snapshot model for prediction" do
+    it "uses snapshot model for prediction", :focus do
       mock_s3_upload
 
-      @time = EST.now
+      @time = EasyML::Support::EST.now
       Timecop.freeze(@time)
 
       model.fit
@@ -263,7 +263,7 @@ RSpec.describe EasyML::Models do
     it "uses locked dataset when running predictions" do
       mock_s3_upload
 
-      @time = EST.now
+      @time = EasyML::Support::EST.now
       Timecop.freeze(@time)
 
       model.fit

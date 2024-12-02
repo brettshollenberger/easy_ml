@@ -6,7 +6,7 @@ RSpec.describe EasyML::Datasource do
   include ModelSpecHelper
 
   let(:today) do
-    EST.parse("2024-10-01")
+    EasyML::Support::EST.parse("2024-10-01")
   end
 
   before(:each) do

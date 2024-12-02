@@ -10,8 +10,6 @@ module EasyML
       attribute :schema
 
       def normalize
-        return files if all_parquet? && !refresh
-
         learn_dataset
         convert_to_parquet
         files
@@ -112,17 +110,19 @@ module EasyML
       end
 
       def parquet_files
-        Dir.glob(File.join(parquet_dir, "**/*.{parquet}"))
+        Dir.glob(File.join(parquet_dir, "**/*.{parquet}")).concat(
+          Dir.glob(File.join(root_dir, "**/*.{parquet}"))
+        )
       end
 
       def parquet_dir
-        converted_dir = Pathname.new(root_dir).join("parquet")
-        FileUtils.mkdir_p(converted_dir)
-        converted_dir
+        Pathname.new(root_dir).join("parquet")
       end
 
       def convert_to_parquet
         return files if all_parquet?
+
+        FileUtils.mkdir_p(parquet_dir)
 
         puts "Converting to Parquet..."
 
@@ -150,6 +150,8 @@ module EasyML
       end
 
       def learn_dataset
+        return schema if schema.present?
+
         puts "Normalizing schema..."
         self.num_rows = 0
         first_file = read_file(files.first)

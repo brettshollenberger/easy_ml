@@ -28,7 +28,7 @@ RSpec.describe EasyML::Data::Preprocessor do
       datasource: @datasource,
       splitter_attributes: {
         splitter_type: "EasyML::DateSplitter",
-        today: EST.parse("2024-10-01"),
+        today: EasyML::Support::EST.parse("2024-10-01"),
         date_col: "created_date",
         months_test: 2,
         months_valid: 2

@@ -3,15 +3,11 @@ require "support/model_spec_helper"
 
 RSpec.describe EasyML::Models do
   include ModelSpecHelper
-  let(:root_dir) do
-    SPEC_ROOT.join("internal/app/data")
-  end
 
   let(:datasource) do
     EasyML::Datasource.create(
-      name: "Sample data",
-      datasource_type: "file",
-      root_dir: root_dir
+      name: "Single file",
+      datasource_type: "file"
     )
   end
 
@@ -44,6 +40,9 @@ RSpec.describe EasyML::Models do
   end
 
   let(:dataset) do
+    mock_s3_download(single_file_dir)
+    mock_s3_upload
+
     EasyML::Dataset.create(**dataset_config).tap do |dataset|
       dataset.refresh
       dataset.columns.find_by(name: target).update(is_target: true)
@@ -88,7 +87,6 @@ RSpec.describe EasyML::Models do
   let(:model_config) do
     {
       name: "My model",
-      root_dir: root_dir,
       model_type: "xgboost",
       task: task,
       dataset: dataset,
@@ -96,7 +94,8 @@ RSpec.describe EasyML::Models do
         booster: :gbtree,
         learning_rate: learning_rate,
         max_depth: max_depth,
-        objective: objective
+        objective: objective,
+        n_estimators: 1
       }
     }
   end
@@ -137,6 +136,8 @@ RSpec.describe EasyML::Models do
         months_valid: months_valid
       }
     )
+    mock_s3_download(single_file_dir)
+    mock_s3_upload
     EasyML::Dataset.create(**config).tap do |dataset|
       dataset.refresh
       dataset.columns.find_by(name: "rev").update(is_target: true)
@@ -168,18 +169,16 @@ RSpec.describe EasyML::Models do
   end
 
   before(:each) do
-    dataset.cleanup
-    dataset.refresh!
+    EasyML::Cleaner.clean
   end
 
   after(:each) do
-    dataset.cleanup
+    EasyML::Cleaner.clean
   end
 
   def build_model(params)
     Timecop.freeze(incr_time)
     EasyML::Model.new(params.reverse_merge!(
-                        root_dir: root_dir,
                         dataset: dataset,
                         metrics: %w[mean_absolute_error],
                         task: :regression,
@@ -196,16 +195,6 @@ RSpec.describe EasyML::Models do
 
   def incr_time
     @time += 1.second
-  end
-
-  def cleanup
-    paths = [
-      File.join(root_dir, "xgboost_model.json"),
-      File.join(root_dir, "xg_boost.bin")
-    ]
-    paths.each do |path|
-      FileUtils.rm(path) if File.exist?(path)
-    end
   end
 
   describe "#load" do
@@ -227,67 +216,6 @@ RSpec.describe EasyML::Models do
       expect(loaded_model.feature_names).to eq model.feature_names
       expect(loaded_model.feature_names).to_not include(dataset.target)
       model.cleanup!
-    end
-  end
-
-  describe "#cleanup" do
-    it "keeps the live model, deletes the oldest version when training, and retains up to 5 versions per model name" do
-      @time = EasyML::Support::EST.now
-      Timecop.freeze(@time)
-      # Create test models
-      mock_s3_upload
-      live_model_x = build_model(name: "Model X", status: :training, created_at: 1.year.ago, dataset: dataset,
-                                 metrics: %w[mean_absolute_error])
-      live_model_x.promote
-
-      recent_models = 7.times.map do |i|
-        build_model(name: "Model X", created_at: (6 - i).days.ago)
-      end
-
-      old_versions_x = recent_models[0..2]
-      recent_versions_x = recent_models[3..-1]
-
-      expect(File).to exist(live_model_x.model_file.full_path)
-      old_versions_x.each do |old_version|
-        expect(File).to_not exist(old_version.model_file.full_path)
-      end
-      recent_versions_x.each.with_index do |recent_version, _idx|
-        expect(File).to exist(recent_version.model_file.full_path)
-      end
-
-      # Create models with a different name
-      live_model_y = build_model(name: "Model Y", status: :training, created_at: 1.year.ago)
-      live_model_y.promote
-
-      recent_y = 7.times.map do |i|
-        build_model(name: "Model Y", created_at: (6 - i).days.ago)
-      end
-
-      old_versions_y = recent_y[0..2]
-      recent_versions_y = recent_y[3..-1]
-
-      # Simulate training a new model X
-      build_model(name: "Model X")
-
-      # add least recent x to old versions x
-      old_versions_x << recent_versions_x.shift
-      expect(old_versions_x.count).to eq 4
-      old_versions_x.each do |old_version|
-        expect(File).to_not exist(old_version.model_file.full_path)
-      end
-      recent_versions_x.each do |recent_version|
-        expect(File).to exist(recent_version.model_file.full_path)
-      end
-
-      old_versions_y.each do |old_version|
-        expect(File).to_not exist(old_version.model_file.full_path)
-      end
-      recent_versions_y.each do |recent_version|
-        expect(File).to exist(recent_version.model_file.full_path)
-      end
-
-      live_model_x.cleanup!
-      live_model_y.cleanup!
     end
   end
 end

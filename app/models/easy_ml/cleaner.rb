@@ -56,11 +56,19 @@ module EasyML
     end
 
     def model_files_to_keep
-      active_models.map(&:model_file).compact.map(&:full_path).uniq
+      if Rails.env.test?
+        []
+      else
+        active_models.map(&:model_file).compact.map(&:full_path).uniq
+      end
     end
 
     def dataset_files_to_keep
-      EasyML::Dataset.all.flat_map(&:files).uniq
+      if Rails.env.test?
+        []
+      else
+        EasyML::Dataset.all.flat_map(&:files).uniq
+      end
     end
 
     def datasource_files_to_keep

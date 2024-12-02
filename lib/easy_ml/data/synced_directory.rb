@@ -22,6 +22,10 @@ module EasyML
         clean
       end
 
+      def after_sync
+        reader.normalize
+      end
+
       def clean
         mk_dir
         clean_dir!

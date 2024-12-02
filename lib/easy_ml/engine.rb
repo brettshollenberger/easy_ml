@@ -22,6 +22,10 @@ module EasyML
   class Engine < Rails::Engine
     isolate_namespace EasyML
 
+    def root_dir
+      Rails.root.join("easy_ml")
+    end
+
     config.autoload_paths = config.autoload_paths.dup << root.join("app/models")
     config.eager_load_paths = config.eager_load_paths.dup << root.join("app/models")
     paths["lib"] << EasyML::Engine.root.join("lib")

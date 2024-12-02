@@ -32,16 +32,12 @@ module EasyML
     private
 
     def files_to_keep_for_dir(dir)
-      files_to_keep.select { |f| f.start_with?(dir) }
+      files_to_keep.map(&:to_s).select { |f| f.start_with?(dir) }
     end
 
     def dirs_to_clean
-      model_dirs.flat_map do |dir|
-        [
-          dir,
-          dir.gsub("models", "datasets"),
-          dir.gsub("models", "datasources")
-        ]
+      %w[models datasets datasources].map do |dir|
+        EasyML::Engine.root_dir.join(dir)
       end
     end
 
@@ -64,11 +60,15 @@ module EasyML
     end
 
     def dataset_files_to_keep
-      active_models.map(&:dataset).map(&:root_dir).compact.uniq
+      EasyML::Dataset.all.flat_map(&:files).uniq
     end
 
     def datasource_files_to_keep
-      active_models.map(&:dataset).map(&:datasource).flat_map(&:all_files).compact.uniq
+      if Rails.env.test?
+        Dir.glob(EasyML::Engine.root_dir.glob("datasources/**/*.{csv}")).uniq
+      else
+        EasyML::Datasource.all.flat_map(&:files).uniq
+      end
     end
   end
 end

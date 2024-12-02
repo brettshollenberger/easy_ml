@@ -110,19 +110,11 @@ module EasyML
       end
 
       def parquet_files
-        Dir.glob(File.join(parquet_dir, "**/*.{parquet}")).concat(
-          Dir.glob(File.join(root_dir, "**/*.{parquet}"))
-        ).uniq
-      end
-
-      def parquet_dir
-        Pathname.new(root_dir).join("parquet")
+        Dir.glob(File.join(root_dir, "**/*.{parquet}"))
       end
 
       def convert_to_parquet
         return files if all_parquet?
-
-        FileUtils.mkdir_p(parquet_dir)
 
         puts "Converting to Parquet..."
 
@@ -134,7 +126,7 @@ module EasyML
           filename = Pathname.new(path).basename
           ext = Pathname.new(path).extname.gsub(/\./, "")
           filename = filename.to_s.gsub(Regexp.new(ext), "parquet")
-          path = parquet_dir.join(filename).to_s
+          path = File.join(root_dir, filename).to_s
           df.write_parquet(path)
         end
       end

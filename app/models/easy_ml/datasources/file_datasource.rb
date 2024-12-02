@@ -37,6 +37,14 @@ module EasyML
         @combined_df = combined_df
       end
 
+      def exists?
+        Dir.glob(File.join(datasource.root_dir, "**/*.{csv,parquet}")).any?
+      end
+
+      def error_not_exists
+        "Expected to find datasource files at #{datasource.root_dir}"
+      end
+
       private
 
       def reader

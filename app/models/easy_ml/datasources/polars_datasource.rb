@@ -46,6 +46,14 @@ module EasyML
         datasource.df
       end
 
+      def exists?
+        df.present?
+      end
+
+      def error_not_exists
+        "Must have a dataframe"
+      end
+
       def store_in_configuration
         return unless df
 

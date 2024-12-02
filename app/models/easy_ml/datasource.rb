@@ -47,7 +47,7 @@ module EasyML
     validates :datasource_type, inclusion: { in: DATASOURCE_NAMES }
     validate :validate_datasource_exists
 
-    before_save :set_default_root_dir
+    before_save :set_root_dir
     after_initialize :read_adapter_from_configuration
     after_find :read_adapter_from_configuration
     before_save :store_adapter_in_configuration
@@ -112,8 +112,10 @@ module EasyML
       end
     end
 
-    def root_dir=(_value)
-      raise "Cannot set root_dir directly! Root dir is configured automatically."
+    def root_dir=(value)
+      raise "Cannot override value of root_dir!" unless value.to_s == default_root_dir.to_s
+
+      write_attribute(:root_dir, value)
     end
 
     private
@@ -132,7 +134,7 @@ module EasyML
       EasyML::Engine.root_dir.join("datasources").join(folder)
     end
 
-    def set_default_root_dir
+    def set_root_dir
       write_attribute(:root_dir, default_root_dir) unless read_attribute(:root_dir).present?
     end
 

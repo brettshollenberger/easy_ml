@@ -6,6 +6,10 @@ RSpec.describe EasyML::Datasource do
   include ModelSpecHelper
   include FileSpecHelper
 
+  after(:each) do
+    EasyML::Cleaner.clean
+  end
+
   describe "Polars Datasource" do
     let(:df) do
       df = Polars::DataFrame.new({
@@ -48,7 +52,7 @@ RSpec.describe EasyML::Datasource do
     end
   end
 
-  describe "S3 Datasource", :focus do
+  describe "S3 Datasource" do
     it "saves and loads the s3 datasource" do
       file_spec do |_, csv_file, _|
         EasyML::Configuration.configure do |config|
@@ -109,7 +113,6 @@ RSpec.describe EasyML::Datasource do
       s3_datasource.refresh_async
       expect(EasyML::SyncDatasourceWorker.jobs.count).to eq 1
       Sidekiq::Worker.drain_all
-      binding.pry
       expect(s3_datasource.data.count).to eq 16
     end
   end

@@ -32,7 +32,7 @@ module EasyML
     private
 
     def files_to_keep_for_dir(dir)
-      files_to_keep.map(&:to_s).select { |f| f.start_with?(dir) }
+      files_to_keep.map(&:to_s).select { |f| f.start_with?(dir.to_s) }
     end
 
     def dirs_to_clean

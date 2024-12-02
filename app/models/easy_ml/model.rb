@@ -87,6 +87,10 @@ module EasyML
       cleanup
     end
 
+    def feature_names
+      model_adapter.feature_names
+    end
+
     def cleanup!
       get_model_file&.cleanup!
     end

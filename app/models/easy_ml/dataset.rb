@@ -417,6 +417,10 @@ module EasyML
       end
     end
 
+    def files
+      [raw, processed, locked].flat_map(&:files)
+    end
+
     private
 
     def download_remote_files

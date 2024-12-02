@@ -109,6 +109,10 @@ module EasyML
           files_for_segment(segment).count
         end
 
+        def files
+          files_for_segment("all")
+        end
+
         private
 
         def df(path)

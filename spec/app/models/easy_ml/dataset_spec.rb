@@ -10,30 +10,29 @@ RSpec.describe EasyML::Datasource do
   end
 
   before(:each) do
-    dataset.cleanup
+    EasyML::Cleaner.clean
   end
 
   after(:each) do
-    dataset.cleanup
+    EasyML::Cleaner.clean
   end
 
   let(:dir) do
-    SPEC_ROOT.join("lib/easy_ml/data/dataset/data/files/raw")
+    single_file_dir
   end
 
   let(:s3_datasource) do
     EasyML::Datasource.create(
-      name: "S3",
+      name: "Single File",
       datasource_type: "s3",
       s3_bucket: "abc",
-      s3_prefix: nil,
-      root_dir: dir
+      s3_prefix: nil
     )
   end
 
   let(:file_datasource) do
     EasyML::Datasource.create(
-      name: "Local dir",
+      name: "Single File",
       datasource_type: "file",
       root_dir: dir
     )
@@ -80,17 +79,14 @@ RSpec.describe EasyML::Datasource do
     EasyML::Data::SyncedDirectory
   end
 
-  def mock_s3_datasource
-    allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
-    allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
-    allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
-    allow_any_instance_of(EasyML::Datasources::S3Datasource).to receive(:refresh!).and_return(true)
-  end
-
   describe "File datasource" do
     let(:datasource) { file_datasource }
 
     it "saves and reloads the dataset" do
+      # Although this is a local datasource, we backup all datasets to S3
+      mock_s3_download(single_file_dir)
+      mock_s3_upload
+
       dataset.refresh!
       dataset.columns.find_by(name: "rev").update(is_target: true)
 
@@ -289,12 +285,16 @@ RSpec.describe EasyML::Datasource do
 
       it "refreshes synchronously" do
         mock_s3_download(multi_file_dir)
+        mock_s3_upload
+
         dataset.refresh
         expect(dataset.data.count).to eq 16
       end
 
       it "refreshes asynchronously" do
         mock_s3_download(multi_file_dir)
+        mock_s3_upload
+
         dataset.refresh_async
         expect(EasyML::RefreshDatasetWorker.jobs.count).to eq 1
         Sidekiq::Worker.drain_all
@@ -354,15 +354,10 @@ RSpec.describe EasyML::Datasource do
       EasyML::Data::SyncedDirectory
     end
 
-    def mock_s3_datasource
-      allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
-      allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
-      allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
-      allow_any_instance_of(EasyML::Datasources::S3Datasource).to receive(:refresh!).and_return(true)
-    end
-
     it "splits files" do
-      mock_s3_datasource
+      mock_s3_download(single_file_dir)
+      mock_s3_upload
+
       dataset.refresh!
       expect(dataset.train.count).to eq 6
       expect(dataset.test.count).to eq 1
@@ -371,7 +366,9 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "splits targets" do
-      mock_s3_datasource
+      mock_s3_download(single_file_dir)
+      mock_s3_upload
+
       dataset.refresh!
       dataset.columns.find_by(name: "rev").update(is_target: true)
       dataset.refresh!
@@ -384,7 +381,9 @@ RSpec.describe EasyML::Datasource do
     let(:datasource) { s3_datasource }
 
     it "splits files" do
-      mock_s3_datasource
+      mock_s3_download(single_file_dir)
+      mock_s3_upload
+
       dataset.refresh!
       expect(dataset.train.count).to eq 6
       expect(dataset.test.count).to eq 1
@@ -393,7 +392,9 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "splits targets" do
-      mock_s3_datasource
+      mock_s3_download(single_file_dir)
+      mock_s3_upload
+
       dataset.refresh!
       dataset.columns.find_by(name: "rev").update(is_target: true)
       dataset.refresh!
@@ -406,7 +407,9 @@ RSpec.describe EasyML::Datasource do
     let(:datasource) { s3_datasource }
 
     it "drops columns" do
-      mock_s3_datasource
+      mock_s3_download(single_file_dir)
+      mock_s3_upload
+
       dataset.refresh!
       expect(dataset.train.columns).to include("drop_me")
 
@@ -418,7 +421,9 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "drops rows" do
-      mock_s3_datasource
+      mock_s3_download(single_file_dir)
+      mock_s3_upload
+
       dataset.refresh!
       expect(dataset.data.count).to eq 8
       expect(dataset.data[dataset.data["annual_revenue"].is_null].count).to eq 2

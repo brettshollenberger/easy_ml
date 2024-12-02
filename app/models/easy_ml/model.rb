@@ -62,6 +62,7 @@ module EasyML
     }
     validates :model_type, inclusion: { in: MODEL_NAMES }
     validates :dataset_id, presence: true
+    before_save :set_root_dir
 
     def hyperparameters
       @hyperparams ||= model_adapter.build_hyperparameters(@hyperparameters)
@@ -208,6 +209,10 @@ module EasyML
         dataset.target.present? ? nil : "Dataset has no target",
         !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource"
       ]
+    end
+
+    def set_root_dir
+      write_attribute(:root_dir, root_dir)
     end
 
     def root_dir

@@ -22,8 +22,8 @@ module EasyML
   class Engine < Rails::Engine
     isolate_namespace EasyML
 
-    config.autoload_paths << root.join("app/models")
-    config.eager_load_paths << root.join("app/models")
+    config.autoload_paths = config.autoload_paths.dup << root.join("app/models")
+    config.eager_load_paths = config.eager_load_paths.dup << root.join("app/models")
     paths["lib"] << EasyML::Engine.root.join("lib")
     paths["lib"].autoload!
 
@@ -36,7 +36,7 @@ module EasyML
       Polars.enable_string_cache
     end
 
-    unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate].include?(ARGV.first)
+    unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate easy_ml:migration].include?(ARGV.first)
       config.after_initialize do
         Dir.glob(
           File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)

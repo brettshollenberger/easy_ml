@@ -3,6 +3,10 @@ module EasyML
     class FileDatasource < BaseDatasource
       delegate :query, to: :reader
 
+      def after_sync
+        reader.normalize
+      end
+
       def in_batches(&block)
         reader.in_batches(&block)
       end

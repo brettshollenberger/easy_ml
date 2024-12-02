@@ -19,7 +19,7 @@ RSpec.describe EasyML::Models do
   let(:date_col) { "created_date" }
   let(:months_test) { 2 }
   let(:months_valid) { 2 }
-  let(:today) { EST.parse("2024-06-01") }
+  let(:today) { EasyML::Support::EST.parse("2024-06-01") }
 
   let(:dataset_config) do
     {
@@ -232,7 +232,7 @@ RSpec.describe EasyML::Models do
 
   describe "#cleanup" do
     it "keeps the live model, deletes the oldest version when training, and retains up to 5 versions per model name" do
-      @time = EST.now
+      @time = EasyML::Support::EST.now
       Timecop.freeze(@time)
       # Create test models
       mock_s3_upload

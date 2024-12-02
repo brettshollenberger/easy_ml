@@ -103,13 +103,13 @@ RSpec.describe EasyML::Orchestrator do
     end
 
     it "forks inference model if no training model exists" do
-      Timecop.freeze(EST.now)
+      Timecop.freeze(EasyML::Support::EST.now)
       model.model_file = model_file
       model.version = model_file.filename.gsub(/\.json/, "")
       model.save
       model.promote
 
-      Timecop.freeze(EST.now + 3.minutes)
+      Timecop.freeze(EasyML::Support::EST.now + 3.minutes)
       forked = described_class.fork(model.name)
       expect(forked.status).to eq "training"
       expect(forked.name).to eq model.name

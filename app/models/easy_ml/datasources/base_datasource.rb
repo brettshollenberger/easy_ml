@@ -6,6 +6,8 @@ module EasyML
 
       attr_reader :datasource
 
+      def clean; end
+
       def before_sync; end
 
       def after_sync; end

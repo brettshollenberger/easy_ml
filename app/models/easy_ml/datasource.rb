@@ -45,6 +45,7 @@ module EasyML
     validates :name, presence: true
     validates :datasource_type, presence: true
     validates :datasource_type, inclusion: { in: DATASOURCE_NAMES }
+    validate :validate_datasource_exists
 
     before_save :set_default_root_dir
     after_initialize :read_adapter_from_configuration
@@ -111,6 +112,10 @@ module EasyML
       end
     end
 
+    def root_dir=(_value)
+      raise "Cannot set root_dir directly! Root dir is configured automatically."
+    end
+
     private
 
     def adapter
@@ -124,7 +129,7 @@ module EasyML
 
     def default_root_dir
       folder = name.gsub(/\s{2,}/, " ").split(" ").join("_").downcase
-      Rails.root.join("easy_ml/datasources").join(folder)
+      EasyML::Engine.root_dir.join("datasources").join(folder)
     end
 
     def set_default_root_dir
@@ -139,6 +144,12 @@ module EasyML
 
     def store_adapter_in_configuration
       adapter.store_in_configuration if adapter.respond_to?(:store_in_configuration)
+    end
+
+    def validate_datasource_exists
+      return if adapter.exists?
+
+      errors.add(:root_dir, adapter.error_not_exists)
     end
   end
 end

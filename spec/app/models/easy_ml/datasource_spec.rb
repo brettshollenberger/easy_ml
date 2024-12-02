@@ -48,20 +48,20 @@ RSpec.describe EasyML::Datasource do
     end
   end
 
-  describe "S3 Datasource" do
+  describe "S3 Datasource", :focus do
     it "saves and loads the s3 datasource" do
       file_spec do |_, csv_file, _|
         EasyML::Configuration.configure do |config|
           config.s3_access_key_id = "12345"
         end
 
+        mock_s3_download(single_file_dir)
         s3_datasource = EasyML::Datasource.create!(
           name: "s3 Datasource",
           datasource_type: "s3",
           s3_bucket: "bucket",
           s3_prefix: "raw"
         )
-        mock_s3_download(single_file_dir)
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
         expect(datasource.s3_bucket).to eq "bucket"
@@ -86,9 +86,8 @@ RSpec.describe EasyML::Datasource do
     it "refreshes synchronously" do
       mock_s3_download(multi_file_dir)
       s3_datasource = EasyML::Datasource.create!(
-        name: "s3 Datasource",
+        name: "Multi File",
         datasource_type: "s3",
-        root_dir: multi_file_dir,
         s3_bucket: "bucket"
       )
       s3_datasource.clean
@@ -100,9 +99,8 @@ RSpec.describe EasyML::Datasource do
     it "refreshes asynchronously" do
       mock_s3_download(multi_file_dir)
       s3_datasource = EasyML::Datasource.create!(
-        name: "s3 Datasource",
+        name: "Multi File",
         datasource_type: "s3",
-        root_dir: multi_file_dir,
         s3_bucket: "bucket"
       )
       s3_datasource.clean
@@ -111,6 +109,7 @@ RSpec.describe EasyML::Datasource do
       s3_datasource.refresh_async
       expect(EasyML::SyncDatasourceWorker.jobs.count).to eq 1
       Sidekiq::Worker.drain_all
+      binding.pry
       expect(s3_datasource.data.count).to eq 16
     end
   end
@@ -129,9 +128,8 @@ RSpec.describe EasyML::Datasource do
         }
 
         file_datasource = EasyML::Datasource.create!(
-          name: "File Datasource",
+          name: "Single File",
           datasource_type: "file",
-          root_dir: root_dir,
           polars_args: polars_args
         )
 

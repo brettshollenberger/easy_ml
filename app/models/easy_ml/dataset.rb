@@ -85,12 +85,7 @@ module EasyML
     end
 
     def root_dir
-      if !datasource.present?
-        read_attribute(:root_dir)
-      else
-        shared_root = Pathname.new(datasource.root_dir.to_s.split("datasources").first)
-        shared_root.join("datasets").join(underscored_name).to_s
-      end
+      EasyML::Engine.root_dir.join("datasets").join(underscored_name).to_s
     end
 
     def destructively_cleanup!

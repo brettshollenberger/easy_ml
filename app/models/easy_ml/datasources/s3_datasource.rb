@@ -61,17 +61,41 @@ module EasyML
         synced_directory.download_file(file)
       end
 
+      def exists?
+        synced_directory.files_to_sync.any?
+      end
+
+      def error_not_exists
+        "No files found at s3://#{File.join(s3_bucket, s3_prefix)}"
+      end
+
+      def s3_bucket
+        datasource_config.dig("s3_bucket") || EasyML::Configuration.s3_bucket
+      end
+
+      def s3_prefix
+        datasource_config.dig("s3_prefix")
+      end
+
+      def cache_for
+        datasource_config.dig("cache_for") || 0
+      end
+
       private
+
+      def datasource_config
+        @datasource_config ||= datasource.configuration || {}
+      end
 
       def synced_directory
         @synced_directory ||= EasyML::Data::SyncedDirectory.new(
           root_dir: datasource.root_dir,
-          s3_bucket: datasource.configuration["s3_bucket"],
-          s3_prefix: datasource.configuration["s3_prefix"],
+          s3_bucket: s3_bucket,
+          s3_prefix: s3_prefix,
           s3_access_key_id: EasyML::Configuration.s3_access_key_id,
           s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
-          polars_args: datasource.configuration["polars_args"],
-          cache_for: datasource.configuration["cache_for"]
+          polars_args: datasource_config.dig("polars_args") || {},
+          cache_for: cache_for
         )
       end
     end

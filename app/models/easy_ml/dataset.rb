@@ -39,8 +39,7 @@ module EasyML
     self.filter_attributes += %i[configuration statistics schema]
 
     validates :name, presence: true
-    belongs_to :datasource,
-               class_name: "EasyML::Datasource"
+    belongs_to :datasource, class_name: "EasyML::Datasource"
 
     has_many :models, class_name: "EasyML::Model"
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy
@@ -86,12 +85,16 @@ module EasyML
     end
 
     def root_dir
-      shared_root = Pathname.new(datasource.root_dir.to_s.split("datasources").first)
-      shared_root.join("datasets").join(underscored_name).to_s
+      if !datasource.present?
+        read_attribute(:root_dir)
+      else
+        shared_root = Pathname.new(datasource.root_dir.to_s.split("datasources").first)
+        shared_root.join("datasets").join(underscored_name).to_s
+      end
     end
 
     def destructively_cleanup!
-      FileUtils.rm_rf(File.join(root_dir, "data"))
+      FileUtils.rm_rf(root_dir) if root_dir.present?
     end
 
     def schema
@@ -416,39 +419,19 @@ module EasyML
     private
 
     def download_remote_files
-      ["processed"].each do |split|
-        send("remote_dir_#{split}").sync(parallel: false)
+      [processed, locked].each do |split|
+        next unless split.present?
+
+        split.download
       end
     end
 
     def upload_remote_files
-      return unless processed.data
+      [processed, locked].each do |split|
+        next unless split.present?
 
-      remote_dir_processed.upload!(parallel: false)
-    end
-
-    def remote_dir_processed
-      @remote_processed_dir ||= EasyML::Data::SyncedDirectory.new(
-        synced_dir_args(processed)
-      )
-    end
-
-    def remote_dir_locked
-      @remote_processed_dir ||= EasyML::Data::SyncedDirectory.new(
-        synced_dir_args(locked)
-      )
-    end
-
-    def synced_dir_args(file_split)
-      {
-        root_dir: file_split.dir,
-        s3_bucket: datasource.configuration.dig("s3_bucket") || EasyML::Configuration.s3_bucket,
-        s3_prefix: File.join("datasets", file_split.dir.split("datasets").last),
-        s3_access_key_id: EasyML::Configuration.s3_access_key_id,
-        s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
-        polars_args: datasource.configuration["polars_args"],
-        cache_for: 0
-      }
+        split.upload
+      end
     end
 
     def initialize_splits
@@ -459,7 +442,9 @@ module EasyML
     end
 
     def initialize_split(type)
-      args = { dataset: self }
+      return unless datasource.present?
+
+      args = { dataset: self, datasource: datasource }
       case split_type.to_s
       when EasyML::Data::Splits::InMemorySplit.to_s
         split_type.new(**args)

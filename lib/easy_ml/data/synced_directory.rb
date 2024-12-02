@@ -167,6 +167,10 @@ module EasyML
         end
       end
 
+      # Add aliases for sync methods
+      alias download! sync!
+      alias download sync
+
       private
 
       def dir

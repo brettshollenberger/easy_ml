@@ -13,10 +13,36 @@ module EasyML
         attribute :batch_size, :integer, default: 10_000
         attribute :verbose, :boolean, default: false
         attribute :dataset
+        attribute :datasource
 
         def initialize(options)
           super
           FileUtils.mkdir_p(dir)
+        end
+
+        def s3_prefix
+          File.join("datasets", dir.split("datasets").last)
+        end
+
+        def synced_directory
+          datasource_config = datasource.configuration || {}
+          @synced_dir ||= EasyML::Data::SyncedDirectory.new(
+            root_dir: dir,
+            s3_bucket: datasource_config.dig("s3_bucket") || EasyML::Configuration.s3_bucket,
+            s3_prefix: s3_prefix,
+            s3_access_key_id: EasyML::Configuration.s3_access_key_id,
+            s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
+            polars_args: datasource_config.dig("polars_args"),
+            cache_for: 0
+          )
+        end
+
+        def download
+          synced_directory.download
+        end
+
+        def upload
+          synced_directory.upload
         end
 
         def cp(target_dir)

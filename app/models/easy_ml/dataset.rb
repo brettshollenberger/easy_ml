@@ -80,6 +80,12 @@ module EasyML
       }
     end
 
+    def root_dir=(value)
+      raise "Cannot override value of root_dir!" unless value.to_s == root_dir.to_s
+
+      write_attribute(:root_dir, value)
+    end
+
     def set_root_dir
       write_attribute(:root_dir, root_dir)
     end

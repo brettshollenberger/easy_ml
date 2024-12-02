@@ -211,16 +211,18 @@ module EasyML
       ]
     end
 
+    def root_dir=(value)
+      raise "Cannot override value of root_dir!" unless value.to_s == root_dir.to_s
+
+      write_attribute(:root_dir, value)
+    end
+
     def set_root_dir
       write_attribute(:root_dir, root_dir)
     end
 
     def root_dir
-      stored_dir = read_attribute(:root_dir)
-      return stored_dir if stored_dir.present?
-
-      shared_root = Pathname.new(dataset.root_dir.to_s.split("datasets").first)
-      shared_root.join("models").join(underscored_name).to_s
+      EasyML::Engine.root_dir.join("models").join(underscored_name).to_s
     end
 
     private

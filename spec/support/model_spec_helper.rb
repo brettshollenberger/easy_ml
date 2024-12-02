@@ -3,19 +3,19 @@ require "spec_helper"
 module ModelSpecHelper
   def self.included(base)
     base.let(:multi_file_dir) do
-      SPEC_ROOT.join("internal/data/multi_file/raw")
+      SPEC_ROOT.join("internal/easy_ml/datasources/multi_file")
     end
 
     base.let(:single_file_dir) do
-      SPEC_ROOT.join("internal/data/single_file/raw")
+      SPEC_ROOT.join("internal/easy_ml/datasources/single_file")
     end
 
     base.let(:titanic_core) do
-      SPEC_ROOT.join("internal/data/titanic/core")
+      SPEC_ROOT.join("internal/easy_ml/datasources/titanic_core")
     end
 
-    base.let(:titanic_core) do
-      SPEC_ROOT.join("internal/data/titanic/extended")
+    base.let(:titanic_extended) do
+      SPEC_ROOT.join("internal/easy_ml/datasources/titanic_extended")
     end
 
     base.let(:preprocessing_steps) do
@@ -38,7 +38,7 @@ module ModelSpecHelper
     base.let(:date_col) { "date" }
     base.let(:months_test) { 2 }
     base.let(:months_valid) { 2 }
-    base.let(:today) { EST.parse("2024-06-01") }
+    base.let(:today) { EasyML::Support::EST.parse("2024-06-01") }
     base.let(:df) do
       Polars::DataFrame.new({
                               "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -197,6 +197,7 @@ module ModelSpecHelper
     allow_any_instance_of(synced_directory).to receive(:files_to_sync).and_return(Dir.glob("#{path}/**/*.csv").map do |f|
       OpenStruct.new(key: f)
     end)
+    allow_any_instance_of(EasyML::Datasources::S3Datasource).to receive(:exists?).and_return(true)
     allow_any_instance_of(synced_directory).to receive(:download_file).and_return(true)
 
     reader = EasyML::Data::PolarsReader.new(

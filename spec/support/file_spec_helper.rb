@@ -4,9 +4,9 @@ module FileSpecHelper
 
   def file_spec
     MUTEX.synchronize do
-      path = SPEC_ROOT.join("internal/data/single_file/raw")
+      path = SPEC_ROOT.join("internal/easy_ml/datasources/single_file")
       csv_path = path.join("file.csv")
-      parquet_path = path.join("parquet/file.parquet")
+      parquet_path = path.join("file.parquet")
       restore_path = SPEC_ROOT.join("internal/file.csv")
 
       FileUtils.cp(csv_path, restore_path)

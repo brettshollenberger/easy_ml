@@ -24,6 +24,7 @@ module EasyML
   class Dataset < ActiveRecord::Base
     self.table_name = "easy_ml_datasets"
     include EasyML::Concerns::Configurable
+    include EasyML::Concerns::Versionable
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
@@ -67,6 +68,9 @@ module EasyML
     add_configuration_attributes :remote_files
 
     after_find :download_remote_files
+    after_initialize do
+      bump_version unless version.present?
+    end
     before_save :upload_remote_files
     before_save :set_root_dir
 
@@ -91,7 +95,8 @@ module EasyML
     end
 
     def root_dir
-      EasyML::Engine.root_dir.join("datasets").join(underscored_name).to_s
+      bump_version
+      EasyML::Engine.root_dir.join("datasets").join(underscored_name).join(version).to_s
     end
 
     def destructively_cleanup!
@@ -125,6 +130,17 @@ module EasyML
 
     def lock
       @locked = processed.cp(locked.dir)
+      save
+    end
+
+    def bump_versions(version)
+      self.version = version
+
+      @raw = raw.cp(version)
+      @processed = processed.cp(version)
+      @locked = nil
+
+      save
     end
 
     def locked?
@@ -142,6 +158,7 @@ module EasyML
         cleanup
         refresh_datasource!
         process_data
+        upload_remote_files
       end
     end
 
@@ -149,6 +166,7 @@ module EasyML
       refreshing do
         refresh_datasource
         process_data
+        upload_remote_files
       end
     end
 
@@ -421,6 +439,10 @@ module EasyML
       [raw, processed, locked].flat_map(&:files)
     end
 
+    def load_dataset
+      download_remote_files
+    end
+
     private
 
     def download_remote_files
@@ -583,6 +605,8 @@ module EasyML
     end
 
     def fully_reload
+      return unless persisted?
+
       base_vars = self.class.new.instance_variables
       dirty_vars = (instance_variables - base_vars)
       in_memory_classes = [EasyML::Data::Splits::InMemorySplit]

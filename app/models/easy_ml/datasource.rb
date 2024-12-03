@@ -112,12 +112,6 @@ module EasyML
       end
     end
 
-    def root_dir=(value)
-      raise "Cannot override value of root_dir!" unless value.to_s == default_root_dir.to_s
-
-      write_attribute(:root_dir, value)
-    end
-
     private
 
     def adapter

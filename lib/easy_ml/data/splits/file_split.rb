@@ -45,13 +45,19 @@ module EasyML
           synced_directory.upload
         end
 
+        # cp can receive a directory or just a version string
         def cp(target_dir)
+          target_dir = version_to_dir(target_dir) if is_version?(target_dir)
+          return self if target_dir.nil?
+
+          target_dir = target_dir.to_s
+
           puts "copying #{dir} to #{target_dir}"
           FileUtils.mkdir_p(target_dir)
 
-          files_to_move = Dir.glob(Pathname.new(dir).join("**/*")).select { |f| File.file?(f) }
+          files_to_cp = Dir.glob(Pathname.new(dir).join("**/*")).select { |f| File.file?(f) }
 
-          files_to_move.each do |file|
+          files_to_cp.each do |file|
             target_parts = target_dir.split("/")
             file_parts = file.split("/")
             _, not_shared = file_parts.partition.with_index { |part, index| target_parts[index] == part }
@@ -114,6 +120,32 @@ module EasyML
         end
 
         private
+
+        def version_to_dir(version)
+          relative_path = dir.gsub(Regexp.new(Rails.root.to_s), "")
+          current_path = Pathname.new(relative_path)
+
+          # Find the version component in the path
+          path_parts = current_path.each_filename.to_a
+          version_index = path_parts.find_index { |part| part.match?(version_pattern) }
+
+          return unless version_index
+
+          old_version = path_parts[version_index]
+          return if old_version == version
+
+          # Replace the version number with the new version
+          path_parts[version_index] = version
+          Rails.root.join(File.join(*path_parts))
+        end
+
+        def version_pattern
+          /^\d{14}$/
+        end
+
+        def is_version?(string)
+          string.to_s.match?(version_pattern)
+        end
 
         def df(path)
           filtered_args = filter_polars_args(Polars.method(:read_parquet))

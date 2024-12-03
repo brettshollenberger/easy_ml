@@ -22,7 +22,7 @@ RSpec.describe EasyML::Models do
       name: "My Dataset",
       datasource: datasource,
       splitter_attributes: {
-        splitter_type: "EasyML::DateSplitter",
+        splitter_type: "date",
         today: today,
         date_col: date_col,
         months_test: months_test,
@@ -129,7 +129,7 @@ RSpec.describe EasyML::Models do
     config = dataset_config.merge(
       datasource: polars_datasource,
       splitter_attributes: {
-        splitter_type: "EasyML::DateSplitter",
+        splitter_type: "date",
         today: today,
         date_col: "date",
         months_test: months_test,

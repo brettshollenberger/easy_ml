@@ -36,5 +36,9 @@ module EasyML
     def load_data(segment, **kwargs)
       locked.load_data(segment, **kwargs)
     end
+
+    def root_dir
+      read_attribute(:root_dir)
+    end
   end
 end

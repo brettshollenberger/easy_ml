@@ -43,7 +43,7 @@ RSpec.describe EasyML::Datasource do
       name: "My Dataset",
       datasource: datasource,
       splitter_attributes: {
-        splitter_type: "EasyML::DateSplitter",
+        splitter_type: "date",
         today: today,
         date_col: "created_date",
         months_test: 2,

@@ -47,7 +47,6 @@ module EasyML
             create_easy_ml_model_histories_migration
             create_easy_ml_model_file_histories_migration
             create_easy_ml_transform_histories_migration
-            create_easy_ml_splitter_histories_migration
           end
 
           private
@@ -162,13 +161,6 @@ module EasyML
             migration_template(
               "create_easy_ml_transform_histories.rb.tt",
               "db/migrate/create_easy_ml_transform_histories.rb"
-            )
-          end
-
-          def create_easy_ml_splitter_histories_migration
-            migration_template(
-              "create_easy_ml_splitter_histories.rb.tt",
-              "db/migrate/create_easy_ml_splitter_histories.rb"
             )
           end
 

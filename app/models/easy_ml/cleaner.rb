@@ -73,7 +73,7 @@ module EasyML
 
     def datasource_files_to_keep
       if Rails.env.test?
-        Dir.glob(EasyML::Engine.root_dir.glob("datasources/**/*.{csv}")).uniq
+        Dir.glob(EasyML::Engine.root_dir.glob("datasources/**/*.{csv,parquet}")).uniq
       else
         EasyML::Datasource.all.flat_map(&:files).uniq
       end

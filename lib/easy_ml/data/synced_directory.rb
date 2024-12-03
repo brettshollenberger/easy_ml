@@ -83,7 +83,7 @@ module EasyML
 
         return true if use_cached?
 
-        @synced = calculate_synced
+        @ynced = calculate_synced
       end
 
       def use_cached?

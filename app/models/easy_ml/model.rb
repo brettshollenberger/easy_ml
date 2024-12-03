@@ -23,6 +23,7 @@ module EasyML
     historiographer_mode :snapshot_only
 
     include EasyML::Concerns::Configurable
+    include EasyML::Concerns::Versionable
 
     self.filter_attributes += [:configuration]
 
@@ -49,7 +50,7 @@ module EasyML
 
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
 
-    after_initialize :generate_version_string
+    after_initialize :bump_version
     after_initialize :set_defaults
     before_save :save_model_file, if: -> { is_fit? && !is_history_class? }
 
@@ -78,7 +79,7 @@ module EasyML
 
       model_file = get_model_file
 
-      generate_version_string(force: true)
+      bump_version(force: true)
       path = model_file.full_path(version)
       full_path = model_adapter.save_model_file(path)
       model_file.upload(full_path)
@@ -124,7 +125,7 @@ module EasyML
     def fork
       dup.tap do |new_model|
         new_model.status = :training
-        new_model.version = generate_version_string(force: true)
+        new_model.version = bump_version(force: true)
         new_model.model_file = nil
         new_model.save
       end
@@ -203,6 +204,9 @@ module EasyML
 
       dataset.lock
       snapshot
+      bump_version(force: true)
+      dataset.bump_versions(version)
+      save
     end
 
     def inference_pipeline(df); end
@@ -254,6 +258,7 @@ module EasyML
 
     def load_model!
       load_model(force: true)
+      load_dataset
     end
 
     def load_model(force: false)
@@ -261,10 +266,18 @@ module EasyML
       load_model_file
     end
 
+    def load_dataset
+      dataset.load_dataset
+    end
+
     def load_model_file
       return unless model_file&.full_path && File.exist?(model_file.full_path)
 
-      model_adapter.load_model_file(model_file.full_path)
+      begin
+        model_adapter.load_model_file(model_file.full_path)
+      rescue StandardError => e
+        binding.pry
+      end
     end
 
     def download_model_file(force: false)
@@ -280,13 +293,6 @@ module EasyML
       training_models = EasyML::Model.all
 
       ([self] + training_models + inference_models).compact.map(&:model_file).compact.map(&:full_path).uniq
-    end
-
-    def generate_version_string(force: false)
-      return version if version.present? && !force
-
-      timestamp = Time.now.utc.strftime("%Y%m%d%H%M%S")
-      self.version = "#{underscored_name}_#{timestamp}"
     end
 
     def underscored_name

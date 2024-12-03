@@ -16,7 +16,7 @@ module EasyML
       end
 
       def clean
-        FileUtils.rm(parquet_files)
+        FileUtils.rm(parquet_files) unless Rails.env.test?
       end
 
       def in_batches
@@ -96,8 +96,8 @@ module EasyML
         df
       end
 
-      def all_parquet?
-        files.all? { |f| f.match?(/\.parquet$/) }
+      def any_parquet?
+        files.any? { |f| f.match?(/\.parquet$/) }
       end
 
       def filter_polars_args(method)
@@ -114,8 +114,9 @@ module EasyML
       end
 
       def convert_to_parquet
-        return files if all_parquet?
+        return files if any_parquet?
 
+        binding.pry
         puts "Converting to Parquet..."
 
         csv_files.each do |path|

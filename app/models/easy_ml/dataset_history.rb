@@ -27,6 +27,7 @@
 #
 module EasyML
   class DatasetHistory < ActiveRecord::Base
+    self.table_name = "easy_ml_dataset_histories"
     include Historiographer::History
 
     def root_dir

@@ -42,6 +42,7 @@ module EasyML
     end
 
     def fit?
+      return false if root_dir.nil?
       return false if full_path.nil?
 
       File.exist?(full_path)
@@ -68,6 +69,7 @@ module EasyML
     def full_path(filename = nil)
       filename = self.filename if filename.nil?
       return nil if filename.nil?
+      return nil if relative_dir.nil?
 
       Rails.root.join(relative_dir, filename).to_s
     end

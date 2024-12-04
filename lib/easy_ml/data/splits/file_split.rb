@@ -37,6 +37,10 @@ module EasyML
           )
         end
 
+        def should_sync?
+          synced_directory.should_sync?
+        end
+
         def download
           synced_directory.download
         end
@@ -72,6 +76,8 @@ module EasyML
         end
 
         def save(segment, df)
+          return unless df.present?
+
           segment_dir = File.join(dir, segment.to_s)
           FileUtils.mkdir_p(segment_dir)
 

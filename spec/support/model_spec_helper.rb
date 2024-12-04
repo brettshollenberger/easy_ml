@@ -18,6 +18,10 @@ module ModelSpecHelper
       SPEC_ROOT.join("internal/easy_ml/datasources/titanic_extended")
     end
 
+    base.let(:loans_dir) do
+      SPEC_ROOT.join("internal/easy_ml/datasources/loans")
+    end
+
     base.let(:preprocessing_steps) do
       {
         training: {
@@ -60,6 +64,10 @@ module ModelSpecHelper
       EasyML::Datasource.create(name: "Polars Datasource", datasource_type: "polars", df: df)
     end
 
+    base.let(:loans_datasource) do
+      EasyML::Datasource.create(name: "Loans", datasource_type: "file")
+    end
+
     base.let(:drop_if_null) do
       %w[loan_purpose]
     end
@@ -68,10 +76,9 @@ module ModelSpecHelper
       %w[business_name state date id]
     end
 
-    base.let(:dataset_config) do
+    base.let(:base_dataset_config) do
       {
         name: "My Dataset",
-        datasource: datasource,
         splitter_attributes: {
           splitter_type: "date",
           today: today,
@@ -82,8 +89,31 @@ module ModelSpecHelper
       }
     end
 
+    base.let(:dataset_config) do
+      base_dataset_config.merge!(
+        datasource: datasource
+      )
+    end
+
+    base.let(:loans_dataset_config) do
+      base_dataset_config.merge!(
+        datasource: loans_datasource
+      )
+    end
+
     base.let(:dataset) do
-      dataset = EasyML::Dataset.create(**dataset_config)
+      make_dataset(dataset_config, nil)
+    end
+
+    base.let(:loans_dataset) do
+      make_dataset(loans_dataset_config, loans_dir)
+    end
+
+    def make_dataset(config, datasource_location = nil)
+      mock_s3_download(datasource_location) if datasource_location
+      mock_s3_upload
+
+      dataset = EasyML::Dataset.create(**config)
       dataset.refresh
 
       dataset.columns.find_by(name: target).update(is_target: true)
@@ -98,12 +128,12 @@ module ModelSpecHelper
     base.let(:max_depth) { 8 }
     base.let(:task) { :regression }
     base.let(:objective) { "reg:squarederror" }
-    base.let(:model_config) do
+
+    base.let(:base_model_config) do
       {
         name: "My model",
         model_type: "xgboost",
         task: task,
-        dataset: dataset,
         hyperparameters: {
           booster: :gbtree,
           n_estimators: 1,
@@ -113,15 +143,25 @@ module ModelSpecHelper
         }
       }
     end
-    base.let(:model_file) do
-      EasyML::ModelFile.create(
-        filename: "xgboost_20241028130305.json",
-        path: "easy_ml_models/My Model"
+    base.let(:model_config) do
+      base_model_config.merge!(
+        dataset: dataset
+      )
+    end
+    base.let(:loans_model_config) do
+      base_model_config.merge!(
+        name: "Loans Model",
+        dataset: loans_dataset,
+        task: :regression
       )
     end
 
     base.let(:model) do
       EasyML::Model.new(model_config)
+    end
+
+    base.let(:loans_model) do
+      EasyML::Model.new(loans_model_config)
     end
 
     # base.before(:each) do
@@ -185,6 +225,7 @@ module ModelSpecHelper
 
   def mock_s3_upload
     allow_any_instance_of(EasyML::Data::SyncedDirectory).to receive(:upload).and_return(true)
+    allow_any_instance_of(EasyML::Data::SyncedDirectory).to receive(:remote_files).and_return([])
     allow_any_instance_of(Aws::S3::Client).to receive(:put_object) do |_s3_client, args|
       expect(args[:bucket]).to eq "my-bucket"
     end.and_return(true)

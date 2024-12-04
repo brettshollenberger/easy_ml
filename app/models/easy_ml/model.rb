@@ -216,7 +216,7 @@ module EasyML
         is_fit? ? nil : "Model has not been trained",
         dataset.target.present? ? nil : "Dataset has no target",
         !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource"
-      ]
+      ].compact
     end
 
     def root_dir=(value)

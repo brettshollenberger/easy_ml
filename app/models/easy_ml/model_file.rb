@@ -24,7 +24,6 @@ module EasyML
 
     include EasyML::Concerns::Configurable
     add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :s3_access_key_id, :s3_secret_access_key, :root_dir
-    attr_accessor :s3_bucket, :s3_prefix, :s3_region, :s3_access_key_id, :s3_secret_access_key, :root_dir
 
     def synced_file
       EasyML::Support::SyncedFile.new(

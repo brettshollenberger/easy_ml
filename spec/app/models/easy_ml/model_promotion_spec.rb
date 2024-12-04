@@ -264,7 +264,7 @@ RSpec.describe EasyML::Models do
       expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
     end
 
-    it "uses locked dataset when running predictions" do
+    it "uses historical dataset when running predictions" do
       mock_s3_upload
 
       @time = EasyML::Support::EST.now
@@ -356,9 +356,6 @@ RSpec.describe EasyML::Models do
 
       expect(model.dataset.processed.dir).to match(/20240202050000/)
       expect(model_v1.dataset.processed.dir).to match(/20240101050000/)
-
-      expect(model.dataset.locked.dir).to match(/20240202050000/)
-      expect(model_v1.dataset.locked.dir).to match(/20240101050000/)
 
       Timecop.freeze(@time + 2.hours)
 

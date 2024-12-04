@@ -162,6 +162,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         end
 
         it "decodes labels" do
+          dataset.refresh
           x_test, = dataset.test(split_ys: true)
           model.metrics = %w[accuracy_score precision_score recall_score f1_score]
           model.fit

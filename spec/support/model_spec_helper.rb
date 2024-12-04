@@ -121,6 +121,7 @@ module ModelSpecHelper
       dataset.columns.where(name: hidden).update_all(hidden: true)
 
       update_preprocessing_steps(dataset, preprocessing_steps)
+      dataset.refresh
       dataset
     end
 

@@ -99,7 +99,7 @@ RSpec.describe EasyML::Datasource do
       expect(reloaded.splitter.date_col).to eq dataset.splitter.date_col
       expect(reloaded.splitter.months_test).to eq dataset.splitter.months_test
       expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
-      expect(reloaded.splitter).to be_a(EasyML::DateSplitter)
+      expect(reloaded.splitter.send(:adapter)).to be_a(EasyML::Splitters::DateSplitter)
 
       expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
@@ -121,7 +121,7 @@ RSpec.describe EasyML::Datasource do
       expect(reloaded.splitter.date_col).to eq dataset.splitter.date_col
       expect(reloaded.splitter.months_test).to eq dataset.splitter.months_test
       expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
-      expect(reloaded.splitter).to be_a(EasyML::DateSplitter)
+      expect(reloaded.splitter.send(:adapter)).to be_a(EasyML::Splitters::DateSplitter)
 
       expect(reloaded).to_not be_processed
       expect(reloaded.train).to be_nil

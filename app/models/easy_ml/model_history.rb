@@ -29,5 +29,17 @@ module EasyML
            .select("DISTINCT ON (model_id) *")
            .order("model_id, id DESC")
     }
+
+    def status
+      @status ||= if is_latest_snapshot?
+                    :inference
+                  else
+                    :retired
+                  end
+    end
+
+    def is_latest_snapshot?
+      original_class.find_by(name: name).latest_snapshot.id == id
+    end
   end
 end

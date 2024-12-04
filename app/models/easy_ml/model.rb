@@ -67,6 +67,13 @@ module EasyML
 
     delegate :prepare_data, :callbacks, :preprocess, to: :model_adapter
 
+    STATUSES = %w[training inference retired]
+    STATUSES.each do |status|
+      define_method "#{status}?" do
+        self.status.to_sym == status.to_sym
+      end
+    end
+
     def hyperparameters
       @hyperparams ||= model_adapter.build_hyperparameters(@hyperparameters)
     end
@@ -153,12 +160,6 @@ module EasyML
       return true if model_file.present? && model_file.fit?
 
       model_adapter.is_fit?
-    end
-
-    def cannot_promote_reasons
-      [
-        is_fit? ? nil : "Model has not been trained"
-      ].compact
     end
 
     def promotable?

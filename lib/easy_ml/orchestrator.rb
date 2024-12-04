@@ -27,18 +27,8 @@ module EasyML
       models[model_name].predict(df)
     end
 
-    def fork(model_name)
-      # First try to find existing training model
-      training_model = EasyML::Model.find_by(name: model_name, status: :training)
-      return training_model if training_model.present?
-
-      # If no training model exists, fork the inference model
-      inference_model = EasyML::Model.find_by!(name: model_name, status: :inference)
-      inference_model.fork
-    end
-
     def train(model_name, tuner: nil, evaluator: nil)
-      training_model = fork(model_name)
+      training_model = EasyML::Model.find_by(name: model_name)
       tuner = tuner.symbolize_keys if tuner.present?
 
       if tuner
@@ -49,9 +39,9 @@ module EasyML
         # Configure tuner with model and dataset
         tuner_instance.model = training_model
         adapter = case tuner_instance.model.model_type.to_sym
-          when :xgboost
-            EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
-          end
+                  when :xgboost
+                    EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
+                  end
         tuner_instance.adapter = adapter
         tuner_instance.dataset = training_model.dataset
 

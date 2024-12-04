@@ -16,7 +16,7 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
       description: '',
       datasource_id: undefined,
       splitter_attributes: {
-        splitter_type: 'DateSplitter',
+        splitter_type: 'date',
         date_col: '',
         months_test: 2,
         months_valid: 2

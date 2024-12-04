@@ -233,8 +233,14 @@ module EasyML
             Which was normalized to:
             #{xs[0..5]}
 
-            This may also be due to string-based targets, your targets:
-            #{ys[0..5]}
+            #{if ys.present?
+                %(
+                This may also be due to your targets:
+                #{ys[0..5]}
+              )
+              else
+                ""
+              end}
           )
         end
       end

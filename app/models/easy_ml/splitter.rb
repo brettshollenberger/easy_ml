@@ -40,6 +40,12 @@ module EasyML
     validates :splitter_type, presence: true
     validates :splitter_type, inclusion: { in: SPLITTER_OPTIONS.keys }
 
+    SPLITTER_NAMES = SPLITTER_OPTIONS.keys.freeze
+    SPLITTER_CONSTANTS = SPLITTER_OPTIONS.values.map(&:constantize)
+    SPLITTER_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
+      add_configuration_attributes attribute
+    end
+
     def self.constants
       {
         SPLITTER_TYPES: SPLITTER_TYPES
@@ -57,7 +63,12 @@ module EasyML
         adapter_class = SPLITTER_OPTIONS[splitter_type]
         raise "Don't know how to use splitter #{splitter_type}!" unless adapter_class.present?
 
-        adapter_class.constantize.new(self)
+        attrs = adapter_class.constantize.configuration_attributes
+        adapter_class.constantize.new(self).tap do |adapter|
+          attrs.each do |attr|
+            adapter.send("#{attr}=", send(attr))
+          end
+        end
       end
     end
   end

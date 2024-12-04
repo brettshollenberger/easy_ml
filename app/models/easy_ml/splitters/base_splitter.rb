@@ -11,6 +11,7 @@ module EasyML
       def initialize(splitter)
         @splitter = splitter
       end
+      delegate :dataset, to: :splitter
     end
   end
 end

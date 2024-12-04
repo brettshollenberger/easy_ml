@@ -49,13 +49,13 @@ module EasyML
         end
 
         results = metric_results(training_model)
-        training_model.promote if results[:should_promote]
+        model_was_promoted = results[:should_promote] && training_model.promote
 
         update!(
           results.merge!(
-            status: training_model.inference? ? "completed" : "failed",
-            completed_at: training_model.inference? ? Time.current : nil,
-            error_message: training_model.inference? ? nil : "Did not pass evaluation",
+            status: model_was_promoted ? "completed" : "failed",
+            completed_at: model_was_promoted ? Time.current : nil,
+            error_message: model_was_promoted ? nil : "Did not pass evaluation",
             model: training_model,
             metadata: tuner_metadata
           )
@@ -64,6 +64,9 @@ module EasyML
         retraining_job.update!(last_run_at: Time.current)
         true
       rescue StandardError => e
+        100.times do
+          puts e
+        end
         update!(
           status: "failed",
           completed_at: Time.current,

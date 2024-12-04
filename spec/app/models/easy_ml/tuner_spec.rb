@@ -3,9 +3,6 @@ require "support/model_spec_helper"
 
 RSpec.describe EasyML::Core::Tuner do
   include ModelSpecHelper
-  let(:root_dir) do
-    Rails.root
-  end
 
   let(:datasource) do
     EasyML::Datasource.create(
@@ -35,7 +32,6 @@ RSpec.describe EasyML::Core::Tuner do
 
   let(:model_config) do
     {
-      root_dir: root_dir,
       model_type: "xgboost",
       task: task,
       dataset: dataset,

@@ -72,7 +72,7 @@ module EasyML
       def callbacks
         return @_callbacks if @_callbacks
 
-        raw_params = model.callbacks
+        raw_params = model.instance_variable_get(:@callbacks)
 
         return [] if raw_params.nil? || !raw_params.is_a?(Array)
 

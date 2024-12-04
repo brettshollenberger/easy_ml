@@ -65,6 +65,8 @@ module EasyML
     validates :dataset_id, presence: true
     before_save :set_root_dir
 
+    delegate :prepare_data, :callbacks, :preprocess, to: :model_adapter
+
     def hyperparameters
       @hyperparams ||= model_adapter.build_hyperparameters(@hyperparameters)
     end

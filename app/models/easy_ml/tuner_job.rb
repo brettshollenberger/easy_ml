@@ -5,7 +5,7 @@
 #  id                :bigint           not null, primary key
 #  config            :json             not null
 #  best_tuner_run_id :bigint
-#  easy_ml_model_id  :bigint           not null
+#  model_id          :bigint           not null
 #  status            :string
 #  direction         :string           default("minimize")
 #  started_at        :datetime

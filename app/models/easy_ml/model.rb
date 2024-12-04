@@ -50,8 +50,8 @@ module EasyML
 
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
 
-    after_initialize :bump_version
-    after_initialize :set_defaults
+    after_initialize :bump_version, if: -> { new_record? }
+    after_initialize :set_defaults, if: -> { new_record? }
     before_save :save_model_file, if: -> { is_fit? && !is_history_class? }
 
     VALID_TASKS = %i[regression classification].freeze

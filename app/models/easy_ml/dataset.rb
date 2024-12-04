@@ -129,7 +129,7 @@ module EasyML
     end
 
     def lock
-      @locked = processed.cp(locked.dir)
+      upload_remote_files
       save
     end
 
@@ -446,19 +446,15 @@ module EasyML
     private
 
     def download_remote_files
-      [processed, locked].each do |split|
-        next unless split.present?
+      return if processed.present? && processed.data
 
-        split.download
-      end
+      processed.download
     end
 
     def upload_remote_files
-      [processed, locked].each do |split|
-        next unless split.present?
+      return unless processed.present? && processed.data
 
-        split.upload
-      end
+      processed.upload
     end
 
     def initialize_splits
@@ -531,8 +527,6 @@ module EasyML
     end
 
     def fit(xs = nil)
-      return false if locked?
-
       xs = raw.train(all_columns: true) if xs.nil?
 
       preprocessor.fit(xs)

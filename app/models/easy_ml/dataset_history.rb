@@ -29,16 +29,20 @@ module EasyML
   class DatasetHistory < ActiveRecord::Base
     include Historiographer::History
 
-    def locked?
+    def root_dir
+      read_attribute(:root_dir)
+    end
+
+    def fit
+      false
+    end
+
+    def processed?
       true
     end
 
-    def load_data(segment, **kwargs)
-      locked.load_data(segment, **kwargs)
-    end
-
-    def root_dir
-      read_attribute(:root_dir)
+    def should_split?
+      false
     end
   end
 end

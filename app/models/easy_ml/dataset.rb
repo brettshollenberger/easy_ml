@@ -71,7 +71,6 @@ module EasyML
     after_initialize do
       bump_version unless version.present?
     end
-    before_save :upload_remote_files
     before_save :set_root_dir
 
     def self.constants
@@ -158,7 +157,6 @@ module EasyML
         cleanup
         refresh_datasource!
         process_data
-        upload_remote_files
       end
     end
 
@@ -166,7 +164,6 @@ module EasyML
       refreshing do
         refresh_datasource
         process_data
-        upload_remote_files
       end
     end
 
@@ -308,10 +305,6 @@ module EasyML
       end
     end
 
-    def apply_transforms!
-      dataset_transforms.pending.each(&:apply!)
-    end
-
     def process_data
       split_data
       fit
@@ -355,7 +348,6 @@ module EasyML
     end
 
     def cleanup
-      datasource.clean
       raw.cleanup
       processed.cleanup
     end
@@ -446,13 +438,14 @@ module EasyML
     private
 
     def download_remote_files
+      return unless is_history_class? # Only historical datasets need this
       return if processed.present? && processed.data
 
       processed.download
     end
 
     def upload_remote_files
-      return unless processed.present? && processed.data
+      return unless processed?
 
       processed.upload
     end

@@ -2,6 +2,8 @@ module EasyML
   module Data
     module DateConverter
       COMMON_DATE_FORMATS = [
+        "%Y-%m-%dT%H:%M:%S.%6N",   # e.g., "2021-01-01T00:00:00.000000"
+        "%Y-%m-%d %H:%M:%S.%L",    # e.g., "2021-01-01 00:01:36.000"
         "%Y-%m-%d %H:%M:%S.%L",   # e.g., "2021-01-01 00:01:36.000"
         "%Y-%m-%d %H:%M:%S",      # e.g., "2021-01-01 00:01:36"
         "%Y-%m-%d %H:%M",         # e.g., "2021-01-01 00:01"
@@ -18,7 +20,9 @@ module EasyML
 
       FORMAT_MAPPINGS = {
         ruby_to_polars: {
-          "%L" => "%3f" # milliseconds
+          "%L" => "%3f",  # milliseconds
+          "%6N" => "%6f", # microseconds
+          "%N" => "%9f" # nanoseconds
         }
       }.freeze
 

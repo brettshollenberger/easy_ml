@@ -40,9 +40,11 @@ module EasyML
     end
 
     def create
-      datasource = EasyML::Datasource.create!(datasource_params)
-      datasource.update(is_syncing: true, root_dir: datasource.default_root_dir)
-      datasource.refresh_async
+      EasyML::Datasource.transaction do
+        datasource = EasyML::Datasource.create!(datasource_params)
+        datasource.update(is_syncing: true)
+        datasource.refresh_async
+      end
 
       redirect_to easy_ml_datasources_path, notice: "Datasource was successfully created."
     rescue ActiveRecord::RecordInvalid => e
@@ -80,10 +82,8 @@ module EasyML
     private
 
     def datasource_params
-      params.require(:datasource).permit(:name, :s3_bucket, :s3_prefix, :s3_region, :datasource_type, :s3_access_key_id, :s3_secret_access_key, :root_dir).merge!(
-        datasource_type: "s3",
-        s3_access_key_id: EasyML::Configuration.s3_access_key_id,
-        s3_secret_access_key: EasyML::Configuration.s3_secret_access_key
+      params.require(:datasource).permit(:name, :s3_bucket, :s3_prefix, :s3_region, :datasource_type).merge!(
+        datasource_type: "s3"
       )
     end
 

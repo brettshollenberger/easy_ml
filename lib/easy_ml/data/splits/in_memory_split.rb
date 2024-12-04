@@ -24,6 +24,8 @@ module EasyML
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
                  unique: nil)
+          return nil if @data.keys.none?
+
           df = if segment.to_s == "all"
                  Polars.concat(EasyML::Dataset::SPLIT_ORDER.map { |segment| @data[segment] })
                else

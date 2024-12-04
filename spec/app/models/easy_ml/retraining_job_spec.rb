@@ -8,17 +8,21 @@ RSpec.describe EasyML::RetrainingJob do
     "My Model"
   end
 
-  let(:model) do
-    model_config[:name] = model_name
-    model_config[:task] = "regression"
-    EasyML::Model.create(**model_config).tap do |model|
-      model.model_file = model_file
-      model.version = model_file.filename.gsub(/\.json/, "")
-      model.fit
-      model.save
-      model.promote
-    end
+  before(:each) do
+    EasyML::Cleaner.clean
   end
+
+  after(:each) do
+    EasyML::Cleaner.clean
+  end
+
+  let(:model) do
+    loans_model.fit
+    loans_model.save
+    loans_model.promote
+    loans_model
+  end
+
   let(:valid_attributes) do
     {
       model: model.name,
@@ -39,7 +43,7 @@ RSpec.describe EasyML::RetrainingJob do
   end
 
   describe "validations" do
-    it "requires model" do
+    it "requires model", :focus do
       job = described_class.new(valid_attributes.except(:model))
       expect(job).not_to be_valid
       expect(job.errors[:model]).to include("can't be blank")

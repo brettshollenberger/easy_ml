@@ -39,8 +39,8 @@ module EasyML
     end
 
     def create
-      datasource = EasyML::Datasource.find_by(id: params.dig(:dataset, :datasource_id))
-      dataset = Dataset.new(dataset_params.to_h.merge!(root_dir: datasource.root_dir))
+      EasyML::Datasource.find_by(id: params.dig(:dataset, :datasource_id))
+      dataset = Dataset.new(dataset_params.to_h)
 
       if dataset.save
         dataset.refresh_async
@@ -117,7 +117,6 @@ module EasyML
     def dataset_params
       params.require(:dataset).permit(
         :name,
-        :root_dir,
         :description,
         :datasource_id,
         :target,

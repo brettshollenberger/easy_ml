@@ -83,7 +83,7 @@ module EasyML
 
         return true if use_cached?
 
-        @ynced = calculate_synced
+        @synced = calculate_synced
       end
 
       def use_cached?
@@ -248,6 +248,7 @@ module EasyML
       end
 
       def new_data_available?
+        return false if files_to_sync.empty?
         return true if files.empty?
 
         local_latest = last_updated_at
@@ -259,8 +260,6 @@ module EasyML
       end
 
       def calculate_synced
-        return false if age.nil?
-
         !new_data_available?
       end
 

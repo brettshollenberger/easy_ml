@@ -10,11 +10,11 @@ module ModelSpecHelper
       SPEC_ROOT.join("internal/easy_ml/datasources/single_file")
     end
 
-    base.let(:titanic_core) do
+    base.let(:titanic_core_dir) do
       SPEC_ROOT.join("internal/easy_ml/datasources/titanic_core")
     end
 
-    base.let(:titanic_extended) do
+    base.let(:titanic_extended_dir) do
       SPEC_ROOT.join("internal/easy_ml/datasources/titanic_extended")
     end
 
@@ -73,7 +73,7 @@ module ModelSpecHelper
         name: "My Dataset",
         datasource: datasource,
         splitter_attributes: {
-          splitter_type: "EasyML::DateSplitter",
+          splitter_type: "date",
           today: today,
           date_col: date_col,
           months_test: months_test,
@@ -192,7 +192,9 @@ module ModelSpecHelper
 
   def mock_s3_download(path)
     synced_directory = EasyML::Data::SyncedDirectory
-    allow_any_instance_of(synced_directory).to receive(:synced?).and_return(false)
+    allow_any_instance_of(synced_directory).to receive(:synced?) do |sync_dir|
+      Dir.glob(File.join(sync_dir.root_dir, "**/*.{parquet}")).any?
+    end
     allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
     allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
     allow_any_instance_of(synced_directory).to receive(:files_to_sync).and_return(Dir.glob("#{path}/**/*.csv").map do |f|

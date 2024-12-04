@@ -94,7 +94,9 @@ RSpec.describe EasyML::Datasource do
         datasource_type: "s3",
         s3_bucket: "bucket"
       )
+      allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
+      allow(Rails.env).to receive(:test?).and_return(true)
       expect(s3_datasource.data.count).to eq 0
       s3_datasource.refresh
       expect(s3_datasource.data.count).to eq 16
@@ -107,7 +109,9 @@ RSpec.describe EasyML::Datasource do
         datasource_type: "s3",
         s3_bucket: "bucket"
       )
+      allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
+      allow(Rails.env).to receive(:test?).and_return(true)
       expect(s3_datasource.data.count).to eq 0
 
       s3_datasource.refresh_async

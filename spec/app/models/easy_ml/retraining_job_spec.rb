@@ -43,7 +43,7 @@ RSpec.describe EasyML::RetrainingJob do
   end
 
   describe "validations" do
-    it "requires model", :focus do
+    it "requires model" do
       job = described_class.new(valid_attributes.except(:model))
       expect(job).not_to be_valid
       expect(job.errors[:model]).to include("can't be blank")

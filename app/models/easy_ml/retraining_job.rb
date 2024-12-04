@@ -129,7 +129,7 @@ module EasyML
 
     def model_must_exist
       return if model.blank?
-      return if EasyML::Model.where(name: model).inference.exists?
+      return if EasyML::Model.find_by(name: model)&.latest_snapshot.present?
 
       errors.add(:model, "does not exist or is not in inference state")
     end

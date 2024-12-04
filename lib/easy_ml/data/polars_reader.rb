@@ -116,7 +116,6 @@ module EasyML
       def convert_to_parquet
         return files if any_parquet?
 
-        binding.pry
         puts "Converting to Parquet..."
 
         csv_files.each do |path|

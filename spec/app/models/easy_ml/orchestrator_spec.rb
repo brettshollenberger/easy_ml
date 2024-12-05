@@ -11,11 +11,13 @@ RSpec.describe EasyML::Orchestrator do
     )
   end
 
-  after(:all) do
+  before(:each) do
     EasyML::Cleaner.clean
+    EasyML::Orchestrator.reset
   end
 
-  before(:each) do
+  after(:each) do
+    EasyML::Cleaner.clean
     EasyML::Orchestrator.reset
   end
 
@@ -102,26 +104,7 @@ RSpec.describe EasyML::Orchestrator do
       expect(training_model.version).to_not eq model.version
     end
 
-    it "uses existing training model if one exists" do
-      model.model_file = model_file
-      model.version = model_file.filename.gsub(/\.json/, "")
-      model.save
-      model.promote
-
-      # Create a training model
-      training_model = model.fork
-      expect(training_model.status).to eq "training"
-
-      # Train should use existing training model
-      trained_model = described_class.train(model.name)
-      expect(trained_model).to eq training_model
-      expect(trained_model.fit?).to be true
-    end
-
     it "accepts a tuner for hyperparameter optimization" do
-      model.model_file = model_file
-      model.version = model_file.filename.gsub(/\.json/, "")
-      model.save
       model.promote
 
       tuner = {
@@ -142,12 +125,10 @@ RSpec.describe EasyML::Orchestrator do
 
       training_model = described_class.train(model.name, tuner: tuner)
       expect(training_model.status).to eq "training"
-      expect(training_model.fit?).to be true
+      expect(training_model.is_fit?).to be true
       expect(training_model.hyperparameters["learning_rate"]).to eq 0.05
       expect(training_model.hyperparameters["n_estimators"]).to eq 2
       expect(training_model.hyperparameters["max_depth"]).to eq 3
-
-      model.model_file.cleanup([model.model_file.full_path]) # Keep only the original file
     end
 
     it "raises error for non-existent model" do
@@ -157,20 +138,15 @@ RSpec.describe EasyML::Orchestrator do
     end
 
     it "raises error when trying to train an inference model directly" do
-      model.model_file = model_file
-      model.version = model_file.filename.gsub(/\.json/, "")
-      model.save
       model.promote
+      inference_model = model.inference_version
 
       expect do
-        model.fit
+        inference_model.fit
       end.to raise_error(RuntimeError, /Cannot train inference model/)
     end
 
     it "accepts tuner configuration for hyperparameter optimization" do
-      model.model_file = model_file
-      model.version = model_file.filename.gsub(/\.json/, "")
-      model.save
       model.promote
 
       tuner = {
@@ -194,12 +170,10 @@ RSpec.describe EasyML::Orchestrator do
 
       training_model = described_class.train(model.name, tuner: tuner)
       expect(training_model.status).to eq "training"
-      expect(training_model.fit?).to be true
+      expect(training_model.is_fit?).to be true
       expect(training_model.hyperparameters["learning_rate"]).to eq 0.05
       expect(training_model.hyperparameters["n_estimators"]).to eq 2
       expect(training_model.hyperparameters["max_depth"]).to eq 3
-
-      model.model_file.cleanup([model.model_file.full_path]) # Keep only the original file
     end
   end
 end

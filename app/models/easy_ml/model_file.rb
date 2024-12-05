@@ -83,8 +83,14 @@ module EasyML
     end
 
     def download
+      return unless full_path.present?
+
       synced_file.download(full_path) unless File.exist?(full_path)
       full_path
+    end
+
+    def sha
+      Digest::SHA256.file(full_path).hexdigest
     end
 
     def full_path(filename = nil)

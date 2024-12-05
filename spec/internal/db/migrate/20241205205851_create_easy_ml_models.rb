@@ -11,6 +11,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.string :version, null: false
       t.string :root_dir
       t.json :file
+      t.string :sha
 
       t.timestamps
 
@@ -23,6 +24,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.index :dataset_id
       t.index :model_type
       t.index :model_file_id
+      t.index :sha
     end
   end
 end

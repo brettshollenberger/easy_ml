@@ -134,8 +134,7 @@ module EasyML
       return true if model_file.present? && !model_file.persisted?
       return true if model_file.present? && model_file.fit? && inference_version.nil?
 
-      prev_hash = Digest::SHA256.file(inference_version.model_file.full_path).hexdigest
-      model_adapter.model_changed?(prev_hash)
+      model_adapter.model_changed?(inference_version.sha)
     end
 
     def feature_importances
@@ -205,16 +204,17 @@ module EasyML
 
       # Prepare the inference model by freezing + saving the model, dataset, and datasource
       # (This creates ModelHistory, DatasetHistory, etc)
+      save_model_file
+      self.sha = model_file.sha
+      save
       dataset.lock
       snapshot
 
       # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
       bump_version(force: true)
       dataset.bump_versions(version)
-      write_attribute(:model_file_id, nil)
-      @skip_save_model_file = true
+      self.model_file = new_model_file!
       save
-      @skip_save_model_file = false
       true
     end
 
@@ -241,6 +241,11 @@ module EasyML
 
     def root_dir
       EasyML::Engine.root_dir.join("models").join(underscored_name).to_s
+    end
+
+    def load_model(force: false)
+      download_model_file(force: force)
+      load_model_file
     end
 
     private
@@ -275,11 +280,6 @@ module EasyML
       load_dataset
     end
 
-    def load_model(force: false)
-      download_model_file(force: force)
-      load_model_file
-    end
-
     def load_dataset
       dataset.load_dataset
     end
@@ -296,8 +296,7 @@ module EasyML
 
     def download_model_file(force: false)
       return unless persisted?
-      return unless force
-      return if loaded?
+      return if loaded? && !force
 
       get_model_file.download
     end

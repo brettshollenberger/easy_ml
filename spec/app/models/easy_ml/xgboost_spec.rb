@@ -57,8 +57,8 @@ RSpec.describe "EasyML::Models::XGBoost" do
           model.save
         end
 
-        it "returns false when model hasn't changed" do
-          expect(model.model_changed?).to be false
+        it "returns true when model has been fit but not promoted" do
+          expect(model.model_changed?).to be true
         end
 
         it "returns true when model parameters have changed" do

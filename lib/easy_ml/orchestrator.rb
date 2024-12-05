@@ -14,31 +14,19 @@ module EasyML
       instance.predict(model_name, df)
     end
 
-    def self.fork(model_name)
-      instance.fork(model_name)
-    end
-
     def self.train(model_name, tuner: nil, evaluator: nil)
       instance.train(model_name, tuner: tuner, evaluator: evaluator)
     end
 
     def predict(model_name, df)
-      ensure_model_loaded(model_name)
+      load_model(model_name)
       models[model_name].predict(df)
     end
 
-    def fork(model_name)
-      # First try to find existing training model
-      training_model = EasyML::Model.find_by(name: model_name, status: :training)
-      return training_model if training_model.present?
-
-      # If no training model exists, fork the inference model
-      inference_model = EasyML::Model.find_by!(name: model_name, status: :inference)
-      inference_model.fork
-    end
-
     def train(model_name, tuner: nil, evaluator: nil)
-      training_model = fork(model_name)
+      training_model = EasyML::Model.find_by(name: model_name)
+      raise ActiveRecord::RecordNotFound if training_model.nil?
+
       tuner = tuner.symbolize_keys if tuner.present?
 
       if tuner
@@ -62,7 +50,6 @@ module EasyML
         best_params.each do |key, value|
           training_model.hyperparameters[key] = value
         end
-        training_model.save
       end
 
       training_model.evaluator = evaluator if evaluator.present?
@@ -71,15 +58,23 @@ module EasyML
       training_model
     end
 
+    def reset
+      @models = {}
+    end
+
+    def self.reset
+      instance.reset
+    end
+
     private
 
-    def ensure_model_loaded(model_name)
-      current_model = EasyML::Model.find_by!(name: model_name, status: :inference)
+    def load_model(model_name)
+      current_model = EasyML::Model.find_by!(name: model_name).inference_version
 
       # Load new model if not loaded or different version
       model_not_loaded = models[model_name].nil?
-      model_is_new_model = models[model_name]&.id != current_model&.id
-      return unless model_not_loaded || model_is_new_model
+      model_is_new_version = models[model_name]&.id != current_model&.id
+      return unless model_not_loaded || model_is_new_version
 
       models[model_name] = current_model
     end

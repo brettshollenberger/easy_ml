@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "sprockets/railtie"
 require "bundler/gem_tasks"
 require "rspec/core/rake_task"
 
@@ -19,25 +20,46 @@ require_relative "lib/easy_ml"
 # Load the annotate tasks
 require "annotate/annotate_models"
 
-namespace :easy_ml do
-  task :annotate_models do
-    db_config = YAML.load_file(
-      File.expand_path("spec/internal/config/database.yml")
-    )
-    ActiveRecord::Base.establish_connection(db_config["test"])
+task :environment do
+  require "combustion"
+  require "sprockets"
+  Combustion.path = "spec/internal"
+  Combustion.initialize! :active_record do |config|
+    config.assets = ActiveSupport::OrderedOptions.new # Stub to avoid errors
+    config.assets.enabled = false # Set false since assets are handled by Vite
+  end
+  EasyML::Engine.eager_load!
+end
 
+namespace :easy_ml do
+  task annotate_models: :environment do
+    # db_config = YAML.load_file(
+    #   File.expand_path("spec/internal/config/database.yml")
+    # )
+    # ActiveRecord::Base.establish_connection(db_config["test"])
+
+    # Dir.glob(File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)).each do |file|
+    #   require file
+    # end
     model_dir = File.expand_path("app/models", EasyML::Engine.root)
     $LOAD_PATH.unshift(model_dir) unless $LOAD_PATH.include?(model_dir)
 
-    Dir.glob(
-      File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)
-    ).each do |file|
-      require file
-    end
-
     AnnotateModels.do_annotations(
       is_rake: true,
-      model_dir: ["app/models/easy_ml"]
+      model_dir: [EasyML::Engine.root.join("app/models/easy_ml").to_s],
+      root_dir: [EasyML::Engine.root.join("app/models/easy_ml").to_s],
+      include_modules: true, # Include modules/namespaces in the annotation
     )
+  end
+
+  task :create_test_migrations do
+    require "combustion"
+    require "rails/generators"
+    require_relative "lib/easy_ml/railtie/generators/migration/migration_generator"
+
+    db_files = Dir.glob(EasyML::Engine.root.join("spec/internal/db/migrate/**/*"))
+
+    FileUtils.rm(db_files)
+    Rails::Generators.invoke("easy_ml:migration", [], { destination_root: EasyML::Engine.root.join("spec/internal") })
   end
 end

@@ -54,7 +54,7 @@ module EasyML
       end
 
       def age(format: "human")
-        Age.age(last_updated_at, EST.now, format: format)
+        Age.age(last_updated_at, EasyML::Support::EST.now, format: format)
       end
 
       def stale?
@@ -72,7 +72,7 @@ module EasyML
       def last_updated_at
         return nil if files.empty?
 
-        files.map { |file| File.mtime(file) }.max.in_time_zone(EST)
+        files.map { |file| File.mtime(file) }.max.in_time_zone(EasyML::Support::EST)
       end
 
       private

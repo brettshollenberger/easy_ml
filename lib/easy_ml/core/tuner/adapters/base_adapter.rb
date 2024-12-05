@@ -1,4 +1,5 @@
 require_relative "callbacks"
+
 module EasyML
   module Core
     class Tuner

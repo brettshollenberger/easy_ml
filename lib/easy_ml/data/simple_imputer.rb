@@ -6,7 +6,7 @@ module EasyML
   module Data
     class SimpleImputer
       attr_reader :statistics
-      attr_accessor :path, :attribute, :strategy, :options, :statistics
+      attr_accessor :path, :attribute, :strategy, :options
 
       def initialize(strategy: "mean", path: nil, attribute: nil, options: {}, statistics: {}, &block)
         @strategy = strategy.to_sym
@@ -81,45 +81,45 @@ module EasyML
       end
 
       def transform_polars(x)
-        result = case @strategy
-                 when :mean, :median, :ffill, :most_frequent, :constant
-                   x.fill_null(@statistics[@strategy][:value])
-                 when :clip
-                   min = options["min"] || 0
-                   max = options["max"] || 1_000_000_000_000
-                   if x.null_count != x.len
-                     x.clip(min, max)
-                   else
-                     x
-                   end
-                 when :categorical
-                   allowed_values = @statistics.dig(:categorical, :value).select do |_k, v|
-                     v >= options[:categorical_min]
-                   end.keys.map(&:to_s)
-                   if x.null_count == x.len
-                     x.fill_null(transform_categorical(nil))
-                   else
-                     x.apply do |val|
-                       allowed_values.include?(val) ? val : transform_categorical(val)
-                     end
-                   end
-                 when :today
-                   x.fill_null(transform_today(nil))
-                 when :custom
-                   if x.null_count == x.len
-                     x.fill_null(transform_custom(nil))
-                   else
-                     x.apply do |val|
-                       should_transform_custom?(val) ? transform_custom(val) : val
-                     end
-                   end
-                 else
-                   raise ArgumentError, "Unsupported strategy for Polars::Series: #{@strategy}"
-                 end
-
-        # Cast the result back to the original dtype
-        original_dtype = @statistics.dig(@strategy, :original_dtype)
-        original_dtype ? result.cast(original_dtype) : result
+        case @strategy
+        when :mean, :median
+          x.fill_null(@statistics[@strategy])
+        when :ffill
+          x.fill_null(@statistics[:last_value])
+        when :most_frequent
+          x.fill_null(@statistics[:most_frequent_value])
+        when :constant
+          x.fill_null(@options[:constant])
+        when :categorical
+          allowed_cats = statistics[:allowed_categories]
+          df = Polars::DataFrame.new({ x: x })
+          df.with_column(
+            Polars.when(Polars.col("x").is_in(allowed_cats))
+              .then(Polars.col("x"))
+              .otherwise(Polars.lit("other"))
+              .alias("x")
+          )["x"]
+        when :clip
+          min = options["min"] || 0
+          max = options["max"] || 1_000_000_000_000
+          if x.null_count != x.len
+            x.clip(min, max)
+          else
+            x
+          end
+        when :today
+          x.fill_null(transform_today(nil))
+        when :custom
+          if x.null_count == x.len
+            x.fill_null(transform_custom(nil))
+          else
+            x.apply do |val|
+              should_transform_custom?(val) ? transform_custom(val) : val
+            end
+          end
+        else
+          raise ArgumentError, "Unsupported strategy for Polars::Series: #{@strategy}"
+        end
       end
 
       def file_path
@@ -128,26 +128,8 @@ module EasyML
         File.join(path, "statistics.json")
       end
 
-      def should_transform_categorical?(val)
-        values = @statistics.dig(:categorical, :value) || {}
-        min_ct = options[:categorical_min] || 25
-        allowed_values = values.select { |_v, c| c >= min_ct }
-
-        allowed_values.keys.map(&:to_s).exclude?(val)
-      end
-
-      def transform_categorical(val)
-        return "other" if val.nil?
-
-        values = @statistics.dig(:categorical, :value) || {}
-        min_ct = options[:categorical_min] || 25
-        allowed_values = values.select { |_v, c| c >= min_ct }.keys.map(&:to_s)
-
-        allowed_values.include?(val.to_s) ? val.to_s : "other"
-      end
-
       def transform_today(_val)
-        EST.now.beginning_of_day
+        UTC.now.beginning_of_day
       end
 
       def fit_custom(x)
@@ -215,27 +197,6 @@ module EasyML
         { value: most_frequent_value }
       end
 
-      def fit_categorical(x)
-        value_counts = x.value_counts
-        column_names = value_counts.columns
-        value_column = column_names[0]
-        count_column = column_names[1]
-
-        as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&:to_s)
-        label_encoder = as_hash.keys.sort.each.with_index.reduce({}) do |h, (k, i)|
-          h.tap do
-            h[k] = i
-          end
-        end
-        label_decoder = label_encoder.invert
-
-        {
-          value: as_hash,
-          label_encoder: label_encoder,
-          label_decoder: label_decoder
-        }
-      end
-
       def fit_no_op(_x)
         {}
       end
@@ -272,7 +233,22 @@ module EasyML
       def check_is_fitted
         return if %i[clip today custom].include?(strategy)
 
-        raise "SimpleImputer has not been fitted yet for #{attribute}##{strategy}" unless @statistics[strategy]
+        pass_check = case strategy
+                     when :mean
+                       @statistics.dig(:mean).present?
+                     when :median
+                       @statistics.dig(:median).present?
+                     when :ffill
+                       @statistics.dig(:last_value).present?
+                     when :most_frequent
+                       @statistics.key?(:most_frequent_value)
+                     when :constant
+                       options.dig(:constant).present?
+                     when :categorical
+                       true
+                     end
+
+        raise "SimpleImputer has not been fitted yet for #{attribute}##{strategy}" unless pass_check
       end
     end
   end

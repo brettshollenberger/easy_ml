@@ -54,11 +54,33 @@ module EasyML
 
     def upload(path)
       synced_file.upload(path)
+      set_path(path)
+    end
 
-      self.filename = Pathname.new(path).basename.to_s
-      path = path.split(Rails.root.to_s).last
-      path = path.split("/")[0..-2].reject(&:empty?).join("/")
-      self.path = path
+    def set_path(path)
+      path = get_full_path(path)
+      basename = Pathname.new(path).basename.to_s
+      unless path.start_with?(full_dir)
+        new_path = File.join(full_dir, basename).to_s
+        FileUtils.mkdir_p(Pathname.new(new_path).dirname.to_s)
+        FileUtils.cp(path, new_path)
+        path = new_path
+      end
+      self.filename = basename
+      self.path = get_relative_path(path)
+    end
+
+    def get_full_path(path)
+      path = path.to_s
+
+      path = Rails.root.join(path) unless path.match?(Regexp.new(Rails.root.to_s))
+      path
+    end
+
+    def get_relative_path(path)
+      path = path.to_s
+      path = path.to_s.split(Rails.root.to_s).last
+      path.to_s.split("/")[0..-2].reject(&:empty?).join("/")
     end
 
     def download
@@ -79,7 +101,7 @@ module EasyML
     end
 
     def full_dir
-      Rails.root.join(relative_dir)
+      Rails.root.join(relative_dir).to_s
     end
 
     def model_root

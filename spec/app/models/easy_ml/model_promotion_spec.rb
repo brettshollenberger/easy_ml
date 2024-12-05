@@ -196,24 +196,6 @@ RSpec.describe EasyML::Models do
     @time += 1.second
   end
 
-  def randomize_hypers(model)
-    _, y_true = model.dataset.processed.test(split_ys: true)
-    y_true = y_true["Survived"]
-
-    model.hyperparameters.learning_rate = rand(0.01..0.1)
-    model.hyperparameters.max_depth = rand(3..10)
-    model.hyperparameters.regularization = rand(0.1..2.0)
-    model.hyperparameters.early_stopping_rounds = rand(10..50)
-    model.hyperparameters.min_child_weight = rand(1..10)
-    model.hyperparameters.subsample = rand(0.5..1.0)
-    model.hyperparameters.colsample_bytree = rand(0.5..1.0)
-    model.hyperparameters.colsample_bylevel = rand(0.5..1.0)
-    model.hyperparameters.n_estimators = 10
-    pos_cases = y_true[y_true == 1].count
-    neg_cases = y_true[y_true == 0].count
-    model.hyperparameters.scale_pos_weight = neg_cases / pos_cases.to_f
-  end
-
   describe "#promote" do
     it "uses snapshot model for prediction" do
       mock_s3_upload
@@ -239,7 +221,12 @@ RSpec.describe EasyML::Models do
       model.dataset.refresh
 
       # Re-train
-      randomize_hypers(model)
+      y_true = y_true["Survived"]
+      randomize_hypers(model) do
+        pos_cases = y_true[y_true == 1]
+        neg_cases = y_true[y_true == 0]
+        return pos_cases, neg_cases
+      end
       model.fit
       model.save
       model_v2 = model
@@ -302,7 +289,12 @@ RSpec.describe EasyML::Models do
       model.dataset.columns.where(name: "Age").update_all(hidden: true)
       model.dataset.refresh! # Requires a full refresh! because we changed our source
 
-      randomize_hypers(model)
+      y_true = y_true["Survived"]
+      randomize_hypers(model) do
+        pos_cases = y_true[y_true == 1]
+        neg_cases = y_true[y_true == 0]
+        return pos_cases, neg_cases
+      end
       model.fit
       model.save
       model_v2 = model

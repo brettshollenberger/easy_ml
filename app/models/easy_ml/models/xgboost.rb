@@ -146,6 +146,10 @@ module EasyML
         end
       end
 
+      def unload
+        @booster = nil
+      end
+
       def loaded?
         @booster.present? && @booster.feature_names.any?
       end
@@ -169,7 +173,7 @@ module EasyML
         Tempfile.create(["xgboost_model", ".json"]) do |tempfile|
           @booster.save_model(tempfile.path)
           tempfile.rewind
-          tempfile.read
+          JSON.parse(tempfile.read)
           current_model_hash = Digest::SHA256.file(tempfile.path).hexdigest
         end
         current_model_hash != prev_hash

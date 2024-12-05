@@ -13,6 +13,7 @@
 #  version            :string           not null
 #  root_dir           :string
 #  file               :json
+#  sha                :string
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  history_started_at :datetime         not null

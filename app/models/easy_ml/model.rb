@@ -53,7 +53,7 @@ module EasyML
 
     after_initialize :bump_version, if: -> { new_record? }
     after_initialize :set_defaults, if: -> { new_record? }
-    before_save :save_model_file, if: -> { is_fit? && !is_history_class? && model_changed? }
+    before_save :save_model_file, if: -> { is_fit? && !is_history_class? && model_changed? && !@skip_save_model_file }
 
     VALID_TASKS = %i[regression classification].freeze
 
@@ -211,8 +211,11 @@ module EasyML
       # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
       bump_version(force: true)
       dataset.bump_versions(version)
-      self.model_file_id = nil
+      write_attribute(:model_file_id, nil)
+      @skip_save_model_file = true
       save
+      @skip_save_model_file = false
+      true
     end
 
     def inference_pipeline(df); end
@@ -247,7 +250,11 @@ module EasyML
     end
 
     def get_model_file
-      model_file || build_model_file(
+      model_file || new_model_file!
+    end
+
+    def new_model_file!
+      build_model_file(
         root_dir: root_dir,
         model: self,
         s3_bucket: EasyML::Configuration.s3_bucket,

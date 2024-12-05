@@ -151,6 +151,8 @@ module EasyML
       end
 
       def load_model_file(path)
+        return if loaded?
+
         initialize_model do
           attrs = {
             params: hyperparameters.to_h.symbolize_keys,
@@ -167,12 +169,14 @@ module EasyML
         Tempfile.create(["xgboost_model", ".json"]) do |tempfile|
           @booster.save_model(tempfile.path)
           tempfile.rewind
+          tempfile.read
           current_model_hash = Digest::SHA256.file(tempfile.path).hexdigest
         end
         current_model_hash != prev_hash
       end
 
       def save_model_file(path)
+        puts "Saving model file!"
         path = path.to_s
         ensure_directory_exists(File.dirname(path))
         extension = Pathname.new(path).extname.gsub("\.", "")
@@ -200,7 +204,7 @@ module EasyML
 
       def prepare_data
         if @d_train.nil?
-          x_train, y_train = dataset.train(split_ys: true, limit: 1000)
+          x_train, y_train = dataset.train(split_ys: true)
           x_valid, y_valid = dataset.valid(split_ys: true)
           x_test, y_test = dataset.test(split_ys: true)
           @d_train = preprocess(x_train, y_train)

@@ -165,6 +165,18 @@ module ModelSpecHelper
       EasyML::Model.new(loans_model_config)
     end
 
+    base.let(:loans_model_file_source) do
+      Rails.root.join("easy_ml/mocks/models/loans_model/20241205152918.json")
+    end
+
+    base.let(:pretrain_loans_model) do
+      model_file = loans_model.send(:get_model_file)
+      model_file.set_path(loans_model_file_source)
+      loans_model.send(:load_model_file)
+      model_file.save
+      loans_model
+    end
+
     # base.before(:each) do
     #   dataset.cleanup
     #   dataset.refresh!
@@ -249,5 +261,21 @@ module ModelSpecHelper
       root_dir: path
     )
     allow_any_instance_of(synced_directory).to receive(:reader).and_return(reader)
+  end
+
+  def randomize_hypers(model)
+    model.hyperparameters.learning_rate = rand(0.01..0.1)
+    model.hyperparameters.max_depth = rand(3..10)
+    model.hyperparameters.regularization = rand(0.1..2.0)
+    model.hyperparameters.early_stopping_rounds = rand(10..50)
+    model.hyperparameters.min_child_weight = rand(1..10)
+    model.hyperparameters.subsample = rand(0.5..1.0)
+    model.hyperparameters.colsample_bytree = rand(0.5..1.0)
+    model.hyperparameters.colsample_bylevel = rand(0.5..1.0)
+    model.hyperparameters.n_estimators = 10
+    return unless block_given?
+
+    pos_cases, neg_cases = yield
+    model.hyperparameters.scale_pos_weight = neg_cases / pos_cases.to_f
   end
 end

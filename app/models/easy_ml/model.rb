@@ -74,8 +74,13 @@ module EasyML
       end
     end
 
+    def inference_version
+      snap = latest_snapshot # returns EasyML::Model.none (empty array) if none, return nil instead
+      snap.present? ? snap : nil
+    end
+
     def hyperparameters
-      @hyperparams ||= model_adapter.build_hyperparameters(@hyperparameters)
+      @hypers ||= model_adapter.build_hyperparameters(@hyperparameters)
     end
 
     def predict(xs)
@@ -126,8 +131,9 @@ module EasyML
     def model_changed?
       return false unless is_fit?
       return true if model_file.present? && !model_file.persisted?
+      return true if model_file.present? && model_file.fit? && inference_version.nil?
 
-      prev_hash = Digest::SHA256.file(model_file.full_path).hexdigest
+      prev_hash = Digest::SHA256.file(inference_version.model_file.full_path).hexdigest
       model_adapter.model_changed?(prev_hash)
     end
 
@@ -205,6 +211,7 @@ module EasyML
     def promote
       raise CannotPromoteError, cannot_promote_reasons.first if cannot_promote_reasons.any?
 
+      save
       dataset.lock
       snapshot
       bump_version(force: true)
@@ -218,7 +225,8 @@ module EasyML
       [
         is_fit? ? nil : "Model has not been trained",
         dataset.target.present? ? nil : "Dataset has no target",
-        !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource"
+        !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource",
+        model_changed? ? nil : "Model has not changed"
       ].compact
     end
 

@@ -141,14 +141,31 @@ module EasyML
         )
       end
 
+      def existing_parquet_schema
+        return nil if parquet_files.empty?
+
+        file_path = parquet_files.first
+        df = Polars.scan_parquet(file_path)
+        df = df.limit(1)
+        df.collect.schema
+      end
+
       def learn_dataset
         return schema if schema.present?
 
+        existing_schema = existing_parquet_schema
+        schema = existing_schema || normalize_dataset
+
+        self.schema = schema
+        polars_args[:dtypes] = schema
+      end
+
+      def normalize_dataset
         puts "Normalizing schema..."
         self.num_rows = 0
         first_file = read_file(files.first)
 
-        combined_schema = files.map.with_index do |path, _idx|
+        files.map.with_index do |path, _idx|
           df = read_file(path)
           self.num_rows += df.shape[0]
           df.schema
@@ -174,9 +191,6 @@ module EasyML
                    end
           end
         end
-
-        self.schema = combined_schema
-        polars_args[:dtypes] = combined_schema
       end
     end
   end

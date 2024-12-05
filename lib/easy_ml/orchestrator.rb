@@ -23,7 +23,7 @@ module EasyML
     end
 
     def predict(model_name, df)
-      ensure_model_loaded(model_name)
+      load_model(model_name)
       models[model_name].predict(df)
     end
 
@@ -61,15 +61,23 @@ module EasyML
       training_model
     end
 
+    def reset
+      @models = {}
+    end
+
+    def self.reset
+      instance.reset
+    end
+
     private
 
-    def ensure_model_loaded(model_name)
-      current_model = EasyML::Model.find_by!(name: model_name, status: :inference)
+    def load_model(model_name)
+      current_model = EasyML::Model.find_by!(name: model_name).inference_version
 
       # Load new model if not loaded or different version
       model_not_loaded = models[model_name].nil?
-      model_is_new_model = models[model_name]&.id != current_model&.id
-      return unless model_not_loaded || model_is_new_model
+      model_is_new_version = models[model_name]&.id != current_model&.id
+      return unless model_not_loaded || model_is_new_version
 
       models[model_name] = current_model
     end

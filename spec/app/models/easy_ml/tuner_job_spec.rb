@@ -1,9 +1,21 @@
 require "spec_helper"
+require "support/model_spec_helper"
 
 RSpec.describe EasyML::TunerJob, type: :model do
+  include ModelSpecHelper
+
+  let(:model) do
+    pretrain_loans_model
+  end
+  before(:all) do
+    EasyML::Cleaner.clean
+  end
+  after(:all) do
+    EasyML::Cleaner.clean
+  end
+
   describe "validations" do
     let(:tuner_job) { EasyML::TunerJob.new(model: model, direction: "minimize", config: { learning_rate: 0.5 }) }
-    let(:model) { EasyML::Model.create!(name: "Test Model") }
 
     it "requires config to be present" do
       tuner_job.config = nil
@@ -25,8 +37,6 @@ RSpec.describe EasyML::TunerJob, type: :model do
   end
 
   describe "#best_run" do
-    let(:model) { EasyML::Model.create!(name: "Test Model") }
-
     context "when direction is minimize" do
       let(:tuner_job) do
         EasyML::TunerJob.create!(

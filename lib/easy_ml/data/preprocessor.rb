@@ -9,7 +9,49 @@ module EasyML::Data
     include GlueGun::DSL
 
     CATEGORICAL_COMMON_MIN = 50
-    PREPROCESSING_ORDER = %w[clip mean median constant categorical one_hot ffill custom fill_date add_datepart]
+
+    ALLOWED_PARAMS = {
+      constant: [:constant],
+      categorical: %i[categorical_min one_hot ordinal_encoding],
+      most_frequent: %i[one_hot ordinal_encoding],
+      mean: [:clip],
+      median: [:clip]
+    }
+
+    PREPROCESSING_STRATEGIES = {
+      float: [
+        { value: "mean", label: "Mean" },
+        { value: "median", label: "Median" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      integer: [
+        { value: "mean", label: "Mean" },
+        { value: "median", label: "Median" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      boolean: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      datetime: [
+        { value: "ffill", label: "Forward Fill" },
+        { value: "constant", label: "Constant Value" },
+        { value: "today", label: "Current Date" }
+      ],
+      string: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      text: [
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ],
+      categorical: [
+        { value: "categorical", label: "Categorical" },
+        { value: "most_frequent", label: "Most Frequent" },
+        { value: "constant", label: "Constant Value" }
+      ]
+    }.freeze
 
     attribute :directory
     attribute :verbose
@@ -19,7 +61,39 @@ module EasyML::Data
     attr_reader :statistics
 
     def statistics=(stats)
-      @statistics = stats.deep_symbolize_keys
+      @statistics = (stats || {}).deep_symbolize_keys
+    end
+
+    def apply_clip(df, preprocessing_steps)
+      df = df.clone
+      preprocessing_steps ||= {}
+      preprocessing_steps.deep_symbolize_keys!
+
+      (preprocessing_steps[:training] || {}).each_key do |col|
+        clip_params = preprocessing_steps.dig(:training, col, :params, :clip)
+        next unless clip_params
+
+        min = clip_params[:min]
+        max = clip_params[:max]
+        df[col.to_s] = df[col.to_s].clip(min, max)
+      end
+
+      df
+    end
+
+    def learn_categorical_min(df, preprocessing_steps)
+      preprocessing_steps ||= {}
+      preprocessing_steps.deep_symbolize_keys!
+
+      allowed_categories = {}
+      (preprocessing_steps[:training] || {}).each_key do |col|
+        next unless preprocessing_steps.dig(:training, col, :method).to_s == "categorical"
+
+        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min) || 0
+        val_counts = df[col].value_counts
+        allowed_categories[col] = val_counts[val_counts["count"] >= cat_min][col].to_a
+      end
+      allowed_categories
     end
 
     def fit(df)
@@ -27,33 +101,24 @@ module EasyML::Data
       return if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
       preprocessing_steps.deep_symbolize_keys!
+      df = apply_clip(df, preprocessing_steps)
+      allowed_categories = learn_categorical_min(df, preprocessing_steps)
 
-      puts "Preprocessing..." if verbose
-      imputers = initialize_imputers(preprocessing_steps[:training])
+      self.statistics = StatisticsLearner.learn_df(df).deep_symbolize_keys
 
-      stats = {}
-      imputers.each do |col, imputers|
-        sorted_strategies(imputers).each do |strategy|
-          imputer = imputers[strategy]
-          if df.columns.map(&:downcase).map(&:to_s).include?(col.downcase.to_s)
-            actual_col = df.columns.map(&:to_s).find { |c| c.to_s.downcase == imputer.attribute.downcase.to_s }
-            stats.deep_merge!(
-              imputer.fit(df[actual_col], df)
-            )
-            if strategy == "clip" # This is the only one to transform during fit
-              df[actual_col] = imputer.transform(df[actual_col])
-            end
-          elsif @verbose
-            puts "Warning: Column '#{col}' not found in DataFrame during fit process."
-          end
-        end
+      # Merge allowed categories into statistics
+      allowed_categories.each do |col, categories|
+        statistics[col] ||= {}
+        statistics[col][:allowed_categories] = categories
+        statistics[col].merge!(
+          fit_categorical(df[col], preprocessing_steps)
+        )
       end
-      self.statistics = stats
     end
 
     def postprocess(df, inference: false)
       puts "Postprocessing..." if verbose
-      return df if preprocessing_steps.keys.none?
+      return df if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
       steps = if inference
                 preprocessing_steps[:training].merge(preprocessing_steps[:inference] || {})
@@ -68,9 +133,7 @@ module EasyML::Data
     end
 
     def decode_labels(values, col: nil)
-      imputers = initialize_imputers(preprocessing_steps[:training])
-      imputer = imputers.dig(col.to_sym, :categorical)
-      decoder = imputer.statistics.dig(:categorical, :label_decoder)
+      decoder = statistics.dig(col.to_sym, :label_decoder)
       other_value = decoder.keys.map(&:to_s).map(&:to_i).max + 1
       decoder[other_value] = "other"
       decoder.stringify_keys!
@@ -98,55 +161,43 @@ module EasyML::Data
 
     private
 
-    def standardize_config(config)
-      config.each do |column, strategies|
-        next unless strategies.is_a?(Array)
-
-        config[column] = strategies.reduce({}) do |hash, strategy|
-          hash.tap do
-            hash[strategy] = true
-          end
-        end
-      end
-    end
-
     def initialize_imputers(config)
-      standardize_config(config).each_with_object({}) do |(col, strategies), hash|
+      config.each_with_object({}) do |(col, conf), hash|
         hash[col] ||= {}
-        strategies.each do |strategy, options|
-          next if strategy.to_sym == :one_hot
+        conf.symbolize_keys!
+        method = conf[:method]
+        params = conf[:params] || {}
 
-          options = {} if options == true
-
-          imputer_stats = deserialize_statistics((statistics || {}).deep_stringify_keys.dig(col.to_s))
-          hash[col][strategy] = EasyML::Data::SimpleImputer.new(
-            strategy: strategy,
-            path: directory,
-            attribute: col,
-            options: options,
-            statistics: imputer_stats
-          )
-        end
+        hash[col][method] = EasyML::Data::SimpleImputer.new(
+          strategy: method,
+          options: params,
+          path: directory,
+          attribute: col,
+          statistics: statistics.dig(col)
+        )
       end
     end
 
     def apply_transformations(df, config)
       imputers = initialize_imputers(config)
 
-      standardize_config(config).each do |col, strategies|
+      df = apply_clip(df, { training: config })
+
+      config.each do |col, conf|
+        conf.symbolize_keys!
         if df.columns.map(&:downcase).map(&:to_s).include?(col.downcase.to_s)
           actual_col = df.columns.map(&:to_s).find { |c| c.to_s.downcase == col.to_s.downcase }
 
-          sorted_strategies(strategies).each do |strategy|
-            conf = strategies[strategy.to_sym]
-            if conf.is_a?(Hash) && conf.key?(:one_hot)
-              df = apply_one_hot(df, col, imputers)
-            elsif imputers.dig(col, strategy).options.dig(:encode_labels)
-              df = apply_encode_labels(df, col, imputers)
-            else
-              imputer = imputers.dig(col, strategy)
-              df[actual_col] = imputer.transform(df[actual_col]) if imputer
-            end
+          strategy = conf[:method]
+          params = conf[:params]
+          imputer = imputers.dig(col, strategy)
+
+          df[actual_col] = imputer.transform(df[actual_col]) if imputer
+
+          if params.is_a?(Hash) && params.key?(:one_hot) && params[:one_hot] == true
+            df = apply_one_hot(df, col)
+          elsif params.is_a?(Hash) && params.key?(:ordinal_encoding) && params[:ordinal_encoding] == true
+            df = apply_ordinal_encoding(df, col)
           end
         elsif @verbose
           puts "Warning: Column '#{col}' not found in DataFrame during apply_transformations process."
@@ -156,21 +207,14 @@ module EasyML::Data
       df
     end
 
-    def apply_one_hot(df, col, imputers)
-      imputers = imputers.deep_symbolize_keys
-      approved_values = if (cat_imputer = imputers.dig(col, :categorical)).present?
-                          cat_imputer.statistics[:categorical][:value].select do |_k, v|
-                            v >= cat_imputer.options[:categorical_min]
-                          end.keys
-                        else
-                          df[col].uniq.to_a
-                        end
+    def apply_one_hot(df, col)
+      approved_values = statistics.dig(col, :allowed_categories)
 
       # Create one-hot encoded columns
       approved_values.each do |value|
         new_col_name = "#{col}_#{value}".gsub(/-/, "_")
         df = df.with_column(
-          df[col].eq(value.to_s).cast(Polars::Int64).alias(new_col_name)
+          df[col].cast(Polars::String).eq(value.to_s).cast(Polars::Boolean).alias(new_col_name)
         )
       end
 
@@ -178,15 +222,12 @@ module EasyML::Data
       other_col_name = "#{col}_other"
       df[other_col_name] = df[col].map_elements do |value|
         approved_values.map(&:to_s).exclude?(value)
-      end.cast(Polars::Int64)
+      end.cast(Polars::Boolean)
       df.drop([col.to_s])
     end
 
-    def apply_encode_labels(df, col, imputers)
-      cat_imputer = imputers.dig(col, :categorical)
-      approved_values = cat_imputer.statistics[:categorical][:value].select do |_k, v|
-        v >= cat_imputer.options[:categorical_min]
-      end.keys
+    def apply_ordinal_encoding(df, col)
+      approved_values = statistics.dig(col, :allowed_categories)
 
       df.with_column(
         df[col].map_elements do |value|
@@ -194,7 +235,7 @@ module EasyML::Data
         end.alias(col.to_s)
       )
 
-      label_encoder = cat_imputer.statistics[:categorical][:label_encoder].stringify_keys
+      label_encoder = statistics.dig(col, :label_encoder).stringify_keys
       other_value = label_encoder.values.max + 1
       label_encoder["other"] = other_value
       df.with_column(
@@ -202,10 +243,25 @@ module EasyML::Data
       )
     end
 
-    def sorted_strategies(strategies)
-      strategies.keys.sort_by do |key|
-        PREPROCESSING_ORDER.index(key)
+    def fit_categorical(series, _preprocessing_steps)
+      value_counts = series.value_counts
+      column_names = value_counts.columns
+      value_column = column_names[0]
+      count_column = column_names[1]
+
+      as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&:to_s)
+      label_encoder = as_hash.keys.sort.each.with_index.reduce({}) do |h, (k, i)|
+        h.tap do
+          h[k] = i
+        end
       end
+      label_decoder = label_encoder.invert
+
+      {
+        value: as_hash,
+        label_encoder: label_encoder,
+        label_decoder: label_decoder
+      }
     end
 
     def prepare_for_imputation(df, col)
@@ -299,6 +355,12 @@ module EasyML::Data
       else
         value
       end
+    end
+
+    def self.constants
+      {
+        preprocessing_strategies: PREPROCESSING_STRATEGIES
+      }
     end
   end
 end

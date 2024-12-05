@@ -2,9 +2,9 @@
 
 require "bundler/setup"
 require "timecop"
-require "combustion"
-require "benchmark" # Add this to measure time
+require "benchmark"
 require "sidekiq/testing"
+require "pry"
 Bundler.require :default, :development
 
 # Require the engine file
@@ -16,32 +16,24 @@ def log_time(label, &block)
   puts "#{label} took #{time.real.round(2)} seconds"
 end
 
-# Initialize Combustion only for app directory specs
-running_rails_specs = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
 PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")
 
-Combustion.initialize! :active_record
-require "rspec/rails"
+# Only load Rails/Combustion for specs that need it
+if RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
+  require "combustion"
+  # require "rails/generators"
+  # Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
 
-if Dir.glob(Rails.root.join("db/migrate/**/*")).none?
-  Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
-
-  migration_paths = ActiveRecord::Migrator.migrations_paths
-  migration_paths << File.expand_path("internal/db/migrate", SPEC_ROOT)
-
-  case Rails::VERSION::MAJOR
-  when 7
-    ActiveRecord::MigrationContext.new(migration_paths).migrate
-  when 6
-    migration_context = ActiveRecord::MigrationContext.new(migration_paths, ActiveRecord::SchemaMigration)
-    migration_context.migrate
-  else
-    ActiveRecord::Migrator.migrate(migration_paths)
+  Combustion.initialize! :active_record do |config|
+    config.assets = ActiveSupport::OrderedOptions.new
+    config.assets.enabled = false
   end
-end
+  require "rspec/rails"
 
-Dir[Rails.root.join("spec/support/**/*.rb")].each { |f| require f }
+  # Convert Rails.root to Pathname to ensure consistent path handling
+  Dir[Pathname.new(Rails.root).join("spec/support/**/*.rb").to_s].each { |f| require f }
+end
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
@@ -68,35 +60,18 @@ RSpec.configure do |config|
 
   config.before(:all) do
     EasyML::Configuration.configure do |config|
+      config.storage = "s3"
       config.s3_bucket = "my-bucket"
       config.s3_access_key_id = "12345"
       config.s3_secret_access_key = "67890"
     end
   end
 
-  config.before(:each) do |example|
-    if example.metadata[:fog]
-      CarrierWave.configure do |carrierwave_config|
-        carrierwave_config.fog_credentials = {
-          provider: "AWS",
-          aws_access_key_id: "mock_access_key",
-          aws_secret_access_key: "mock_secret_key",
-          region: "us-east-1"
-        }
-        carrierwave_config.fog_directory = "mock-bucket"
-      end
-    else
-      CarrierWave.configure do |carrierwave_config|
-        carrierwave_config.storage = :file
-        carrierwave_config.enable_processing = false
-        carrierwave_config.root = "#{Rails.root.join("tmp")}"
-      end
-    end
-
+  config.before(:each) do |_example|
     Sidekiq::Worker.clear_all
   end
 
-  if running_rails_specs
+  if ENV["RAILS_SPECS"] || RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
     config.before(:suite) do
       DatabaseCleaner.strategy = :truncation
       DatabaseCleaner.clean_with(:truncation)
@@ -111,4 +86,9 @@ RSpec.configure do |config|
 end
 
 # Enable fake mode for Sidekiq testing
-Sidekiq::Testing.fake!
+# Sidekiq::Testing.fake!
+Sidekiq::Testing.server_middleware do |chain|
+  chain.add Sidekiq::Batch::Middleware::ServerMiddleware
+end
+EST = EasyML::Support::EST
+UTC = EasyML::Support::UTC

@@ -3,39 +3,26 @@ require "support/model_spec_helper"
 
 RSpec.describe EasyML::RetrainingJob do
   include ModelSpecHelper
-  let(:root_dir) do
-    Rails.root
-  end
-
-  let(:datasource) do
-    EasyML::Datasource.create(
-      name: "Polars Datasource",
-      datasource_type: :polars,
-      df: df
-    )
-  end
-
-  let(:dataset) do
-    dataset_config[:datasource] = datasource
-    EasyML::Dataset.create(
-      name: "Dataset",
-      **dataset_config
-    )
-  end
 
   let(:model_name) do
     "My Model"
   end
-  let(:model) do
-    model_config[:name] = model_name
-    model_config[:task] = "regression"
-    EasyML::Model.create(**model_config).tap do |model|
-      model.model_file = model_file
-      model.version = model_file.filename.gsub(/\.json/, "")
-      model.save
-      model.promote
-    end
+
+  before(:each) do
+    EasyML::Cleaner.clean
   end
+
+  after(:each) do
+    EasyML::Cleaner.clean
+  end
+
+  let(:model) do
+    loans_model.fit
+    loans_model.save
+    loans_model.promote
+    loans_model
+  end
+
   let(:valid_attributes) do
     {
       model: model.name,

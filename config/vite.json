@@ -1,0 +1,15 @@
+{
+  "all": {
+    "sourceCodeDir": "app/frontend",
+    "watchAdditionalPaths": [],
+    "publicOutputDir": "easy-ml"
+  },
+  "development": {
+    "autoBuild": true,
+    "port": 3037
+  },
+  "test": {
+    "autoBuild": true,
+    "publicOutputDir": "vite-test"
+  }
+}

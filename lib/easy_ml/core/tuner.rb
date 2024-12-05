@@ -45,13 +45,8 @@ module EasyML
       def tune
         set_defaults!
 
-        if model.class.to_s == "EasyML::Model"
-          db_model = model
-          model = db_model.model_service
-        end
-
         tuner_job = EasyML::TunerJob.create!(
-          model: db_model,
+          model: model,
           config: {
             n_trials: n_trials,
             objective: objective,
@@ -134,8 +129,8 @@ module EasyML
       end
 
       def adapter_class
-        case model.model_type.to_sym
-        when :xgboost
+        case model.model_type
+        when "xgboost"
           Adapters::XGBoostAdapter
         end
       end
@@ -155,7 +150,7 @@ module EasyML
         end
         raise ArgumentError, "Objectives required for EasyML::Core::Tuner" unless objective.present?
 
-        self.metrics = EasyML::Core::Model.new(task: task).allowed_metrics if metrics.nil? || metrics.empty?
+        self.metrics = EasyML::Model.new(task: task).allowed_metrics if metrics.nil? || metrics.empty?
       end
     end
   end

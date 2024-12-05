@@ -1,0 +1,11 @@
+id,business_name,annual_revenue,loan_purpose,state,rev,date
+1,Business A,1000,payroll,VIRGINIA,100,2021-01-01T00:00:00.000000
+2,Business B,2000,payroll,INDIANA,0,2021-05-01T00:00:00.000000
+3,Business C,3000,payroll,WYOMING,0,2022-01-01T00:00:00.000000
+4,Business D,4000,expansion,PA,200,2023-01-01T00:00:00.000000
+5,Business E,5000,payroll,WA,0,2024-01-01T00:00:00.000000
+6,Business F,6000,inventory,MN,500,2024-02-01T00:00:00.000000
+7,Business G,7000,equipment,UT,7000,2024-02-01T00:00:00.000000
+8,Business H,8000,marketing,CA,0,2024-03-01T00:00:00.000000
+9,Business I,9000,equipment,DE,0,2024-05-01T00:00:00.000000
+10,Business J,10000,marketing,FL,10,2024-06-01T00:00:00.000000

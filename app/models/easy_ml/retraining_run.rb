@@ -49,13 +49,13 @@ module EasyML
         end
 
         results = metric_results(training_model)
-        training_model.promote if results[:should_promote]
+        model_was_promoted = results[:should_promote] && training_model.promotable? && training_model.promote
 
         update!(
           results.merge!(
-            status: training_model.inference? ? "completed" : "failed",
-            completed_at: training_model.inference? ? Time.current : nil,
-            error_message: training_model.inference? ? nil : "Did not pass evaluation",
+            status: model_was_promoted ? "completed" : "failed",
+            completed_at: model_was_promoted ? Time.current : nil,
+            error_message: model_was_promoted ? nil : training_model.cannot_promote_reasons&.first || "Did not pass evaluation",
             model: training_model,
             metadata: tuner_metadata
           )

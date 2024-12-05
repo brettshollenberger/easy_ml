@@ -12,42 +12,140 @@
 #
 module EasyML
   class Datasource < ActiveRecord::Base
-    include ConfigurableSTI
+    self.table_name = "easy_ml_datasources"
+    include Historiographer::Silent
+    historiographer_mode :snapshot_only
+    include EasyML::Concerns::Configurable
 
-    type_column :datasource_type
-    register_types(
-      polars: "PolarsDatasource",
-      s3: "S3Datasource",
-      file: "FileDatasource"
-    )
+    DATASOURCE_OPTIONS = {
+      "s3" => "EasyML::Datasources::S3Datasource",
+      "file" => "EasyML::Datasources::FileDatasource",
+      "polars" => "EasyML::Datasources::PolarsDatasource"
+    }
+    DATASOURCE_TYPES = [
+      {
+        value: "s3",
+        label: "Amazon S3",
+        description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets"
+      },
+      {
+        value: "file",
+        label: "Local Files",
+        description: "Connect to data stored in local files"
+      },
+      {
+        value: "polars",
+        label: "Polars DataFrame",
+        description: "In-memory dataframe storage using Polars"
+      }
+    ].freeze
+    DATASOURCE_NAMES = DATASOURCE_OPTIONS.keys.freeze
+    DATASOURCE_CONSTANTS = DATASOURCE_OPTIONS.values.map(&:constantize)
 
     validates :name, presence: true
     validates :datasource_type, presence: true
-    validates :datasource_type, inclusion: { in: type_map.values }
+    validates :datasource_type, inclusion: { in: DATASOURCE_NAMES }
+    validate :validate_datasource_exists
 
-    # Common interface methods
-    def in_batches(of: 10_000)
-      raise NotImplementedError, "#{self.class} must implement #in_batches"
+    before_save :set_root_dir
+    after_initialize :read_adapter_from_configuration
+    after_find :read_adapter_from_configuration
+    before_save :store_adapter_in_configuration
+
+    has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
+    attr_accessor :schema, :columns, :num_rows, :is_syncing
+
+    add_configuration_attributes :schema, :columns, :num_rows, :polars_args, :verbose, :is_syncing
+    DATASOURCE_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
+      add_configuration_attributes attribute
     end
 
-    def files
-      raise NotImplementedError, "#{self.class} must implement #files"
+    delegate :query, :in_batches, :files, :all_files, :last_updated_at, :data, :needs_refresh?,
+             :refresh, :refresh!, :should_sync?, :files_to_sync, :s3_access_key_id, :s3_secret_access_key,
+             :download_file, :clean, to: :adapter
+
+    def self.constants
+      {
+        DATASOURCE_TYPES: DATASOURCE_TYPES,
+        s3: EasyML::Datasources::S3Datasource.constants
+      }
     end
 
-    def last_updated_at
-      raise NotImplementedError, "#{self.class} must implement #last_updated_at"
+    def in_memory?
+      datasource_type == "polars"
     end
 
-    def refresh
-      raise NotImplementedError, "#{self.class} must implement #refresh"
+    def root_dir
+      persisted = read_attribute(:root_dir)
+      return persisted if persisted.present? && !persisted.to_s.blank?
+
+      default_root_dir
     end
 
-    def refresh!
-      raise NotImplementedError, "#{self.class} must implement #refresh!"
+    def refresh_async
+      EasyML::SyncDatasourceWorker.perform_async(id)
     end
 
-    def data
-      raise NotImplementedError, "#{self.class} must implement #data"
+    def before_sync
+      update!(is_syncing: true)
+      adapter.before_sync
+      Rails.logger.info("Starting sync for datasource #{id}")
+    end
+
+    def after_sync
+      adapter.after_sync
+      self.schema = data.schema.reduce({}) do |h, (k, v)|
+        h.tap do
+          h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
+        end
+      end
+      self.columns = data.columns
+      self.num_rows = data.shape[0]
+      self.is_syncing = false
+      save
+    end
+
+    def syncing
+      before_sync
+      yield.tap do
+        after_sync
+      end
+    end
+
+    private
+
+    def adapter
+      @adapter ||= begin
+        adapter_class = DATASOURCE_OPTIONS[datasource_type]
+        raise "Don't know how to use datasource adapter #{datasource_type}!" unless adapter_class.present?
+
+        adapter_class.constantize.new(self)
+      end
+    end
+
+    def default_root_dir
+      folder = name.gsub(/\s{2,}/, " ").split(" ").join("_").downcase
+      EasyML::Engine.root_dir.join("datasources").join(folder)
+    end
+
+    def set_root_dir
+      write_attribute(:root_dir, default_root_dir) unless read_attribute(:root_dir).present?
+    end
+
+    def read_adapter_from_configuration
+      return unless persisted?
+
+      adapter.read_from_configuration if adapter.respond_to?(:read_from_configuration)
+    end
+
+    def store_adapter_in_configuration
+      adapter.store_in_configuration if adapter.respond_to?(:store_in_configuration)
+    end
+
+    def validate_datasource_exists
+      return if adapter.exists?
+
+      errors.add(:root_dir, adapter.error_not_exists)
     end
   end
 end

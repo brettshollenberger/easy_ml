@@ -7,7 +7,6 @@
 #  filename           :string           not null
 #  path               :string           not null
 #  configuration      :json
-#  model_id           :integer
 #  model_type         :string
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null

@@ -8,6 +8,7 @@
 #  model_type         :string
 #  status             :string
 #  dataset_id         :integer
+#  model_file_id      :integer
 #  configuration      :json
 #  version            :string           not null
 #  root_dir           :string

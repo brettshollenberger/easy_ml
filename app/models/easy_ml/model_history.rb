@@ -41,5 +41,9 @@ module EasyML
     def is_latest_snapshot?
       original_class.find_by(name: name).latest_snapshot.id == id
     end
+
+    def fit
+      raise "Cannot train inference model"
+    end
   end
 end

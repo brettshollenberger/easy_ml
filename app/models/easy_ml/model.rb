@@ -7,6 +7,7 @@
 #  model_type    :string
 #  status        :string
 #  dataset_id    :bigint
+#  model_file_id :bigint
 #  configuration :json
 #  version       :string           not null
 #  root_dir      :string
@@ -46,13 +47,13 @@ module EasyML
     end
 
     belongs_to :dataset
-    has_one :model_file, class_name: "EasyML::ModelFile"
+    belongs_to :model_file, class_name: "EasyML::ModelFile"
 
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
 
     after_initialize :bump_version, if: -> { new_record? }
     after_initialize :set_defaults, if: -> { new_record? }
-    before_save :save_model_file, if: -> { is_fit? && !is_history_class? }
+    before_save :save_model_file, if: -> { is_fit? && !is_history_class? && model_changed? }
 
     VALID_TASKS = %i[regression classification].freeze
 
@@ -137,15 +138,6 @@ module EasyML
       model_adapter.model_changed?(prev_hash)
     end
 
-    def fork
-      dup.tap do |new_model|
-        new_model.status = :training
-        new_model.version = bump_version(force: true)
-        new_model.model_file = nil
-        new_model.save
-      end
-    end
-
     def feature_importances
       model_adapter.feature_importances
     end
@@ -211,11 +203,15 @@ module EasyML
     def promote
       raise CannotPromoteError, cannot_promote_reasons.first if cannot_promote_reasons.any?
 
-      save
+      # Prepare the inference model by freezing + saving the model, dataset, and datasource
+      # (This creates ModelHistory, DatasetHistory, etc)
       dataset.lock
       snapshot
+
+      # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
       bump_version(force: true)
       dataset.bump_versions(version)
+      self.model_file_id = nil
       save
     end
 

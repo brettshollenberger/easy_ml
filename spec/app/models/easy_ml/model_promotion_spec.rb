@@ -223,9 +223,9 @@ RSpec.describe EasyML::Models do
       # Re-train
       y_true = y_true["Survived"]
       randomize_hypers(model) do
-        pos_cases = y_true[y_true == 1]
-        neg_cases = y_true[y_true == 0]
-        return pos_cases, neg_cases
+        pos_cases = y_true[y_true == 1].count
+        neg_cases = y_true[y_true == 0].count
+        [pos_cases, neg_cases]
       end
       model.fit
       model.save
@@ -291,9 +291,9 @@ RSpec.describe EasyML::Models do
 
       y_true = y_true["Survived"]
       randomize_hypers(model) do
-        pos_cases = y_true[y_true == 1]
-        neg_cases = y_true[y_true == 0]
-        return pos_cases, neg_cases
+        pos_cases = y_true[y_true == 1].count
+        neg_cases = y_true[y_true == 0].count
+        [pos_cases, neg_cases]
       end
       model.fit
       model.save
@@ -399,10 +399,11 @@ RSpec.describe EasyML::Models do
       FileUtils.mkdir_p(SPEC_ROOT.join("backups/models"))
       FileUtils.mv(model_v1.dataset.root_dir, SPEC_ROOT.join("backups/datasets")) # Move the dataset, so we can mock s3 download
 
+      model.promote # Now the latest snapshot becomes v2
+
       # Since the v1 model is no longer live, we've deleted the model file... we need to expect it'll be requested from s3 too
       FileUtils.mv(model_v1.model_file.full_path, SPEC_ROOT.join("backups/models"))
 
-      model.promote # Now the latest snapshot becomes v2
       model_v2 = model.latest_snapshot
       preds_v2 = model_v2.predict(x_test)
 

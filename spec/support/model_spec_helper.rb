@@ -276,6 +276,6 @@ module ModelSpecHelper
     return unless block_given?
 
     pos_cases, neg_cases = yield
-    model.hyperparameters.scale_pos_weight = neg_cases / pos_cases.to_f
+    model.hyperparameters.scale_pos_weight = (neg_cases / pos_cases).to_f
   end
 end

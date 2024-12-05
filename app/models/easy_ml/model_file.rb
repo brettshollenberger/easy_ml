@@ -6,7 +6,6 @@
 #  filename      :string           not null
 #  path          :string           not null
 #  configuration :json
-#  model_id      :bigint
 #  model_type    :string
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
@@ -20,7 +19,7 @@ module EasyML
     self.filter_attributes += [:configuration]
 
     validates :filename, presence: true
-    belongs_to :model, polymorphic: true
+    has_one :model, class_name: "EasyML::Model", inverse_of: :model_file
 
     include EasyML::Concerns::Configurable
     add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :s3_access_key_id, :s3_secret_access_key, :root_dir

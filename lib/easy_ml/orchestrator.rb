@@ -14,10 +14,6 @@ module EasyML
       instance.predict(model_name, df)
     end
 
-    def self.fork(model_name)
-      instance.fork(model_name)
-    end
-
     def self.train(model_name, tuner: nil, evaluator: nil)
       instance.train(model_name, tuner: tuner, evaluator: evaluator)
     end

@@ -6,6 +6,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.string :model_type
       t.string :status
       t.bigint :dataset_id
+      t.bigint :model_file_id
       t.json :configuration
       t.string :version, null: false
       t.string :root_dir
@@ -21,6 +22,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.index [:name, :version]
       t.index :dataset_id
       t.index :model_type
+      t.index :model_file_id
     end
   end
 end

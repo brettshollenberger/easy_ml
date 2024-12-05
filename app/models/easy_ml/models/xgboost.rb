@@ -53,39 +53,26 @@ module EasyML
         klass.new(params)
       end
 
-      def callbacks=(params)
+      def build_callbacks(params)
         return [] unless params.is_a?(Array)
 
         params.map do |conf|
-          callback_type = conf.keys.first.to_sym
-          conf.values.first.symbolize_keys!
+          conf.symbolize_keys!
+          if conf.key?(:callback_type)
+            callback_type = conf[:callback_type]
+          else
+            callback_type = conf.keys.first.to_sym
+            conf = conf.values.first.symbolize_keys!
+          end
 
-          klass = case callback_type
-                  when :wandb then Wandb::XGBoostCallback
-                  end
-          raise "Unknown callback type #{callback_type}" unless klass.present?
-        end
-
-        super(params)
-      end
-
-      def callbacks
-        return @_callbacks if @_callbacks
-
-        raw_params = model.instance_variable_get(:@callbacks)
-
-        return [] if raw_params.nil? || !raw_params.is_a?(Array)
-
-        @_callbacks = raw_params.map do |conf|
-          callback_type = conf.keys.first.to_sym
-          callback_config = conf.values.first.symbolize_keys!
-
-          klass = case callback_type
+          klass = case callback_type.to_sym
                   when :wandb then Wandb::XGBoostCallback
                   end
           raise "Unknown callback type #{callback_type}" unless klass.present?
 
-          klass.new(**callback_config)
+          klass.new(conf).tap do |instance|
+            instance.instance_variable_set(:@callback_type, callback_type)
+          end
         end
       end
 
@@ -101,7 +88,7 @@ module EasyML
         @booster = base_model.train(hyperparameters.to_h, d_train,
                                     evals: evals,
                                     num_boost_round: hyperparameters["n_estimators"],
-                                    callbacks: callbacks || [],
+                                    callbacks: model.callbacks || [],
                                     early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
       end
 

@@ -21,7 +21,6 @@ RSpec.describe EasyML::RetrainingRun do
     ]
     EasyML::Model.create(**loans_model_config).tap do |model|
       model.fit
-      model.save
       model.promote
     end
   end
@@ -98,8 +97,23 @@ RSpec.describe EasyML::RetrainingRun do
           .with(model.name, evaluator: retraining_job.evaluator)
           .and_call_original
 
+        x_train, y_train = model.dataset.train(split_ys: true)
+        y_train["rev"] = Polars::Series.new(Array.new(5) { 10_000 })
+        allow_any_instance_of(EasyML::Dataset).to receive(:train).and_return([x_train, y_train])
+
         expect(retraining_run.perform_retraining!).to be true
         expect(retraining_job.reload.last_tuning_at).to be_nil
+      end
+
+      it "doesn't update model if model has not changed" do
+        allow(retraining_job).to receive(:should_tune?).and_return(false)
+
+        expect(EasyML::Orchestrator).to receive(:train)
+          .with(model.name, evaluator: retraining_job.evaluator)
+          .and_call_original
+
+        expect(retraining_run.perform_retraining!).to be true
+        expect(retraining_run.reload.error_message).to eq "Model has not changed"
       end
     end
 
@@ -131,6 +145,7 @@ RSpec.describe EasyML::RetrainingRun do
             .and_return([[1, 2, 3], y_true])
           allow(training_model).to receive(:predict).and_return(y_pred)
           allow(training_model).to receive(:promotable?).and_return(true)
+          allow(training_model).to receive(:cannot_promote_reasons).and_return([])
           allow(training_model).to receive(:reload).and_return(training_model)
           allow(training_model).to receive_message_chain(:dataset, :reload).and_return(training_model)
           allow(training_model).to receive_message_chain(:bump_versions).and_call_original

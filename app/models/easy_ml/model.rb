@@ -66,7 +66,7 @@ module EasyML
     validates :dataset_id, presence: true
     before_save :set_root_dir
 
-    delegate :prepare_data, :callbacks, :preprocess, to: :model_adapter
+    delegate :prepare_data, :preprocess, to: :model_adapter
 
     STATUSES = %w[training inference retired]
     STATUSES.each do |status|
@@ -82,6 +82,10 @@ module EasyML
 
     def hyperparameters
       @hypers ||= model_adapter.build_hyperparameters(@hyperparameters)
+    end
+
+    def callbacks
+      @cbs ||= model_adapter.build_callbacks(@callbacks)
     end
 
     def predict(xs)

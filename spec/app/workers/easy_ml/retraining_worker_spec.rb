@@ -8,13 +8,7 @@ RSpec.describe EasyML::RetrainingWorker do
       "My Model"
     end
     let(:model) do
-      model_config[:name] = model_name
-      model_config[:task] = "regression"
-      EasyML::Model.create(**model_config).tap do |model|
-        model.model_file = model_file
-        model.version = model_file.filename.gsub(/\.json/, "")
-        model.fit
-        model.save
+      pretrain_loans_model.tap do |model|
         model.promote
       end
     end

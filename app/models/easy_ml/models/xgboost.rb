@@ -180,7 +180,6 @@ module EasyML
       end
 
       def save_model_file(path)
-        puts "Saving model file!"
         path = path.to_s
         ensure_directory_exists(File.dirname(path))
         extension = Pathname.new(path).extname.gsub("\.", "")

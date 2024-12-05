@@ -1,7 +1,18 @@
 require "spec_helper"
+require "support/model_spec_helper"
 
 RSpec.describe EasyML::TunerJob, type: :model do
-  let(:model) { EasyML::Model.create!(name: "Test Model", task: :regression) }
+  include ModelSpecHelper
+
+  let(:model) do
+    pretrain_loans_model
+  end
+  before(:all) do
+    EasyML::Cleaner.clean
+  end
+  after(:all) do
+    EasyML::Cleaner.clean
+  end
 
   describe "validations" do
     let(:tuner_job) { EasyML::TunerJob.new(model: model, direction: "minimize", config: { learning_rate: 0.5 }) }

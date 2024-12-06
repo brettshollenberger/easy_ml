@@ -27,14 +27,32 @@ module EasyML
     validates :model, presence: true,
                       uniqueness: { message: "already has a retraining job" }
     validate :model_must_exist
-    validates :frequency, presence: true, inclusion: { in: %w[hour day week month] }
+
+    FREQUENCY_TYPES = [
+      {
+        value: "day",
+        label: "Daily",
+        description: "Run once every day"
+      },
+      {
+        value: "week",
+        label: "Weekly",
+        description: "Run once every week"
+      },
+      {
+        value: "month",
+        label: "Monthly",
+        description: "Run once every month"
+      }
+    ].freeze
+    validates :frequency, presence: true, inclusion: { in: %w[day week month] }
     validates :status, presence: true
     validates :at, presence: true,
                    numericality: { only_integer: true,
                                    greater_than_or_equal_to: 0,
                                    less_than: 24 }
     validates :tuning_frequency, inclusion: {
-      in: %w[hour day week month],
+      in: %w[day week month],
       allow_nil: true
     }
     validate :evaluator_must_be_valid
@@ -52,6 +70,12 @@ module EasyML
       active.unlocked.select do |job|
         job.should_run?
       end
+    end
+
+    def self.constants
+      {
+        frequency: FREQUENCY_TYPES
+      }
     end
 
     def should_run?

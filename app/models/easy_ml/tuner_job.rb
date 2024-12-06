@@ -29,13 +29,21 @@ module EasyML
       pending: "pending",
       running: "running",
       completed: "completed",
-      failed: "failed"
+      failed: "failed",
     }
 
     def best_run
       return nil if tuner_runs.empty?
 
       tuner_runs.order(value: direction_order).first
+    end
+
+    def self.constants
+      EasyML::Model::MODEL_OPTIONS.inject({}) do |h, (key, class_name)|
+        h.tap do
+          h[key] = class_name.constantize.hyperparameter_constants
+        end
+      end
     end
 
     private

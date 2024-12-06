@@ -24,17 +24,17 @@ module EasyML
       #               .order(created_at: :desc)
 
       render inertia: "pages/ModelsPage", props: {
-        models: models.map { |model| model_to_json(model) }
+        models: models.map { |model| model_to_json(model) },
 
-        # retraining_jobs: RetrainingJob.current_jobs.map { |job| job_data(job) },
-        # retraining_runs: RetrainingRun.recent.map { |run| run_data(run) }
+      # retraining_jobs: RetrainingJob.current_jobs.map { |job| job_data(job) },
+      # retraining_runs: RetrainingRun.recent.map { |run| run_data(run) }
       }
     end
 
     def new
       render inertia: "pages/NewModelPage", props: {
-        datasets: Dataset.all.map { |dataset| dataset_to_json(dataset) },
-        constants: Model.constants
+        datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+        constants: EasyML::Model.constants,
       }
     end
 
@@ -48,7 +48,7 @@ module EasyML
         render inertia: "pages/NewModelPage", props: {
           datasets: Dataset.all.map { |dataset| dataset_to_json(dataset) },
           constants: Model.constants,
-          errors: model.errors
+          errors: model.errors,
         }
       end
     end
@@ -60,7 +60,7 @@ module EasyML
       render inertia: "Models/Show", props: {
         model: model_data(model),
         runs: model.retraining_runs.map { |run| retraining_run_to_json(run) },
-        job: model.current_retraining_job&.then { |job| retraining_job_to_json(job) }
+        job: model.current_retraining_job&.then { |job| retraining_job_to_json(job) },
       }
     end
 
@@ -108,7 +108,7 @@ module EasyML
         :dataset_id,
         :task,
         :objective,
-        metrics: []
+        metrics: [],
       )
     end
   end

@@ -22,6 +22,9 @@ interface ModelFormProps {
     tasks: { value: string; label: string }[];
     objectives: Record<string, { value: string; label: string; description?: string }[]>;
     metrics: Record<string, { value: string; label: string; direction: string }[]>;
+    timezone: string;
+    training_schedule: any;
+    hyperparameter_tuning: any;
   };
   isEditing?: boolean;
 }
@@ -69,6 +72,8 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
 
   const selectedDataset = datasets.find(d => d.id === data.model.dataset_id);
 
+  const filteredHyperparameterConstants = constants.hyperparameter_tuning[data.model.model_type] || {};
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <div className="flex justify-between items-center border-b pb-4">
@@ -94,7 +99,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               id="name"
               value={data.model.name}
               onChange={(e) => setData('model.name', e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 shadow-sm border-gray-300 border"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
               required
             />
           </div>
@@ -224,6 +229,9 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
           task: data.model.task,
           metrics: data.model.metrics
         }}
+        hyperparameterConstants={filteredHyperparameterConstants}
+        timezone={constants.timezone}
+        trainingScheduleConstants={constants.training_schedule}
       />
     </form>
   );

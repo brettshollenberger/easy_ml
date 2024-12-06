@@ -29,14 +29,14 @@ module EasyML
     self.filter_attributes += [:configuration]
 
     MODEL_OPTIONS = {
-      "xgboost" => "EasyML::Models::XGBoost"
+      "xgboost" => "EasyML::Models::XGBoost",
     }
     MODEL_TYPES = [
       {
         value: "xgboost",
         label: "XGBoost",
-        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines"
-      }
+        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines",
+      },
     ].freeze
     MODEL_NAMES = MODEL_OPTIONS.keys.freeze
     MODEL_CONSTANTS = MODEL_OPTIONS.values.map(&:constantize)
@@ -61,20 +61,20 @@ module EasyML
       {
         value: "classification",
         label: "Classification",
-        description: "Predict categorical outcomes or class labels"
+        description: "Predict categorical outcomes or class labels",
       },
       {
         value: "regression",
         label: "Regression",
-        description: "Predict continuous numerical values"
-      }
+        description: "Predict continuous numerical values",
+      },
     ].freeze
 
     validates :task, presence: true
     validates :task, inclusion: {
-      in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
-      message: "must be one of: #{VALID_TASKS.join(", ")}"
-    }
+             in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
+             message: "must be one of: #{VALID_TASKS.join(", ")}",
+           }
     validates :model_type, inclusion: { in: MODEL_NAMES }
     validates :dataset_id, presence: true
     validate :validate_metrics_allowed
@@ -247,7 +247,10 @@ module EasyML
       {
         objectives: objectives,
         metrics: metrics_by_task,
-        tasks: TASK_TYPES
+        tasks: TASK_TYPES,
+        timezone: EasyML::Configuration.timezone_label,
+        training_schedule: EasyML::RetrainingJob.constants,
+        hyperparameter_tuning: EasyML::TunerJob.constants,
       }
     end
 
@@ -265,7 +268,7 @@ module EasyML
 
     def attributes
       super.merge!(
-        hyperparameters: hyperparameters.to_h
+        hyperparameters: hyperparameters.to_h,
       )
     end
 
@@ -298,7 +301,7 @@ module EasyML
         is_fit? ? nil : "Model has not been trained",
         dataset.target.present? ? nil : "Dataset has no target",
         !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource",
-        model_changed? ? nil : "Model has not changed"
+        model_changed? ? nil : "Model has not changed",
       ].compact
     end
 
@@ -337,7 +340,7 @@ module EasyML
       {
         x_true: x_true,
         y_true: y_true,
-        y_pred: y_pred
+        y_pred: y_pred,
       }
     end
 
@@ -357,7 +360,7 @@ module EasyML
         s3_region: EasyML::Configuration.s3_region,
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,
         s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
-        s3_prefix: prefix
+        s3_prefix: prefix,
       )
     end
 
@@ -420,11 +423,11 @@ module EasyML
 
     def model_adapter
       @model_adapter ||= begin
-        adapter_class = MODEL_OPTIONS[model_type]
-        raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
+          adapter_class = MODEL_OPTIONS[model_type]
+          raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
 
-        adapter_class.constantize.new(self)
-      end
+          adapter_class.constantize.new(self)
+        end
     end
   end
 end

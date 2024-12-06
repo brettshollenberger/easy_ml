@@ -11,192 +11,10 @@ interface ScheduleModalProps {
     metrics: string[];
     modelType?: string;
   };
+  hyperparameterConstants: any;
+  timezone: string;
+  trainingScheduleConstants: any;
 }
-
-type Booster = 'gbtree' | 'gblinear' | 'dart';
-
-interface Parameter {
-  name: string;
-  description: string;
-  min: number;
-  max: number;
-  step: number;
-}
-
-const BOOSTERS: Record<Booster, {
-  description: string;
-  parameters: Parameter[];
-}> = {
-  gbtree: {
-    description: 'Traditional Gradient Boosting Decision Tree',
-    parameters: [
-      {
-        name: 'learning_rate',
-        description: 'Step size shrinkage used to prevent overfitting',
-        min: 0.001,
-        max: 1,
-        step: 0.001
-      },
-      {
-        name: 'max_depth',
-        description: 'Maximum depth of a tree',
-        min: 1,
-        max: 20,
-        step: 1
-      },
-      {
-        name: 'min_child_weight',
-        description: 'Minimum sum of instance weight needed in a child',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'gamma',
-        description: 'Minimum loss reduction required to make a further partition',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'subsample',
-        description: 'Subsample ratio of the training instances',
-        min: 0.1,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'colsample_bytree',
-        description: 'Subsample ratio of columns when constructing each tree',
-        min: 0.1,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'lambda',
-        description: 'L2 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'alpha',
-        description: 'L1 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      }
-    ]
-  },
-  gblinear: {
-    description: 'Generalized Linear Model with gradient boosting',
-    parameters: [
-      {
-        name: 'learning_rate',
-        description: 'Step size shrinkage used to prevent overfitting',
-        min: 0.001,
-        max: 1,
-        step: 0.001
-      },
-      {
-        name: 'lambda',
-        description: 'L2 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'alpha',
-        description: 'L1 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'feature_selector',
-        description: 'Feature selection and ordering method',
-        min: 0,
-        max: 4,
-        step: 1
-      }
-    ]
-  },
-  dart: {
-    description: 'Dropouts meet Multiple Additive Regression Trees',
-    parameters: [
-      {
-        name: 'learning_rate',
-        description: 'Step size shrinkage used to prevent overfitting',
-        min: 0.001,
-        max: 1,
-        step: 0.001
-      },
-      {
-        name: 'max_depth',
-        description: 'Maximum depth of a tree',
-        min: 1,
-        max: 20,
-        step: 1
-      },
-      {
-        name: 'min_child_weight',
-        description: 'Minimum sum of instance weight needed in a child',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'gamma',
-        description: 'Minimum loss reduction required to make a further partition',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'subsample',
-        description: 'Subsample ratio of the training instances',
-        min: 0.1,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'colsample_bytree',
-        description: 'Subsample ratio of columns when constructing each tree',
-        min: 0.1,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'lambda',
-        description: 'L2 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'alpha',
-        description: 'L1 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'rate_drop',
-        description: 'Dropout rate (a fraction of previous trees to drop)',
-        min: 0,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'skip_drop',
-        description: 'Probability of skipping the dropout procedure during iteration',
-        min: 0,
-        max: 1,
-        step: 0.1
-      }
-    ]
-  }
-};
 
 const METRICS = {
   classification: [
@@ -213,10 +31,10 @@ const METRICS = {
   ]
 };
 
-export function ScheduleModal({ isOpen, onClose, onSave, initialData }: ScheduleModalProps) {
+export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparameterConstants, timezone, trainingScheduleConstants }: ScheduleModalProps) {
   const [formData, setFormData] = useState({
     trainingSchedule: {
-      frequency: 'daily' as const,
+      frequency: trainingScheduleConstants.frequency[0].value as string,
       dayOfWeek: 1,
       dayOfMonth: 1,
       hour: 2
@@ -239,6 +57,118 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData }: Schedule
   });
 
   if (!isOpen) return null;
+
+  const handleBaseParameterChange = (parameter: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tuningSchedule: {
+        ...prev.tuningSchedule,
+        parameters: {
+          ...prev.tuningSchedule.parameters,
+          [parameter]: value
+        }
+      }
+    }));
+  };
+
+  const renderHyperparameterControls = () => {
+    const baseParameters = Object.entries(hyperparameterConstants).filter(
+      ([key, value]) => Array.isArray(value.options)
+    );
+
+    const selectedBaseParams = Object.keys(formData.tuningSchedule.parameters);
+
+    return (
+      <div className="space-y-4">
+        {baseParameters.map(([key, value]) => (
+          <div key={key}>
+            <label className="block text-sm font-medium text-gray-700">
+              {value.label}
+            </label>
+            <SearchableSelect
+              options={value.options.map((option: any) => ({
+                value: option.value,
+                label: option.label,
+                description: option.description
+              }))}
+              value={formData.tuningSchedule.parameters[key] || ''}
+              onChange={(val) => handleBaseParameterChange(key, val as string)}
+            />
+          </div>
+        ))}
+
+        {selectedBaseParams.map(param => {
+          const subParams = Object.entries(hyperparameterConstants).filter(
+            ([key, value]) => value.depends_on === param
+          );
+          return (
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-900">Parameter Ranges</h4>
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                {subParams.map(([subKey, subValue]: any) => {
+                  const selectedValue = formData.tuningSchedule.parameters[param];
+                  const relevantParams = subValue[selectedValue];
+                  return relevantParams ? Object.entries(relevantParams).map(([paramKey, paramValue]: any) => {
+                    if (paramValue.min !== undefined && paramValue.max !== undefined) {
+                      return (
+                        <div key={paramKey} className="bg-gray-50 p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-900">
+                              {paramValue.label}
+                            </label>
+                            <span key={paramKey} className="text-xs text-gray-500">{paramValue.description}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">
+                                Minimum
+                              </label>
+                              <input
+                                type="number"
+                                min={paramValue.min}
+                                max={paramValue.max}
+                                step={paramValue.step}
+                                value={formData.tuningSchedule.parameters[paramKey]?.min ?? paramValue.min}
+                                onChange={(e) => handleParameterChange(
+                                  paramKey,
+                                  'min',
+                                  parseFloat(e.target.value)
+                                )}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">
+                                Maximum
+                              </label>
+                              <input
+                                type="number"
+                                min={paramValue.min}
+                                max={paramValue.max}
+                                step={paramValue.step}
+                                value={formData.tuningSchedule.parameters[paramKey]?.max ?? paramValue.max}
+                                onChange={(e) => handleParameterChange(
+                                  paramKey,
+                                  'max',
+                                  parseFloat(e.target.value)
+                                )}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }) : null;
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   const handleParameterChange = (parameter: string, type: 'min' | 'max', value: number) => {
     setFormData(prev => ({
@@ -283,17 +213,17 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData }: Schedule
                     Frequency
                   </label>
                   <SearchableSelect
-                    options={[
-                      { value: 'daily', label: 'Daily', description: 'Run once every day' },
-                      { value: 'weekly', label: 'Weekly', description: 'Run once every week' },
-                      { value: 'monthly', label: 'Monthly', description: 'Run once every month' }
-                    ]}
+                    options={trainingScheduleConstants.frequency.map((freq: { value: string; label: string; description: string }) => ({
+                      value: freq.value,
+                      label: freq.label,
+                      description: freq.description
+                    }))}
                     value={formData.trainingSchedule.frequency}
                     onChange={(value) => setFormData(prev => ({
                       ...prev,
                       trainingSchedule: {
                         ...prev.trainingSchedule,
-                        frequency: value as 'daily' | 'weekly' | 'monthly'
+                        frequency: value as string
                       }
                     }))}
                   />
@@ -350,7 +280,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData }: Schedule
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    Hour (UTC)
+                    Hour ({timezone})
                   </label>
                   <SearchableSelect
                     options={Array.from({ length: 24 }, (_, i) => ({
@@ -496,86 +426,12 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData }: Schedule
                           trials: parseInt(e.target.value)
                         }
                       }))}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
                     />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    XGBoost Booster
-                  </label>
-                  <SearchableSelect
-                    options={Object.entries(BOOSTERS).map(([key, value]) => ({
-                      value: key,
-                      label: key.toUpperCase(),
-                      description: value.description
-                    }))}
-                    value={formData.tuningSchedule.booster}
-                    onChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      tuningSchedule: {
-                        ...prev.tuningSchedule,
-                        booster: value as Booster,
-                        parameters: {}
-                      }
-                    }))}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-gray-900">Parameter Ranges</h4>
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                    {BOOSTERS[formData.tuningSchedule.booster].parameters.map((param) => (
-                      <div key={param.name} className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-gray-900">
-                            {param.name}
-                          </label>
-                          <span className="text-xs text-gray-500">{param.description}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">
-                              Minimum
-                            </label>
-                            <input
-                              type="number"
-                              min={param.min}
-                              max={param.max}
-                              step={param.step}
-                              value={formData.tuningSchedule.parameters[param.name]?.min ?? param.min}
-                              onChange={(e) => handleParameterChange(
-                                param.name,
-                                'min',
-                                parseFloat(e.target.value)
-                              )}
-                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">
-                              Maximum
-                            </label>
-                            <input
-                              type="number"
-                              min={param.min}
-                              max={param.max}
-                              step={param.step}
-                              value={formData.tuningSchedule.parameters[param.name]?.max ?? param.max}
-                              onChange={(e) => handleParameterChange(
-                                param.name,
-                                'max',
-                                parseFloat(e.target.value)
-                              )}
-                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {renderHyperparameterControls()}
               </div>
             )}
           </div>

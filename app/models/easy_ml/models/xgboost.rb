@@ -22,9 +22,9 @@ module EasyML
       OBJECTIVES = {
         classification: {
           binary: %w[binary:logistic binary:hinge],
-          multiclass: %w[multi:softmax multi:softprob]
+          multiclass: %w[multi:softmax multi:softprob],
         },
-        regression: %w[reg:squarederror reg:logistic]
+        regression: %w[reg:squarederror reg:logistic],
       }
 
       OBJECTIVES_FRONTEND = {
@@ -33,12 +33,12 @@ module EasyML
           { value: "binary:hinge", label: "Binary Hinge", description: "For binary classification with hinge loss" },
           { value: "multi:softmax", label: "Multiclass Softmax", description: "For multiclass classification" },
           { value: "multi:softprob", label: "Multiclass Probability",
-            description: "For multiclass classification with probability output" }
+            description: "For multiclass classification with probability output" },
         ],
         regression: [
           { value: "reg:squarederror", label: "Squared Error", description: "For regression with squared loss" },
-          { value: "reg:logistic", label: "Logistic", description: "For regression with logistic loss" }
-        ]
+          { value: "reg:logistic", label: "Logistic", description: "For regression with logistic loss" },
+        ],
       }
 
       add_configuration_attributes :early_stopping_rounds
@@ -53,15 +53,15 @@ module EasyML
         params[:booster] = :gbtree unless params.key?(:booster)
 
         klass = case params[:booster].to_sym
-                when :gbtree
-                  Hyperparameters::GBTree
-                when :dart
-                  Hyperparameters::Dart
-                when :gblinear
-                  Hyperparameters::GBLinear
-                else
-                  raise "Unknown booster type: #{booster}"
-                end
+          when :gbtree
+            Hyperparameters::GBTree
+          when :dart
+            Hyperparameters::Dart
+          when :gblinear
+            Hyperparameters::GBLinear
+          else
+            raise "Unknown booster type: #{booster}"
+          end
         raise "Unknown booster type #{booster}" unless klass.present?
 
         klass.new(params)
@@ -80,8 +80,8 @@ module EasyML
           end
 
           klass = case callback_type.to_sym
-                  when :wandb then Wandb::XGBoostCallback
-                  end
+            when :wandb then Wandb::XGBoostCallback
+            end
           raise "Unknown callback type #{callback_type}" unless klass.present?
 
           klass.new(conf).tap do |instance|
@@ -161,7 +161,7 @@ module EasyML
         initialize_model do
           attrs = {
             params: hyperparameters.to_h.symbolize_keys,
-            model_file: path
+            model_file: path,
           }.deep_compact
           booster_class.new(**attrs)
         end
@@ -242,15 +242,19 @@ module EasyML
             #{xs[0..5]}
 
             #{if ys.present?
-                %(
+                  %(
                 This may also be due to your targets:
                 #{ys[0..5]}
               )
-              else
-                ""
-              end}
+                else
+                  ""
+                end}
           )
         end
+      end
+
+      def self.hyperparameter_constants
+        EasyML::Models::Hyperparameters::XGBoost.hyperparameter_constants
       end
 
       private
@@ -306,8 +310,8 @@ module EasyML
       def fit_batch(d_train, current_iteration, evals, cb_container)
         if @booster.nil?
           @booster = booster_class.new(params: @hyperparameters.to_h, cache: [d_train] + evals.map do |d|
-            d[0]
-          end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
+                                         d[0]
+                                       end, early_stopping_rounds: @hyperparameters.to_h.dig(:early_stopping_rounds))
         end
 
         @booster = cb_container.before_training(@booster)

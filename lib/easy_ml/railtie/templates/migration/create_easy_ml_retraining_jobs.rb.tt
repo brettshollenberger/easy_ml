@@ -35,6 +35,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
       t.datetime :completed_at
       t.text :error_message
       t.jsonb :metadata
+      t.jsonb :metrics
 
       t.timestamps
 

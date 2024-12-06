@@ -46,7 +46,7 @@ module EasyML
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
-    has_many :transforms, -> { ordered }, dependent: :destroy, class_name: "EasyML::Transform"
+    has_many :transforms, dependent: :destroy, class_name: "EasyML::Transform"
     accepts_nested_attributes_for :transforms, allow_destroy: true
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
@@ -544,8 +544,9 @@ module EasyML
       return unless force || should_split?
 
       cleanup
+      transforms = self.transforms.ordered.load
       datasource.in_batches do |df|
-        df = apply_transforms(df)
+        df = apply_transforms(df, transforms) if transforms.any?
         train_df, valid_df, test_df = splitter.split(df)
         raw.save(:train, train_df)
         raw.save(:valid, valid_df)
@@ -560,7 +561,7 @@ module EasyML
       processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at
     end
 
-    def apply_transforms(df)
+    def apply_transforms(df, transforms = self.transforms)
       if transforms.nil? || transforms.empty?
         df
       else

@@ -64,6 +64,7 @@ module EasyML
     }
     validates :model_type, inclusion: { in: MODEL_NAMES }
     validates :dataset_id, presence: true
+    validate :validate_metrics_allowed
     before_save :set_root_dir
 
     delegate :prepare_data, :preprocess, to: :model_adapter
@@ -73,6 +74,10 @@ module EasyML
       define_method "#{status}?" do
         self.status.to_sym == status.to_sym
       end
+    end
+
+    def last_run
+      retraining_runs.order(id: :desc).limit(1).last
     end
 
     def inference_version
@@ -173,6 +178,12 @@ module EasyML
 
     def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
       evaluator ||= self.evaluator
+      if y_pred.nil?
+        inputs = default_evaluation_inputs
+        y_pred = inputs[:y_pred]
+        y_true = inputs[:y_true]
+        x_true = inputs[:x_true]
+      end
       EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true,
                                             evaluator: evaluator)
     end
@@ -181,7 +192,32 @@ module EasyML
       @hyperparameters.to_h
     end
 
+    def evals
+      last_run.metrics
+    end
+
+    def metric_accessor(metric)
+      metrics = last_run.metrics.symbolize_keys
+      metrics.dig(metric.to_sym)
+    end
+
+    EasyML::Core::ModelEvaluator.metrics.each do |metric_name|
+      define_method metric_name do
+        metric_accessor(metric_name)
+      end
+    end
+
+    EasyML::Core::ModelEvaluator.callbacks = lambda do |metric_name|
+      EasyML::Model.define_method metric_name do
+        metric_accessor(metric_name)
+      end
+    end
+
     def allowed_metrics
+      EasyML::Core::ModelEvaluator.metrics(task).map(&:to_s)
+    end
+
+    def default_metrics
       return [] unless task.present?
 
       case task.to_sym
@@ -252,7 +288,25 @@ module EasyML
       load_model_file
     end
 
+    def metrics=(value)
+      value = [value] unless value.is_a?(Array)
+      value = value.map(&:to_s)
+      value += default_metrics
+      value = value.uniq
+      @metrics = value
+    end
+
     private
+
+    def default_evaluation_inputs
+      x_true, y_true = dataset.test(split_ys: true)
+      y_pred = predict(x_true)
+      {
+        x_true: x_true,
+        y_true: y_true,
+        y_pred: y_pred
+      }
+    end
 
     def underscored_name
       name.gsub(/\s{2,}/, " ").gsub(/\s/, "_").downcase
@@ -320,7 +374,15 @@ module EasyML
     def set_defaults
       self.model_type ||= "xgboost"
       self.status ||= :training
-      self.metrics ||= allowed_metrics
+      self.metrics ||= default_metrics
+    end
+
+    def validate_metrics_allowed
+      unknown_metrics = metrics.select { |metric| allowed_metrics.exclude?(metric) }
+      return unless unknown_metrics.any?
+
+      errors.add(:metrics,
+                 "don't know how to handle #{"metrics".pluralize(unknown_metrics)} #{unknown_metrics.join(", ")}, use EasyML::Core::ModelEvaluator.register(:name, Evaluator, :regression|:classification)")
     end
 
     def model_adapter

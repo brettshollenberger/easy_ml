@@ -57,6 +57,19 @@ module EasyML
 
     VALID_TASKS = %i[regression classification].freeze
 
+    TASK_TYPES = [
+      {
+        value: "classification",
+        label: "Classification",
+        description: "Predict categorical outcomes or class labels"
+      },
+      {
+        value: "regression",
+        label: "Regression",
+        description: "Predict continuous numerical values"
+      }
+    ].freeze
+
     validates :task, presence: true
     validates :task, inclusion: {
       in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
@@ -228,6 +241,26 @@ module EasyML
       else
         []
       end
+    end
+
+    def self.constants
+      {
+        objectives: objectives,
+        metrics: metrics_by_task,
+        tasks: TASK_TYPES
+      }
+    end
+
+    def self.metrics_by_task
+      EasyML::Core::ModelEvaluator.metrics_by_task
+    end
+
+    def self.objectives
+      MODEL_OPTIONS.inject({}) do |h, (k, v)|
+        h.tap do
+          h[k] = v.constantize.const_get(:OBJECTIVES_FRONTEND)
+        end
+      end.deep_symbolize_keys
     end
 
     def attributes

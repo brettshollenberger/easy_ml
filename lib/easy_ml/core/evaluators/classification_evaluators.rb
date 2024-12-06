@@ -10,6 +10,10 @@ module EasyML
             y_true = Numo::Int32.cast(y_true)
             y_pred.eq(y_true).count_true.to_f / y_pred.size
           end
+
+          def direction
+            "maximize"
+          end
         end
 
         class PrecisionScore
@@ -24,6 +28,10 @@ module EasyML
 
             true_positives.to_f / predicted_positives
           end
+
+          def direction
+            "maximize"
+          end
         end
 
         class RecallScore
@@ -36,6 +44,10 @@ module EasyML
             actual_positives = y_true.eq(1).count_true
             true_positives.to_f / actual_positives
           end
+
+          def direction
+            "maximize"
+          end
         end
 
         class F1Score
@@ -47,6 +59,10 @@ module EasyML
             return 0 unless (precision + recall) > 0
 
             2 * (precision * recall) / (precision + recall)
+          end
+
+          def direction
+            "maximize"
           end
         end
 
@@ -85,6 +101,10 @@ module EasyML
             fpr = Numo::DFloat[*false_positive_rate]
             (fpr[1..-1] - fpr[0...-1]).dot(tpr[1..-1] + tpr[0...-1]) / 2.0
           end
+
+          def direction
+            "maximize"
+          end
         end
 
         class ROC_AUC
@@ -92,6 +112,10 @@ module EasyML
 
           def evaluate(y_pred:, y_true:, x_true: nil)
             AUC.new.evaluate(y_pred: y_pred, y_true: y_true)
+          end
+
+          def direction
+            "maximize"
           end
         end
       end

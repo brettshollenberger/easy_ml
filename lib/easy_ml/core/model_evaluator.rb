@@ -41,12 +41,24 @@ module EasyML
           option.dig(:evaluator)
         end
 
-        def metrics(type = nil)
-          if type.nil?
+        def for_frontend(evaluator)
+          evaluator.new.to_h
+        end
+
+        def metrics_by_task
+          @registry.group_by { |_key, metric| metric[:type] }.transform_values do |group|
+            group.flat_map do |metric|
+              for_frontend(metric.last.dig(:evaluator))
+            end
+          end
+        end
+
+        def metrics(task = nil)
+          if task.nil?
             @registry.keys
           else
             @registry.select do |_k, v|
-              v[:type].to_sym == type.to_sym
+              v[:type].to_sym == task.to_sym
             end.keys
           end
         end

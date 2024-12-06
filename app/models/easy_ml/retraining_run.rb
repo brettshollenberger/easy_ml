@@ -57,7 +57,8 @@ module EasyML
             completed_at: model_was_promoted ? Time.current : nil,
             error_message: model_was_promoted ? nil : training_model.cannot_promote_reasons&.first || "Did not pass evaluation",
             model: training_model,
-            metadata: tuner_metadata
+            metadata: tuner_metadata,
+            metrics: training_model.evaluate
           )
         )
 

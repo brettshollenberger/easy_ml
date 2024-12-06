@@ -7,15 +7,29 @@ module EasyML
   module Core
     class ModelEvaluator
       class << self
-        def register(metric_name, evaluator, aliases = {})
+        def callbacks=(callback)
+          @callbacks ||= []
+          @callbacks.push(callback)
+        end
+
+        def callbacks
+          @callbacks || []
+        end
+
+        def register(metric_name, evaluator, type, aliases = {})
           @registry ||= {}
           unless evaluator.included_modules.include?(Evaluators::BaseEvaluator)
             evaluator.include(Evaluators::BaseEvaluator)
           end
 
+          callbacks.each do |callback|
+            callback.call(metric_name)
+          end
+
           @registry[metric_name.to_sym] = {
             evaluator: evaluator,
-            aliases: (aliases || []).map(&:to_sym),
+            type: type,
+            aliases: (aliases || []).map(&:to_sym)
           }
         end
 
@@ -27,8 +41,14 @@ module EasyML
           option.dig(:evaluator)
         end
 
-        def metrics
-          @registry.keys
+        def metrics(type = nil)
+          if type.nil?
+            @registry.keys
+          else
+            @registry.select do |_k, v|
+              v[:type].to_sym == type.to_sym
+            end.keys
+          end
         end
 
         def evaluate(model:, y_pred:, y_true:, x_true: nil, evaluator: nil)
@@ -46,7 +66,7 @@ module EasyML
             metrics_results[metric.to_sym] = evaluator_instance.evaluate(
               y_pred: y_pred,
               y_true: y_true,
-              x_true: x_true,
+              x_true: x_true
             )
           end
 
@@ -76,6 +96,8 @@ module EasyML
 
         def normalize_input(input)
           case input
+          when Array
+            Numo::DFloat.cast(input)
           when Polars::DataFrame
             if input.columns.count > 1
               raise ArgumentError, "Don't know how to evaluate input with multiple columns: #{input}"
@@ -97,41 +119,61 @@ end
 EasyML::Core::ModelEvaluator.register(
   :mean_absolute_error,
   EasyML::Core::Evaluators::RegressionEvaluators::MeanAbsoluteError,
+  :regression,
   %w[mae]
 )
 EasyML::Core::ModelEvaluator.register(
   :mean_squared_error,
   EasyML::Core::Evaluators::RegressionEvaluators::MeanSquaredError,
+  :regression,
   %w[mse]
 )
 EasyML::Core::ModelEvaluator.register(
   :root_mean_squared_error,
   EasyML::Core::Evaluators::RegressionEvaluators::RootMeanSquaredError,
+  :regression,
   %w[rmse]
 )
 
 EasyML::Core::ModelEvaluator.register(
   :r2_score,
   EasyML::Core::Evaluators::RegressionEvaluators::R2Score,
+  :regression,
   %w[r2]
 )
 EasyML::Core::ModelEvaluator.register(
   :accuracy_score,
   EasyML::Core::Evaluators::ClassificationEvaluators::AccuracyScore,
+  :classification,
   %w[accuracy]
 )
 EasyML::Core::ModelEvaluator.register(
   :precision_score,
   EasyML::Core::Evaluators::ClassificationEvaluators::PrecisionScore,
+  :classification,
   %w[precision]
 )
 EasyML::Core::ModelEvaluator.register(
   :recall_score,
   EasyML::Core::Evaluators::ClassificationEvaluators::RecallScore,
+  :classification,
   %w[recall]
 )
 EasyML::Core::ModelEvaluator.register(
   :f1_score,
   EasyML::Core::Evaluators::ClassificationEvaluators::F1Score,
+  :classification,
   %w[f1]
+)
+EasyML::Core::ModelEvaluator.register(
+  :auc,
+  EasyML::Core::Evaluators::ClassificationEvaluators::AUC,
+  :classification,
+  %w[auc]
+)
+EasyML::Core::ModelEvaluator.register(
+  :roc_auc,
+  EasyML::Core::Evaluators::ClassificationEvaluators::ROC_AUC,
+  :classification,
+  %w[roc_auc]
 )

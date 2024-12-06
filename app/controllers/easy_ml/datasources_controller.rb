@@ -15,7 +15,7 @@ module EasyML
     def index
       @datasources = Datasource.all.order(id: :asc)
       render inertia: "pages/DatasourcesPage", props: {
-        datasources: @datasources.map { |datasource| to_json(datasource) }
+        datasources: @datasources.map { |datasource| datasource_to_json(datasource) }
       }
     end
 
@@ -28,7 +28,7 @@ module EasyML
       datasource = EasyML::Datasource.find_by(id: params[:id])
 
       render inertia: "pages/DatasourceFormPage", props: {
-        datasource: to_json(datasource),
+        datasource: datasource_to_json(datasource),
         constants: EasyML::Datasource.constants
       }
     end
@@ -85,10 +85,6 @@ module EasyML
       params.require(:datasource).permit(:name, :s3_bucket, :s3_prefix, :s3_region, :datasource_type).merge!(
         datasource_type: "s3"
       )
-    end
-
-    def to_json(datasource)
-      DatasourceSerializer.new(datasource).serializable_hash.dig(:data, :attributes)
     end
   end
 end

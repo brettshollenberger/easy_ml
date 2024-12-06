@@ -27,6 +27,20 @@ module EasyML
         regression: %w[reg:squarederror reg:logistic]
       }
 
+      OBJECTIVES_FRONTEND = {
+        classification: [
+          { value: "binary:logistic", label: "Binary Logistic", description: "For binary classification" },
+          { value: "binary:hinge", label: "Binary Hinge", description: "For binary classification with hinge loss" },
+          { value: "multi:softmax", label: "Multiclass Softmax", description: "For multiclass classification" },
+          { value: "multi:softprob", label: "Multiclass Probability",
+            description: "For multiclass classification with probability output" }
+        ],
+        regression: [
+          { value: "reg:squarederror", label: "Squared Error", description: "For regression with squared loss" },
+          { value: "reg:logistic", label: "Logistic", description: "For regression with logistic loss" }
+        ]
+      }
+
       add_configuration_attributes :early_stopping_rounds
       attr_accessor :xgboost_model, :booster
 

@@ -3,13 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Lock } from 'lucide-react';
 import { SearchableSelect } from './SearchableSelect';
 import { ScheduleModal } from './ScheduleModal';
-import { mockDatasets } from '../mockData';
 import { router } from '@inertiajs/react';
 import { useInertiaForm } from 'use-inertia-form';
 import { usePage } from '@inertiajs/react';
+import type { Dataset } from '../types';
 
-
-let datasets = mockDatasets;
 interface ModelFormProps {
   initialData?: {
     name: string;
@@ -19,64 +17,19 @@ interface ModelFormProps {
     objective?: string;
     metrics?: string[];
   };
-  datasets: Array<{
-    id: number;
-    name: string;
-    rowCount: number;
-  }>;
+  datasets: Array<Dataset>;
   constants: {
-    TASKS: typeof TASKS;
-    OBJECTIVES: typeof OBJECTIVES;
-    METRICS: typeof METRICS;
+    tasks: { value: string; label: string }[];
+    objectives: Record<string, { value: string; label: string; description?: string }[]>;
+    metrics: Record<string, { value: string; label: string; direction: string }[]>;
   };
   isEditing?: boolean;
 }
 
-const TASKS = [
-  { 
-    value: 'classification',
-    label: 'Classification',
-    description: 'Predict categorical outcomes or class labels'
-  },
-  { 
-    value: 'regression',
-    label: 'Regression',
-    description: 'Predict continuous numerical values'
-  }
-];
-
-const OBJECTIVES = {
-  classification: [
-    { value: 'binary:logistic', label: 'Binary Logistic', description: 'For binary classification' },
-    { value: 'binary:hinge', label: 'Binary Hinge', description: 'For binary classification with hinge loss' },
-    { value: 'multi:softmax', label: 'Multiclass Softmax', description: 'For multiclass classification' },
-    { value: 'multi:softprob', label: 'Multiclass Probability', description: 'For multiclass classification with probability output' }
-  ],
-  regression: [
-    { value: 'reg:squarederror', label: 'Squared Error', description: 'For regression with squared loss' },
-    { value: 'reg:logistic', label: 'Logistic', description: 'For regression with logistic loss' }
-  ]
-};
-
-const METRICS = {
-  classification: [
-    { value: 'accuracy', label: 'Accuracy', direction: 'maximize' },
-    { value: 'precision', label: 'Precision', direction: 'maximize' },
-    { value: 'recall', label: 'Recall', direction: 'maximize' },
-    { value: 'f1', label: 'F1 Score', direction: 'maximize' }
-  ],
-  regression: [
-    { value: 'rmse', label: 'Root Mean Squared Error', direction: 'minimize' },
-    { value: 'mae', label: 'Mean Absolute Error', direction: 'minimize' },
-    { value: 'mse', label: 'Mean Squared Error', direction: 'minimize' },
-    { value: 'r2', label: 'R² Score', direction: 'maximize' }
-  ]
-};
-
 export function ModelForm({ initialData, datasets, constants, isEditing }: ModelFormProps) {
   const { rootPath } = usePage().props;
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  
+
   const form = useInertiaForm({
     model: {
       name: initialData?.name || '',
@@ -89,28 +42,19 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
   });
 
   const { data, setData, post, processing, errors } = form;
+  const objectives: { value: string; label: string; description?: string }[] = 
+    constants.objectives[data.model.model_type]?.[data.model.task] || [];
 
-  // Update useEffect to use form data
   useEffect(() => {
-    if (data.model.task === 'classification') {
-      setData({
-        ...data,
-        model: {
-          ...data.model,
-          objective: 'binary:logistic',
-          metrics: ['accuracy']
-        }
-      });
-    } else {
-      setData({
-        ...data,
-        model: {
-          ...data.model,
-          objective: 'reg:squarederror',
-          metrics: ['rmse']
-        }
-      });
-    }
+    const availableMetrics = constants.metrics[data.model.task]?.map(metric => metric.value) || [];
+    setData({
+      ...data,
+      model: {
+        ...data.model,
+        objective: data.model.task === 'classification' ? 'binary:logistic' : 'reg:squarederror',
+        metrics: availableMetrics
+      }
+    });
   }, [data.model.task]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -150,7 +94,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               id="name"
               value={data.model.name}
               onChange={(e) => setData('model.name', e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 shadow-sm border-gray-300 border"
               required
             />
           </div>
@@ -181,7 +125,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
                 options={datasets.map(dataset => ({
                   value: dataset.id,
                   label: dataset.name,
-                  description: `${dataset.rowCount.toLocaleString()} rows`
+                  description: `${dataset.num_rows.toLocaleString()} rows`
                 }))}
                 value={data.model.dataset_id}
                 onChange={(value) => setData('model.dataset_id', value)}
@@ -195,7 +139,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               Task
             </label>
             <SearchableSelect
-              options={constants.TASKS}
+              options={constants.tasks}
               value={data.model.task}
               onChange={(value) => setData('model.task', value as string)}
               placeholder="Select task"
@@ -207,7 +151,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               Objective
             </label>
             <SearchableSelect
-              options={constants.OBJECTIVES[data.model.task as keyof typeof constants.OBJECTIVES]}
+              options={objectives || []}
               value={data.model.objective}
               onChange={(value) => setData('model.objective', value as string)}
               placeholder="Select objective"
@@ -220,7 +164,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
             Metrics
           </label>
           <div className="grid grid-cols-2 gap-4">
-            {constants.METRICS[data.model.task as keyof typeof constants.METRICS].map(metric => (
+            {constants.metrics[data.model.task]?.map(metric => (
               <label
                 key={metric.value}
                 className="relative flex items-center px-4 py-3 bg-white border rounded-lg hover:bg-gray-50 cursor-pointer"

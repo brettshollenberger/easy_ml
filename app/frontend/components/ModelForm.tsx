@@ -97,6 +97,16 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
   }, [data.model.task]);
 
   const handleScheduleSave = (scheduleData: any) => {
+    // Transform hyperparameters into the required format with min/max values
+    const transformedParameters = Object.entries(scheduleData.tuningSchedule.parameters).reduce((acc, [key, value]) => {
+      if (typeof value === 'object' && value !== null && 'min' in value && 'max' in value) {
+        acc[key] = value; // Already in correct format
+      } else if (Array.isArray(value) && value.length === 2) {
+        acc[key] = { min: value[0], max: value[1] };
+      }
+      return acc;
+    }, {} as Record<string, { min: number; max: number }>);
+
     setData({
       ...data,
       model: {
@@ -105,21 +115,19 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
           frequency: scheduleData.trainingSchedule.frequency,
           at: {
             hour: scheduleData.trainingSchedule.hour,
-            day_of_week: scheduleData.trainingSchedule?.dayOfWeek,
-            day_of_month: scheduleData.trainingSchedule?.dayOfMonth,
+            ...(scheduleData.trainingSchedule.frequency === 'week' && { day_of_week: scheduleData.trainingSchedule.dayOfWeek }),
+            ...(scheduleData.trainingSchedule.frequency === 'month' && { day_of_month: scheduleData.trainingSchedule.dayOfMonth }),
           },
           active: scheduleData.trainingSchedule.enabled,
           metric: scheduleData.evaluator.metric,
           threshold: scheduleData.evaluator.threshold,
-          tuner_config: {
+          tuner_config: scheduleData.tuningSchedule.enabled ? {
             n_trials: scheduleData.tuningSchedule.n_trials,
-            objective: scheduleData.tuningSchedule.objective,
-            config: scheduleData.tuningSchedule.parameters
-          }
+            config: transformedParameters
+          } : undefined
         }
       }
     });
-    console.log(scheduleData.tuningSchedule)
     setShowScheduleModal(false);
   };
 
@@ -134,20 +142,19 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
       delete submissionData.model.retraining_job_attributes;
     }
 
-    console.log(data)
-    // if (data.model.id) {
-    //   patch(`${rootPath}/models/${data.model.id}`, submissionData, {
-    //     onSuccess: () => {
-    //       router.visit(`${rootPath}/models`);
-    //     },
-    //   });
-    // } else {
-    //   post(`${rootPath}/models`, submissionData, {
-    //     onSuccess: () => {
-    //       router.visit(`${rootPath}/models`);
-    //     },
-    //   });
-    // }
+    if (data.model.id) {
+      patch(`${rootPath}/models/${data.model.id}`, submissionData, {
+        onSuccess: () => {
+          router.visit(`${rootPath}/models`);
+        },
+      });
+    } else {
+      post(`${rootPath}/models`, submissionData, {
+        onSuccess: () => {
+          router.visit(`${rootPath}/models`);
+        },
+      });
+    }
   };
 
   const selectedDataset = datasets.find(d => d.id === data.model.dataset_id);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, Calendar, Settings2 } from 'lucide-react';
 import { SearchableSelect } from './SearchableSelect';
 
@@ -42,6 +42,16 @@ const METRICS = {
 };
 
 export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparameterConstants, timezone, trainingScheduleConstants }: ScheduleModalProps) {
+  const defaultParameters = Object.entries(hyperparameterConstants.hyperparameters)
+    .filter(([_, value]) => !Array.isArray(value.options))
+    .reduce((acc, [key, value]) => ({
+      ...acc,
+      [key]: {
+        min: value.min,
+        max: value.max
+      }
+    }), {});
+
   const [formData, setFormData] = useState({
     trainingSchedule: {
       enabled: initialData.retrainingJob?.active ?? false,
@@ -57,13 +67,28 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
       dayOfMonth: 1,
       hour: 2,
       n_trials: initialData.retrainingJob?.tunerConfig?.n_trials || 10,
-      parameters: initialData.retrainingJob?.tunerConfig?.config || {}
+      parameters: {
+        booster: initialData.retrainingJob?.tunerConfig?.config?.booster || hyperparameterConstants.booster.options[0].value,
+        ...initialData.retrainingJob?.tunerConfig?.config
+      }
     },
     evaluator: {
       metric: METRICS[initialData.task === 'classification' ? 'classification' : 'regression'][0].value,
       threshold: initialData.task === 'classification' ? 0.85 : 0.1
     }
   });
+
+  useEffect(() => {
+    if (formData.tuningSchedule.enabled && Object.keys(formData.tuningSchedule.parameters).length === 0) {
+      setFormData(prev => ({
+        ...prev,
+        tuningSchedule: {
+          ...prev.tuningSchedule,
+          parameters: defaultParameters
+        }
+      }));
+    }
+  }, [formData.tuningSchedule.enabled]);
 
   if (!isOpen) return null;
 
@@ -216,6 +241,18 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
   };
 
   const handleSave = () => {
+    const boosterType = formData.tuningSchedule.parameters.booster;
+
+    const numericParameters = Object.entries(hyperparameterConstants.hyperparameters[boosterType] || {})
+      .filter(([_, value]) => !Array.isArray(value.options))
+      .reduce((acc, [key, value]) => ({
+        ...acc,
+        [key]: {
+          min: value.min,
+          max: value.max
+        }
+      }), {});
+
     const atParams = {
       hour: formData.trainingSchedule.hour
     };
@@ -231,12 +268,11 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
         ...formData.trainingSchedule,
         at: atParams
       },
-      evaluator: {
-        ...formData.evaluator
-      },
       tuningSchedule: {
-        ...formData.tuningSchedule
-      }
+        ...formData.tuningSchedule,
+        parameters: formData.tuningSchedule.enabled ? numericParameters : {}
+      },
+      evaluator: formData.evaluator
     });
   };
 

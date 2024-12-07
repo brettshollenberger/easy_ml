@@ -50,7 +50,6 @@ module EasyML
     def create
       model = Model.new(model_params)
 
-      binding.pry
       if model.save
         flash[:notice] = "Model was successfully created."
         redirect_to easy_ml_models_path
@@ -80,13 +79,13 @@ module EasyML
     end
 
     def show
-      model = Model.includes(:retraining_jobs, :retraining_runs)
+      model = Model.includes(:retraining_job, :retraining_runs)
                    .find(params[:id])
 
-      render inertia: "Models/Show", props: {
-        model: model_data(model),
-        runs: model.retraining_runs.map { |run| retraining_run_to_json(run) },
-        job: model.current_retraining_job&.then { |job| retraining_job_to_json(job) },
+      render inertia: "pages/ShowModelPage", props: {
+        model: model_to_json(model),
+      # runs: model.retraining_runs.map { |run| retraining_run_to_json(run) },
+      # job: model.current_retraining_job&.then { |job| retraining_job_to_json(job) },
       }
     end
 

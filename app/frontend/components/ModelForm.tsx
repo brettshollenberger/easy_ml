@@ -67,6 +67,8 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
         frequency: initialData.retraining_job.frequency,
         at: initialData.retraining_job.at,
         active: initialData.retraining_job.active,
+        metric: initialData.retraining_job.metric,
+        threshold: initialData.retraining_job.threshold,
         tuner_config: {
           n_trials: initialData.retraining_job.tuner_config?.n_trials,
           objective: initialData.retraining_job.tuner_config?.objective,
@@ -107,6 +109,8 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
             day_of_month: scheduleData.trainingSchedule?.dayOfMonth,
           },
           active: scheduleData.trainingSchedule.enabled,
+          metric: scheduleData.evaluator.metric,
+          threshold: scheduleData.evaluator.threshold,
           tuner_config: {
             n_trials: scheduleData.tuningSchedule.n_trials,
             objective: scheduleData.tuningSchedule.objective,

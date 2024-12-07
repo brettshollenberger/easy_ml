@@ -34,7 +34,7 @@ const METRICS = {
 export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparameterConstants, timezone, trainingScheduleConstants }: ScheduleModalProps) {
   const [formData, setFormData] = useState({
     trainingSchedule: {
-      enabled: true,
+      enabled: false,
       frequency: trainingScheduleConstants.frequency[0].value as string,
       dayOfWeek: 1,
       dayOfMonth: 1,
@@ -283,7 +283,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                         />
                       </div>
 
-                      {formData.trainingSchedule.frequency === 'weekly' && (
+                      {formData.trainingSchedule.frequency === 'week' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
                             Day of Week
@@ -304,7 +304,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                         </div>
                       )}
 
-                      {formData.trainingSchedule.frequency === 'monthly' && (
+                      {formData.trainingSchedule.frequency === 'month' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
                             Day of Month
@@ -362,20 +362,6 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
 
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
-                            Direction
-                          </label>
-                          <SearchableSelect
-                            options={[
-                              { value: 'maximize', label: 'Maximize', description: 'Choose this if a higher metric value is better' },
-                              { value: 'minimize', label: 'Minimize', description: 'Choose this if a lower metric value is better' }
-                            ]}
-                            value={formData.evaluator.direction}
-                            onChange={(value) => handleEvaluatorChange('direction', value)}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700">
                             Threshold
                           </label>
                           <input
@@ -385,10 +371,25 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                             step={0.01}
                             min={0}
                             max={1}
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
                           />
                         </div>
+
                       </div>
+
+                        {/* Deployment Criteria */}
+                        <div className="bg-blue-50 rounded-md p-4">
+                          <div className="flex items-start">
+                            <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-blue-800">Deployment Criteria</h3>
+                              <p className="mt-2 text-sm text-blue-700">
+                                The model will be automatically deployed when the {formData.evaluator.metric} is{' '}
+                                {formData.evaluator.direction === 'minimize' ? 'below' : 'above'} {formData.evaluator.threshold}.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                     </div>
                   </div>
                 </>

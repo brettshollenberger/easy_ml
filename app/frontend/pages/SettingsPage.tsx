@@ -34,7 +34,6 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
   });
 
   const { data: formData, setData: setFormData, patch, processing } = form;
-  console.log(initialSettings);
 
   const [showSecretKey, setShowSecretKey] = useState(false);
   const [saved, setSaved] = useState(false);

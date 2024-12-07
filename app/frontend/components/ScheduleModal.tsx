@@ -207,6 +207,31 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
     }));
   };
 
+  const handleSave = () => {
+    const atParams = {
+      hour: formData.trainingSchedule.hour
+    };
+
+    if (formData.trainingSchedule.frequency === "week") {
+      atParams["day_of_week"] = formData.trainingSchedule.dayOfWeek;
+    } else if (formData.trainingSchedule.frequency === "month") {
+      atParams["day_of_month"] = formData.trainingSchedule.dayOfMonth;
+    }
+
+    onSave({
+      trainingSchedule: {
+        ...formData.trainingSchedule,
+        at: atParams
+      },
+      evaluator: {
+        ...formData.evaluator
+      },
+      tuningSchedule: {
+        ...formData.tuningSchedule
+      }
+    });
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
@@ -444,7 +469,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
             Cancel
           </button>
           <button
-            onClick={() => onSave(formData)}
+            onClick={handleSave}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
           >
             Save Changes

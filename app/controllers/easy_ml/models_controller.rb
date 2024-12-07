@@ -116,18 +116,24 @@ module EasyML
 
     def model_params
       params.require(:model).permit(
-        :name, :model_type, :dataset_id, :task, :objective, metrics: [],
-                                                            retraining_job_attributes: [
-                                                              :frequency, :at, :active, :locked_at,
-                                                              tuner_config: [
-                                                                :n_trials, :objective,
-                                                                config: {
-                                                                  learning_rate: [:min, :max],
-                                                                  n_estimators: [:min, :max],
-                                                                  max_depth: [:min, :max],
-                                                                },
-                                                              ],
-                                                            ],
+        :name,
+        :model_type,
+        :dataset_id,
+        :task,
+        :objective,
+        metrics: [],
+        retraining_job_attributes: [
+          :frequency,
+          :active,
+          :metric,
+          :direction,
+          :threshold,
+          at: [:hour, :day_of_week, :day_of_month],
+          tuner_config: [
+            :n_trials,
+            config: {},
+          ],
+        ],
       )
     end
   end

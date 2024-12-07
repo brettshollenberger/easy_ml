@@ -261,19 +261,13 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
               ...data.model,
               retraining_job_attributes: scheduleData.trainingSchedule.enabled ? {
                 frequency: scheduleData.trainingSchedule.frequency,
-                at: {
-                  hour: scheduleData.trainingSchedule.hour,
-                  day_of_week: scheduleData.trainingSchedule.dayOfWeek,
-                  day_of_month: scheduleData.trainingSchedule.dayOfMonth
-                },
+                at: scheduleData.trainingSchedule.at,
                 active: scheduleData.trainingSchedule.enabled,
+                metric: scheduleData.evaluator.metric,
+                direction: scheduleData.evaluator.direction,
+                threshold: scheduleData.evaluator.threshold,
                 tuner_config: scheduleData.tuningSchedule.enabled ? {
                   n_trials: scheduleData.tuningSchedule.trials,
-                  objective: {
-                    metric: scheduleData.evaluator.metric,
-                    direction: scheduleData.evaluator.direction,
-                    threshold: scheduleData.evaluator.threshold
-                  },
                   config: scheduleData.tuningSchedule.parameters
                 } : undefined
               } : undefined

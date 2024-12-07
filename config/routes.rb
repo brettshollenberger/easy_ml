@@ -2,7 +2,7 @@ EasyML::Engine.routes.draw do
   root to: "models#index"
 
   # Models
-  resources :models, only: %i[index new edit create destroy], as: :easy_ml_models do
+  resources :models, as: :easy_ml_models do
     get "new", on: :collection, as: "new"
   end
 

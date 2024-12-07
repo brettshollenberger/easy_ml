@@ -10,12 +10,23 @@ import type { Dataset } from '../types';
 
 interface ModelFormProps {
   initialData?: {
+    id: number;
     name: string;
     modelType: string;
     datasetId: number;
     task: string;
     objective?: string;
     metrics?: string[];
+    retraining_job?: {
+      frequency: string;
+      at: string;
+      active: boolean;
+      tuner_config?: {
+        n_trials: number;
+        objective: string;
+        config: any;
+      };
+    };
   };
   datasets: Array<Dataset>;
   constants: {
@@ -45,26 +56,27 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
 
   const form = useInertiaForm({
     model: {
+      id: initialData?.id,
       name: initialData?.name || '',
       model_type: initialData?.modelType || 'xgboost',
       dataset_id: initialData?.datasetId || '',
       task: initialData?.task || 'classification',
       objective: initialData?.objective || 'binary:logistic',
       metrics: initialData?.metrics || ['accuracy'],
-      retraining_job_attributes: {
-        frequency: constants.training_schedule.frequency,
-        at: constants.training_schedule.at,
-        active: true,
+      retraining_job_attributes: initialData?.retraining_job ? {
+        frequency: initialData.retraining_job.frequency,
+        at: initialData.retraining_job.at,
+        active: initialData.retraining_job.active,
         tuner_config: {
-          n_trials: constants.hyperparameter_tuning.n_trials,
-          objective: constants.hyperparameter_tuning.objective,
-          config: constants.hyperparameter_tuning.config
+          n_trials: initialData.retraining_job.tuner_config?.n_trials,
+          objective: initialData.retraining_job.tuner_config?.objective,
+          config: initialData.retraining_job.tuner_config?.config
         }
-      }
+      } : undefined
     }
   });
 
-  const { data, setData, post, processing, errors: formErrors } = form;
+  const { data, setData, post, patch, processing, errors: formErrors } = form;
   const errors = { ...initialErrors, ...formErrors };
 
   const objectives: { value: string; label: string; description?: string }[] = 
@@ -82,6 +94,31 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     });
   }, [data.model.task]);
 
+  const handleScheduleSave = (scheduleData: any) => {
+    setData({
+      ...data,
+      model: {
+        ...data.model,
+        retraining_job_attributes: {
+          frequency: scheduleData.trainingSchedule.frequency,
+          at: {
+            hour: scheduleData.trainingSchedule.hour,
+            day_of_week: scheduleData.trainingSchedule?.dayOfWeek,
+            day_of_month: scheduleData.trainingSchedule?.dayOfMonth,
+          },
+          active: scheduleData.trainingSchedule.enabled,
+          tuner_config: {
+            n_trials: scheduleData.tuningSchedule.n_trials,
+            objective: scheduleData.tuningSchedule.objective,
+            config: scheduleData.tuningSchedule.parameters
+          }
+        }
+      }
+    });
+    console.log(scheduleData.tuningSchedule)
+    setShowScheduleModal(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -92,15 +129,21 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     if (!submissionData.model.retraining_job_attributes?.active) {
       delete submissionData.model.retraining_job_attributes;
     }
-    
-    post(`${rootPath}/models`, submissionData, {
-      onSuccess: () => {
-        router.visit(`${rootPath}/models`);
-      },
-      onError: () => {
-        // Handle errors, e.g., show error messages
-      }
-    });
+
+    console.log(data)
+    // if (data.model.id) {
+    //   patch(`${rootPath}/models/${data.model.id}`, submissionData, {
+    //     onSuccess: () => {
+    //       router.visit(`${rootPath}/models`);
+    //     },
+    //   });
+    // } else {
+    //   post(`${rootPath}/models`, submissionData, {
+    //     onSuccess: () => {
+    //       router.visit(`${rootPath}/models`);
+    //     },
+    //   });
+    // }
   };
 
   const selectedDataset = datasets.find(d => d.id === data.model.dataset_id);
@@ -255,30 +298,17 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
       <ScheduleModal
         isOpen={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
-        onSave={(scheduleData) => {
-          const updatedData = {
-            model: {
-              ...data.model,
-              retraining_job_attributes: scheduleData.trainingSchedule.enabled ? {
-                frequency: scheduleData.trainingSchedule.frequency,
-                at: scheduleData.trainingSchedule.at,
-                active: scheduleData.trainingSchedule.enabled,
-                metric: scheduleData.evaluator.metric,
-                direction: scheduleData.evaluator.direction,
-                threshold: scheduleData.evaluator.threshold,
-                tuner_config: scheduleData.tuningSchedule.enabled ? {
-                  n_trials: scheduleData.tuningSchedule.trials,
-                  config: scheduleData.tuningSchedule.parameters
-                } : undefined
-              } : undefined
-            }
-          };
-          setData(updatedData);
-          setShowScheduleModal(false);
-        }}
+        onSave={handleScheduleSave}
         initialData={{
           task: data.model.task,
-          metrics: data.model.metrics
+          metrics: data.model.metrics,
+          modelType: data.model.model_type,
+          retrainingJob: data.model.retraining_job_attributes ? {
+            frequency: data.model.retraining_job_attributes.frequency,
+            at: data.model.retraining_job_attributes.at,
+            active: data.model.retraining_job_attributes.active,
+            tunerConfig: data.model.retraining_job_attributes.tuner_config
+          } : undefined
         }}
         hyperparameterConstants={filteredHyperparameterConstants}
         timezone={constants.timezone}

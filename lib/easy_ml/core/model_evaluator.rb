@@ -29,7 +29,7 @@ module EasyML
           @registry[metric_name.to_sym] = {
             evaluator: evaluator,
             type: type,
-            aliases: (aliases || []).map(&:to_sym)
+            aliases: (aliases || []).map(&:to_sym),
           }
         end
 
@@ -75,10 +75,11 @@ module EasyML
             next unless evaluator_class
 
             evaluator_instance = evaluator_class.new
+
             metrics_results[metric.to_sym] = evaluator_instance.evaluate(
               y_pred: y_pred,
               y_true: y_true,
-              x_true: x_true
+              x_true: x_true,
             )
           end
 

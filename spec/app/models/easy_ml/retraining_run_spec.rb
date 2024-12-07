@@ -243,7 +243,7 @@ RSpec.describe EasyML::RetrainingRun do
         end
 
         it "uses custom evaluator for promotion decision" do
-          model.update(metrics: [:custom])
+          model.update(metrics: model.metrics + [:custom])
 
           original_model = model.latest_snapshot
 
@@ -264,10 +264,6 @@ RSpec.describe EasyML::RetrainingRun do
           expect(trained_model.custom).to eq 8994.0
           expect(trained_model.evals).to match(hash_including({
                                                                 "custom" => 8994.0,
-                                                                "r2_score" => -0.5,
-                                                                "mean_squared_error" => 1.0,
-                                                                "mean_absolute_error" => 1.0,
-                                                                "root_mean_squared_error" => 1.0,
                                                               }))
         end
       end

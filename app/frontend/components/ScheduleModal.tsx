@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, Calendar, Settings2 } from 'lucide-react';
 import { SearchableSelect } from './SearchableSelect';
 
@@ -10,193 +10,28 @@ interface ScheduleModalProps {
     task: string;
     metrics: string[];
     modelType?: string;
+    retraining_job?: {
+      frequency: string;
+      tuning_frequency: string;
+      at: {
+        hour: number;
+        day_of_week?: number;
+        day_of_month?: number;
+      }
+      active: boolean;
+      metric?: string;
+      threshold?: number;
+      tuner_config?: {
+        n_trials: number;
+        objective: string;
+        config: Record<string, any>;
+      };
+    };
   };
+  tunerJobConstants: any;
+  timezone: string;
+  retrainingJobConstants: any;
 }
-
-type Booster = 'gbtree' | 'gblinear' | 'dart';
-
-interface Parameter {
-  name: string;
-  description: string;
-  min: number;
-  max: number;
-  step: number;
-}
-
-const BOOSTERS: Record<Booster, {
-  description: string;
-  parameters: Parameter[];
-}> = {
-  gbtree: {
-    description: 'Traditional Gradient Boosting Decision Tree',
-    parameters: [
-      {
-        name: 'learning_rate',
-        description: 'Step size shrinkage used to prevent overfitting',
-        min: 0.001,
-        max: 1,
-        step: 0.001
-      },
-      {
-        name: 'max_depth',
-        description: 'Maximum depth of a tree',
-        min: 1,
-        max: 20,
-        step: 1
-      },
-      {
-        name: 'min_child_weight',
-        description: 'Minimum sum of instance weight needed in a child',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'gamma',
-        description: 'Minimum loss reduction required to make a further partition',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'subsample',
-        description: 'Subsample ratio of the training instances',
-        min: 0.1,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'colsample_bytree',
-        description: 'Subsample ratio of columns when constructing each tree',
-        min: 0.1,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'lambda',
-        description: 'L2 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'alpha',
-        description: 'L1 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      }
-    ]
-  },
-  gblinear: {
-    description: 'Generalized Linear Model with gradient boosting',
-    parameters: [
-      {
-        name: 'learning_rate',
-        description: 'Step size shrinkage used to prevent overfitting',
-        min: 0.001,
-        max: 1,
-        step: 0.001
-      },
-      {
-        name: 'lambda',
-        description: 'L2 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'alpha',
-        description: 'L1 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'feature_selector',
-        description: 'Feature selection and ordering method',
-        min: 0,
-        max: 4,
-        step: 1
-      }
-    ]
-  },
-  dart: {
-    description: 'Dropouts meet Multiple Additive Regression Trees',
-    parameters: [
-      {
-        name: 'learning_rate',
-        description: 'Step size shrinkage used to prevent overfitting',
-        min: 0.001,
-        max: 1,
-        step: 0.001
-      },
-      {
-        name: 'max_depth',
-        description: 'Maximum depth of a tree',
-        min: 1,
-        max: 20,
-        step: 1
-      },
-      {
-        name: 'min_child_weight',
-        description: 'Minimum sum of instance weight needed in a child',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'gamma',
-        description: 'Minimum loss reduction required to make a further partition',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'subsample',
-        description: 'Subsample ratio of the training instances',
-        min: 0.1,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'colsample_bytree',
-        description: 'Subsample ratio of columns when constructing each tree',
-        min: 0.1,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'lambda',
-        description: 'L2 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'alpha',
-        description: 'L1 regularization term on weights',
-        min: 0,
-        max: 10,
-        step: 0.1
-      },
-      {
-        name: 'rate_drop',
-        description: 'Dropout rate (a fraction of previous trees to drop)',
-        min: 0,
-        max: 1,
-        step: 0.1
-      },
-      {
-        name: 'skip_drop',
-        description: 'Probability of skipping the dropout procedure during iteration',
-        min: 0,
-        max: 1,
-        step: 0.1
-      }
-    ]
-  }
-};
 
 const METRICS = {
   classification: [
@@ -213,47 +48,273 @@ const METRICS = {
   ]
 };
 
-export function ScheduleModal({ isOpen, onClose, onSave, initialData }: ScheduleModalProps) {
+export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobConstants, timezone, retrainingJobConstants }: ScheduleModalProps) {
+  // Get all base parameters (those with options)
+  const baseParameters = Object.entries(tunerJobConstants)
+    .filter(([_, value]) => Array.isArray(value.options))
+    .reduce((acc, [key, value]) => ({
+      ...acc,
+      [key]: value.options[0].value // Default to first option if not set
+    }), {});
+
+  // Get default numeric parameters for the default booster
+  const defaultBooster = baseParameters.booster;
+  const defaultNumericParameters = Object.entries(tunerJobConstants.hyperparameters[defaultBooster] || {})
+    .filter(([_, value]) => !Array.isArray(value.options))
+    .reduce((acc, [key, value]) => ({
+      ...acc,
+      [key]: {
+        min: value.min,
+        max: value.max
+      }
+    }), {});
+
   const [formData, setFormData] = useState({
-    trainingSchedule: {
-      frequency: 'daily' as const,
-      dayOfWeek: 1,
-      dayOfMonth: 1,
-      hour: 2
-    },
-    tuningSchedule: {
-      enabled: false,
-      frequency: 'weekly' as const,
-      dayOfWeek: 1,
-      dayOfMonth: 1,
-      hour: 2,
-      trials: 10,
-      booster: 'gbtree' as Booster,
-      parameters: {} as Record<string, { min: number; max: number }>
-    },
-    evaluator: {
-      metric: METRICS[initialData.task === 'classification' ? 'classification' : 'regression'][0].value,
-      direction: initialData.task === 'classification' ? 'maximize' as const : 'minimize' as const,
-      threshold: initialData.task === 'classification' ? 0.85 : 0.1
+    retraining_job_attributes: {
+      id: initialData.retraining_job?.id || null,
+      active: initialData.retraining_job?.active ?? false,
+      frequency: initialData.retraining_job?.frequency || retrainingJobConstants.frequency[0].value as string,
+      tuning_frequency: initialData.retraining_job?.tuning_frequency || 'month',
+      at: {
+        hour: initialData.retraining_job?.at?.hour ?? 2,
+        day_of_week: initialData.retraining_job?.at?.day_of_week ?? 1,
+        day_of_month: initialData.retraining_job?.at?.day_of_month ?? 1
+      },
+      metric: initialData.retraining_job?.metric || METRICS[initialData.task === 'classification' ? 'classification' : 'regression'][0].value,
+      threshold: initialData.retraining_job?.threshold || (initialData.task === 'classification' ? 0.85 : 0.1),
+      tuner_config: initialData.retraining_job?.tuner_config ? {
+        n_trials: initialData.retraining_job.tuner_config.n_trials || 10,
+        config: {
+          ...baseParameters,
+          ...defaultNumericParameters,
+          ...initialData.retraining_job.tuner_config.config
+        }
+      } : undefined
     }
   });
 
+  useEffect(() => {
+    if (formData.retraining_job_attributes.tuner_config && Object.keys(formData.retraining_job_attributes.tuner_config.config).length === 0) {
+      setFormData(prev => ({
+        ...prev,
+        retraining_job_attributes: {
+          ...prev.retraining_job_attributes,
+          tuner_config: {
+            ...prev.retraining_job_attributes.tuner_config,
+            config: {
+              ...baseParameters,
+              ...defaultNumericParameters
+            }
+          }
+        }
+      }));
+    }
+  }, [formData.retraining_job_attributes.tuner_config]);
+
   if (!isOpen) return null;
 
-  const handleParameterChange = (parameter: string, type: 'min' | 'max', value: number) => {
+  const handleBaseParameterChange = (parameter: string, value: string) => {
     setFormData(prev => ({
       ...prev,
-      tuningSchedule: {
-        ...prev.tuningSchedule,
-        parameters: {
-          ...prev.tuningSchedule.parameters,
-          [parameter]: {
-            ...prev.tuningSchedule.parameters[parameter],
-            [type]: value
+      retraining_job_attributes: {
+        ...prev.retraining_job_attributes,
+        tuner_config: {
+          ...prev.retraining_job_attributes.tuner_config,
+          config: {
+            ...prev.retraining_job_attributes.tuner_config.config,
+            [parameter]: value
           }
         }
       }
     }));
+  };
+
+  const renderHyperparameterControls = () => {
+    const baseParameters = Object.entries(tunerJobConstants).filter(
+      ([key, value]) => Array.isArray(value.options)
+    );
+
+    // Include all base parameters, not just those in config
+    const selectedBaseParams = baseParameters.map(([key]) => key);
+
+    return (
+      <div className="space-y-4">
+        {baseParameters.map(([key, value]) => (
+          <div key={key}>
+            <label className="block text-sm font-medium text-gray-700">
+              {value.label}
+            </label>
+            <SearchableSelect
+              options={value.options.map((option: any) => ({
+                value: option.value,
+                label: option.label,
+                description: option.description
+              }))}
+              value={formData.retraining_job_attributes.tuner_config?.config[key] || value.options[0].value}
+              onChange={(val) => handleBaseParameterChange(key, val as string)}
+            />
+          </div>
+        ))}
+
+        {selectedBaseParams.map(param => {
+          const subParams = Object.entries(tunerJobConstants).filter(
+            ([key, value]) => value.depends_on === param
+          );
+          
+          const selectedValue = formData.retraining_job_attributes.tuner_config?.config[param] || 
+            tunerJobConstants[param].options[0].value; // Use default if not in config
+
+          return (
+            <div key={param} className="space-y-4">
+              <h4 className="text-sm font-medium text-gray-900">Parameter Ranges</h4>
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                {subParams.map(([subKey, subValue]: any) => {
+                  const relevantParams = subValue[selectedValue];
+                  if (!relevantParams) return null;
+
+                  return Object.entries(relevantParams).map(([paramKey, paramValue]: any) => {
+                    if (paramValue.min !== undefined && paramValue.max !== undefined) {
+                      return (
+                        <div key={paramKey} className="bg-gray-50 p-4 rounded-lg">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-gray-900">
+                              {paramValue.label}
+                            </label>
+                            <span className="text-xs text-gray-500">{paramValue.description}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">
+                                Minimum
+                              </label>
+                              <input
+                                type="number"
+                                min={paramValue.min}
+                                max={paramValue.max}
+                                step={paramValue.step}
+                                value={formData.retraining_job_attributes.tuner_config?.config[paramKey]?.min ?? paramValue.min}
+                                onChange={(e) => handleParameterChange(
+                                  paramKey,
+                                  'min',
+                                  parseFloat(e.target.value)
+                                )}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">
+                                Maximum
+                              </label>
+                              <input
+                                type="number"
+                                min={paramValue.min}
+                                max={paramValue.max}
+                                step={paramValue.step}
+                                value={formData.retraining_job_attributes.tuner_config?.config[paramKey]?.max ?? paramValue.max}
+                                onChange={(e) => handleParameterChange(
+                                  paramKey,
+                                  'max',
+                                  parseFloat(e.target.value)
+                                )}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  });
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const handleParameterChange = (parameter: string, type: 'min' | 'max', value: number) => {
+    setFormData(prev => ({
+      ...prev,
+      retraining_job_attributes: {
+        ...prev.retraining_job_attributes,
+        tuner_config: {
+          ...prev.retraining_job_attributes.tuner_config,
+          config: {
+            ...prev.retraining_job_attributes.tuner_config.config,
+            [parameter]: {
+              ...prev.retraining_job_attributes.tuner_config.config[parameter],
+              [type]: value
+            }
+          }
+        }
+      }
+    }));
+  };
+
+  const handleTrainingScheduleChange = (field: string, value: string | number) => {
+    setFormData(prev => {
+      if (field === 'hour' || field === 'day_of_week' || field === 'day_of_month') {
+        return {
+          ...prev,
+          retraining_job_attributes: {
+            ...prev.retraining_job_attributes,
+            at: {
+              ...prev.retraining_job_attributes.at,
+              [field]: value
+            }
+          }
+        };
+      }
+      return {
+        ...prev,
+        retraining_job_attributes: {
+          ...prev.retraining_job_attributes,
+          [field]: value
+        }
+      };
+    });
+  };
+
+  const handleEvaluatorChange = (field: string, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      retraining_job_attributes: {
+        ...prev.retraining_job_attributes,
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSave = () => {
+    const { retraining_job_attributes } = formData;
+    const at: any = { hour: retraining_job_attributes.at.hour };
+
+    // Only include relevant date attributes based on frequency
+    switch (retraining_job_attributes.frequency) {
+      case 'day':
+        // For daily frequency, only include hour
+        break;
+      case 'week':
+        // For weekly frequency, include hour and day_of_week
+        at.day_of_week = retraining_job_attributes.at.day_of_week;
+        break;
+      case 'month':
+        // For monthly frequency, include hour and day_of_month
+        at.day_of_month = retraining_job_attributes.at.day_of_month;
+        break;
+    }
+
+    const updatedData = {
+      retraining_job_attributes: {
+        ...retraining_job_attributes,
+        at
+      }
+    };
+
+    onSave(updatedData);
+    onClose();
   };
 
   return (
@@ -270,331 +331,280 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData }: Schedule
         </div>
 
         <div className="p-6 grid grid-cols-2 gap-8 max-h-[calc(90vh-8rem)] overflow-y-auto">
+          {/* Left Column */}
           <div className="space-y-8">
             {/* Training Schedule */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-medium text-gray-900">Training Schedule</h3>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Frequency
-                  </label>
-                  <SearchableSelect
-                    options={[
-                      { value: 'daily', label: 'Daily', description: 'Run once every day' },
-                      { value: 'weekly', label: 'Weekly', description: 'Run once every week' },
-                      { value: 'monthly', label: 'Monthly', description: 'Run once every month' }
-                    ]}
-                    value={formData.trainingSchedule.frequency}
-                    onChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      trainingSchedule: {
-                        ...prev.trainingSchedule,
-                        frequency: value as 'daily' | 'weekly' | 'monthly'
-                      }
-                    }))}
-                  />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-medium text-gray-900">Training Schedule</h3>
                 </div>
-
-                {formData.trainingSchedule.frequency === 'weekly' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Day of Week
-                    </label>
-                    <SearchableSelect
-                      options={[
-                        { value: 0, label: 'Sunday' },
-                        { value: 1, label: 'Monday' },
-                        { value: 2, label: 'Tuesday' },
-                        { value: 3, label: 'Wednesday' },
-                        { value: 4, label: 'Thursday' },
-                        { value: 5, label: 'Friday' },
-                        { value: 6, label: 'Saturday' }
-                      ]}
-                      value={formData.trainingSchedule.dayOfWeek}
-                      onChange={(value) => setFormData(prev => ({
-                        ...prev,
-                        trainingSchedule: {
-                          ...prev.trainingSchedule,
-                          dayOfWeek: value as number
-                        }
-                      }))}
-                    />
-                  </div>
-                )}
-
-                {formData.trainingSchedule.frequency === 'monthly' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Day of Month
-                    </label>
-                    <SearchableSelect
-                      options={Array.from({ length: 31 }, (_, i) => ({
-                        value: i + 1,
-                        label: `Day ${i + 1}`
-                      }))}
-                      value={formData.trainingSchedule.dayOfMonth}
-                      onChange={(value) => setFormData(prev => ({
-                        ...prev,
-                        trainingSchedule: {
-                          ...prev.trainingSchedule,
-                          dayOfMonth: value as number
-                        }
-                      }))}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Hour (UTC)
-                  </label>
-                  <SearchableSelect
-                    options={Array.from({ length: 24 }, (_, i) => ({
-                      value: i,
-                      label: `${i}:00`
-                    }))}
-                    value={formData.trainingSchedule.hour}
-                    onChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      trainingSchedule: {
-                        ...prev.trainingSchedule,
-                        hour: value as number
-                      }
-                    }))}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Evaluator Configuration */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-medium text-gray-900">Evaluator Configuration</h3>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Metric
-                  </label>
-                  <SearchableSelect
-                    options={METRICS[initialData.task === 'classification' ? 'classification' : 'regression']}
-                    value={formData.evaluator.metric}
-                    onChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      evaluator: {
-                        ...prev.evaluator,
-                        metric: value as string,
-                        direction: value.toString().includes('error') ? 'minimize' : 'maximize'
-                      }
-                    }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Threshold
-                  </label>
+                <div className="flex items-center">
                   <input
-                    type="number"
-                    step="0.01"
-                    value={formData.evaluator.threshold}
+                    type="checkbox"
+                    id="scheduleEnabled"
+                    checked={formData.retraining_job_attributes.active}
                     onChange={(e) => setFormData(prev => ({
                       ...prev,
-                      evaluator: {
-                        ...prev.evaluator,
-                        threshold: parseFloat(e.target.value)
+                      retraining_job_attributes: {
+                        ...prev.retraining_job_attributes,
+                        active: e.target.checked
                       }
                     }))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
+                  <label htmlFor="scheduleEnabled" className="ml-2 text-sm text-gray-700">
+                    Enable scheduled training
+                  </label>
                 </div>
+              </div>
 
-                <div className="bg-blue-50 rounded-md p-4">
-                  <div className="flex items-start">
-                    <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-blue-800">Deployment Criteria</h3>
-                      <p className="mt-2 text-sm text-blue-700">
-                        The model will be automatically deployed when the {formData.evaluator.metric} is{' '}
-                        {formData.evaluator.direction === 'minimize' ? 'below' : 'above'} {formData.evaluator.threshold}.
+              {!formData.retraining_job_attributes.active && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900">Manual Training Mode</h4>
+                      <p className="mt-1 text-sm text-gray-500">
+                        The model will only be trained when you manually trigger training. You can do this from the model details page at any time.
                       </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {formData.retraining_job_attributes.active && (
+                <>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Frequency
+                        </label>
+                        <SearchableSelect
+                          options={retrainingJobConstants.frequency.map((freq: { value: string; label: string; description: string }) => ({
+                            value: freq.value,
+                            label: freq.label,
+                            description: freq.description
+                          }))}
+                          value={formData.retraining_job_attributes.frequency}
+                          onChange={(value) => handleTrainingScheduleChange('frequency', value)}
+                        />
+                      </div>
+
+                      {formData.retraining_job_attributes.frequency === 'week' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Day of Week
+                          </label>
+                          <SearchableSelect
+                            options={[
+                              { value: 0, label: 'Sunday' },
+                              { value: 1, label: 'Monday' },
+                              { value: 2, label: 'Tuesday' },
+                              { value: 3, label: 'Wednesday' },
+                              { value: 4, label: 'Thursday' },
+                              { value: 5, label: 'Friday' },
+                              { value: 6, label: 'Saturday' }
+                            ]}
+                            value={formData.retraining_job_attributes.at.day_of_week}
+                            onChange={(value) => handleTrainingScheduleChange('day_of_week', value)}
+                          />
+                        </div>
+                      )}
+
+                      {formData.retraining_job_attributes.frequency === 'month' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Day of Month
+                          </label>
+                          <SearchableSelect
+                            options={Array.from({ length: 31 }, (_, i) => ({
+                              value: i + 1,
+                              label: `Day ${i + 1}`
+                            }))}
+                            value={formData.retraining_job_attributes.at.day_of_month}
+                            onChange={(value) => handleTrainingScheduleChange('day_of_month', value)}
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Hour ({timezone})
+                        </label>
+                        <SearchableSelect
+                          options={Array.from({ length: 24 }, (_, i) => ({
+                            value: i,
+                            label: `${i}:00`
+                          }))}
+                          value={formData.retraining_job_attributes.at.hour}
+                          onChange={(value) => handleTrainingScheduleChange('hour', value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Evaluator Configuration */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <AlertCircle className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-medium text-gray-900">Evaluator Configuration</h3>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Metric
+                          </label>
+                          <SearchableSelect
+                            options={METRICS[initialData.task === 'classification' ? 'classification' : 'regression'].map((metric) => ({
+                              value: metric.value,
+                              label: metric.label,
+                              description: metric.description
+                            }))}
+                            value={formData.retraining_job_attributes.metric}
+                            onChange={(value) => handleEvaluatorChange('metric', value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Threshold
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.retraining_job_attributes.threshold}
+                            onChange={(e) => handleEvaluatorChange('threshold', parseFloat(e.target.value))}
+                            step={0.01}
+                            min={0}
+                            max={1}
+                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
+                          />
+                        </div>
+
+                      </div>
+
+                        {/* Deployment Criteria */}
+                        <div className="bg-blue-50 rounded-md p-4">
+                          <div className="flex items-start">
+                            <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
+                            <div className="ml-3">
+                              <h3 className="text-sm font-medium text-blue-800">Deployment Criteria</h3>
+                              <p className="mt-2 text-sm text-blue-700">
+                                The model will be automatically deployed when the {formData.retraining_job_attributes.metric} is{' '}
+                                {formData.retraining_job_attributes.direction === 'minimize' ? 'below' : 'above'} {formData.retraining_job_attributes.threshold}.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Hyperparameter Tuning */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center gap-2">
-                <Settings2 className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-medium text-gray-900">Hyperparameter Tuning</h3>
-              </div>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="tuningEnabled"
-                  checked={formData.tuningSchedule.enabled}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    tuningSchedule: {
-                      ...prev.tuningSchedule,
-                      enabled: e.target.checked
-                    }
-                  }))}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="tuningEnabled" className="ml-2 text-sm text-gray-700">
-                  Enable tuning
-                </label>
-              </div>
-            </div>
-
-            {formData.tuningSchedule.enabled && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Frequency
-                    </label>
-                    <SearchableSelect
-                      options={[
-                        { value: 'weekly', label: 'Weekly', description: 'Tune hyperparameters once every week' },
-                        { value: 'monthly', label: 'Monthly', description: 'Tune hyperparameters once every month' }
-                      ]}
-                      value={formData.tuningSchedule.frequency}
-                      onChange={(value) => setFormData(prev => ({
-                        ...prev,
-                        tuningSchedule: {
-                          ...prev.tuningSchedule,
-                          frequency: value as 'weekly' | 'monthly'
-                        }
-                      }))}
-                    />
+          {/* Right Column */}
+          <div className="space-y-8">
+            {formData.retraining_job_attributes.active && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-medium text-gray-900">Hyperparameter Tuning</h3>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Number of Trials
-                    </label>
+                  <div className="flex items-center">
                     <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={formData.tuningSchedule.trials}
+                      type="checkbox"
+                      id="tuningEnabled"
+                      checked={formData.retraining_job_attributes.tuner_config !== undefined}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,
-                        tuningSchedule: {
-                          ...prev.tuningSchedule,
-                          trials: parseInt(e.target.value)
+                        retraining_job_attributes: {
+                          ...prev.retraining_job_attributes,
+                          tuner_config: e.target.checked ? {
+                            n_trials: 10,
+                            config: defaultNumericParameters
+                          } : undefined
                         }
                       }))}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
+                    <label htmlFor="tuningEnabled" className="ml-2 text-sm text-gray-700">
+                      Enable tuning
+                    </label>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    XGBoost Booster
-                  </label>
-                  <SearchableSelect
-                    options={Object.entries(BOOSTERS).map(([key, value]) => ({
-                      value: key,
-                      label: key.toUpperCase(),
-                      description: value.description
-                    }))}
-                    value={formData.tuningSchedule.booster}
-                    onChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      tuningSchedule: {
-                        ...prev.tuningSchedule,
-                        booster: value as Booster,
-                        parameters: {}
-                      }
-                    }))}
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-medium text-gray-900">Parameter Ranges</h4>
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                    {BOOSTERS[formData.tuningSchedule.booster].parameters.map((param) => (
-                      <div key={param.name} className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-gray-900">
-                            {param.name}
-                          </label>
-                          <span className="text-xs text-gray-500">{param.description}</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">
-                              Minimum
-                            </label>
-                            <input
-                              type="number"
-                              min={param.min}
-                              max={param.max}
-                              step={param.step}
-                              value={formData.tuningSchedule.parameters[param.name]?.min ?? param.min}
-                              onChange={(e) => handleParameterChange(
-                                param.name,
-                                'min',
-                                parseFloat(e.target.value)
-                              )}
-                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-500 mb-1">
-                              Maximum
-                            </label>
-                            <input
-                              type="number"
-                              min={param.min}
-                              max={param.max}
-                              step={param.step}
-                              value={formData.tuningSchedule.parameters[param.name]?.max ?? param.max}
-                              onChange={(e) => handleParameterChange(
-                                param.name,
-                                'max',
-                                parseFloat(e.target.value)
-                              )}
-                              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            />
-                          </div>
-                        </div>
+                {formData.retraining_job_attributes.tuner_config && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Frequency
+                        </label>
+                        <SearchableSelect
+                          options={[
+                            { value: 'week', label: 'Weekly', description: 'Tune hyperparameters once every week' },
+                            { value: 'month', label: 'Monthly', description: 'Tune hyperparameters once every month' }
+                          ]}
+                          value={formData.retraining_job_attributes.tuning_frequency || 'week'}
+                          onChange={(value) => setFormData(prev => ({
+                            ...prev,
+                            retraining_job_attributes: {
+                              ...prev.retraining_job_attributes,
+                              tuning_frequency: value as 'week' | 'month'
+                            }
+                          }))}
+                        />
                       </div>
-                    ))}
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Number of Trials
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="1000"
+                          value={formData.retraining_job_attributes.tuner_config?.n_trials || 10}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            retraining_job_attributes: {
+                              ...prev.retraining_job_attributes,
+                              tuner_config: {
+                                ...prev.retraining_job_attributes.tuner_config,
+                                n_trials: parseInt(e.target.value)
+                              }
+                            }
+                          }))}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
+                        />
+                      </div>
+                    </div>
+                    {renderHyperparameterControls()}
                   </div>
-                </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        <div className="border-t p-4 flex justify-end gap-3">
+        <div className="flex justify-end gap-4 p-4 border-t">
           <button
-            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
           >
             Cancel
           </button>
           <button
-            type="button"
-            onClick={() => onSave(formData)}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            onClick={handleSave}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
           >
-            Save Schedule
+            Save Changes
           </button>
         </div>
       </div>

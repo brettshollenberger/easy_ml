@@ -8,6 +8,10 @@ module EasyML
           def evaluate(y_pred:, y_true:, x_true: nil)
             (Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)).abs.mean
           end
+
+          def direction
+            "minimize"
+          end
         end
 
         class MeanSquaredError
@@ -15,6 +19,10 @@ module EasyML
 
           def evaluate(y_pred:, y_true:, x_true: nil)
             ((Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)) ** 2).mean
+          end
+
+          def direction
+            "minimize"
           end
         end
 
@@ -24,10 +32,18 @@ module EasyML
           def evaluate(y_pred:, y_true:, x_true: nil)
             Math.sqrt(((Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)) ** 2).mean)
           end
+
+          def direction
+            "minimize"
+          end
         end
 
         class R2Score
           include BaseEvaluator
+
+          def direction
+            "maximize"
+          end
 
           def evaluate(y_pred:, y_true:, x_true: nil)
             y_true = Numo::DFloat.cast(y_true)

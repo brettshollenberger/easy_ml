@@ -20,7 +20,8 @@ PROJECT_ROOT = Pathname.new(File.expand_path("..", __dir__))
 SPEC_ROOT = PROJECT_ROOT.join("spec")
 
 # Only load Rails/Combustion for specs that need it
-if RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
+any_rails_files = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
+if any_rails_files
   require "combustion"
   # require "rails/generators"
   # Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
@@ -59,11 +60,13 @@ RSpec.configure do |config|
   end
 
   config.before(:all) do
-    EasyML::Configuration.configure do |config|
-      config.storage = "s3"
-      config.s3_bucket = "my-bucket"
-      config.s3_access_key_id = "12345"
-      config.s3_secret_access_key = "67890"
+    if any_rails_files
+      EasyML::Configuration.configure do |config|
+        config.storage = "s3"
+        config.s3_bucket = "my-bucket"
+        config.s3_access_key_id = "12345"
+        config.s3_secret_access_key = "67890"
+      end
     end
   end
 

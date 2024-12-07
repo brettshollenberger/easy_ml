@@ -1,9 +1,10 @@
+import { Dataset } from './dataset';
+
 export type ModelStatus = 'completed' | 'failed';
 export type DeploymentStatus = 'inference' | 'retired';
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
-
 export interface Transformation {
   id: number;
   name: string;
@@ -45,6 +46,7 @@ export interface Model {
   deploymentStatus: DeploymentStatus;
   promoted: boolean;
   datasetId: number;
+  dataset: Dataset;
   configuration: Record<string, unknown>;
   version: string;
   rootDir: string;

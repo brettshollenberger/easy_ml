@@ -15,9 +15,40 @@ module EasyML
 
         validates :objective,
                   inclusion: { in: %w[binary:logistic binary:hinge multi:softmax multi:softprob reg:squarederror
-                                      reg:logistic] }
+                                     reg:logistic] }
         validates :booster,
                   inclusion: { in: %w[gbtree gblinear dart] }
+
+        def self.hyperparameter_constants
+          {
+            booster: {
+              label: "XGBoost Booster",
+              options: [
+                {
+                  value: "gbtree",
+                  label: "Gradient Boosted Tree",
+                  description: "Traditional Gradient Boosting Decision Tree",
+                },
+                {
+                  value: "gblinear",
+                  label: "Gradient Boosted Linear",
+                  description: "Generalized Linear Model with gradient boosting",
+                },
+                {
+                  value: "dart",
+                  label: "DART",
+                  description: "Dropouts meet Multiple Additive Regression Trees",
+                },
+              ],
+            },
+            hyperparameters: {
+              depends_on: "booster",
+              gbtree: GBTree.hyperparameter_constants,
+              gblinear: GBLinear.hyperparameter_constants,
+              dart: Dart.hyperparameter_constants,
+            },
+          }
+        end
       end
     end
   end

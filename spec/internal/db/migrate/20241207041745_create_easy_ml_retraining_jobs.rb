@@ -1,9 +1,9 @@
-class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
+class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
   def change
     create_table :easy_ml_retraining_jobs do |t|
-      t.string :model, null: false  
+      t.bigint :model_id
       t.string :frequency, null: false  # day, week, month, hour
-      t.integer :at, null: false        # hour of day (0-23)
+      t.json :at, null: false           # hour of day (0-23)
       t.json :evaluator                 # Model evaluator
       t.json :tuner_config              # configuration for the tuner
       t.string :tuning_frequency        # day, week, month, hour - when to run with tuner
@@ -12,10 +12,13 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
       t.string :status, default: "pending"
       t.datetime :last_run_at
       t.datetime :locked_at
+      t.string :metric, null: false
+      t.string :direction, null: false
+      t.float :threshold, null: false
 
       t.timestamps
 
-      t.index :model
+      t.index :model_id
       t.index :active
       t.index :last_run_at
       t.index :last_tuning_at
@@ -35,6 +38,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
       t.datetime :completed_at
       t.text :error_message
       t.jsonb :metadata
+      t.jsonb :metrics
 
       t.timestamps
 

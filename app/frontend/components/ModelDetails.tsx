@@ -5,14 +5,12 @@ import { mockDatasets } from '../mockData';
 
 interface ModelDetailsProps {
   model: Model;
-  runs: RetrainingRun[];
-  job?: RetrainingJob;
   onBack: () => void;
 }
 
 const ITEMS_PER_PAGE = 3;
 
-export function ModelDetails({ model, runs, job, onBack }: ModelDetailsProps) {
+export function ModelDetails({ model, onBack }: ModelDetailsProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'dataset'>('overview');
   const [currentPage, setCurrentPage] = useState(1);
   const dataset = datasets.find(d => d.id === model.datasetId);

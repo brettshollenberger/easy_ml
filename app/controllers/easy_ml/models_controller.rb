@@ -43,11 +43,11 @@ module EasyML
 
       if model.save
         flash[:notice] = "Model was successfully created."
-        redirect_to models_path
+        redirect_to easy_ml_models_path
       else
         render inertia: "pages/NewModelPage", props: {
-          datasets: Dataset.all.map { |dataset| dataset_to_json(dataset) },
-          constants: Model.constants,
+          datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+          constants: EasyML::Model.constants,
           errors: model.errors,
         }
       end
@@ -62,6 +62,18 @@ module EasyML
         runs: model.retraining_runs.map { |run| retraining_run_to_json(run) },
         job: model.current_retraining_job&.then { |job| retraining_job_to_json(job) },
       }
+    end
+
+    def destroy
+      model = Model.find(params[:id])
+
+      if model.destroy
+        flash[:notice] = "Model was successfully deleted."
+        redirect_to easy_ml_models_path
+      else
+        flash[:alert] = "Failed to delete the model."
+        redirect_to easy_ml_models_path
+      end
     end
 
     private

@@ -63,9 +63,12 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    post(`${rootPath}/models`, {
+    post(`${rootPath}/models`, data, {
       onSuccess: () => {
         router.visit(`${rootPath}/models`);
+      },
+      onError: () => {
+        // Handle errors, e.g., show error messages
       }
     });
   };

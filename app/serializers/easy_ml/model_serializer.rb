@@ -6,7 +6,7 @@ module EasyML
 
     set_type :model # Optional type for JSON:API
 
-    attributes :id, :name, :description, :status
+    attributes :id, :name, :status, :model_type
 
     def datasets
       datasets.map do |dataset|

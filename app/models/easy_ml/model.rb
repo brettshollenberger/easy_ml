@@ -47,7 +47,7 @@ module EasyML
     end
 
     belongs_to :dataset
-    belongs_to :model_file, class_name: "EasyML::ModelFile"
+    belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
 
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
 
@@ -72,9 +72,9 @@ module EasyML
 
     validates :task, presence: true
     validates :task, inclusion: {
-             in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
-             message: "must be one of: #{VALID_TASKS.join(", ")}",
-           }
+                       in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
+                       message: "must be one of: #{VALID_TASKS.join(", ")}",
+                     }
     validates :model_type, inclusion: { in: MODEL_NAMES }
     validates :dataset_id, presence: true
     validate :validate_metrics_allowed
@@ -327,7 +327,6 @@ module EasyML
     def metrics=(value)
       value = [value] unless value.is_a?(Array)
       value = value.map(&:to_s)
-      value += default_metrics
       value = value.uniq
       @metrics = value
     end

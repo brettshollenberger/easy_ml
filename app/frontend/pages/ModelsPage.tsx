@@ -1,22 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { Brain, Plus } from 'lucide-react';
+import { Brain, Plus, Trash2 } from 'lucide-react';
 import { ModelCard } from '../components/ModelCard';
 import { ModelDetails } from '../components/ModelDetails';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
-import { mockModels, mockRetrainingJobs, mockRetrainingRuns } from '../mockData';
 import { router } from '@inertiajs/react';
 
-// let models = []; //mockModels;
-// let retrainingJobs = []; //mockRetrainingJobs;
-// let retrainingRuns = []; mockRetrainingRuns;
-const models = [];
-const retrainingRuns = [];
-const retrainingJobs = [];
 const ITEMS_PER_PAGE = 6;
 
-export default function ModelsPage({ rootPath }) {
+export default function ModelsPage({ rootPath, models }) {
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,9 +17,9 @@ export default function ModelsPage({ rootPath }) {
   const filteredModels = useMemo(() => {
     return models.filter(model =>
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      model.modelType.toLowerCase().includes(searchQuery.toLowerCase())
+      model.model_type.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [searchQuery]);
+  }, [searchQuery, models]);
 
   const totalPages = Math.ceil(filteredModels.length / ITEMS_PER_PAGE);
   const paginatedModels = filteredModels.slice(
@@ -35,8 +28,14 @@ export default function ModelsPage({ rootPath }) {
   );
 
   const selectedModel = models.find((m) => m.id === selectedModelId);
-  const modelRuns = retrainingRuns.filter((r) => r.modelId === selectedModelId);
-  const modelJob = retrainingJobs.find((j) => j.model === selectedModel?.name);
+  const modelRuns = models.find((m) => m.id === selectedModelId)?.retrainingRuns || [];
+  const modelJob = models.find((m) => m.id === selectedModelId)?.retrainingJob || null;
+
+  const handleDelete = (modelId: number) => {
+    if (confirm('Are you sure you want to delete this model?')) {
+      router.delete(`${rootPath}/models/${modelId}`);
+    }
+  };
 
   if (models.length === 0) {
     return (
@@ -107,9 +106,8 @@ export default function ModelsPage({ rootPath }) {
                   <ModelCard
                     key={model.id}
                     model={model}
-                    job={retrainingJobs.find((j) => j.model === model.name)}
-                    lastRun={retrainingRuns.find((r) => r.modelId === model.id)}
                     onViewDetails={setSelectedModelId}
+                    handleDelete={handleDelete}
                   />
                 ))}
               </div>

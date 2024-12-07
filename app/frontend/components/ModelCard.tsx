@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink } from 'lucide-react';
+import { Activity, Calendar, Database, Settings, ExternalLink, Trash2 } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
 interface ModelCardProps {
@@ -7,9 +7,10 @@ interface ModelCardProps {
   job?: RetrainingJob;
   lastRun?: RetrainingRun;
   onViewDetails: (modelId: number) => void;
+  handleDelete: (modelId: number) => void;
 }
 
-export function ModelCard({ model, job, lastRun, onViewDetails }: ModelCardProps) {
+export function ModelCard({ model, job, lastRun, onViewDetails, handleDelete }: ModelCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex flex-col gap-2">
@@ -44,6 +45,13 @@ export function ModelCard({ model, job, lastRun, onViewDetails }: ModelCardProps
               title="View details"
             >
               <ExternalLink className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => handleDelete(model.id)}
+              className="text-gray-400 hover:text-gray-600"
+              title="Delete model"
+            >
+              <Trash2 className="w-5 h-5" />
             </button>
           </div>
         </div>

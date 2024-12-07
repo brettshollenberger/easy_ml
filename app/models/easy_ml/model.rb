@@ -12,6 +12,7 @@
 #  version       :string           not null
 #  root_dir      :string
 #  file          :json
+#  sha           :string
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
 #
@@ -49,6 +50,8 @@ module EasyML
     belongs_to :dataset
     belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
 
+    has_one :retraining_job, class_name: "EasyML::RetrainingJob"
+    accepts_nested_attributes_for :retraining_job
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
 
     after_initialize :bump_version, if: -> { new_record? }
@@ -70,6 +73,7 @@ module EasyML
       },
     ].freeze
 
+    validates :name, presence: true
     validates :task, presence: true
     validates :task, inclusion: {
                        in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,

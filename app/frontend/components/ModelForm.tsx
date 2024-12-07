@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 // import { useNavigate } from 'react-router-dom';
-import { Calendar, Lock } from 'lucide-react';
+import { Calendar, Lock, AlertCircle } from 'lucide-react';
 import { SearchableSelect } from './SearchableSelect';
 import { ScheduleModal } from './ScheduleModal';
 import { router } from '@inertiajs/react';
@@ -27,9 +27,19 @@ interface ModelFormProps {
     hyperparameter_tuning: any;
   };
   isEditing?: boolean;
+  errors?: any;
 }
 
-export function ModelForm({ initialData, datasets, constants, isEditing }: ModelFormProps) {
+const ErrorDisplay = ({ error }: { error?: string }) => (
+  error ? (
+    <div className="mt-1 flex items-center gap-1 text-sm text-red-600">
+      <AlertCircle className="w-4 h-4" />
+      {error}
+    </div>
+  ) : null
+);
+
+export function ModelForm({ initialData, datasets, constants, isEditing, errors: initialErrors }: ModelFormProps) {
   const { rootPath } = usePage().props;
   const [showScheduleModal, setShowScheduleModal] = useState(false);
 
@@ -40,11 +50,23 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
       dataset_id: initialData?.datasetId || '',
       task: initialData?.task || 'classification',
       objective: initialData?.objective || 'binary:logistic',
-      metrics: initialData?.metrics || ['accuracy']
+      metrics: initialData?.metrics || ['accuracy'],
+      retraining_job_attributes: {
+        frequency: constants.training_schedule.frequency,
+        at: constants.training_schedule.at,
+        active: true,
+        tuner_config: {
+          n_trials: constants.hyperparameter_tuning.n_trials,
+          objective: constants.hyperparameter_tuning.objective,
+          config: constants.hyperparameter_tuning.config
+        }
+      }
     }
   });
 
-  const { data, setData, post, processing, errors } = form;
+  const { data, setData, post, processing, errors: formErrors } = form;
+  const errors = { ...initialErrors, ...formErrors };
+
   const objectives: { value: string; label: string; description?: string }[] = 
     constants.objectives[data.model.model_type]?.[data.model.task] || [];
 
@@ -63,7 +85,15 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    post(`${rootPath}/models`, data, {
+    // Create a copy of the data to modify
+    const submissionData = { ...data };
+    
+    // If training schedule is not enabled, remove retraining_job_attributes
+    if (!submissionData.model.retraining_job_attributes?.active) {
+      delete submissionData.model.retraining_job_attributes;
+    }
+    
+    post(`${rootPath}/models`, submissionData, {
       onSuccess: () => {
         router.visit(`${rootPath}/models`);
       },
@@ -103,8 +133,8 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               value={data.model.name}
               onChange={(e) => setData('model.name', e.target.value)}
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
-              required
             />
+            <ErrorDisplay error={errors.name} />
           </div>
 
           <div>
@@ -117,6 +147,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               onChange={(value) => setData('model.model_type', value as string)}
               placeholder="Select model type"
             />
+            <ErrorDisplay error={errors.model_type} />
           </div>
 
           <div>
@@ -140,6 +171,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
                 placeholder="Select dataset"
               />
             )}
+            <ErrorDisplay error={errors.dataset_id} />
           </div>
 
           <div>
@@ -152,6 +184,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               onChange={(value) => setData('model.task', value as string)}
               placeholder="Select task"
             />
+            <ErrorDisplay error={errors.task} />
           </div>
 
           <div>
@@ -164,6 +197,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               onChange={(value) => setData('model.objective', value as string)}
               placeholder="Select objective"
             />
+            <ErrorDisplay error={errors.objective} />
           </div>
         </div>
 
@@ -222,10 +256,30 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
         isOpen={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
         onSave={(scheduleData) => {
-          setData(prev => ({
-            ...prev,
-            ...scheduleData
-          }));
+          const updatedData = {
+            model: {
+              ...data.model,
+              retraining_job_attributes: scheduleData.trainingSchedule.enabled ? {
+                frequency: scheduleData.trainingSchedule.frequency,
+                at: {
+                  hour: scheduleData.trainingSchedule.hour,
+                  day_of_week: scheduleData.trainingSchedule.dayOfWeek,
+                  day_of_month: scheduleData.trainingSchedule.dayOfMonth
+                },
+                active: scheduleData.trainingSchedule.enabled,
+                tuner_config: scheduleData.tuningSchedule.enabled ? {
+                  n_trials: scheduleData.tuningSchedule.trials,
+                  objective: {
+                    metric: scheduleData.evaluator.metric,
+                    direction: scheduleData.evaluator.direction,
+                    threshold: scheduleData.evaluator.threshold
+                  },
+                  config: scheduleData.tuningSchedule.parameters
+                } : undefined
+              } : undefined
+            }
+          };
+          setData(updatedData);
           setShowScheduleModal(false);
         }}
         initialData={{

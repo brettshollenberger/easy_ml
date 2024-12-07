@@ -34,6 +34,7 @@ const METRICS = {
 export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparameterConstants, timezone, trainingScheduleConstants }: ScheduleModalProps) {
   const [formData, setFormData] = useState({
     trainingSchedule: {
+      enabled: true,
       frequency: trainingScheduleConstants.frequency[0].value as string,
       dayOfWeek: 1,
       dayOfMonth: 1,
@@ -186,6 +187,26 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
     }));
   };
 
+  const handleTrainingScheduleChange = (field: string, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      trainingSchedule: {
+        ...prev.trainingSchedule,
+        [field]: value
+      }
+    }));
+  };
+
+  const handleEvaluatorChange = (field: string, value: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      evaluator: {
+        ...prev.evaluator,
+        [field]: value
+      }
+    }));
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
@@ -200,257 +221,232 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
         </div>
 
         <div className="p-6 grid grid-cols-2 gap-8 max-h-[calc(90vh-8rem)] overflow-y-auto">
+          {/* Left Column */}
           <div className="space-y-8">
             {/* Training Schedule */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-medium text-gray-900">Training Schedule</h3>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Frequency
-                  </label>
-                  <SearchableSelect
-                    options={trainingScheduleConstants.frequency.map((freq: { value: string; label: string; description: string }) => ({
-                      value: freq.value,
-                      label: freq.label,
-                      description: freq.description
-                    }))}
-                    value={formData.trainingSchedule.frequency}
-                    onChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      trainingSchedule: {
-                        ...prev.trainingSchedule,
-                        frequency: value as string
-                      }
-                    }))}
-                  />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-medium text-gray-900">Training Schedule</h3>
                 </div>
-
-                {formData.trainingSchedule.frequency === 'weekly' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Day of Week
-                    </label>
-                    <SearchableSelect
-                      options={[
-                        { value: 0, label: 'Sunday' },
-                        { value: 1, label: 'Monday' },
-                        { value: 2, label: 'Tuesday' },
-                        { value: 3, label: 'Wednesday' },
-                        { value: 4, label: 'Thursday' },
-                        { value: 5, label: 'Friday' },
-                        { value: 6, label: 'Saturday' }
-                      ]}
-                      value={formData.trainingSchedule.dayOfWeek}
-                      onChange={(value) => setFormData(prev => ({
-                        ...prev,
-                        trainingSchedule: {
-                          ...prev.trainingSchedule,
-                          dayOfWeek: value as number
-                        }
-                      }))}
-                    />
-                  </div>
-                )}
-
-                {formData.trainingSchedule.frequency === 'monthly' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Day of Month
-                    </label>
-                    <SearchableSelect
-                      options={Array.from({ length: 31 }, (_, i) => ({
-                        value: i + 1,
-                        label: `Day ${i + 1}`
-                      }))}
-                      value={formData.trainingSchedule.dayOfMonth}
-                      onChange={(value) => setFormData(prev => ({
-                        ...prev,
-                        trainingSchedule: {
-                          ...prev.trainingSchedule,
-                          dayOfMonth: value as number
-                        }
-                      }))}
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Hour ({timezone})
-                  </label>
-                  <SearchableSelect
-                    options={Array.from({ length: 24 }, (_, i) => ({
-                      value: i,
-                      label: `${i}:00`
-                    }))}
-                    value={formData.trainingSchedule.hour}
-                    onChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      trainingSchedule: {
-                        ...prev.trainingSchedule,
-                        hour: value as number
-                      }
-                    }))}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Evaluator Configuration */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-medium text-gray-900">Evaluator Configuration</h3>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Metric
-                  </label>
-                  <SearchableSelect
-                    options={METRICS[initialData.task === 'classification' ? 'classification' : 'regression']}
-                    value={formData.evaluator.metric}
-                    onChange={(value) => setFormData(prev => ({
-                      ...prev,
-                      evaluator: {
-                        ...prev.evaluator,
-                        metric: value as string,
-                        direction: value.toString().includes('error') ? 'minimize' : 'maximize'
-                      }
-                    }))}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Threshold
-                  </label>
+                <div className="flex items-center">
                   <input
-                    type="number"
-                    step="0.01"
-                    value={formData.evaluator.threshold}
+                    type="checkbox"
+                    id="scheduleEnabled"
+                    checked={formData.trainingSchedule.enabled}
                     onChange={(e) => setFormData(prev => ({
                       ...prev,
-                      evaluator: {
-                        ...prev.evaluator,
-                        threshold: parseFloat(e.target.value)
+                      trainingSchedule: {
+                        ...prev.trainingSchedule,
+                        enabled: e.target.checked
                       }
                     }))}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
+                  <label htmlFor="scheduleEnabled" className="ml-2 text-sm text-gray-700">
+                    Enable scheduled training
+                  </label>
                 </div>
+              </div>
 
-                <div className="bg-blue-50 rounded-md p-4">
-                  <div className="flex items-start">
-                    <AlertCircle className="w-5 h-5 text-blue-400 mt-0.5" />
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-blue-800">Deployment Criteria</h3>
-                      <p className="mt-2 text-sm text-blue-700">
-                        The model will be automatically deployed when the {formData.evaluator.metric} is{' '}
-                        {formData.evaluator.direction === 'minimize' ? 'below' : 'above'} {formData.evaluator.threshold}.
+              {!formData.trainingSchedule.enabled && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-5 h-5 text-gray-400 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900">Manual Training Mode</h4>
+                      <p className="mt-1 text-sm text-gray-500">
+                        The model will only be trained when you manually trigger training. You can do this from the model details page at any time.
                       </p>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {formData.trainingSchedule.enabled && (
+                <>
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Frequency
+                        </label>
+                        <SearchableSelect
+                          options={trainingScheduleConstants.frequency.map((freq: { value: string; label: string; description: string }) => ({
+                            value: freq.value,
+                            label: freq.label,
+                            description: freq.description
+                          }))}
+                          value={formData.trainingSchedule.frequency}
+                          onChange={(value) => handleTrainingScheduleChange('frequency', value)}
+                        />
+                      </div>
+
+                      {formData.trainingSchedule.frequency === 'weekly' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Day of Week
+                          </label>
+                          <SearchableSelect
+                            options={[
+                              { value: 0, label: 'Sunday' },
+                              { value: 1, label: 'Monday' },
+                              { value: 2, label: 'Tuesday' },
+                              { value: 3, label: 'Wednesday' },
+                              { value: 4, label: 'Thursday' },
+                              { value: 5, label: 'Friday' },
+                              { value: 6, label: 'Saturday' }
+                            ]}
+                            value={formData.trainingSchedule.dayOfWeek}
+                            onChange={(value) => handleTrainingScheduleChange('dayOfWeek', value)}
+                          />
+                        </div>
+                      )}
+
+                      {formData.trainingSchedule.frequency === 'monthly' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Day of Month
+                          </label>
+                          <SearchableSelect
+                            options={Array.from({ length: 31 }, (_, i) => ({
+                              value: i + 1,
+                              label: `Day ${i + 1}`
+                            }))}
+                            value={formData.trainingSchedule.dayOfMonth}
+                            onChange={(value) => handleTrainingScheduleChange('dayOfMonth', value)}
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Hour ({timezone})
+                        </label>
+                        <SearchableSelect
+                          options={Array.from({ length: 24 }, (_, i) => ({
+                            value: i,
+                            label: `${i}:00`
+                          }))}
+                          value={formData.trainingSchedule.hour}
+                          onChange={(value) => handleTrainingScheduleChange('hour', value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Evaluator Configuration */}
+                  <div className="border-t border-gray-200 pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                      <AlertCircle className="w-5 h-5 text-blue-600" />
+                      <h3 className="text-lg font-medium text-gray-900">Evaluator Configuration</h3>
+                    </div>
+
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Metric
+                          </label>
+                          <SearchableSelect
+                            options={METRICS[initialData.task === 'classification' ? 'classification' : 'regression'].map((metric) => ({
+                              value: metric.value,
+                              label: metric.label,
+                              description: metric.description
+                            }))}
+                            value={formData.evaluator.metric}
+                            onChange={(value) => handleEvaluatorChange('metric', value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Direction
+                          </label>
+                          <SearchableSelect
+                            options={[
+                              { value: 'maximize', label: 'Maximize', description: 'Choose this if a higher metric value is better' },
+                              { value: 'minimize', label: 'Minimize', description: 'Choose this if a lower metric value is better' }
+                            ]}
+                            value={formData.evaluator.direction}
+                            onChange={(value) => handleEvaluatorChange('direction', value)}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">
+                            Threshold
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.evaluator.threshold}
+                            onChange={(e) => handleEvaluatorChange('threshold', parseFloat(e.target.value))}
+                            step={0.01}
+                            min={0}
+                            max={1}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Hyperparameter Tuning */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center gap-2">
-                <Settings2 className="w-5 h-5 text-blue-600" />
-                <h3 className="text-lg font-medium text-gray-900">Hyperparameter Tuning</h3>
-              </div>
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="tuningEnabled"
-                  checked={formData.tuningSchedule.enabled}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    tuningSchedule: {
-                      ...prev.tuningSchedule,
-                      enabled: e.target.checked
-                    }
-                  }))}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="tuningEnabled" className="ml-2 text-sm text-gray-700">
-                  Enable tuning
-                </label>
-              </div>
-            </div>
-
-            {formData.tuningSchedule.enabled && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Frequency
-                    </label>
-                    <SearchableSelect
-                      options={[
-                        { value: 'weekly', label: 'Weekly', description: 'Tune hyperparameters once every week' },
-                        { value: 'monthly', label: 'Monthly', description: 'Tune hyperparameters once every month' }
-                      ]}
-                      value={formData.tuningSchedule.frequency}
-                      onChange={(value) => setFormData(prev => ({
-                        ...prev,
-                        tuningSchedule: {
-                          ...prev.tuningSchedule,
-                          frequency: value as 'weekly' | 'monthly'
-                        }
-                      }))}
-                    />
+          {/* Right Column */}
+          <div className="space-y-8">
+            {formData.trainingSchedule.enabled && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-medium text-gray-900">Hyperparameter Tuning</h3>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Number of Trials
-                    </label>
+                  <div className="flex items-center">
                     <input
-                      type="number"
-                      min="1"
-                      max="100"
-                      value={formData.tuningSchedule.trials}
+                      type="checkbox"
+                      id="tuningEnabled"
+                      checked={formData.tuningSchedule.enabled}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,
                         tuningSchedule: {
                           ...prev.tuningSchedule,
-                          trials: parseInt(e.target.value)
+                          enabled: e.target.checked
                         }
                       }))}
-                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
+                    <label htmlFor="tuningEnabled" className="ml-2 text-sm text-gray-700">
+                      Enable tuning
+                    </label>
                   </div>
                 </div>
 
-                {renderHyperparameterControls()}
+                {formData.tuningSchedule.enabled && (
+                  <div className="space-y-6">
+                    {renderHyperparameterControls()}
+                  </div>
+                )}
               </div>
             )}
           </div>
         </div>
 
-        <div className="border-t p-4 flex justify-end gap-3">
+        <div className="flex justify-end gap-4 p-4 border-t">
           <button
-            type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"
           >
             Cancel
           </button>
           <button
-            type="button"
             onClick={() => onSave(formData)}
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
           >
-            Save Schedule
+            Save Changes
           </button>
         </div>
       </div>

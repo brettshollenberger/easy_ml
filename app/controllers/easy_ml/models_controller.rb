@@ -41,6 +41,7 @@ module EasyML
     def create
       model = Model.new(model_params)
 
+      binding.pry
       if model.save
         flash[:notice] = "Model was successfully created."
         redirect_to easy_ml_models_path
@@ -48,7 +49,7 @@ module EasyML
         render inertia: "pages/NewModelPage", props: {
           datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
           constants: EasyML::Model.constants,
-          errors: model.errors,
+          errors: model.errors.to_hash(true),
         }
       end
     end
@@ -115,12 +116,18 @@ module EasyML
 
     def model_params
       params.require(:model).permit(
-        :name,
-        :model_type,
-        :dataset_id,
-        :task,
-        :objective,
-        metrics: [],
+        :name, :model_type, :dataset_id, :task, :objective, metrics: [],
+                                                            retraining_job_attributes: [
+                                                              :frequency, :at, :active, :locked_at,
+                                                              tuner_config: [
+                                                                :n_trials, :objective,
+                                                                config: {
+                                                                  learning_rate: [:min, :max],
+                                                                  n_estimators: [:min, :max],
+                                                                  max_depth: [:min, :max],
+                                                                },
+                                                              ],
+                                                            ],
       )
     end
   end

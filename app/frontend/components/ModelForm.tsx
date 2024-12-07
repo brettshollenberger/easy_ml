@@ -21,10 +21,12 @@ interface ModelFormProps {
       frequency: string;
       at: string;
       active: boolean;
+      metric?: string;
+      threshold?: number;
       tuner_config?: {
         n_trials: number;
         objective: string;
-        config: any;
+        config: Record<string, any>;
       };
     };
   };
@@ -34,8 +36,8 @@ interface ModelFormProps {
     objectives: Record<string, { value: string; label: string; description?: string }[]>;
     metrics: Record<string, { value: string; label: string; direction: string }[]>;
     timezone: string;
-    training_schedule: any;
-    hyperparameter_tuning: any;
+    retraining_job_constants: any;
+    tuner_job_constants: any;
   };
   isEditing?: boolean;
   errors?: any;
@@ -58,13 +60,15 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     model: {
       id: initialData?.id,
       name: initialData?.name || '',
-      model_type: initialData?.modelType || 'xgboost',
-      dataset_id: initialData?.datasetId || '',
+      model_type: initialData?.model_type || 'xgboost',
+      dataset_id: initialData?.dataset_id || '',
       task: initialData?.task || 'classification',
       objective: initialData?.objective || 'binary:logistic',
       metrics: initialData?.metrics || ['accuracy'],
       retraining_job_attributes: initialData?.retraining_job ? {
+        id: initialData.retraining_job?.id,
         frequency: initialData.retraining_job.frequency,
+        tuning_frequency: initialData.retraining_job.tuning_frequency,
         at: initialData.retraining_job.at,
         active: initialData.retraining_job.active,
         metric: initialData.retraining_job.metric,
@@ -97,35 +101,11 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
   }, [data.model.task]);
 
   const handleScheduleSave = (scheduleData: any) => {
-    // Transform hyperparameters into the required format with min/max values
-    const transformedParameters = Object.entries(scheduleData.tuningSchedule.parameters).reduce((acc, [key, value]) => {
-      if (typeof value === 'object' && value !== null && 'min' in value && 'max' in value) {
-        acc[key] = value; // Already in correct format
-      } else if (Array.isArray(value) && value.length === 2) {
-        acc[key] = { min: value[0], max: value[1] };
-      }
-      return acc;
-    }, {} as Record<string, { min: number; max: number }>);
-
     setData({
       ...data,
       model: {
         ...data.model,
-        retraining_job_attributes: {
-          frequency: scheduleData.trainingSchedule.frequency,
-          at: {
-            hour: scheduleData.trainingSchedule.hour,
-            ...(scheduleData.trainingSchedule.frequency === 'week' && { day_of_week: scheduleData.trainingSchedule.dayOfWeek }),
-            ...(scheduleData.trainingSchedule.frequency === 'month' && { day_of_month: scheduleData.trainingSchedule.dayOfMonth }),
-          },
-          active: scheduleData.trainingSchedule.enabled,
-          metric: scheduleData.evaluator.metric,
-          threshold: scheduleData.evaluator.threshold,
-          tuner_config: scheduleData.tuningSchedule.enabled ? {
-            n_trials: scheduleData.tuningSchedule.n_trials,
-            config: transformedParameters
-          } : undefined
-        }
+        retraining_job_attributes: scheduleData.retraining_job_attributes
       }
     });
     setShowScheduleModal(false);
@@ -137,11 +117,6 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     // Create a copy of the data to modify
     const submissionData = { ...data };
     
-    // If training schedule is not enabled, remove retraining_job_attributes
-    if (!submissionData.model.retraining_job_attributes?.active) {
-      delete submissionData.model.retraining_job_attributes;
-    }
-
     if (data.model.id) {
       patch(`${rootPath}/models/${data.model.id}`, submissionData, {
         onSuccess: () => {
@@ -157,9 +132,10 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     }
   };
 
+  console.log(data.model)
   const selectedDataset = datasets.find(d => d.id === data.model.dataset_id);
 
-  const filteredHyperparameterConstants = constants.hyperparameter_tuning[data.model.model_type] || {};
+  const filteredTunerJobConstants = constants.tuner_job_constants[data.model.model_type] || {};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -314,16 +290,11 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
           task: data.model.task,
           metrics: data.model.metrics,
           modelType: data.model.model_type,
-          retrainingJob: data.model.retraining_job_attributes ? {
-            frequency: data.model.retraining_job_attributes.frequency,
-            at: data.model.retraining_job_attributes.at,
-            active: data.model.retraining_job_attributes.active,
-            tunerConfig: data.model.retraining_job_attributes.tuner_config
-          } : undefined
+          retraining_job: data.model.retraining_job_attributes
         }}
-        hyperparameterConstants={filteredHyperparameterConstants}
+        tunerJobConstants={filteredTunerJobConstants}
         timezone={constants.timezone}
-        trainingScheduleConstants={constants.training_schedule}
+        retrainingJobConstants={constants.retraining_job_constants}
       />
     </form>
   );

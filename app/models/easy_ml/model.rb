@@ -248,12 +248,12 @@ module EasyML
 
     def self.constants
       {
-        objectives: objectives,
+        objectives: objectives_by_model_type,
         metrics: metrics_by_task,
         tasks: TASK_TYPES,
         timezone: EasyML::Configuration.timezone_label,
-        training_schedule: EasyML::RetrainingJob.constants,
-        hyperparameter_tuning: EasyML::TunerJob.constants,
+        retraining_job_constants: EasyML::RetrainingJob.constants,
+        tuner_job_constants: EasyML::TunerJob.constants,
       }
     end
 
@@ -261,7 +261,7 @@ module EasyML
       EasyML::Core::ModelEvaluator.metrics_by_task
     end
 
-    def self.objectives
+    def self.objectives_by_model_type
       MODEL_OPTIONS.inject({}) do |h, (k, v)|
         h.tap do
           h[k] = v.constantize.const_get(:OBJECTIVES_FRONTEND)

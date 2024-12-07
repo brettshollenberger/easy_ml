@@ -10,20 +10,23 @@ interface ScheduleModalProps {
     task: string;
     metrics: string[];
     modelType?: string;
-    retrainingJob?: {
+    retraining_job?: {
       frequency: string;
+      tuning_frequency: string;
       at: string | number;
       active: boolean;
-      tunerConfig?: {
+      metric?: string;
+      threshold?: number;
+      tuner_config?: {
         n_trials: number;
         objective: string;
         config: Record<string, any>;
       };
     };
   };
-  hyperparameterConstants: any;
+  tunerJobConstants: any;
   timezone: string;
-  trainingScheduleConstants: any;
+  retrainingJobConstants: any;
 }
 
 const METRICS = {
@@ -41,8 +44,18 @@ const METRICS = {
   ]
 };
 
-export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparameterConstants, timezone, trainingScheduleConstants }: ScheduleModalProps) {
-  const defaultParameters = Object.entries(hyperparameterConstants.hyperparameters)
+export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobConstants, timezone, retrainingJobConstants }: ScheduleModalProps) {
+  // Get all base parameters (those with options)
+  const baseParameters = Object.entries(tunerJobConstants)
+    .filter(([_, value]) => Array.isArray(value.options))
+    .reduce((acc, [key, value]) => ({
+      ...acc,
+      [key]: value.options[0].value // Default to first option if not set
+    }), {});
+
+  // Get default numeric parameters for the default booster
+  const defaultBooster = baseParameters.booster;
+  const defaultNumericParameters = Object.entries(tunerJobConstants.hyperparameters[defaultBooster] || {})
     .filter(([_, value]) => !Array.isArray(value.options))
     .reduce((acc, [key, value]) => ({
       ...acc,
@@ -53,64 +66,70 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
     }), {});
 
   const [formData, setFormData] = useState({
-    trainingSchedule: {
-      enabled: initialData.retrainingJob?.active ?? false,
-      frequency: initialData.retrainingJob?.frequency || trainingScheduleConstants.frequency[0].value as string,
-      dayOfWeek: typeof initialData.retrainingJob?.at === 'number' ? initialData.retrainingJob.at : 1,
-      dayOfMonth: typeof initialData.retrainingJob?.at === 'number' ? initialData.retrainingJob.at : 1,
-      hour: typeof initialData.retrainingJob?.at === 'number' ? initialData.retrainingJob.at : 2
-    },
-    tuningSchedule: {
-      enabled: !!initialData.retrainingJob?.tunerConfig,
-      frequency: 'weekly' as const,
-      dayOfWeek: 1,
-      dayOfMonth: 1,
-      hour: 2,
-      n_trials: initialData.retrainingJob?.tunerConfig?.n_trials || 10,
-      parameters: {
-        booster: initialData.retrainingJob?.tunerConfig?.config?.booster || hyperparameterConstants.booster.options[0].value,
-        ...initialData.retrainingJob?.tunerConfig?.config
-      }
-    },
-    evaluator: {
-      metric: METRICS[initialData.task === 'classification' ? 'classification' : 'regression'][0].value,
-      threshold: initialData.task === 'classification' ? 0.85 : 0.1
+    retraining_job_attributes: {
+      id: initialData.retraining_job?.id || null,
+      active: initialData.retraining_job?.active ?? false,
+      frequency: initialData.retraining_job?.frequency || retrainingJobConstants.frequency[0].value as string,
+      tuning_frequency: initialData.retraining_job?.tuning_frequency || 'month',
+      day_of_week: typeof initialData.retraining_job?.at === 'number' ? initialData.retraining_job.at : 1,
+      day_of_month: typeof initialData.retraining_job?.at === 'number' ? initialData.retraining_job.at : 1,
+      hour: typeof initialData.retraining_job?.at === 'number' ? initialData.retraining_job.at : 2,
+      metric: initialData.retraining_job?.metric || METRICS[initialData.task === 'classification' ? 'classification' : 'regression'][0].value,
+      threshold: initialData.retraining_job?.threshold || (initialData.task === 'classification' ? 0.85 : 0.1),
+      tuner_config: initialData.retraining_job?.tuner_config ? {
+        n_trials: initialData.retraining_job.tuner_config.n_trials || 10,
+        config: {
+          ...baseParameters,
+          ...defaultNumericParameters,
+          ...initialData.retraining_job.tuner_config.config
+        }
+      } : undefined
     }
   });
 
   useEffect(() => {
-    if (formData.tuningSchedule.enabled && Object.keys(formData.tuningSchedule.parameters).length === 0) {
+    if (formData.retraining_job_attributes.tuner_config && Object.keys(formData.retraining_job_attributes.tuner_config.config).length === 0) {
       setFormData(prev => ({
         ...prev,
-        tuningSchedule: {
-          ...prev.tuningSchedule,
-          parameters: defaultParameters
+        retraining_job_attributes: {
+          ...prev.retraining_job_attributes,
+          tuner_config: {
+            ...prev.retraining_job_attributes.tuner_config,
+            config: {
+              ...baseParameters,
+              ...defaultNumericParameters
+            }
+          }
         }
       }));
     }
-  }, [formData.tuningSchedule.enabled]);
+  }, [formData.retraining_job_attributes.tuner_config]);
 
   if (!isOpen) return null;
 
   const handleBaseParameterChange = (parameter: string, value: string) => {
     setFormData(prev => ({
       ...prev,
-      tuningSchedule: {
-        ...prev.tuningSchedule,
-        parameters: {
-          ...prev.tuningSchedule.parameters,
-          [parameter]: value
+      retraining_job_attributes: {
+        ...prev.retraining_job_attributes,
+        tuner_config: {
+          ...prev.retraining_job_attributes.tuner_config,
+          config: {
+            ...prev.retraining_job_attributes.tuner_config.config,
+            [parameter]: value
+          }
         }
       }
     }));
   };
 
   const renderHyperparameterControls = () => {
-    const baseParameters = Object.entries(hyperparameterConstants).filter(
+    const baseParameters = Object.entries(tunerJobConstants).filter(
       ([key, value]) => Array.isArray(value.options)
     );
 
-    const selectedBaseParams = Object.keys(formData.tuningSchedule.parameters);
+    // Include all base parameters, not just those in config
+    const selectedBaseParams = baseParameters.map(([key]) => key);
 
     return (
       <div className="space-y-4">
@@ -125,24 +144,29 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                 label: option.label,
                 description: option.description
               }))}
-              value={formData.tuningSchedule.parameters[key] || ''}
+              value={formData.retraining_job_attributes.tuner_config?.config[key] || value.options[0].value}
               onChange={(val) => handleBaseParameterChange(key, val as string)}
             />
           </div>
         ))}
 
         {selectedBaseParams.map(param => {
-          const subParams = Object.entries(hyperparameterConstants).filter(
+          const subParams = Object.entries(tunerJobConstants).filter(
             ([key, value]) => value.depends_on === param
           );
+          
+          const selectedValue = formData.retraining_job_attributes.tuner_config?.config[param] || 
+            tunerJobConstants[param].options[0].value; // Use default if not in config
+
           return (
-            <div className="space-y-4">
+            <div key={param} className="space-y-4">
               <h4 className="text-sm font-medium text-gray-900">Parameter Ranges</h4>
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                 {subParams.map(([subKey, subValue]: any) => {
-                  const selectedValue = formData.tuningSchedule.parameters[param];
                   const relevantParams = subValue[selectedValue];
-                  return relevantParams ? Object.entries(relevantParams).map(([paramKey, paramValue]: any) => {
+                  if (!relevantParams) return null;
+
+                  return Object.entries(relevantParams).map(([paramKey, paramValue]: any) => {
                     if (paramValue.min !== undefined && paramValue.max !== undefined) {
                       return (
                         <div key={paramKey} className="bg-gray-50 p-4 rounded-lg">
@@ -150,7 +174,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                             <label className="text-sm font-medium text-gray-900">
                               {paramValue.label}
                             </label>
-                            <span key={paramKey} className="text-xs text-gray-500">{paramValue.description}</span>
+                            <span className="text-xs text-gray-500">{paramValue.description}</span>
                           </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -162,7 +186,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                                 min={paramValue.min}
                                 max={paramValue.max}
                                 step={paramValue.step}
-                                value={formData.tuningSchedule.parameters[paramKey]?.min ?? paramValue.min}
+                                value={formData.retraining_job_attributes.tuner_config?.config[paramKey]?.min ?? paramValue.min}
                                 onChange={(e) => handleParameterChange(
                                   paramKey,
                                   'min',
@@ -180,7 +204,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                                 min={paramValue.min}
                                 max={paramValue.max}
                                 step={paramValue.step}
-                                value={formData.tuningSchedule.parameters[paramKey]?.max ?? paramValue.max}
+                                value={formData.retraining_job_attributes.tuner_config?.config[paramKey]?.max ?? paramValue.max}
                                 onChange={(e) => handleParameterChange(
                                   paramKey,
                                   'max',
@@ -194,7 +218,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                       );
                     }
                     return null;
-                  }) : null;
+                  });
                 })}
               </div>
             </div>
@@ -207,13 +231,16 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
   const handleParameterChange = (parameter: string, type: 'min' | 'max', value: number) => {
     setFormData(prev => ({
       ...prev,
-      tuningSchedule: {
-        ...prev.tuningSchedule,
-        parameters: {
-          ...prev.tuningSchedule.parameters,
-          [parameter]: {
-            ...prev.tuningSchedule.parameters[parameter],
-            [type]: value
+      retraining_job_attributes: {
+        ...prev.retraining_job_attributes,
+        tuner_config: {
+          ...prev.retraining_job_attributes.tuner_config,
+          config: {
+            ...prev.retraining_job_attributes.tuner_config.config,
+            [parameter]: {
+              ...prev.retraining_job_attributes.tuner_config.config[parameter],
+              [type]: value
+            }
           }
         }
       }
@@ -223,8 +250,8 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
   const handleTrainingScheduleChange = (field: string, value: string | number) => {
     setFormData(prev => ({
       ...prev,
-      trainingSchedule: {
-        ...prev.trainingSchedule,
+      retraining_job_attributes: {
+        ...prev.retraining_job_attributes,
         [field]: value
       }
     }));
@@ -233,46 +260,38 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
   const handleEvaluatorChange = (field: string, value: string | number) => {
     setFormData(prev => ({
       ...prev,
-      evaluator: {
-        ...prev.evaluator,
+      retraining_job_attributes: {
+        ...prev.retraining_job_attributes,
         [field]: value
       }
     }));
   };
 
   const handleSave = () => {
-    const boosterType = formData.tuningSchedule.parameters.booster;
+    const boosterType = formData.retraining_job_attributes.tuner_config?.config.booster;
 
-    const numericParameters = Object.entries(hyperparameterConstants.hyperparameters[boosterType] || {})
+    const numericParameters = Object.entries(tunerJobConstants.hyperparameters[boosterType] || {})
       .filter(([_, value]) => !Array.isArray(value.options))
       .reduce((acc, [key, value]) => ({
         ...acc,
-        [key]: {
-          min: value.min,
-          max: value.max
-        }
+        [key]: value
       }), {});
 
     const atParams = {
-      hour: formData.trainingSchedule.hour
+      hour: formData.retraining_job_attributes.hour
     };
 
-    if (formData.trainingSchedule.frequency === "week") {
-      atParams["day_of_week"] = formData.trainingSchedule.dayOfWeek;
-    } else if (formData.trainingSchedule.frequency === "month") {
-      atParams["day_of_month"] = formData.trainingSchedule.dayOfMonth;
+    if (formData.retraining_job_attributes.frequency === "week") {
+      atParams["day_of_week"] = formData.retraining_job_attributes.day_of_week;
+    } else if (formData.retraining_job_attributes.frequency === "month") {
+      atParams["day_of_month"] = formData.retraining_job_attributes.day_of_month;
     }
 
     onSave({
-      trainingSchedule: {
-        ...formData.trainingSchedule,
+      retraining_job_attributes: {
+        ...formData.retraining_job_attributes,
         at: atParams
-      },
-      tuningSchedule: {
-        ...formData.tuningSchedule,
-        parameters: formData.tuningSchedule.enabled ? numericParameters : {}
-      },
-      evaluator: formData.evaluator
+      }
     });
   };
 
@@ -303,12 +322,12 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                   <input
                     type="checkbox"
                     id="scheduleEnabled"
-                    checked={formData.trainingSchedule.enabled}
+                    checked={formData.retraining_job_attributes.active}
                     onChange={(e) => setFormData(prev => ({
                       ...prev,
-                      trainingSchedule: {
-                        ...prev.trainingSchedule,
-                        enabled: e.target.checked
+                      retraining_job_attributes: {
+                        ...prev.retraining_job_attributes,
+                        active: e.target.checked
                       }
                     }))}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -319,7 +338,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                 </div>
               </div>
 
-              {!formData.trainingSchedule.enabled && (
+              {!formData.retraining_job_attributes.active && (
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="flex items-start gap-2">
                     <AlertCircle className="w-5 h-5 text-gray-400 mt-0.5" />
@@ -333,7 +352,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                 </div>
               )}
 
-              {formData.trainingSchedule.enabled && (
+              {formData.retraining_job_attributes.active && (
                 <>
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
@@ -342,17 +361,17 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                           Frequency
                         </label>
                         <SearchableSelect
-                          options={trainingScheduleConstants.frequency.map((freq: { value: string; label: string; description: string }) => ({
+                          options={retrainingJobConstants.frequency.map((freq: { value: string; label: string; description: string }) => ({
                             value: freq.value,
                             label: freq.label,
                             description: freq.description
                           }))}
-                          value={formData.trainingSchedule.frequency}
+                          value={formData.retraining_job_attributes.frequency}
                           onChange={(value) => handleTrainingScheduleChange('frequency', value)}
                         />
                       </div>
 
-                      {formData.trainingSchedule.frequency === 'week' && (
+                      {formData.retraining_job_attributes.frequency === 'week' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
                             Day of Week
@@ -367,13 +386,13 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                               { value: 5, label: 'Friday' },
                               { value: 6, label: 'Saturday' }
                             ]}
-                            value={formData.trainingSchedule.dayOfWeek}
-                            onChange={(value) => handleTrainingScheduleChange('dayOfWeek', value)}
+                            value={formData.retraining_job_attributes.day_of_week}
+                            onChange={(value) => handleTrainingScheduleChange('day_of_week', value)}
                           />
                         </div>
                       )}
 
-                      {formData.trainingSchedule.frequency === 'month' && (
+                      {formData.retraining_job_attributes.frequency === 'month' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700">
                             Day of Month
@@ -383,8 +402,8 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                               value: i + 1,
                               label: `Day ${i + 1}`
                             }))}
-                            value={formData.trainingSchedule.dayOfMonth}
-                            onChange={(value) => handleTrainingScheduleChange('dayOfMonth', value)}
+                            value={formData.retraining_job_attributes.day_of_month}
+                            onChange={(value) => handleTrainingScheduleChange('day_of_month', value)}
                           />
                         </div>
                       )}
@@ -398,7 +417,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                             value: i,
                             label: `${i}:00`
                           }))}
-                          value={formData.trainingSchedule.hour}
+                          value={formData.retraining_job_attributes.hour}
                           onChange={(value) => handleTrainingScheduleChange('hour', value)}
                         />
                       </div>
@@ -424,7 +443,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                               label: metric.label,
                               description: metric.description
                             }))}
-                            value={formData.evaluator.metric}
+                            value={formData.retraining_job_attributes.metric}
                             onChange={(value) => handleEvaluatorChange('metric', value)}
                           />
                         </div>
@@ -435,7 +454,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                           </label>
                           <input
                             type="number"
-                            value={formData.evaluator.threshold}
+                            value={formData.retraining_job_attributes.threshold}
                             onChange={(e) => handleEvaluatorChange('threshold', parseFloat(e.target.value))}
                             step={0.01}
                             min={0}
@@ -453,8 +472,8 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                             <div className="ml-3">
                               <h3 className="text-sm font-medium text-blue-800">Deployment Criteria</h3>
                               <p className="mt-2 text-sm text-blue-700">
-                                The model will be automatically deployed when the {formData.evaluator.metric} is{' '}
-                                {formData.evaluator.direction === 'minimize' ? 'below' : 'above'} {formData.evaluator.threshold}.
+                                The model will be automatically deployed when the {formData.retraining_job_attributes.metric} is{' '}
+                                {formData.retraining_job_attributes.direction === 'minimize' ? 'below' : 'above'} {formData.retraining_job_attributes.threshold}.
                               </p>
                             </div>
                           </div>
@@ -468,7 +487,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
 
           {/* Right Column */}
           <div className="space-y-8">
-            {formData.trainingSchedule.enabled && (
+            {formData.retraining_job_attributes.active && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -479,12 +498,15 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                     <input
                       type="checkbox"
                       id="tuningEnabled"
-                      checked={formData.tuningSchedule.enabled}
+                      checked={formData.retraining_job_attributes.tuner_config !== undefined}
                       onChange={(e) => setFormData(prev => ({
                         ...prev,
-                        tuningSchedule: {
-                          ...prev.tuningSchedule,
-                          enabled: e.target.checked
+                        retraining_job_attributes: {
+                          ...prev.retraining_job_attributes,
+                          tuner_config: e.target.checked ? {
+                            n_trials: 10,
+                            config: defaultNumericParameters
+                          } : undefined
                         }
                       }))}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
@@ -495,7 +517,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                   </div>
                 </div>
 
-                {formData.tuningSchedule.enabled && (
+                {formData.retraining_job_attributes.tuner_config && (
                   <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -504,15 +526,15 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                         </label>
                         <SearchableSelect
                           options={[
-                            { value: 'weekly', label: 'Weekly', description: 'Tune hyperparameters once every week' },
-                            { value: 'monthly', label: 'Monthly', description: 'Tune hyperparameters once every month' }
+                            { value: 'week', label: 'Weekly', description: 'Tune hyperparameters once every week' },
+                            { value: 'month', label: 'Monthly', description: 'Tune hyperparameters once every month' }
                           ]}
-                          value={formData.tuningSchedule.frequency}
+                          value={formData.retraining_job_attributes.tuning_frequency || 'week'}
                           onChange={(value) => setFormData(prev => ({
                             ...prev,
-                            tuningSchedule: {
-                              ...prev.tuningSchedule,
-                              frequency: value as 'weekly' | 'monthly'
+                            retraining_job_attributes: {
+                              ...prev.retraining_job_attributes,
+                              tuning_frequency: value as 'week' | 'month'
                             }
                           }))}
                         />
@@ -526,12 +548,15 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
                           type="number"
                           min="1"
                           max="1000"
-                          value={formData.tuningSchedule.n_trials}
+                          value={formData.retraining_job_attributes.tuner_config?.n_trials || 10}
                           onChange={(e) => setFormData(prev => ({
                             ...prev,
-                            tuningSchedule: {
-                              ...prev.tuningSchedule,
-                              n_trials: parseInt(e.target.value)
+                            retraining_job_attributes: {
+                              ...prev.retraining_job_attributes,
+                              tuner_config: {
+                                ...prev.retraining_job_attributes.tuner_config,
+                                n_trials: parseInt(e.target.value)
+                              }
                             }
                           }))}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"

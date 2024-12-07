@@ -24,7 +24,8 @@ module EasyML
 
     set_type :model # Optional type for JSON:API
 
-    attributes :id, :name, :status, :model_type, :status, :task, :objective, :hyperparameters, :metrics
+    attributes :id, :name, :status, :model_type, :status, :task,
+               :objective, :hyperparameters, :metrics, :dataset_id
 
     attribute :dataset do |model|
       DatasetSerializer.new(model.dataset).serializable_hash.dig(:data, :attributes)
@@ -32,16 +33,7 @@ module EasyML
 
     attribute :retraining_job do |model|
       if model.retraining_job.present?
-        {
-          frequency: model.retraining_job.frequency,
-          at: model.retraining_job.at,
-          active: model.retraining_job.active,
-          tuner_config: {
-            n_trials: model.retraining_job.tuner_config&.dig("n_trials"),
-            objective: model.retraining_job.tuner_config&.dig("objective"),
-            config: model.retraining_job.tuner_config&.dig("config"),
-          },
-        }
+        RetrainingJobSerializer.new(model.retraining_job).serializable_hash.dig(:data, :attributes)
       end
     end
   end

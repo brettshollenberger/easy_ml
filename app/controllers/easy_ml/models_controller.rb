@@ -147,11 +147,13 @@ module EasyML
         :objective,
         metrics: [],
         retraining_job_attributes: [
+          :id,
           :frequency,
           :active,
           :metric,
           :direction,
           :threshold,
+          :tuning_frequency,
           at: [:hour, :day_of_week, :day_of_month],
           tuner_config: [
             :n_trials,

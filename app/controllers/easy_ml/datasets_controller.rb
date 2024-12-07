@@ -101,14 +101,6 @@ module EasyML
 
     private
 
-    def dataset_to_json(dataset)
-      DatasetSerializer.new(dataset).serializable_hash.dig(:data, :attributes)
-    end
-
-    def datasource_to_json(datasource)
-      DatasourceSerializer.new(datasource).serializable_hash.dig(:data, :attributes)
-    end
-
     def preprocessing_params
       [:method, { params:
         [:constant, :categorical_min, :one_hot, :ordinal_encoding, { clip: %i[min max] }] }]

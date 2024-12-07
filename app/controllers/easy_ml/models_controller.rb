@@ -24,7 +24,7 @@ module EasyML
       #               .order(created_at: :desc)
 
       render inertia: "pages/ModelsPage", props: {
-        models: models.map { |model| model_data(model) },
+        models: models.map { |model| model_to_json(model) },
 
       # retraining_jobs: RetrainingJob.current_jobs.map { |job| job_data(job) },
       # retraining_runs: RetrainingRun.recent.map { |run| run_data(run) }
@@ -33,8 +33,17 @@ module EasyML
 
     def new
       render inertia: "pages/NewModelPage", props: {
-        datasets: Dataset.all.map { |dataset| dataset_data(dataset) },
-        constants: Model.constants,
+        datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+        constants: EasyML::Model.constants,
+      }
+    end
+
+    def edit
+      model = Model.find(params[:id])
+      render inertia: "pages/EditModelPage", props: {
+        model: model_to_json(model),
+        datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+        constants: EasyML::Model.constants,
       }
     end
 
@@ -43,63 +52,91 @@ module EasyML
 
       if model.save
         flash[:notice] = "Model was successfully created."
-        redirect_to models_path
+        redirect_to easy_ml_models_path
       else
         render inertia: "pages/NewModelPage", props: {
-          datasets: Dataset.all.map { |dataset| dataset_data(dataset) },
-          constants: Model.constants,
-          errors: model.errors,
+          datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+          constants: EasyML::Model.constants,
+          errors: model.errors.to_hash(true),
+        }
+      end
+    end
+
+    def update
+      model = Model.find(params[:id])
+
+      if model.update(model_params)
+        flash[:notice] = "Model was successfully updated."
+        redirect_to easy_ml_models_path
+      else
+        render inertia: "pages/EditModelPage", props: {
+          model: model_to_json(model),
+          datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+          constants: EasyML::Model.constants,
+          errors: model.errors.to_hash(true),
         }
       end
     end
 
     def show
-      model = Model.includes(:retraining_jobs, :retraining_runs)
+      model = Model.includes(:retraining_job, :retraining_runs)
                    .find(params[:id])
 
-      render inertia: "Models/Show", props: {
-        model: model_data(model),
-        runs: model.retraining_runs.map { |run| run_data(run) },
-        job: model.current_retraining_job&.then { |job| job_data(job) },
+      render inertia: "pages/ShowModelPage", props: {
+        model: model_to_json(model),
+      # runs: model.retraining_runs.map { |run| retraining_run_to_json(run) },
+      # job: model.current_retraining_job&.then { |job| retraining_job_to_json(job) },
       }
+    end
+
+    def destroy
+      model = Model.find(params[:id])
+
+      if model.destroy
+        flash[:notice] = "Model was successfully deleted."
+        redirect_to easy_ml_models_path
+      else
+        flash[:alert] = "Failed to delete the model."
+        redirect_to easy_ml_models_path
+      end
     end
 
     private
 
-    def model_data(model)
-      {
-        id: model.id,
-        name: model.name,
-        description: model.description,
-        status: model.status,
-        accuracy: model.current_accuracy,
-        last_trained_at: model.last_trained_at&.iso8601,
-        created_at: model.created_at.iso8601,
-      }
-    end
+    # def model_data(model)
+    #   {
+    #     id: model.id,
+    #     name: model.name,
+    #     description: model.description,
+    #     status: model.status,
+    #     accuracy: model.current_accuracy,
+    #     last_trained_at: model.last_trained_at&.iso8601,
+    #     created_at: model.created_at.iso8601,
+    #   }
+    # end
 
-    def job_data(job)
-      {
-        id: job.id,
-        model: job.model.name,
-        status: job.status,
-        progress: job.progress,
-        started_at: job.started_at&.iso8601,
-        estimated_completion: job.estimated_completion_at&.iso8601,
-      }
-    end
+    # def job_data(job)
+    #   {
+    #     id: job.id,
+    #     model: job.model.name,
+    #     status: job.status,
+    #     progress: job.progress,
+    #     started_at: job.started_at&.iso8601,
+    #     estimated_completion: job.estimated_completion_at&.iso8601
+    #   }
+    # end
 
-    def run_data(run)
-      {
-        id: run.id,
-        modelId: run.model_id,
-        status: run.status,
-        accuracy: run.accuracy,
-        training_duration: run.training_duration,
-        completed_at: run.completed_at&.iso8601,
-        error_message: run.error_message,
-      }
-    end
+    # def run_data(run)
+    #   {
+    #     id: run.id,
+    #     modelId: run.model_id,
+    #     status: run.status,
+    #     accuracy: run.accuracy,
+    #     training_duration: run.training_duration,
+    #     completed_at: run.completed_at&.iso8601,
+    #     error_message: run.error_message
+    #   }
+    # end
 
     def model_params
       params.require(:model).permit(
@@ -109,15 +146,21 @@ module EasyML
         :task,
         :objective,
         metrics: [],
+        retraining_job_attributes: [
+          :id,
+          :frequency,
+          :active,
+          :metric,
+          :direction,
+          :threshold,
+          :tuning_frequency,
+          at: [:hour, :day_of_week, :day_of_month],
+          tuner_config: [
+            :n_trials,
+            config: {},
+          ],
+        ],
       )
-    end
-
-    def dataset_data(dataset)
-      {
-        id: dataset.id,
-        name: dataset.name,
-        rowCount: dataset.row_count,
-      }
     end
   end
 end

@@ -1,104 +1,108 @@
 import React, { useState, useEffect } from 'react';
 // import { useNavigate } from 'react-router-dom';
-import { Calendar, Lock } from 'lucide-react';
+import { Calendar, Lock, AlertCircle } from 'lucide-react';
 import { SearchableSelect } from './SearchableSelect';
 import { ScheduleModal } from './ScheduleModal';
-import { mockDatasets } from '../mockData';
 import { router } from '@inertiajs/react';
 import { useInertiaForm } from 'use-inertia-form';
 import { usePage } from '@inertiajs/react';
+import type { Dataset } from '../types';
 
-
-let datasets = mockDatasets;
 interface ModelFormProps {
   initialData?: {
+    id: number;
     name: string;
     modelType: string;
     datasetId: number;
     task: string;
     objective?: string;
     metrics?: string[];
+    retraining_job?: {
+      frequency: string;
+      at: {
+        hour: number;
+        day_of_week?: string;
+        day_of_month?: number;
+      };
+      tuning_frequency?: string;
+      active: boolean;
+      metric?: string;
+      threshold?: number;
+      tuner_config?: {
+        n_trials: number;
+        objective: string;
+        config: Record<string, any>;
+      };
+    };
   };
-  datasets: Array<{
-    id: number;
-    name: string;
-    rowCount: number;
-  }>;
+  datasets: Array<Dataset>;
   constants: {
-    TASKS: typeof TASKS;
-    OBJECTIVES: typeof OBJECTIVES;
-    METRICS: typeof METRICS;
+    tasks: { value: string; label: string }[];
+    objectives: Record<string, { value: string; label: string; description?: string }[]>;
+    metrics: Record<string, { value: string; label: string; direction: string }[]>;
+    timezone: string;
+    retraining_job_constants: any;
+    tuner_job_constants: any;
   };
   isEditing?: boolean;
+  errors?: any;
 }
 
-const TASKS = [
-  { 
-    value: 'classification',
-    label: 'Classification',
-    description: 'Predict categorical outcomes or class labels'
-  },
-  { 
-    value: 'regression',
-    label: 'Regression',
-    description: 'Predict continuous numerical values'
-  }
-];
+const ErrorDisplay = ({ error }: { error?: string }) => (
+  error ? (
+    <div className="mt-1 flex items-center gap-1 text-sm text-red-600">
+      <AlertCircle className="w-4 h-4" />
+      {error}
+    </div>
+  ) : null
+);
 
-const OBJECTIVES = {
-  classification: [
-    { value: 'binary:logistic', label: 'Binary Logistic', description: 'For binary classification' },
-    { value: 'binary:hinge', label: 'Binary Hinge', description: 'For binary classification with hinge loss' },
-    { value: 'multi:softmax', label: 'Multiclass Softmax', description: 'For multiclass classification' },
-    { value: 'multi:softprob', label: 'Multiclass Probability', description: 'For multiclass classification with probability output' }
-  ],
-  regression: [
-    { value: 'reg:squarederror', label: 'Squared Error', description: 'For regression with squared loss' },
-    { value: 'reg:logistic', label: 'Logistic', description: 'For regression with logistic loss' }
-  ]
-};
-
-const METRICS = {
-  classification: [
-    { value: 'accuracy', label: 'Accuracy', direction: 'maximize' },
-    { value: 'precision', label: 'Precision', direction: 'maximize' },
-    { value: 'recall', label: 'Recall', direction: 'maximize' },
-    { value: 'f1', label: 'F1 Score', direction: 'maximize' }
-  ],
-  regression: [
-    { value: 'rmse', label: 'Root Mean Squared Error', direction: 'minimize' },
-    { value: 'mae', label: 'Mean Absolute Error', direction: 'minimize' },
-    { value: 'mse', label: 'Mean Squared Error', direction: 'minimize' },
-    { value: 'r2', label: 'R² Score', direction: 'maximize' }
-  ]
-};
-
-export function ModelForm({ initialData, datasets, constants, isEditing }: ModelFormProps) {
+export function ModelForm({ initialData, datasets, constants, isEditing, errors: initialErrors }: ModelFormProps) {
   const { rootPath } = usePage().props;
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  
+
   const form = useInertiaForm({
     model: {
+      id: initialData?.id,
       name: initialData?.name || '',
-      model_type: initialData?.modelType || 'xgboost',
-      dataset_id: initialData?.datasetId || '',
+      model_type: initialData?.model_type || 'xgboost',
+      dataset_id: initialData?.dataset_id || '',
       task: initialData?.task || 'classification',
       objective: initialData?.objective || 'binary:logistic',
-      metrics: initialData?.metrics || ['accuracy']
+      metrics: initialData?.metrics || ['accuracy'],
+      retraining_job_attributes: initialData?.retraining_job ? {
+        id: initialData.retraining_job.id,
+        frequency: initialData.retraining_job.frequency,
+        tuning_frequency: initialData.retraining_job.tuning_frequency || 'month',
+        at: {
+          hour: initialData.retraining_job.at?.hour ?? 2,
+          day_of_week: initialData.retraining_job.at?.day_of_week ?? 1,
+          day_of_month: initialData.retraining_job.at?.day_of_month ?? 1
+        },
+        active: initialData.retraining_job.active,
+        metric: initialData.retraining_job.metric,
+        threshold: initialData.retraining_job.threshold,
+        tuner_config: initialData.retraining_job.tuner_config
+      } : undefined
     }
   });
 
-  const { data, setData, post, processing, errors } = form;
+  const { data, setData, post, patch, processing, errors: formErrors } = form;
+  const errors = { ...initialErrors, ...formErrors };
 
-  // Update useEffect to use form data
+  const objectives: { value: string; label: string; description?: string }[] = 
+    constants.objectives[data.model.model_type]?.[data.model.task] || [];
+
   useEffect(() => {
-    if (data.model.task === 'classification') {
+    // Only set default metrics if none were provided from the backend
+    if (!initialData?.metrics) {
+      const availableMetrics = constants.metrics[data.model.task]?.map(metric => metric.value) || [];
       setData({
         ...data,
         model: {
           ...data.model,
-          objective: 'binary:logistic',
-          metrics: ['accuracy']
+          objective: data.model.task === 'classification' ? 'binary:logistic' : 'reg:squarederror',
+          metrics: availableMetrics
         }
       });
     } else {
@@ -106,24 +110,70 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
         ...data,
         model: {
           ...data.model,
-          objective: 'reg:squarederror',
-          metrics: ['rmse']
+          objective: data.model.task === 'classification' ? 'binary:logistic' : 'reg:squarederror'
         }
       });
     }
   }, [data.model.task]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    post(`${rootPath}/models`, {
-      onSuccess: () => {
-        router.visit(`${rootPath}/models`);
+  const handleScheduleSave = (scheduleData: any) => {
+    setData({
+      ...data,
+      model: {
+        ...data.model,
+        retraining_job_attributes: scheduleData.retraining_job_attributes
       }
     });
+    save();
   };
 
+  const save = () => {
+    if (data.model.retraining_job_attributes) {
+      const at: any = { hour: data.model.retraining_job_attributes.at.hour };
+      
+      // Only include relevant date attributes based on frequency
+      switch (data.model.retraining_job_attributes.frequency) {
+        case 'day':
+          // For daily frequency, only include hour
+          break;
+        case 'week':
+          // For weekly frequency, include hour and day_of_week
+          at.day_of_week = data.model.retraining_job_attributes.at.day_of_week;
+          break;
+        case 'month':
+          // For monthly frequency, include hour and day_of_month
+          at.day_of_month = data.model.retraining_job_attributes.at.day_of_month;
+          break;
+      }
+
+      // Update the form data with the cleaned at object
+      setData('model.retraining_job_attributes.at', at);
+    }
+
+    if (data.model.id) {
+      patch(`${rootPath}/models/${data.model.id}`, {
+        onSuccess: () => {
+          router.visit(`${rootPath}/models`);
+        },
+      });
+    } else {
+      post(`${rootPath}/models`, {
+        onSuccess: () => {
+          router.visit(`${rootPath}/models`);
+        },
+      });
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    save();
+  };
+
+  console.log(data.model)
   const selectedDataset = datasets.find(d => d.id === data.model.dataset_id);
+
+  const filteredTunerJobConstants = constants.tuner_job_constants[data.model.model_type] || {};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -150,9 +200,9 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               id="name"
               value={data.model.name}
               onChange={(e) => setData('model.name', e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              required
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
             />
+            <ErrorDisplay error={errors.name} />
           </div>
 
           <div>
@@ -165,6 +215,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               onChange={(value) => setData('model.model_type', value as string)}
               placeholder="Select model type"
             />
+            <ErrorDisplay error={errors.model_type} />
           </div>
 
           <div>
@@ -181,13 +232,14 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
                 options={datasets.map(dataset => ({
                   value: dataset.id,
                   label: dataset.name,
-                  description: `${dataset.rowCount.toLocaleString()} rows`
+                  description: `${dataset.num_rows.toLocaleString()} rows`
                 }))}
                 value={data.model.dataset_id}
                 onChange={(value) => setData('model.dataset_id', value)}
                 placeholder="Select dataset"
               />
             )}
+            <ErrorDisplay error={errors.dataset_id} />
           </div>
 
           <div>
@@ -195,11 +247,12 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               Task
             </label>
             <SearchableSelect
-              options={constants.TASKS}
+              options={constants.tasks}
               value={data.model.task}
               onChange={(value) => setData('model.task', value as string)}
               placeholder="Select task"
             />
+            <ErrorDisplay error={errors.task} />
           </div>
 
           <div>
@@ -207,11 +260,12 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
               Objective
             </label>
             <SearchableSelect
-              options={constants.OBJECTIVES[data.model.task as keyof typeof constants.OBJECTIVES]}
+              options={objectives || []}
               value={data.model.objective}
               onChange={(value) => setData('model.objective', value as string)}
               placeholder="Select objective"
             />
+            <ErrorDisplay error={errors.objective} />
           </div>
         </div>
 
@@ -220,7 +274,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
             Metrics
           </label>
           <div className="grid grid-cols-2 gap-4">
-            {constants.METRICS[data.model.task as keyof typeof constants.METRICS].map(metric => (
+            {constants.metrics[data.model.task]?.map(metric => (
               <label
                 key={metric.value}
                 className="relative flex items-center px-4 py-3 bg-white border rounded-lg hover:bg-gray-50 cursor-pointer"
@@ -269,17 +323,16 @@ export function ModelForm({ initialData, datasets, constants, isEditing }: Model
       <ScheduleModal
         isOpen={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
-        onSave={(scheduleData) => {
-          setData(prev => ({
-            ...prev,
-            ...scheduleData
-          }));
-          setShowScheduleModal(false);
-        }}
+        onSave={handleScheduleSave}
         initialData={{
           task: data.model.task,
-          metrics: data.model.metrics
+          metrics: data.model.metrics,
+          modelType: data.model.model_type,
+          retraining_job: data.model.retraining_job_attributes
         }}
+        tunerJobConstants={filteredTunerJobConstants}
+        timezone={constants.timezone}
+        retrainingJobConstants={constants.retraining_job_constants}
       />
     </form>
   );

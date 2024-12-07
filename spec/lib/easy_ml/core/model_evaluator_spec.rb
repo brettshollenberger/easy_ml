@@ -69,7 +69,7 @@ RSpec.describe EasyML::Core::ModelEvaluator do
           end
         end
 
-        described_class.register(:custom_metric, CustomEvaluator)
+        described_class.register(:custom_metric, CustomEvaluator, :regression)
       end
 
       it "uses custom evaluator when specified" do

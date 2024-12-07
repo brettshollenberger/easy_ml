@@ -1,5 +1,6 @@
 import React from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink } from 'lucide-react';
+import { Activity, Calendar, Database, Settings, ExternalLink, Trash2 } from 'lucide-react';
+import { Link } from "@inertiajs/react";
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
 interface ModelCardProps {
@@ -7,9 +8,11 @@ interface ModelCardProps {
   job?: RetrainingJob;
   lastRun?: RetrainingRun;
   onViewDetails: (modelId: number) => void;
+  handleDelete: (modelId: number) => void;
 }
 
-export function ModelCard({ model, job, lastRun, onViewDetails }: ModelCardProps) {
+export function ModelCard({ model, job, lastRun, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
+  let dataset = model.dataset;
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex flex-col gap-2">
@@ -31,19 +34,26 @@ export function ModelCard({ model, job, lastRun, onViewDetails }: ModelCardProps
         <div className="flex justify-between items-start">
           <h3 className="text-lg font-semibold text-gray-900">{model.name}</h3>
           <div className="flex gap-2">
-            <button
-              onClick={() => navigate(`/models/${model.id}/edit`)}
+            <Link
+              href={`${rootPath}/models/${model.id}/edit`}
               className="text-gray-400 hover:text-gray-600"
               title="Edit model"
             >
               <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => onViewDetails(model.id)}
+            </Link>
+            <Link
+              href={`${rootPath}/models/${model.id}`}
               className="text-gray-400 hover:text-gray-600"
               title="View details"
             >
               <ExternalLink className="w-5 h-5" />
+            </Link>
+            <button
+              onClick={() => handleDelete(model.id)}
+              className="text-gray-400 hover:text-gray-600"
+              title="Delete model"
+            >
+              <Trash2 className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -54,7 +64,16 @@ export function ModelCard({ model, job, lastRun, onViewDetails }: ModelCardProps
       <div className="grid grid-cols-2 gap-4 mt-4">
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-600">Dataset #{model.datasetId}</span>
+          {dataset ? (
+            <Link 
+              href={`${rootPath}/datasets/${dataset.id}`}
+              className="text-sm text-blue-600 hover:text-blue-800"
+            >
+              {dataset.name}
+            </Link>
+          ) : (
+            <span className="text-sm text-gray-600">Dataset not found</span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-400" />

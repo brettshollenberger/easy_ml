@@ -12,6 +12,7 @@
 #  version       :string           not null
 #  root_dir      :string
 #  file          :json
+#  sha           :string
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
 #
@@ -29,14 +30,14 @@ module EasyML
     self.filter_attributes += [:configuration]
 
     MODEL_OPTIONS = {
-      "xgboost" => "EasyML::Models::XGBoost"
+      "xgboost" => "EasyML::Models::XGBoost",
     }
     MODEL_TYPES = [
       {
         value: "xgboost",
         label: "XGBoost",
-        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines"
-      }
+        description: "Extreme Gradient Boosting, a scalable and accurate implementation of gradient boosting machines",
+      },
     ].freeze
     MODEL_NAMES = MODEL_OPTIONS.keys.freeze
     MODEL_CONSTANTS = MODEL_OPTIONS.values.map(&:constantize)
@@ -47,8 +48,10 @@ module EasyML
     end
 
     belongs_to :dataset
-    belongs_to :model_file, class_name: "EasyML::ModelFile"
+    belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
 
+    has_one :retraining_job, class_name: "EasyML::RetrainingJob"
+    accepts_nested_attributes_for :retraining_job
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
 
     after_initialize :bump_version, if: -> { new_record? }
@@ -57,13 +60,28 @@ module EasyML
 
     VALID_TASKS = %i[regression classification].freeze
 
+    TASK_TYPES = [
+      {
+        value: "classification",
+        label: "Classification",
+        description: "Predict categorical outcomes or class labels",
+      },
+      {
+        value: "regression",
+        label: "Regression",
+        description: "Predict continuous numerical values",
+      },
+    ].freeze
+
+    validates :name, presence: true
     validates :task, presence: true
     validates :task, inclusion: {
-      in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
-      message: "must be one of: #{VALID_TASKS.join(", ")}"
-    }
+                       in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
+                       message: "must be one of: #{VALID_TASKS.join(", ")}",
+                     }
     validates :model_type, inclusion: { in: MODEL_NAMES }
     validates :dataset_id, presence: true
+    validate :validate_metrics_allowed
     before_save :set_root_dir
 
     delegate :prepare_data, :preprocess, to: :model_adapter
@@ -73,6 +91,10 @@ module EasyML
       define_method "#{status}?" do
         self.status.to_sym == status.to_sym
       end
+    end
+
+    def last_run
+      retraining_runs.order(id: :desc).limit(1).last
     end
 
     def inference_version
@@ -173,15 +195,45 @@ module EasyML
 
     def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
       evaluator ||= self.evaluator
-      EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true,
-                                            evaluator: evaluator)
+      if y_pred.nil?
+        inputs = default_evaluation_inputs
+        y_pred = inputs[:y_pred]
+        y_true = inputs[:y_true]
+        x_true = inputs[:x_true]
+      end
+      EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true, evaluator: evaluator)
     end
 
     def get_params
       @hyperparameters.to_h
     end
 
+    def evals
+      last_run.metrics
+    end
+
+    def metric_accessor(metric)
+      metrics = last_run.metrics.symbolize_keys
+      metrics.dig(metric.to_sym)
+    end
+
+    EasyML::Core::ModelEvaluator.metrics.each do |metric_name|
+      define_method metric_name do
+        metric_accessor(metric_name)
+      end
+    end
+
+    EasyML::Core::ModelEvaluator.callbacks = lambda do |metric_name|
+      EasyML::Model.define_method metric_name do
+        metric_accessor(metric_name)
+      end
+    end
+
     def allowed_metrics
+      EasyML::Core::ModelEvaluator.metrics(task).map(&:to_s)
+    end
+
+    def default_metrics
       return [] unless task.present?
 
       case task.to_sym
@@ -194,9 +246,32 @@ module EasyML
       end
     end
 
+    def self.constants
+      {
+        objectives: objectives_by_model_type,
+        metrics: metrics_by_task,
+        tasks: TASK_TYPES,
+        timezone: EasyML::Configuration.timezone_label,
+        retraining_job_constants: EasyML::RetrainingJob.constants,
+        tuner_job_constants: EasyML::TunerJob.constants,
+      }
+    end
+
+    def self.metrics_by_task
+      EasyML::Core::ModelEvaluator.metrics_by_task
+    end
+
+    def self.objectives_by_model_type
+      MODEL_OPTIONS.inject({}) do |h, (k, v)|
+        h.tap do
+          h[k] = v.constantize.const_get(:OBJECTIVES_FRONTEND)
+        end
+      end.deep_symbolize_keys
+    end
+
     def attributes
       super.merge!(
-        hyperparameters: hyperparameters.to_h
+        hyperparameters: hyperparameters.to_h,
       )
     end
 
@@ -229,7 +304,7 @@ module EasyML
         is_fit? ? nil : "Model has not been trained",
         dataset.target.present? ? nil : "Dataset has no target",
         !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource",
-        model_changed? ? nil : "Model has not changed"
+        model_changed? ? nil : "Model has not changed",
       ].compact
     end
 
@@ -252,7 +327,24 @@ module EasyML
       load_model_file
     end
 
+    def metrics=(value)
+      value = [value] unless value.is_a?(Array)
+      value = value.map(&:to_s)
+      value = value.uniq
+      @metrics = value
+    end
+
     private
+
+    def default_evaluation_inputs
+      x_true, y_true = dataset.test(split_ys: true)
+      y_pred = predict(x_true)
+      {
+        x_true: x_true,
+        y_true: y_true,
+        y_pred: y_pred,
+      }
+    end
 
     def underscored_name
       name.gsub(/\s{2,}/, " ").gsub(/\s/, "_").downcase
@@ -270,7 +362,7 @@ module EasyML
         s3_region: EasyML::Configuration.s3_region,
         s3_access_key_id: EasyML::Configuration.s3_access_key_id,
         s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
-        s3_prefix: prefix
+        s3_prefix: prefix,
       )
     end
 
@@ -320,16 +412,24 @@ module EasyML
     def set_defaults
       self.model_type ||= "xgboost"
       self.status ||= :training
-      self.metrics ||= allowed_metrics
+      self.metrics ||= default_metrics
+    end
+
+    def validate_metrics_allowed
+      unknown_metrics = metrics.select { |metric| allowed_metrics.exclude?(metric) }
+      return unless unknown_metrics.any?
+
+      errors.add(:metrics,
+                 "don't know how to handle #{"metrics".pluralize(unknown_metrics)} #{unknown_metrics.join(", ")}, use EasyML::Core::ModelEvaluator.register(:name, Evaluator, :regression|:classification)")
     end
 
     def model_adapter
       @model_adapter ||= begin
-        adapter_class = MODEL_OPTIONS[model_type]
-        raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
+          adapter_class = MODEL_OPTIONS[model_type]
+          raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
 
-        adapter_class.constantize.new(self)
-      end
+          adapter_class.constantize.new(self)
+        end
     end
   end
 end

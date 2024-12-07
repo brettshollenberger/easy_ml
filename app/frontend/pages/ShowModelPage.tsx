@@ -1,4 +1,5 @@
 import React from 'react';
+import { ModelDetails } from '../components/ModelDetails';
 import { router, Link, usePage } from "@inertiajs/react";
 import { useInertiaForm } from "use-inertia-form";
 import { ArrowLeft, Brain } from 'lucide-react';
@@ -20,25 +21,15 @@ interface PageProps {
   };
 }
 
-export default function EditModelPage({ model, datasets, constants }: PageProps) {
+export default function ShowModelPage({ model, rootPath }: PageProps) {
+//   const selectedModel = models.find((m) => m.id === selectedModelId);
+//   const modelRuns = models.find((m) => m.id === selectedModelId)?.retrainingRuns || [];
+//   const modelJob = models.find((m) => m.id === selectedModelId)?.retrainingJob || null;
+
   return (
     <div className="max-w-3xl mx-auto py-8">
       <div className="bg-white rounded-lg shadow-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <Brain className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Edit Model</h2>
-          </div>
-        </div>
-
-        <div className="p-6">
-          <ModelForm
-            initialData={model}
-            datasets={datasets}
-            constants={constants}
-            isEditing={true}
-          />
-        </div>
+        <ModelDetails model={model} />
       </div>
     </div>
   );

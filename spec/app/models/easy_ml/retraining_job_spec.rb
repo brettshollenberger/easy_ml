@@ -25,20 +25,25 @@ RSpec.describe EasyML::RetrainingJob do
 
   let(:valid_attributes) do
     {
-      model: model.name,
-      frequency: "day",
-      at: 2,
+      model: model,
+      frequency: "week",
+      at: {
+        hour: 2,
+        day_of_week: 1,
+      },
       active: true,
+      metric: "accuracy_score",
+      direction: "maximize",
+      threshold: 0.85,
       tuner_config: {
         n_trials: 5,
-        objective: :mean_absolute_error,
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 }
-        }
+          max_depth: { min: 1, max: 5 },
+        },
       },
-      locked_at: nil
+      locked_at: nil,
     }
   end
 
@@ -68,13 +73,13 @@ RSpec.describe EasyML::RetrainingJob do
     end
 
     it "validates at is between 0 and 23" do
-      job = described_class.new(valid_attributes.merge(at: 24))
+      job = described_class.new(valid_attributes.merge(at: { hour: 24 }))
       expect(job).not_to be_valid
-      expect(job.errors[:at]).to include("must be less than 24")
+      expect(job.errors[:at]).to include("hour must be less than 24")
 
-      job = described_class.new(valid_attributes.merge(at: -1))
+      job = described_class.new(valid_attributes.merge(at: { hour: -1 }))
       expect(job).not_to be_valid
-      expect(job.errors[:at]).to include("must be greater than or equal to 0")
+      expect(job.errors[:at]).to include("hour must be greater than or equal to 0")
     end
 
     it "validates model uniqueness" do
@@ -93,6 +98,91 @@ RSpec.describe EasyML::RetrainingJob do
 
     it "is valid when model exists and is in inference state" do
       job = described_class.new(valid_attributes)
+      expect(job).to be_valid
+    end
+
+    it "requires metric" do
+      job = described_class.new(valid_attributes.except(:metric))
+      expect(job).not_to be_valid
+      expect(job.errors[:metric]).to include("can't be blank")
+    end
+
+    it "requires direction" do
+      job = described_class.new(valid_attributes.except(:direction))
+      expect(job).not_to be_valid
+      expect(job.errors[:direction]).to include("can't be blank")
+    end
+
+    it "requires threshold" do
+      job = described_class.new(valid_attributes.except(:threshold))
+      expect(job).not_to be_valid
+      expect(job.errors[:threshold]).to include("can't be blank")
+    end
+
+    it "validates direction is either maximize or minimize" do
+      job = described_class.new(valid_attributes.merge(direction: "invalid"))
+      expect(job).not_to be_valid
+      expect(job.errors[:direction]).to include("must be either maximize or minimize")
+    end
+
+    it "validates threshold is between 0 and 1" do
+      job = described_class.new(valid_attributes.merge(threshold: 1.5))
+      expect(job).not_to be_valid
+      expect(job.errors[:threshold]).to include("must be between 0 and 1")
+    end
+
+    it "validates at format for daily frequency" do
+      job = described_class.new(valid_attributes.merge(frequency: "day", at: {}))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("missing required keys: hour")
+
+      job = described_class.new(valid_attributes.merge(frequency: "day", at: { hour: 24 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("hour must be between 0 and 23")
+
+      job = described_class.new(valid_attributes.merge(frequency: "day", at: { hour: 2, day_of_week: 1 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("unexpected keys for day frequency: day_of_week")
+
+      job = described_class.new(valid_attributes.merge(frequency: "day", at: { hour: 2, day_of_month: 1 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("unexpected keys for day frequency: day_of_month")
+
+      job = described_class.new(valid_attributes.merge(frequency: "day", at: { hour: 2 }))
+      expect(job).to be_valid
+    end
+
+    it "validates at format for weekly frequency" do
+      job = described_class.new(valid_attributes.merge(frequency: "week", at: { hour: 2 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("missing required keys: day_of_week")
+
+      job = described_class.new(valid_attributes.merge(frequency: "week", at: { hour: 2, day_of_week: 7 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("day_of_week must be between 0 and 6")
+
+      job = described_class.new(valid_attributes.merge(frequency: "week", at: { hour: 2, day_of_week: 1, day_of_month: 1 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("unexpected keys for week frequency: day_of_month")
+
+      job = described_class.new(valid_attributes.merge(frequency: "week", at: { hour: 2, day_of_week: 1 }))
+      expect(job).to be_valid
+    end
+
+    it "validates at format for monthly frequency" do
+      job = described_class.new(valid_attributes.merge(frequency: "month", at: { hour: 2 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("missing required keys: day_of_month")
+
+      job = described_class.new(valid_attributes.merge(frequency: "month", at: { hour: 2, day_of_month: 32 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("day_of_month must be between 1 and 31")
+
+      job = described_class.new(valid_attributes.merge(frequency: "month", at: { hour: 2, day_of_month: 1, day_of_week: 1 }))
+      expect(job).not_to be_valid
+      expect(job.errors[:at]).to include("unexpected keys for month frequency: day_of_week")
+
+      job = described_class.new(valid_attributes.merge(frequency: "month", at: { hour: 2, day_of_month: 1 }))
       expect(job).to be_valid
     end
   end
@@ -190,8 +280,8 @@ RSpec.describe EasyML::RetrainingJob do
 
   describe "#should_run?" do
     let(:job) { described_class.create!(valid_attributes.merge(frequency: frequency, at: at)) }
-    let(:at) { 2 }
-    let(:frequency) { "day" } # Add this default frequency
+    let(:at) { { hour: 2, day_of_week: 1, day_of_month: 1 } }
+    let(:frequency) { "week" }
 
     context "when job is locked" do
       before do
@@ -204,7 +294,7 @@ RSpec.describe EasyML::RetrainingJob do
     end
 
     context "when job has never run" do
-      let(:frequency) { "day" }
+      let(:frequency) { "week" }
 
       it "returns true" do
         expect(job.should_run?).to be true
@@ -235,7 +325,7 @@ RSpec.describe EasyML::RetrainingJob do
 
       context "when current hour matches at" do
         before do
-          allow(Time).to receive(:current).and_return(Time.current.change(hour: at))
+          allow(Time).to receive(:current).and_return(Time.current.change(hour: at[:hour]))
         end
 
         it "returns true when last run was yesterday" do
@@ -251,7 +341,7 @@ RSpec.describe EasyML::RetrainingJob do
 
       context "when current hour does not match at" do
         before do
-          allow(Time).to receive(:current).and_return(Time.current.change(hour: at + 1))
+          allow(Time).to receive(:current).and_return(Time.current.change(hour: at[:hour] + 1))
         end
 
         it "returns false" do
@@ -262,8 +352,7 @@ RSpec.describe EasyML::RetrainingJob do
     end
 
     context "with weekly frequency" do
-      let(:frequency) { "week" }
-      let(:sunday_at_2am) { (Time.current.beginning_of_week - 1.day).change(hour: at) }
+      let(:sunday_at_2am) { (Time.current.beginning_of_week - 1.day).change(hour: at[:hour]) }
 
       context "when Sunday at specified hour" do
         before do
@@ -276,7 +365,7 @@ RSpec.describe EasyML::RetrainingJob do
         end
 
         it "returns false when already run this week" do
-          job.update(last_run_at: Time.current - 1.hour)
+          job.update!(last_run_at: Time.current - 1.hour)
           expect(job.should_run?).to be false
         end
       end
@@ -295,7 +384,7 @@ RSpec.describe EasyML::RetrainingJob do
 
     context "with monthly frequency" do
       let(:frequency) { "month" }
-      let(:first_day_at_2am) { Time.current.beginning_of_month.change(hour: at) }
+      let(:first_day_at_2am) { Time.current.beginning_of_month.change(hour: at[:hour]) }
 
       context "when first day of month at specified hour" do
         before do
@@ -308,7 +397,7 @@ RSpec.describe EasyML::RetrainingJob do
         end
 
         it "returns false when already run this month" do
-          job.update(last_run_at: Time.current - 1.hour)
+          job.update!(last_run_at: Time.current - 1.hour)
           expect(job.should_run?).to be false
         end
       end
@@ -329,11 +418,11 @@ RSpec.describe EasyML::RetrainingJob do
   describe "#should_tune?" do
     let(:job) do
       described_class.create!(valid_attributes.merge(
-                                tuning_frequency: tuning_frequency,
-                                at: at
-                              ))
+        tuning_frequency: tuning_frequency,
+        at: at,
+      ))
     end
-    let(:at) { 2 }
+    let(:at) { { hour: 2, day_of_week: 1, day_of_month: 1 } }
     let(:tuning_frequency) { "week" }
 
     it "returns false when tuning_frequency is nil" do
@@ -346,7 +435,7 @@ RSpec.describe EasyML::RetrainingJob do
     end
 
     context "with weekly tuning frequency" do
-      let(:sunday_at_2am) { (Time.current.beginning_of_week - 1.day).change(hour: at) }
+      let(:sunday_at_2am) { (Time.current.beginning_of_week - 1.day).change(hour: at[:hour]) }
 
       before do
         allow(Time).to receive(:current).and_return(sunday_at_2am)

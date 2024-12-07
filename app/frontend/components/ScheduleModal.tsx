@@ -10,6 +10,16 @@ interface ScheduleModalProps {
     task: string;
     metrics: string[];
     modelType?: string;
+    retrainingJob?: {
+      frequency: string;
+      at: string | number;
+      active: boolean;
+      tunerConfig?: {
+        n_trials: number;
+        objective: string;
+        config: Record<string, any>;
+      };
+    };
   };
   hyperparameterConstants: any;
   timezone: string;
@@ -34,25 +44,23 @@ const METRICS = {
 export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparameterConstants, timezone, trainingScheduleConstants }: ScheduleModalProps) {
   const [formData, setFormData] = useState({
     trainingSchedule: {
-      enabled: false,
-      frequency: trainingScheduleConstants.frequency[0].value as string,
-      dayOfWeek: 1,
-      dayOfMonth: 1,
-      hour: 2
+      enabled: initialData.retrainingJob?.active ?? false,
+      frequency: initialData.retrainingJob?.frequency || trainingScheduleConstants.frequency[0].value as string,
+      dayOfWeek: typeof initialData.retrainingJob?.at === 'number' ? initialData.retrainingJob.at : 1,
+      dayOfMonth: typeof initialData.retrainingJob?.at === 'number' ? initialData.retrainingJob.at : 1,
+      hour: typeof initialData.retrainingJob?.at === 'number' ? initialData.retrainingJob.at : 2
     },
     tuningSchedule: {
-      enabled: false,
+      enabled: !!initialData.retrainingJob?.tunerConfig,
       frequency: 'weekly' as const,
       dayOfWeek: 1,
       dayOfMonth: 1,
       hour: 2,
-      trials: 10,
-      booster: 'gbtree' as Booster,
-      parameters: {} as Record<string, { min: number; max: number }>
+      n_trials: initialData.retrainingJob?.tunerConfig?.n_trials || 10,
+      parameters: initialData.retrainingJob?.tunerConfig?.config || {}
     },
     evaluator: {
       metric: METRICS[initialData.task === 'classification' ? 'classification' : 'regression'][0].value,
-      direction: initialData.task === 'classification' ? 'maximize' as const : 'minimize' as const,
       threshold: initialData.task === 'classification' ? 0.85 : 0.1
     }
   });
@@ -453,6 +461,47 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, hyperparam
 
                 {formData.tuningSchedule.enabled && (
                   <div className="space-y-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Frequency
+                        </label>
+                        <SearchableSelect
+                          options={[
+                            { value: 'weekly', label: 'Weekly', description: 'Tune hyperparameters once every week' },
+                            { value: 'monthly', label: 'Monthly', description: 'Tune hyperparameters once every month' }
+                          ]}
+                          value={formData.tuningSchedule.frequency}
+                          onChange={(value) => setFormData(prev => ({
+                            ...prev,
+                            tuningSchedule: {
+                              ...prev.tuningSchedule,
+                              frequency: value as 'weekly' | 'monthly'
+                            }
+                          }))}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          Number of Trials
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="1000"
+                          value={formData.tuningSchedule.n_trials}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            tuningSchedule: {
+                              ...prev.tuningSchedule,
+                              n_trials: parseInt(e.target.value)
+                            }
+                          }))}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
+                        />
+                      </div>
+                    </div>
                     {renderHyperparameterControls()}
                   </div>
                 )}

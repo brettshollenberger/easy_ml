@@ -5,7 +5,7 @@
 #  id               :bigint           not null, primary key
 #  model_id         :bigint
 #  frequency        :string           not null
-#  at               :json
+#  at               :json             not null
 #  evaluator        :json
 #  tuner_config     :json
 #  tuning_frequency :string
@@ -14,6 +14,9 @@
 #  status           :string           default("pending")
 #  last_run_at      :datetime
 #  locked_at        :datetime
+#  metric           :string           not null
+#  direction        :string           not null
+#  threshold        :float            not null
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #
@@ -54,6 +57,7 @@ module EasyML
                                  }
     validate :evaluator_must_be_valid
     validate :validate_at_format
+    after_initialize :set_direction, unless: :persisted?
 
     scope :active, -> { where(active: true) }
     scope :locked, lambda {
@@ -134,7 +138,31 @@ module EasyML
       update!(locked_at: nil)
     end
 
+    def metric=(metric)
+      write_attribute(:metric, metric)
+      set_direction
+    end
+
+    def evaluator
+      {
+        metric: metric,
+        max: direction == "maximize" ? threshold : nil,
+        min: direction == "minimize" ? threshold : nil,
+        direction: direction,
+      }.compact
+    end
+
     private
+
+    def metric_class
+      EasyML::Core::ModelEvaluator.get(metric).new
+    end
+
+    def set_direction
+      return unless metric_class.present?
+
+      write_attribute(:direction, metric_class.direction)
+    end
 
     def validate_at_format
       return if at.blank?

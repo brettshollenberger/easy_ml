@@ -17,7 +17,7 @@ RSpec.describe EasyML::RetrainingRun do
     model_config[:name] = model_name
     model_config[:task] = "regression"
     model_config[:callbacks] = [
-      { wandb: { project_name: "Fancy Project" } }
+      { wandb: { project_name: "Fancy Project" } },
     ]
     EasyML::Model.create(**loans_model_config).tap do |model|
       model.fit
@@ -38,30 +38,30 @@ RSpec.describe EasyML::RetrainingRun do
 
   let(:retraining_job) do
     EasyML::RetrainingJob.create!(
-      model: model.name,
+      model: model,
       frequency: "day",
-      at: 2,
-      active: true,
-      evaluator: {
-        metric: :root_mean_squared_error,
-        max: 1000
+      at: {
+        hour: 2,
       },
+      active: true,
+      metric: :root_mean_squared_error,
+      threshold: 1000,
       tuner_config: {
         n_trials: 5,
         objective: :mean_absolute_error,
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 }
-        }
-      }
+          max_depth: { min: 1, max: 5 },
+        },
+      },
     )
   end
 
   let(:retraining_run) do
     described_class.create!(
       retraining_job: retraining_job,
-      status: "pending"
+      status: "pending",
     )
   end
 
@@ -83,8 +83,8 @@ RSpec.describe EasyML::RetrainingRun do
         allow(retraining_job).to receive(:should_tune?).and_return(true)
 
         expect(EasyML::Orchestrator).to receive(:train)
-          .with(model.name, tuner: retraining_job.tuner_config, evaluator: retraining_job.evaluator)
-          .and_call_original
+                                          .with(model.name, tuner: retraining_job.tuner_config, evaluator: retraining_job.evaluator)
+                                          .and_call_original
 
         expect(retraining_run.perform_retraining!).to be true
         expect(retraining_job.reload.last_tuning_at).to be_present
@@ -94,8 +94,8 @@ RSpec.describe EasyML::RetrainingRun do
         allow(retraining_job).to receive(:should_tune?).and_return(false)
 
         expect(EasyML::Orchestrator).to receive(:train)
-          .with(model.name, evaluator: retraining_job.evaluator)
-          .and_call_original
+                                          .with(model.name, evaluator: retraining_job.evaluator)
+                                          .and_call_original
 
         x_train, y_train = model.dataset.train(split_ys: true)
         y_train["rev"] = Polars::Series.new(Array.new(5) { 10_000 })
@@ -109,8 +109,8 @@ RSpec.describe EasyML::RetrainingRun do
         allow(retraining_job).to receive(:should_tune?).and_return(false)
 
         expect(EasyML::Orchestrator).to receive(:train)
-          .with(model.name, evaluator: retraining_job.evaluator)
-          .and_call_original
+                                          .with(model.name, evaluator: retraining_job.evaluator)
+                                          .and_call_original
 
         expect(retraining_run.perform_retraining!).to be true
         expect(retraining_run.reload.error_message).to eq "Model has not changed"
@@ -163,6 +163,10 @@ RSpec.describe EasyML::RetrainingRun do
             :custom
           end
 
+          def direction
+            "maximize"
+          end
+
           def evaluate(y_pred:, y_true:, x_true:)
             # Simple custom metric for testing
             (y_pred.sum - y_true.sum).abs
@@ -178,10 +182,7 @@ RSpec.describe EasyML::RetrainingRun do
       context "with basic evaluator" do
         before do
           retraining_job.update!(
-            evaluator: {
-              metric: :root_mean_squared_error,
-              max: 100
-            }
+            threshold: 100,
           )
         end
 
@@ -228,7 +229,7 @@ RSpec.describe EasyML::RetrainingRun do
                                                                 "r2_score" => 1.0,
                                                                 "mean_squared_error" => 0.0,
                                                                 "mean_absolute_error" => 0.0,
-                                                                "root_mean_squared_error" => 0.0
+                                                                "root_mean_squared_error" => 0.0,
                                                               }))
         end
       end
@@ -236,10 +237,8 @@ RSpec.describe EasyML::RetrainingRun do
       context "with custom evaluator" do
         before do
           retraining_job.update!(
-            evaluator: {
-              metric: :custom,
-              max: 1000
-            }
+            metric: :custom,
+            threshold: 1000,
           )
         end
 
@@ -248,12 +247,12 @@ RSpec.describe EasyML::RetrainingRun do
 
           original_model = model.latest_snapshot
 
-          setup_evaluation([1, 2, 3], [2, 3, 4])
+          setup_evaluation([1, 2, 3], [2000, 3000, 4000])
 
           expect(retraining_run.perform_retraining!).to be true
-          expect(retraining_run.metric_value).to eq 3.0
+          expect(retraining_run.metric_value).to eq 8994.0
           expect(retraining_run.threshold).to eq 1_000
-          expect(retraining_run.threshold_direction).to eq "max"
+          expect(retraining_run.threshold_direction).to eq "maximize"
           expect(retraining_run.should_promote).to eq true
           expect(retraining_run).to be_completed
           expect(original_model.reload).to be_retired
@@ -262,13 +261,13 @@ RSpec.describe EasyML::RetrainingRun do
           expect(trained_model.id).to_not eq original_model.id
           expect(trained_model.retraining_runs.first).to eq retraining_run
 
-          expect(trained_model.custom).to eq 3.0
+          expect(trained_model.custom).to eq 8994.0
           expect(trained_model.evals).to match(hash_including({
-                                                                "custom" => 3.0,
+                                                                "custom" => 8994.0,
                                                                 "r2_score" => -0.5,
                                                                 "mean_squared_error" => 1.0,
                                                                 "mean_absolute_error" => 1.0,
-                                                                "root_mean_squared_error" => 1.0
+                                                                "root_mean_squared_error" => 1.0,
                                                               }))
         end
       end

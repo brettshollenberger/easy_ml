@@ -36,8 +36,8 @@ module EasyML
 
         # Only use tuner if tuning frequency has been met
         if should_tune?
-          training_model = Orchestrator.train(retraining_job.model, tuner: retraining_job.tuner_config,
-                                                                    evaluator: retraining_job.evaluator)
+          training_model = Orchestrator.train(retraining_job.model.name, tuner: retraining_job.tuner_config,
+                                                                         evaluator: retraining_job.evaluator)
           retraining_job.update!(last_tuning_at: Time.current)
 
           # Get metadata from the latest tuner job if it exists
@@ -45,7 +45,7 @@ module EasyML
                                            .order(created_at: :desc)
                                            .first&.metadata || {}
         else
-          training_model = Orchestrator.train(retraining_job.model, evaluator: retraining_job.evaluator)
+          training_model = Orchestrator.train(retraining_job.model.name, evaluator: retraining_job.evaluator)
           tuner_metadata = {}
         end
 
@@ -59,7 +59,7 @@ module EasyML
             error_message: model_was_promoted ? nil : training_model.cannot_promote_reasons&.first || "Did not pass evaluation",
             model: training_model,
             metadata: tuner_metadata,
-            metrics: training_model.evaluate
+            metrics: training_model.evaluate,
           )
         )
 
@@ -69,7 +69,7 @@ module EasyML
         update!(
           status: "failed",
           completed_at: Time.current,
-          error_message: e.message
+          error_message: e.message,
         )
         false
       end
@@ -110,26 +110,26 @@ module EasyML
         model: training_model,
         y_pred: y_pred,
         y_true: y_true,
-        evaluator: evaluator
+        evaluator: evaluator,
       )
       metric_value = metrics[metric]
 
       # Check against min threshold if present
       if evaluator[:min].present?
         threshold = evaluator[:min]
-        threshold_direction = "min"
-        should_promote = metric_value > threshold
+        threshold_direction = "minimize"
+        should_promote = metric_value < threshold
       else
         threshold = evaluator[:max]
-        threshold_direction = "max"
-        should_promote = metric_value < threshold
+        threshold_direction = "maximize"
+        should_promote = metric_value > threshold
       end
 
       {
         metric_value: metric_value,
         threshold: threshold,
         threshold_direction: threshold_direction,
-        should_promote: should_promote
+        should_promote: should_promote,
       }
     end
   end

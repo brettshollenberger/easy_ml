@@ -201,8 +201,7 @@ module EasyML
         y_true = inputs[:y_true]
         x_true = inputs[:x_true]
       end
-      EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true,
-                                            evaluator: evaluator)
+      EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true, evaluator: evaluator)
     end
 
     def get_params

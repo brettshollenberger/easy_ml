@@ -38,6 +38,15 @@ module EasyML
       }
     end
 
+    def edit
+      model = Model.find(params[:id])
+      render inertia: "pages/EditModelPage", props: {
+        model: model_to_json(model),
+        datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+        constants: EasyML::Model.constants,
+      }
+    end
+
     def create
       model = Model.new(model_params)
 
@@ -47,6 +56,22 @@ module EasyML
         redirect_to easy_ml_models_path
       else
         render inertia: "pages/NewModelPage", props: {
+          datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+          constants: EasyML::Model.constants,
+          errors: model.errors.to_hash(true),
+        }
+      end
+    end
+
+    def update
+      model = Model.find(params[:id])
+
+      if model.update(model_params)
+        flash[:notice] = "Model was successfully updated."
+        redirect_to easy_ml_models_path
+      else
+        render inertia: "pages/EditModelPage", props: {
+          model: model_to_json(model),
           datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
           constants: EasyML::Model.constants,
           errors: model.errors.to_hash(true),

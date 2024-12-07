@@ -15,6 +15,7 @@
 #  completed_at        :datetime
 #  error_message       :text
 #  metadata            :jsonb
+#  metrics             :jsonb
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #

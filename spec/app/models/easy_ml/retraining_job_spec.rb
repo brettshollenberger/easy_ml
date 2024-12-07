@@ -35,10 +35,10 @@ RSpec.describe EasyML::RetrainingJob do
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 }
-        }
+          max_depth: { min: 1, max: 5 },
+        },
       },
-      locked_at: nil
+      locked_at: nil,
     }
   end
 
@@ -329,9 +329,9 @@ RSpec.describe EasyML::RetrainingJob do
   describe "#should_tune?" do
     let(:job) do
       described_class.create!(valid_attributes.merge(
-                                tuning_frequency: tuning_frequency,
-                                at: at
-                              ))
+        tuning_frequency: tuning_frequency,
+        at: at,
+      ))
     end
     let(:at) { 2 }
     let(:tuning_frequency) { "week" }

@@ -1,7 +1,7 @@
 class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
   def change
     create_table :easy_ml_retraining_jobs do |t|
-      t.string :model, null: false  
+      t.bigint :model_id
       t.string :frequency, null: false  # day, week, month, hour
       t.integer :at, null: false        # hour of day (0-23)
       t.json :evaluator                 # Model evaluator
@@ -15,7 +15,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[6.0]
 
       t.timestamps
 
-      t.index :model
+      t.index :model_id
       t.index :active
       t.index :last_run_at
       t.index :last_tuning_at

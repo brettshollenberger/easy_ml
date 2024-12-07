@@ -47,7 +47,7 @@ export default function DatasourceFormPage({ datasource, constants }: Datasource
               id="name"
               value={data.datasource.name}
               onChange={(e) => setData('datasource.name', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
               required
             />
             {errors.datasource?.name && (
@@ -81,7 +81,7 @@ export default function DatasourceFormPage({ datasource, constants }: Datasource
               id="s3_bucket"
               value={data.datasource.s3_bucket}
               onChange={(e) => setData('datasource.s3_bucket', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
               required
             />
             {errors.datasource?.s3_bucket && (
@@ -101,7 +101,7 @@ export default function DatasourceFormPage({ datasource, constants }: Datasource
               id="s3_prefix"
               value={data.datasource.s3_prefix}
               onChange={(e) => setData('datasource.s3_prefix', e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
               placeholder="data/raw/"
             />
             {errors.datasource?.s3_prefix && (

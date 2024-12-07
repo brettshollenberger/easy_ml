@@ -3,7 +3,7 @@
 # Table name: easy_ml_retraining_jobs
 #
 #  id               :bigint           not null, primary key
-#  model            :string           not null
+#  model_id         :bigint
 #  frequency        :string           not null
 #  at               :integer          not null
 #  evaluator        :json
@@ -24,26 +24,26 @@ module EasyML
     has_many :retraining_runs, dependent: :destroy
     has_many :tuner_jobs, through: :retraining_runs
 
+    belongs_to :model, class_name: "EasyML::Model", inverse_of: :retraining_job
     validates :model, presence: true,
                       uniqueness: { message: "already has a retraining job" }
-    validate :model_must_exist
 
     FREQUENCY_TYPES = [
       {
         value: "day",
         label: "Daily",
-        description: "Run once every day"
+        description: "Run once every day",
       },
       {
         value: "week",
         label: "Weekly",
-        description: "Run once every week"
+        description: "Run once every week",
       },
       {
         value: "month",
         label: "Monthly",
-        description: "Run once every month"
-      }
+        description: "Run once every month",
+      },
     ].freeze
     validates :frequency, presence: true, inclusion: { in: %w[day week month] }
     validates :status, presence: true
@@ -52,9 +52,9 @@ module EasyML
                                    greater_than_or_equal_to: 0,
                                    less_than: 24 }
     validates :tuning_frequency, inclusion: {
-      in: %w[day week month],
-      allow_nil: true
-    }
+                                   in: %w[day week month],
+                                   allow_nil: true,
+                                 }
     validate :evaluator_must_be_valid
 
     scope :active, -> { where(active: true) }
@@ -74,7 +74,7 @@ module EasyML
 
     def self.constants
       {
-        frequency: FREQUENCY_TYPES
+        frequency: FREQUENCY_TYPES,
       }
     end
 
@@ -150,13 +150,6 @@ module EasyML
     end
 
     LOCK_TIMEOUT = 6.hours
-
-    def model_must_exist
-      return if model.blank?
-      return if EasyML::Model.find_by(name: model)&.latest_snapshot.present?
-
-      errors.add(:model, "does not exist or is not in inference state")
-    end
 
     def evaluator_must_be_valid
       return if evaluator.nil? || evaluator.blank?

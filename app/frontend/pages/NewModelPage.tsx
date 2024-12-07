@@ -24,9 +24,10 @@ interface Props {
       direction: string;
     }>>;
   };
+  errors: Record<string, string[]>;
 }
 
-export default function NewModelPage({datasets, constants}) {
+export default function NewModelPage({ datasets, constants, errors }: Props) {
   return (
     <div className="max-w-2xl mx-auto p-8">
       <div className="bg-white rounded-lg shadow-lg p-6">
@@ -36,6 +37,7 @@ export default function NewModelPage({datasets, constants}) {
         <ModelForm 
           datasets={datasets}
           constants={constants}
+          errors={errors}
         />
       </div>
     </div>

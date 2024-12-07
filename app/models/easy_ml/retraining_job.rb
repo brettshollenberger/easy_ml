@@ -5,7 +5,7 @@
 #  id               :bigint           not null, primary key
 #  model_id         :bigint
 #  frequency        :string           not null
-#  at               :integer          not null
+#  at               :json
 #  evaluator        :json
 #  tuner_config     :json
 #  tuning_frequency :string
@@ -21,7 +21,7 @@ module EasyML
   class RetrainingJob < ActiveRecord::Base
     self.table_name = "easy_ml_retraining_jobs"
 
-    has_many :retraining_runs, dependent: :destroy
+    has_many :retraining_runs, class_name: "EasyML::RetrainingRun", dependent: :destroy
     has_many :tuner_jobs, through: :retraining_runs
 
     belongs_to :model, class_name: "EasyML::Model", inverse_of: :retraining_job
@@ -47,15 +47,13 @@ module EasyML
     ].freeze
     validates :frequency, presence: true, inclusion: { in: %w[day week month] }
     validates :status, presence: true
-    validates :at, presence: true,
-                   numericality: { only_integer: true,
-                                   greater_than_or_equal_to: 0,
-                                   less_than: 24 }
+    validates :at, presence: true
     validates :tuning_frequency, inclusion: {
                                    in: %w[day week month],
                                    allow_nil: true,
                                  }
     validate :evaluator_must_be_valid
+    validate :validate_at_format
 
     scope :active, -> { where(active: true) }
     scope :locked, lambda {
@@ -82,18 +80,21 @@ module EasyML
       return false if locked?
       return true if last_run_at.nil?
 
-      current_time = Time.current
-      return false if retraining_runs.where("created_at > ?", current_period_start).exists?
-
       case frequency
-      when "hour"
-        last_run_at < current_time.beginning_of_hour
       when "day"
-        current_time.hour == at && last_run_at < current_time.beginning_of_day
+        current_time = Time.current
+        return false if last_run_at.to_date == current_time.to_date
+        current_time.hour == at["hour"]
       when "week"
-        current_time.hour == at && current_time.wday == 0 && last_run_at < current_time.beginning_of_week
+        current_time = Time.current
+        return false if last_run_at.to_date >= current_time.beginning_of_week
+        current_time.wday == at["day_of_week"] && current_time.hour == at["hour"]
       when "month"
-        current_time.hour == at && current_time.day == 1 && last_run_at < current_time.beginning_of_month
+        current_time = Time.current
+        return false if last_run_at.to_date >= current_time.beginning_of_month
+        current_time.day == at["day_of_month"] && current_time.hour == at["hour"]
+      else
+        false
       end
     end
 
@@ -106,13 +107,13 @@ module EasyML
         last_tuning_at < Time.current.beginning_of_hour
       when "day"
         current_time = Time.current
-        current_time.hour == at && last_tuning_at < current_time.beginning_of_day
+        current_time.hour == at["hour"] && last_tuning_at < current_time.beginning_of_day
       when "week"
         current_time = Time.current
-        current_time.hour == at && current_time.wday == 0 && last_tuning_at < current_time.beginning_of_week
+        current_time.hour == at["hour"] && current_time.wday == 0 && last_tuning_at < current_time.beginning_of_week
       when "month"
         current_time = Time.current
-        current_time.hour == at && current_time.day == 1 && last_tuning_at < current_time.beginning_of_month
+        current_time.hour == at["hour"] && current_time.day == 1 && last_tuning_at < current_time.beginning_of_month
       end
     end
 
@@ -134,6 +135,48 @@ module EasyML
     end
 
     private
+
+    def validate_at_format
+      return if at.blank?
+      return errors.add(:at, "must be a hash") unless at.is_a?(Hash)
+
+      required_keys = case frequency
+        when "day"
+          ["hour"]
+        when "week"
+          ["hour", "day_of_week"]
+        when "month"
+          ["hour", "day_of_month"]
+        end
+
+      missing_keys = required_keys - at.keys.map(&:to_s)
+      errors.add(:at, "missing required keys: #{missing_keys.join(", ")}") if missing_keys.any?
+
+      # Validate no extra keys are present
+      allowed_keys = case frequency
+        when "day"
+          ["hour"]
+        when "week"
+          ["hour", "day_of_week"]
+        when "month"
+          ["hour", "day_of_month"]
+        end
+
+      extra_keys = at.keys.map(&:to_s) - allowed_keys
+      errors.add(:at, "unexpected keys for #{frequency} frequency: #{extra_keys.join(", ")}") if extra_keys.any?
+
+      if at["hour"].present?
+        errors.add(:at, "hour must be between 0 and 23") unless (0..23).include?(at["hour"].to_i)
+      end
+
+      if at["day_of_week"].present?
+        errors.add(:at, "day_of_week must be between 0 and 6") unless (0..6).include?(at["day_of_week"].to_i)
+      end
+
+      if at["day_of_month"].present?
+        errors.add(:at, "day_of_month must be between 1 and 31") unless (1..31).include?(at["day_of_month"].to_i)
+      end
+    end
 
     def current_period_start
       current_time = Time.current

@@ -190,8 +190,7 @@ module EasyML
           ["hour", "day_of_month"]
         end
 
-      extra_keys = at.keys.map(&:to_s) - allowed_keys
-      errors.add(:at, "unexpected keys for #{frequency} frequency: #{extra_keys.join(", ")}") if extra_keys.any?
+      self.at = self.at.select { |k, v| allowed_keys.include?(k.to_s) }.to_h
 
       if at["hour"].present?
         errors.add(:at, "hour must be between 0 and 23") unless (0..23).include?(at["hour"].to_i)

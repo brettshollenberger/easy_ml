@@ -19,7 +19,12 @@ interface ModelFormProps {
     metrics?: string[];
     retraining_job?: {
       frequency: string;
-      at: string;
+      at: {
+        hour: number;
+        day_of_week?: string;
+        day_of_month?: number;
+      };
+      tuning_frequency?: string;
       active: boolean;
       metric?: string;
       threshold?: number;
@@ -66,18 +71,18 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
       objective: initialData?.objective || 'binary:logistic',
       metrics: initialData?.metrics || ['accuracy'],
       retraining_job_attributes: initialData?.retraining_job ? {
-        id: initialData.retraining_job?.id,
+        id: initialData.retraining_job.id,
         frequency: initialData.retraining_job.frequency,
-        tuning_frequency: initialData.retraining_job.tuning_frequency,
-        at: initialData.retraining_job.at,
+        tuning_frequency: initialData.retraining_job.tuning_frequency || 'month',
+        at: {
+          hour: initialData.retraining_job.at?.hour ?? 2,
+          day_of_week: initialData.retraining_job.at?.day_of_week ?? 1,
+          day_of_month: initialData.retraining_job.at?.day_of_month ?? 1
+        },
         active: initialData.retraining_job.active,
         metric: initialData.retraining_job.metric,
         threshold: initialData.retraining_job.threshold,
-        tuner_config: {
-          n_trials: initialData.retraining_job.tuner_config?.n_trials,
-          objective: initialData.retraining_job.tuner_config?.objective,
-          config: initialData.retraining_job.tuner_config?.config
-        }
+        tuner_config: initialData.retraining_job.tuner_config
       } : undefined
     }
   });
@@ -89,15 +94,26 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     constants.objectives[data.model.model_type]?.[data.model.task] || [];
 
   useEffect(() => {
-    const availableMetrics = constants.metrics[data.model.task]?.map(metric => metric.value) || [];
-    setData({
-      ...data,
-      model: {
-        ...data.model,
-        objective: data.model.task === 'classification' ? 'binary:logistic' : 'reg:squarederror',
-        metrics: availableMetrics
-      }
-    });
+    // Only set default metrics if none were provided from the backend
+    if (!initialData?.metrics) {
+      const availableMetrics = constants.metrics[data.model.task]?.map(metric => metric.value) || [];
+      setData({
+        ...data,
+        model: {
+          ...data.model,
+          objective: data.model.task === 'classification' ? 'binary:logistic' : 'reg:squarederror',
+          metrics: availableMetrics
+        }
+      });
+    } else {
+      setData({
+        ...data,
+        model: {
+          ...data.model,
+          objective: data.model.task === 'classification' ? 'binary:logistic' : 'reg:squarederror'
+        }
+      });
+    }
   }, [data.model.task]);
 
   const handleScheduleSave = (scheduleData: any) => {
@@ -108,28 +124,50 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
         retraining_job_attributes: scheduleData.retraining_job_attributes
       }
     });
-    setShowScheduleModal(false);
+    save();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Create a copy of the data to modify
-    const submissionData = { ...data };
-    
+  const save = () => {
+    if (data.model.retraining_job_attributes) {
+      const at: any = { hour: data.model.retraining_job_attributes.at.hour };
+      
+      // Only include relevant date attributes based on frequency
+      switch (data.model.retraining_job_attributes.frequency) {
+        case 'day':
+          // For daily frequency, only include hour
+          break;
+        case 'week':
+          // For weekly frequency, include hour and day_of_week
+          at.day_of_week = data.model.retraining_job_attributes.at.day_of_week;
+          break;
+        case 'month':
+          // For monthly frequency, include hour and day_of_month
+          at.day_of_month = data.model.retraining_job_attributes.at.day_of_month;
+          break;
+      }
+
+      // Update the form data with the cleaned at object
+      setData('model.retraining_job_attributes.at', at);
+    }
+
     if (data.model.id) {
-      patch(`${rootPath}/models/${data.model.id}`, submissionData, {
+      patch(`${rootPath}/models/${data.model.id}`, {
         onSuccess: () => {
           router.visit(`${rootPath}/models`);
         },
       });
     } else {
-      post(`${rootPath}/models`, submissionData, {
+      post(`${rootPath}/models`, {
         onSuccess: () => {
           router.visit(`${rootPath}/models`);
         },
       });
     }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    save();
   };
 
   console.log(data.model)

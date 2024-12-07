@@ -13,7 +13,11 @@ interface ScheduleModalProps {
     retraining_job?: {
       frequency: string;
       tuning_frequency: string;
-      at: string | number;
+      at: {
+        hour: number;
+        day_of_week?: number;
+        day_of_month?: number;
+      }
       active: boolean;
       metric?: string;
       threshold?: number;
@@ -71,9 +75,11 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
       active: initialData.retraining_job?.active ?? false,
       frequency: initialData.retraining_job?.frequency || retrainingJobConstants.frequency[0].value as string,
       tuning_frequency: initialData.retraining_job?.tuning_frequency || 'month',
-      day_of_week: typeof initialData.retraining_job?.at === 'number' ? initialData.retraining_job.at : 1,
-      day_of_month: typeof initialData.retraining_job?.at === 'number' ? initialData.retraining_job.at : 1,
-      hour: typeof initialData.retraining_job?.at === 'number' ? initialData.retraining_job.at : 2,
+      at: {
+        hour: initialData.retraining_job?.at?.hour ?? 2,
+        day_of_week: initialData.retraining_job?.at?.day_of_week ?? 1,
+        day_of_month: initialData.retraining_job?.at?.day_of_month ?? 1
+      },
       metric: initialData.retraining_job?.metric || METRICS[initialData.task === 'classification' ? 'classification' : 'regression'][0].value,
       threshold: initialData.retraining_job?.threshold || (initialData.task === 'classification' ? 0.85 : 0.1),
       tuner_config: initialData.retraining_job?.tuner_config ? {
@@ -248,13 +254,27 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
   };
 
   const handleTrainingScheduleChange = (field: string, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      retraining_job_attributes: {
-        ...prev.retraining_job_attributes,
-        [field]: value
+    setFormData(prev => {
+      if (field === 'hour' || field === 'day_of_week' || field === 'day_of_month') {
+        return {
+          ...prev,
+          retraining_job_attributes: {
+            ...prev.retraining_job_attributes,
+            at: {
+              ...prev.retraining_job_attributes.at,
+              [field]: value
+            }
+          }
+        };
       }
-    }));
+      return {
+        ...prev,
+        retraining_job_attributes: {
+          ...prev.retraining_job_attributes,
+          [field]: value
+        }
+      };
+    });
   };
 
   const handleEvaluatorChange = (field: string, value: string | number) => {
@@ -268,31 +288,33 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
   };
 
   const handleSave = () => {
-    const boosterType = formData.retraining_job_attributes.tuner_config?.config.booster;
+    const { retraining_job_attributes } = formData;
+    const at: any = { hour: retraining_job_attributes.at.hour };
 
-    const numericParameters = Object.entries(tunerJobConstants.hyperparameters[boosterType] || {})
-      .filter(([_, value]) => !Array.isArray(value.options))
-      .reduce((acc, [key, value]) => ({
-        ...acc,
-        [key]: value
-      }), {});
-
-    const atParams = {
-      hour: formData.retraining_job_attributes.hour
-    };
-
-    if (formData.retraining_job_attributes.frequency === "week") {
-      atParams["day_of_week"] = formData.retraining_job_attributes.day_of_week;
-    } else if (formData.retraining_job_attributes.frequency === "month") {
-      atParams["day_of_month"] = formData.retraining_job_attributes.day_of_month;
+    // Only include relevant date attributes based on frequency
+    switch (retraining_job_attributes.frequency) {
+      case 'day':
+        // For daily frequency, only include hour
+        break;
+      case 'week':
+        // For weekly frequency, include hour and day_of_week
+        at.day_of_week = retraining_job_attributes.at.day_of_week;
+        break;
+      case 'month':
+        // For monthly frequency, include hour and day_of_month
+        at.day_of_month = retraining_job_attributes.at.day_of_month;
+        break;
     }
 
-    onSave({
+    const updatedData = {
       retraining_job_attributes: {
-        ...formData.retraining_job_attributes,
-        at: atParams
+        ...retraining_job_attributes,
+        at
       }
-    });
+    };
+
+    onSave(updatedData);
+    onClose();
   };
 
   return (
@@ -386,7 +408,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                               { value: 5, label: 'Friday' },
                               { value: 6, label: 'Saturday' }
                             ]}
-                            value={formData.retraining_job_attributes.day_of_week}
+                            value={formData.retraining_job_attributes.at.day_of_week}
                             onChange={(value) => handleTrainingScheduleChange('day_of_week', value)}
                           />
                         </div>
@@ -402,7 +424,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                               value: i + 1,
                               label: `Day ${i + 1}`
                             }))}
-                            value={formData.retraining_job_attributes.day_of_month}
+                            value={formData.retraining_job_attributes.at.day_of_month}
                             onChange={(value) => handleTrainingScheduleChange('day_of_month', value)}
                           />
                         </div>
@@ -417,7 +439,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                             value: i,
                             label: `${i}:00`
                           }))}
-                          value={formData.retraining_job_attributes.hour}
+                          value={formData.retraining_job_attributes.at.hour}
                           onChange={(value) => handleTrainingScheduleChange('hour', value)}
                         />
                       </div>

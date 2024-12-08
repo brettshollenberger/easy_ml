@@ -5,6 +5,7 @@ export type DeploymentStatus = 'training' | 'inference' | 'retired';
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
+
 export interface Transformation {
   id: number;
   name: string;
@@ -40,19 +41,25 @@ interface ModelVersion {
 export interface Model {
   id: number;
   name: string;
-  modelType: string;
+  model_type: string;
+  formatted_model_type: string;
+  task: string;
+  objective: string;
+  metrics: Record<string, unknown>;
   status: ModelStatus;
   deployment_status: DeploymentStatus;
   dataset_id: number;
   dataset: Dataset;
-  configuration: Record<string, unknown>;
   version: string;
-  rootDir: string;
-  file: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
-  versions?: ModelVersion[];
+  configuration: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  last_run_at: string | null;
+  last_run: RetrainingRun | null;
+  retraining_job: RetrainingJob | null;
+  formatted_frequency: string | null;
 }
+
 export interface Prediction {
   id: number;
   modelId: number;
@@ -69,31 +76,31 @@ export interface RetrainingJob {
   frequency: Frequency;
   at: number;
   evaluator: Record<string, unknown>;
-  tunerConfig: Record<string, unknown>;
-  tuningFrequency: Frequency;
-  lastTuningAt: string | null;
+  tuner_config: Record<string, unknown>;
+  tuning_frequency: Frequency;
+  last_tuning_at: string | null;
   active: boolean;
   status: JobStatus;
-  lastRunAt: string | null;
-  lockedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  last_run_at: string | null;
+  locked_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface RetrainingRun {
   id: number;
-  modelId: number;
-  retrainingJobId: number;
-  tunerJobId: number | null;
+  model_id: number;
+  retraining_job_id: number;
+  tuner_job_id: number | null;
   status: JobStatus;
-  metricValue: number | null;
+  metric_value: number | null;
   threshold: number | null;
-  thresholdDirection: ThresholdDirection;
-  shouldPromote: boolean;
-  startedAt: string | null;
-  completedAt: string | null;
-  errorMessage: string | null;
+  threshold_direction: ThresholdDirection;
+  should_promote: boolean;
+  started_at: string | null;
+  completed_at: string | null;
+  error_message: string | null;
   metadata: Record<string, unknown>;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }

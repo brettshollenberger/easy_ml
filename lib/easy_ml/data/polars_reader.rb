@@ -47,21 +47,22 @@ module EasyML
         query
       end
 
-      def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: 0, batch_key: nil, &block)
+      def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: nil, batch_key: nil, &block)
         files ||= self.files
         PolarsReader.query(files, drop_cols: drop_cols, filter: filter, limit: limit,
                                   select: select, unique: unique, sort: sort, descending: descending,
                                   batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, &block)
       end
 
-      def self.query(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: 0, batch_key: nil, &block)
+      def self.query(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: nil, batch_key: nil, &block)
         return query_files(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select,
                                   unique: unique, sort: sort, descending: descending) unless batch_size.present?
 
-        batch_key ||= identify_primary_key(files)
+        batch_key ||= identify_primary_key(files, select: select)
         raise "When using batch_size, sort must match primary key (#{batch_key})" if sort.present? && batch_key != sort
 
         sort = batch_key
+        batch_start = query_files(files, sort: sort, descending: descending, select: batch_key, limit: 1)[batch_key].to_a.last unless batch_start
         final_value = query_files(files, sort: sort, descending: !descending, select: batch_key, limit: 1)[batch_key].to_a.last
 
         return batch_enumerator(files, batch_size, batch_start, final_value, batch_key, sort, descending) unless block_given?
@@ -114,11 +115,21 @@ module EasyML
         combined_lazy_df.collect
       end
 
-      def self.identify_primary_key(files)
+      def self.identify_primary_key(files, select: nil)
         lazy_df = to_lazy_frames([files.first]).first
-        primary_keys = lazy_df.columns.select do |col|
-          # Lazily count unique values and compare with the total row count
-          lazy_df.select(col).unique.collect.height == lazy_df.collect.height
+        if select
+          # Lazily filter only the selected columns
+          lazy_df = lazy_df.select(select)
+
+          # Lazily compute the unique count for each column and compare with total row count
+          primary_keys = select.select do |col|
+            lazy_df.select(col).unique.collect.height == lazy_df.collect.height
+          end
+        else
+          primary_keys = lazy_df.collect.columns.select do |col|
+            # Lazily count unique values and compare with the total row count
+            lazy_df.select(col).unique.collect.height == lazy_df.collect.height
+          end
         end
 
         if primary_keys.count > 1
@@ -129,7 +140,7 @@ module EasyML
         end
 
         if primary_keys.count != 1
-          primary_keys = ["RowNum"]
+          raise "Unable to determine primary key for dataset"
         end
 
         return primary_keys.first

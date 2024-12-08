@@ -65,6 +65,10 @@ module EasyML
       (read_attribute(:preprocessing_steps) || {}).symbolize_keys
     end
 
+    def one_hot?
+      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :one_hot) == true
+    end
+
     private
 
     def ensure_valid_datatype

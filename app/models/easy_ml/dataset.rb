@@ -317,6 +317,7 @@ module EasyML
       df = drop_nulls(df)
       df = apply_transforms(df)
       df = preprocessor.postprocess(df, inference: inference)
+      df = apply_column_mask(df)
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
@@ -418,6 +419,28 @@ module EasyML
 
     def drop_if_null
       @drop_if_null ||= columns.where(drop_if_null: true).map(&:name)
+    end
+
+    def column_mask(df)
+      one_hots = columns.select(&:one_hot?)
+      one_hot_cats = preprocessor.statistics.dup.select { |k, _v| one_hots.map(&:name).include?(k.to_s) }.to_h.reduce({}) do |h, (k, v)|
+        h.tap do
+          h[k] = v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" }
+        end
+      end
+      col_order = columns.order(:id).flat_map do |col|
+        if col.one_hot?
+          one_hot_cats[col.name.to_sym]
+        else
+          col.name
+        end
+      end
+      cols = df.columns & col_order
+      cols.sort_by { |col| col_order.index(col) }
+    end
+
+    def apply_column_mask(df)
+      df[column_mask(df)]
     end
 
     def drop_columns(all_columns: false)

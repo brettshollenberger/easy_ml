@@ -27,27 +27,32 @@ module EasyML
         set_defaults
 
         # Set random seed if provided for reproducibility
-        Polars.random_seed(seed.to_i) if seed
+        rng = seed ? Random.new(seed.to_i) : Random.new
 
         # Get total number of rows
         n_rows = df.height
 
-        # Generate random numbers for each row
-        random_col = "random_split"
-        df_with_random = df.with_columns([
-                                           Polars.lit(Array.new(n_rows) { Random.rand }).alias(random_col)
-                                         ])
+        # Generate a deterministic random order based on the seed
+        shuffled_indices = (0...n_rows).to_a.shuffle(random: rng || Random.new)
 
-        # Calculate split thresholds
-        train_threshold = train_ratio
-        valid_threshold = train_ratio + valid_ratio
+        # Calculate split sizes
+        train_size = (n_rows * train_ratio).floor
+        valid_size = (n_rows * valid_ratio).floor
 
-        # Split the dataframe
-        train_df = df_with_random.filter(Polars.col(random_col) < train_threshold).drop(random_col)
-        valid_df = df_with_random.filter(
-          (Polars.col(random_col) >= train_threshold) & (Polars.col(random_col) < valid_threshold)
-        ).drop(random_col)
-        test_df = df_with_random.filter(Polars.col(random_col) >= valid_threshold).drop(random_col)
+        # Split indices
+        train_indices = shuffled_indices[0...train_size]
+        valid_indices = shuffled_indices[train_size...(train_size + valid_size)]
+        test_indices = shuffled_indices[(train_size + valid_size)..]
+
+        # Add an index column to filter
+        df_with_index = df.with_columns([
+          Polars.arange(0, n_rows).alias("index"),
+        ])
+
+        # Filter rows by index for train, validation, and test sets
+        train_df = df_with_index.filter(Polars.col("index").is_in(train_indices)).drop("index")
+        valid_df = df_with_index.filter(Polars.col("index").is_in(valid_indices)).drop("index")
+        test_df = df_with_index.filter(Polars.col("index").is_in(test_indices)).drop("index")
 
         [train_df, valid_df, test_df]
       end

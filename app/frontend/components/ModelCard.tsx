@@ -5,30 +5,26 @@ import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
 interface ModelCardProps {
   model: Model;
-  job?: RetrainingJob;
-  lastRun?: RetrainingRun;
   onViewDetails: (modelId: number) => void;
   handleDelete: (modelId: number) => void;
 }
 
-export function ModelCard({ model, job, lastRun, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
-  let dataset = model.dataset;
+export function ModelCard({ model, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
+  const dataset = model.dataset;
+  const job = model.retraining_job;
+  const lastRun = model.last_run;
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-            ${model.deploymentStatus === 'inference' 
+            ${model.deployment_status === 'inference' 
               ? 'bg-blue-100 text-blue-800'
               : 'bg-gray-100 text-gray-800'}`}
           >
-            {model.deploymentStatus}
+            {model.deployment_status}
           </span>
-          {model.promoted && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-              promoted
-            </span>
-          )}
         </div>
 
         <div className="flex justify-between items-start">
@@ -58,7 +54,14 @@ export function ModelCard({ model, job, lastRun, onViewDetails, handleDelete, ro
           </div>
         </div>
 
-        <p className="text-sm text-gray-500">Version {model.version} • Type: {model.modelType}</p>
+        <p className="text-sm text-gray-500">
+          <span className="font-semibold">Model Type: </span>
+          {model.formatted_model_type}
+        </p>
+        <p className="text-sm text-gray-500">
+          <span className="font-semibold">Version: </span>
+          {model.version}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mt-4">
@@ -78,27 +81,27 @@ export function ModelCard({ model, job, lastRun, onViewDetails, handleDelete, ro
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-400" />
           <span className="text-sm text-gray-600">
-            {job ? `Retrains ${job.frequency}` : 'No schedule'}
+            {job ? `Retrains ${model.formatted_frequency}` : 'No schedule'}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-gray-400" />
           <span className="text-sm text-gray-600">
-            {lastRun
-              ? `Last run: ${new Date(lastRun.completedAt || '').toLocaleDateString()}`
+            {model.last_run_at
+              ? `Last run: ${new Date(model.last_run_at || '').toLocaleDateString()}`
               : 'Never run'}
           </span>
         </div>
       </div>
 
-      {lastRun && lastRun.metadata && (
+      {lastRun && (
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex flex-wrap gap-2">
-            {Object.entries(lastRun.metadata.metrics as Record<string, number>).map(([key, value]) => (
+            {Object.entries(lastRun.metrics as Record<string, number>).map(([key, value]) => (
               <div
                 key={key}
                 className={`px-2 py-1 rounded-md text-xs font-medium ${
-                  lastRun.shouldPromote
+                  lastRun.should_promote
                     ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
                 }`}

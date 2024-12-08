@@ -74,6 +74,7 @@ module EasyML
     ].freeze
 
     validates :name, presence: true
+    validates :name, uniqueness: { case_sensitive: false }
     validates :task, presence: true
     validates :task, inclusion: {
                        in: VALID_TASKS.map { |t| [t, t.to_s] }.flatten,
@@ -91,6 +92,35 @@ module EasyML
       define_method "#{status}?" do
         self.status.to_sym == status.to_sym
       end
+    end
+
+    def train(async: true)
+      evaluator = self.evaluator.symbolize_keys
+      job = retraining_job || create_retraining_job(active: false, evaluator: evaluator, metric: evaluator.dig(:metric), direction: evaluator.dig(:direction), threshold: evaluator.dig(:threshold), frequency: "day", at: { hour: 0 })
+      run = job.retraining_runs.create!(status: "pending", model_id: self.id)
+      if async
+        EasyML::RetrainingWorker.perform_async(run.id)
+      else
+        EasyML::RetrainingWorker.new.perform(run.id)
+      end
+      run
+    end
+
+    def deployment_status
+      status
+    end
+
+    def formatted_model_type
+      model_adapter.class.name.split("::").last
+    end
+
+    def formatted_version
+      return nil unless version
+      Time.strptime(version, "%Y%m%d%H%M%S").strftime("%B %-d, %Y at %-l:%M %p")
+    end
+
+    def last_run_at
+      last_run&.created_at
     end
 
     def last_run
@@ -204,12 +234,22 @@ module EasyML
       EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true, evaluator: evaluator)
     end
 
+    def evaluator
+      read_attribute(:evaluator) || default_evaluator
+    end
+
+    def default_evaluator
+      return nil unless task.present?
+
+      EasyML::Core::ModelEvaluator.default_evaluator(task)
+    end
+
     def get_params
       @hyperparameters.to_h
     end
 
     def evals
-      last_run.metrics
+      last_run&.metrics || {}
     end
 
     def metric_accessor(metric)

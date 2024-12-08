@@ -19,15 +19,10 @@ module EasyML
     include EasyML::Engine.routes.url_helpers
 
     def index
-      models = EasyML::Model.all
-      # models = Model.includes(:retraining_jobs, :retraining_runs)
-      #               .order(created_at: :desc)
+      models = EasyML::Model.all.order(:last_trained_at, :id)
 
       render inertia: "pages/ModelsPage", props: {
         models: models.map { |model| model_to_json(model) },
-
-      # retraining_jobs: RetrainingJob.current_jobs.map { |job| job_data(job) },
-      # retraining_runs: RetrainingRun.recent.map { |run| run_data(run) }
       }
     end
 

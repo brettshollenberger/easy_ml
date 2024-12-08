@@ -99,5 +99,29 @@ RSpec.describe EasyML::Data::PolarsReader do
         expect(a["PassengerId"].to_a.max).to be < b["PassengerId"].to_a.min
       }
     end
+
+    it "uses specified batch key when provided" do
+      batches = []
+      reader.query(batch_size: batch_size, batch_key: "Name") do |batch|
+        batches.push(batch)
+      end
+
+      # Verify batches are ordered by Name
+      batches.each_cons(2) { |a, b|
+        expect(a["Name"].to_a.max).to be < b["Name"].to_a.min
+      }
+    end
+
+    it "raises error when no columns are specified" do
+      columns = ["Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"]
+      batches = []
+      expect {
+        reader.query(batch_size: batch_size, select: columns) do |batch|
+          expect(batch.columns).to include("RowNum")
+          expect(batch.columns).to match_array(columns + ["RowNum"])
+          batches.push(batch)
+        end
+      }.to raise_error(RuntimeError)
+    end
   end
 end

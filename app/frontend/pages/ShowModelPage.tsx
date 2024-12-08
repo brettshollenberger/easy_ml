@@ -22,15 +22,9 @@ interface PageProps {
 }
 
 export default function ShowModelPage({ model, rootPath }: PageProps) {
-//   const selectedModel = models.find((m) => m.id === selectedModelId);
-//   const modelRuns = models.find((m) => m.id === selectedModelId)?.retrainingRuns || [];
-//   const modelJob = models.find((m) => m.id === selectedModelId)?.retrainingJob || null;
-
   return (
     <div className="max-w-3xl mx-auto py-8">
-      <div className="bg-white rounded-lg shadow-lg">
-        <ModelDetails model={model} />
-      </div>
+      <ModelDetails model={model} />
     </div>
   );
 }

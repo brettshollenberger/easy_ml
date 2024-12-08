@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
-import { mockDatasets } from '../mockData';
 
 interface ModelDetailsProps {
   model: Model;
@@ -13,7 +12,9 @@ const ITEMS_PER_PAGE = 3;
 export function ModelDetails({ model, onBack }: ModelDetailsProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'dataset'>('overview');
   const [currentPage, setCurrentPage] = useState(1);
-  const dataset = datasets.find(d => d.id === model.datasetId);
+  const dataset = model.dataset;
+  const job = model.retraining_job;
+  const runs = model.last_run ? [model.last_run] : [];
 
   const totalPages = Math.ceil(runs.length / ITEMS_PER_PAGE);
   const paginatedRuns = runs.slice(
@@ -24,15 +25,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <button
-          onClick={onBack}
-          className="flex items-center text-gray-600 hover:text-gray-800"
-        >
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Back to Models
-        </button>
-
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 ml-auto">
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-2 text-sm font-medium rounded-md ${
@@ -62,17 +55,17 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{model.name}</h2>
               <p className="text-gray-600 mt-1">
-                Version {model.version} • Type: {model.modelType}
+                <span className="font-medium">Version:</span> {model.version} • <span className="font-medium">Type:</span> {model.formatted_model_type}
               </p>
             </div>
             <span
               className={`px-3 py-1 rounded-full text-sm font-medium ${
-                model.deploymentStatus === 'inference'
+                model.deployment_status === 'inference'
                   ? 'bg-blue-100 text-blue-800'
                   : 'bg-gray-100 text-gray-800'
               }`}
             >
-              {model.deploymentStatus}
+              {model.deployment_status}
             </span>
           </div>
 
@@ -86,7 +79,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-gray-400" />
-                  <span>at {job.at}:00</span>
+                  <span>at {job.at.hour}:00</span>
                 </div>
               </div>
             </div>
@@ -126,9 +119,6 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <span className="text-sm text-gray-500">
-                        {new Date(run.startedAt || '').toLocaleString()}
-                      </span>
                       <div className="flex items-center gap-2 mt-1">
                         <span
                           className={`px-2 py-1 rounded-md text-sm font-medium ${
@@ -139,7 +129,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                         >
                           {run.status}
                         </span>
-                        {run.shouldPromote && (
+                        {run.should_promote && (
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium">
                             Promoted
                           </span>
@@ -149,15 +139,15 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                     <div className="flex items-center gap-1">
                       <BarChart2 className="w-4 h-4 text-gray-400" />
                       <span className="text-sm text-gray-600">
-                        v{model.version}
+                        {new Date(run.started_at || '').toLocaleString()}
                       </span>
                     </div>
                   </div>
 
-                  {run.metadata && run.metadata.metrics && (
+                  {run && run.metrics && (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       {Object.entries(
-                        run.metadata.metrics as Record<string, number>
+                        run.metrics as Record<string, number>
                       ).map(([key, value]) => (
                         <div key={key} className="bg-gray-50 rounded-md p-3">
                           <div className="text-sm font-medium text-gray-500">
@@ -170,7 +160,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                             {run.threshold && (
                               <span
                                 className={`text-sm ${
-                                  run.shouldPromote
+                                  run.should_promote
                                     ? 'text-green-600'
                                     : 'text-red-600'
                                 }`}
@@ -214,12 +204,12 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900">Total Rows</span>
-                        <span className="text-sm font-medium">{dataset.rowCount.toLocaleString()}</span>
+                        <span className="text-sm font-medium">{dataset.num_rows.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900">Last Updated</span>
                         <span className="text-sm font-medium">
-                          {new Date(dataset.updatedAt).toLocaleDateString()}
+                          {new Date(dataset.updated_at).toLocaleDateString()}
                         </span>
                       </div>
                     </div>

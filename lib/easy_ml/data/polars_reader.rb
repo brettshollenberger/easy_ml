@@ -47,19 +47,53 @@ module EasyML
         query
       end
 
-      def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil,
-                descending: false)
+      def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: 0, batch_key: nil, &block)
         files ||= self.files
         PolarsReader.query(files, drop_cols: drop_cols, filter: filter, limit: limit,
-                                  select: select, unique: unique, sort: sort, descending: descending)
+                                  select: select, unique: unique, sort: sort, descending: descending,
+                                  batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, &block)
       end
 
-      def self.query(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false)
-        # Process all files together when no block is given
-        files = files.select { |f| Pathname.new(f).extname == ".parquet" }
-        return Polars::DataFrame.new if files.empty?
+      def self.query(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: 0, batch_key: nil, &block)
+        return query_files(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select,
+                                  unique: unique, sort: sort, descending: descending) unless batch_size.present?
 
-        lazy_frames = files.map { |file| Polars.scan_parquet(file) }
+        batch_key ||= identify_primary_key(files)
+        raise "When using batch_size, sort must match primary key (#{batch_key})" if sort.present? && batch_key != sort
+
+        sort = batch_key
+        final_value = query_files(files, sort: sort, descending: !descending, select: batch_key, limit: 1)[batch_key].to_a.last
+
+        return batch_enumerator(files, batch_size, batch_start, final_value, batch_key, sort, descending) unless block_given?
+
+        process_batches(files, batch_size, batch_start, final_value, batch_key, sort, descending, &block)
+      end
+
+      private
+
+      def self.batch_enumerator(files, batch_size, batch_start, final_value, batch_key, sort, descending)
+        Enumerator.new do |yielder|
+          process_batches(files, batch_size, batch_start, final_value, batch_key, sort, descending) do |batch|
+            yielder << batch
+          end
+        end
+      end
+
+      def self.process_batches(files, batch_size, batch_start, final_value, batch_key, sort, descending, &block)
+        is_first_batch = true
+        current_start = batch_start
+
+        while current_start < final_value
+          filter = is_first_batch ? Polars.col(sort) >= current_start : Polars.col(sort) > current_start
+          batch = query_files(files, sort: sort, descending: descending, limit: batch_size, filter: filter)
+          yield batch
+          current_start = batch[batch_key].to_a.last
+          is_first_batch = false
+        end
+      end
+
+      def self.query_files(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false)
+        lazy_frames = to_lazy_frames(files)
         combined_lazy_df = Polars.concat(lazy_frames)
 
         # Apply the predicate filter if given
@@ -80,9 +114,36 @@ module EasyML
         combined_lazy_df.collect
       end
 
-      private
+      def self.identify_primary_key(files)
+        lazy_df = to_lazy_frames([files.first]).first
+        primary_keys = lazy_df.columns.select do |col|
+          # Lazily count unique values and compare with the total row count
+          lazy_df.select(col).unique.collect.height == lazy_df.collect.height
+        end
 
-      def read_file(file)
+        if primary_keys.count > 1
+          key = primary_keys.detect { |key| key.underscore.split("_").any? { |k| k.match?(/id/) } }
+          if key
+            primary_keys = [key]
+          end
+        end
+
+        if primary_keys.count != 1
+          primary_keys = ["RowNum"]
+        end
+
+        return primary_keys.first
+      end
+
+      def self.lazy_schema(files)
+        to_lazy_frames([files.first]).first.schema
+      end
+
+      def self.to_lazy_frames(files)
+        files.map { |file| Polars.scan_parquet(file) }
+      end
+
+      def self.read_file(file)
         ext = Pathname.new(file).extname.gsub(/\./, "")
         case ext
         when "csv"
@@ -180,15 +241,15 @@ module EasyML
           h.tap do
             values = v.map { |klass| klass.to_s.gsub(/Polars::/, "") }
             h[k] = if values.any? { |v| v.match?(/Float/) }
-                     Polars::Float64
-                   elsif values.any? { |v| v.match?(/Int/) }
-                     Polars::Int64
-                   else
-                     type = EasyML::Data::PolarsColumn.determine_type(first_file[k], true)
-                     raise "Cannot determine polars type for field #{k}" if type.nil?
+                Polars::Float64
+              elsif values.any? { |v| v.match?(/Int/) }
+                Polars::Int64
+              else
+                type = EasyML::Data::PolarsColumn.determine_type(first_file[k], true)
+                raise "Cannot determine polars type for field #{k}" if type.nil?
 
-                     type
-                   end
+                type
+              end
           end
         end
       end

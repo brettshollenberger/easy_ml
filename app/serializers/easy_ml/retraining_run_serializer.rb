@@ -11,8 +11,14 @@ module EasyML
                :threshold,
                :threshold_direction,
                :status,
-               :started_at,
-               :completed_at,
                :error_message
+
+    attribute :started_at do |run|
+      run.started_at&.in_time_zone(EasyML::Configuration.timezone)
+    end
+
+    attribute :completed_at do |run|
+      run.completed_at&.in_time_zone(EasyML::Configuration.timezone)
+    end
   end
 end

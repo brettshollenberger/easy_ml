@@ -32,7 +32,7 @@ module EasyML
       analyzing: "analyzing",
       ready: "ready",
       failed: "failed",
-      locked: "locked"
+      locked: "locked",
     }
 
     SPLIT_ORDER = %i[train valid test]
@@ -70,6 +70,7 @@ module EasyML
     after_find :download_remote_files
     after_initialize do
       bump_version unless version.present?
+      write_attribute(:workflow_status, :ready) if workflow_status.nil?
     end
     before_save :set_root_dir
 
@@ -79,7 +80,7 @@ module EasyML
           { value: type.to_s, label: type.to_s.titleize }
         end,
         preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies],
-        transform_options: EasyML::Transforms::Registry.list_flat
+        transform_options: EasyML::Transforms::Registry.list_flat,
       }
     end
 
@@ -204,7 +205,7 @@ module EasyML
 
     def learn_statistics
       update(
-        statistics: EasyML::Data::StatisticsLearner.learn(raw, processed)
+        statistics: EasyML::Data::StatisticsLearner.learn(raw, processed),
       )
     end
 
@@ -253,7 +254,7 @@ module EasyML
         cols_to_insert = new_columns.map do |col_name|
           EasyML::Column.new(
             name: col_name,
-            dataset_id: id
+            dataset_id: id,
           )
         end
         EasyML::Column.import(cols_to_insert)
@@ -276,32 +277,32 @@ module EasyML
 
           # Keep both datatype and polars_datatype if it's an ordinal encoding case
           actual_type = if ordinal_encoding?(existing_type, new_polars_type)
-                          existing_type
-                        else
-                          new_polars_type
-                        end
+              existing_type
+            else
+              new_polars_type
+            end
 
           actual_schema_type = if ordinal_encoding?(existing_type, schema_type)
-                                 existing_type
-                               else
-                                 schema_type
-                               end
+              existing_type
+            else
+              schema_type
+            end
 
           column.assign_attributes(
             statistics: {
               raw: stats.dig("raw", column.name),
-              processed: stats.dig("processed", column.name)
+              processed: stats.dig("processed", column.name),
             },
             datatype: actual_schema_type,
             polars_datatype: actual_type,
             sample_values: data(unique: true, limit: 5, select: column.name,
-                                all_columns: true)[column.name].to_a.uniq[0...5]
+                                all_columns: true)[column.name].to_a.uniq[0...5],
           )
         end
 
         EasyML::Column.import(columns_to_update.to_a,
                               { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
-                                                                       sample_values] } })
+                                                                     sample_values] } })
       end
     end
 
@@ -396,7 +397,7 @@ module EasyML
 
       @preprocessing_steps = {
         training: training,
-        inference: inference
+        inference: inference,
       }.compact.deep_symbolize_keys
     end
 
@@ -466,8 +467,8 @@ module EasyML
         split_type.new(**args)
       when EasyML::Data::Splits::FileSplit.to_s
         split_type.new(**args.merge(
-          dir: Pathname.new(root_dir).append("files/splits/#{type}").to_s
-        ))
+                         dir: Pathname.new(root_dir).append("files/splits/#{type}").to_s,
+                       ))
       end
     end
 
@@ -586,7 +587,7 @@ module EasyML
     def initialize_preprocessor
       EasyML::Data::Preprocessor.new(
         directory: Pathname.new(root_dir).append("preprocessor"),
-        preprocessing_steps: preprocessing_steps
+        preprocessing_steps: preprocessing_steps,
       ).tap do |preprocessor|
         preprocessor.statistics = preprocessor_statistics
       end
@@ -618,7 +619,7 @@ module EasyML
 
         differences[column_name] = {
           old: existing_type,
-          new: polars_type
+          new: polars_type,
         }
       end
 

@@ -64,6 +64,11 @@ module EasyML
           end
         raise "Unknown booster type #{booster}" unless klass.present?
 
+        overrides = {
+          objective: model.objective,
+        }
+        params.merge!(overrides)
+
         klass.new(params)
       end
 
@@ -208,12 +213,16 @@ module EasyML
 
       def prepare_data
         if @d_train.nil?
+          puts "Preparing data, this may take a minute..."
+          x_sample, y_sample = dataset.train(split_ys: true, limit: 5)
+          preprocess(x_sample, y_sample) # Ensure we fail fast if the dataset is misconfigured
           x_train, y_train = dataset.train(split_ys: true)
           x_valid, y_valid = dataset.valid(split_ys: true)
           x_test, y_test = dataset.test(split_ys: true)
           @d_train = preprocess(x_train, y_train)
           @d_valid = preprocess(x_valid, y_valid)
           @d_test = preprocess(x_test, y_test)
+          puts "Done!"
         end
 
         [@d_train, @d_valid, @d_test]

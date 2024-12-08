@@ -152,6 +152,14 @@ module EasyML
       }.compact
     end
 
+    def formatted_frequency
+      {
+        month: "Monthly",
+        week: "Weekly",
+        day: "Daily",
+      }[frequency.to_sym]
+    end
+
     private
 
     def metric_class

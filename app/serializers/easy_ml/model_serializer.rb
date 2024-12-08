@@ -22,19 +22,42 @@ module EasyML
   class ModelSerializer
     include JSONAPI::Serializer
 
-    set_type :model # Optional type for JSON:API
+    attributes :id,
+               :name,
+               :model_type,
+               :task,
+               :objective,
+               :metrics,
+               :dataset_id,
+               :status,
+               :deployment_status,
+               :configuration,
+               :created_at,
+               :updated_at,
+               :last_run_at
 
-    attributes :id, :name, :status, :model_type, :status, :task,
-               :objective, :hyperparameters, :metrics, :dataset_id
-
-    attribute :dataset do |model|
-      DatasetSerializer.new(model.dataset).serializable_hash.dig(:data, :attributes)
+    attribute :last_run do |object|
+      RetrainingRunSerializer.new(object.last_run).serializable_hash.dig(:data, :attributes)
     end
 
-    attribute :retraining_job do |model|
-      if model.retraining_job.present?
-        RetrainingJobSerializer.new(model.retraining_job).serializable_hash.dig(:data, :attributes)
-      end
+    attribute :version do |object|
+      object.formatted_version
+    end
+
+    attribute :formatted_model_type do |object|
+      object.formatted_model_type
+    end
+
+    attribute :formatted_frequency do |object|
+      object.retraining_job.present? ? object.retraining_job.formatted_frequency : nil
+    end
+
+    attribute :dataset do |object|
+      DatasetSerializer.new(object.dataset).serializable_hash.dig(:data, :attributes)
+    end
+
+    attribute :retraining_job do |object|
+      RetrainingJobSerializer.new(object.retraining_job).serializable_hash.dig(:data, :attributes)
     end
   end
 end

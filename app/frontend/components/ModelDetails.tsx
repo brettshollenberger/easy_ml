@@ -204,7 +204,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900">Total Rows</span>
-                        <span className="text-sm font-medium">{dataset.row_count.toLocaleString()}</span>
+                        <span className="text-sm font-medium">{dataset.num_rows.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-900">Last Updated</span>

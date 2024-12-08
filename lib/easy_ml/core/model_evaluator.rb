@@ -37,12 +37,27 @@ module EasyML
           @registry ||= {}
           option = (@registry[name.to_sym] || @registry.detect do |_k, opts|
             opts[:aliases].include?(name.to_sym)
-          end) || {}
+          end.last) || {}
           option.dig(:evaluator)
         end
 
         def for_frontend(evaluator)
           evaluator.new.to_h
+        end
+
+        def default_evaluator(task)
+          {
+            classification: {
+              metric: "accuracy",
+              threshold: 0.70,
+              direction: "maximize",
+            },
+            regression: {
+              metric: "root_mean_squared_error",
+              threshold: 10,
+              direction: "minimize",
+            },
+          }[task.to_sym]
         end
 
         def metrics_by_task

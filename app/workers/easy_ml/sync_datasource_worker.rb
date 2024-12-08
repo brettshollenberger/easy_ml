@@ -2,7 +2,7 @@ module EasyML
   class SyncDatasourceWorker < ApplicationWorker
     sidekiq_options(
       queue: :easy_ml,
-      retry: false
+      retry: false,
     )
 
     def perform(id, force = false)
@@ -11,7 +11,7 @@ module EasyML
 
       begin
         files = sync_datasource(datasource, force)
-        datasource.after_sync if files.nil?
+        datasource.after_sync
       rescue StandardError => e
         handle_error(datasource, e)
       end
@@ -24,6 +24,9 @@ module EasyML
     def on_success(_status, options)
       options.symbolize_keys!
 
+      100.times do
+        p "Success!"
+      end
       datasource = EasyML::Datasource.find(options[:datasource_id])
 
       begin
@@ -52,6 +55,9 @@ module EasyML
       datasource.before_sync
       files = datasource.files_to_sync
       return if files.empty?
+      100.times do
+        p "Runnin!"
+      end
 
       batch = Sidekiq::Batch.new
       batch.description = "Syncing datasource #{datasource.id}"

@@ -9,8 +9,7 @@ module EasyML
         next unless job.lock!
 
         begin
-          run = job.retraining_runs.create!(status: "pending")
-          RetrainingWorker.perform_async(run.id)
+          model.train
         rescue StandardError
           job.unlock!
         end

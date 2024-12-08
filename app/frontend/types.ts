@@ -1,7 +1,7 @@
 import { Dataset } from './dataset';
 
 export type ModelStatus = 'completed' | 'failed';
-export type DeploymentStatus = 'inference' | 'retired';
+export type DeploymentStatus = 'training' | 'inference' | 'retired';
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
@@ -31,8 +31,7 @@ interface ModelVersion {
   id: number;
   version: string;
   status: ModelStatus;
-  deploymentStatus: DeploymentStatus;
-  promoted: boolean;
+  deployment_status: DeploymentStatus;
   configuration: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -43,9 +42,8 @@ export interface Model {
   name: string;
   modelType: string;
   status: ModelStatus;
-  deploymentStatus: DeploymentStatus;
-  promoted: boolean;
-  datasetId: number;
+  deployment_status: DeploymentStatus;
+  dataset_id: number;
   dataset: Dataset;
   configuration: Record<string, unknown>;
   version: string;

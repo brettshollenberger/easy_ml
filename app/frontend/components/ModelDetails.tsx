@@ -7,14 +7,49 @@ interface ModelDetailsProps {
   onBack: () => void;
 }
 
+interface PaginatedRuns {
+  runs: RetrainingRun[];
+  total_count: number;
+  limit: number;
+  offset: number;
+}
+
 const ITEMS_PER_PAGE = 3;
 
 export function ModelDetails({ model, onBack }: ModelDetailsProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'dataset'>('overview');
+  const [runs, setRuns] = useState<RetrainingRun[]>(model.recent_runs?.runs || []);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    offset: 0,
+    limit: 20,
+    total_count: model.recent_runs?.total_count || 0
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const dataset = model.dataset;
   const job = model.retraining_job;
-  const runs = model.last_run ? [model.last_run] : [];
+
+  const loadMoreRuns = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/models/${model.id}/retraining_runs?offset=${pagination.offset + pagination.limit}&limit=${pagination.limit}`);
+      const data = await response.json();
+      const paginatedData = data.data.attributes.recent_runs as PaginatedRuns;
+      
+      setRuns([...runs, ...paginatedData.runs]);
+      setPagination({
+        offset: paginatedData.offset,
+        limit: paginatedData.limit,
+        total_count: paginatedData.total_count
+      });
+    } catch (error) {
+      console.error('Error loading more runs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasMoreRuns = pagination.offset + pagination.limit < pagination.total_count;
 
   const totalPages = Math.ceil(runs.length / ITEMS_PER_PAGE);
   const paginatedRuns = runs.slice(
@@ -83,7 +118,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
         {activeTab === 'overview' ? (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Training History</h3>
+              <h3 className="text-lg font-semibold">Retraining Runs</h3>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -106,11 +141,8 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
             </div>
 
             <div className="space-y-4">
-              {paginatedRuns.map((run) => (
-                <div
-                  key={run.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
-                >
+              {paginatedRuns.map((run, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="flex items-center gap-2 mt-1">
@@ -123,17 +155,12 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                         >
                           {run.status}
                         </span>
-                        {run.should_promote && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium">
-                            promoted
-                          </span>
-                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <BarChart2 className="w-4 h-4 text-gray-400" />
                       <span className="text-sm text-gray-600">
-                        {new Date(run.started_at || '').toLocaleString()}
+                        {new Date(run.started_at).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -151,17 +178,6 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                             <span className="text-lg font-semibold">
                               {value.toFixed(4)}
                             </span>
-                            {run.threshold && (
-                              <span
-                                className={`text-sm ${
-                                  run.should_promote
-                                    ? 'text-green-600'
-                                    : 'text-red-600'
-                                }`}
-                              >
-                                ({run.threshold.toFixed(4)})
-                              </span>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -170,6 +186,17 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                 </div>
               ))}
             </div>
+            {hasMoreRuns && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={loadMoreRuns}
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+                >
+                  {loading ? 'Loading...' : 'Load More Runs'}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           dataset && (

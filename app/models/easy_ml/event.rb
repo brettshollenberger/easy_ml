@@ -13,6 +13,7 @@
 #
 module EasyML
   class Event < ActiveRecord::Base
+    MAX_LINE_LENGTH = 65
     self.table_name = "easy_ml_events"
 
     STATUSES = %w[started success error].freeze
@@ -32,5 +33,40 @@ module EasyML
     scope :started, -> { where(status: "started") }
     scope :succeeded, -> { where(status: "success") }
     scope :failed, -> { where(status: "error") }
+
+    def self.create_event(model, status, error = nil)
+      EasyML::Event.create!(
+        name: self.class.name.demodulize,
+        status: status,
+        eventable: model,
+        stacktrace: format_stacktrace(error),
+      )
+    end
+
+    def self.handle_error(model, error)
+      create_event(model, "error", error)
+      Rails.logger.error("#{self.class.name} failed: #{error.message}")
+    end
+
+    def self.format_stacktrace(error)
+      return nil if error.nil?
+
+      topline = error.inspect
+
+      stacktrace = error.backtrace.select do |loc|
+        loc.match?(/easy_ml/)
+      end
+
+      %(#{topline}
+
+        #{stacktrace.join("\n")}
+      ).split("\n").map do |l|
+        l.gsub(/\s{2,}/, " ").strip
+      end.flat_map { |line| wrap_text(line, MAX_LINE_LENGTH) }.join("\n")
+    end
+
+    def self.wrap_text(text, max_length)
+      text.strip.scan(/.{1,#{max_length}}/)
+    end
   end
 end

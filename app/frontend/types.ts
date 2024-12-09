@@ -1,8 +1,8 @@
 import { Dataset } from './dataset';
 
-export type ModelStatus = 'completed' | 'failed';
+export type ModelStatus = 'success' | 'failed';
 export type DeploymentStatus = 'training' | 'inference' | 'retired';
-export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type JobStatus = 'running' | 'success' | 'failed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
 
@@ -105,4 +105,5 @@ export interface RetrainingRun {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  stacktrace: string | null;
 }

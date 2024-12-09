@@ -20,5 +20,14 @@ module EasyML
     attribute :completed_at do |run|
       run.completed_at&.in_time_zone(EasyML::Configuration.timezone)
     end
+
+    attribute :stacktrace do |object|
+      if object.status.to_s == "running"
+        nil
+      else
+        last_event = object.events.order(id: :desc).limit(1).last
+        last_event&.stacktrace if last_event&.status.to_s == "error"
+      end
+    end
   end
 end

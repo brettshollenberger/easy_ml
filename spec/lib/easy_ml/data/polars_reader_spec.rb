@@ -56,6 +56,7 @@ RSpec.describe EasyML::Data::PolarsReader do
     it "yields batches of specified size" do
       batches = []
       reader.query(batch_size: batch_size) { |batch|
+        batch = batch.collect
         expect(batch.shape[0]).to be <= batch_size
         batches << batch
       }
@@ -67,6 +68,7 @@ RSpec.describe EasyML::Data::PolarsReader do
     it "identifies or creates a column for batch iteration" do
       df = nil
       reader.query(batch_size: batch_size) do |batch|
+        batch = batch.collect
         df = df.nil? ? batch : Polars.concat([df, batch])
       end
       # Should either have PassengerId or a row_number column
@@ -77,6 +79,7 @@ RSpec.describe EasyML::Data::PolarsReader do
     it "yields batches starting from specified offset" do
       batches = []
       reader.query(batch_size: batch_size, batch_start: 200) do |batch|
+        batch = batch.collect
         batches.push(batch)
       end
 
@@ -91,6 +94,7 @@ RSpec.describe EasyML::Data::PolarsReader do
       batches = []
       batcher = reader.query(batch_size: batch_size)
       batcher.each do |batch|
+        batch = batch.collect
         batches.push(batch)
       end
 
@@ -103,6 +107,7 @@ RSpec.describe EasyML::Data::PolarsReader do
     it "uses specified batch key when provided" do
       batches = []
       reader.query(batch_size: batch_size, batch_key: "Name") do |batch|
+        batch = batch.collect
         batches.push(batch)
       end
 

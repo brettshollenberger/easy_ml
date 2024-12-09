@@ -265,7 +265,6 @@ module ModelSpecHelper
 
       method, params = extract_preprocessing_config(config)
 
-      binding.pry
       column.update(
         preprocessing_steps: {
           training: {

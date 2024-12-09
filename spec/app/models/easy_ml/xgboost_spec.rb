@@ -4,6 +4,13 @@ require "support/model_spec_helper"
 RSpec.describe "EasyML::Models::XGBoost" do
   include ModelSpecHelper
 
+  before(:each) do
+    EasyML::Cleaner.clean
+  end
+  after(:each) do
+    EasyML::Cleaner.clean
+  end
+
   describe "XGBoost" do
     let(:booster) do
       :gbtree

@@ -33,7 +33,7 @@ module EasyML
             s3_access_key_id: EasyML::Configuration.s3_access_key_id,
             s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
             polars_args: datasource_config.dig("polars_args"),
-            cache_for: 0
+            cache_for: 0,
           )
         end
 
@@ -87,7 +87,7 @@ module EasyML
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
-                 unique: nil, sort: nil, descending: false)
+                          unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: nil, batch_key: nil, &block)
           files = files_for_segment(segment)
           return split_ys ? [nil, nil] : nil if files.empty?
 
@@ -98,12 +98,25 @@ module EasyML
             unique: unique,
             drop_cols: drop_cols,
             sort: sort,
-            descending: descending
+            descending: descending,
+            batch_size: batch_size,
+            batch_start: batch_start,
+            batch_key: batch_key,
           }.compact
 
-          df = EasyML::Data::PolarsReader.query(files, **query_params)
+          if batch_size.present?
+            Thread.current[:batching] = true
+            base_enumerator = EasyML::Data::PolarsReader.query(files, **query_params)
 
-          split_features_targets(df, split_ys, target)
+            if block_given?
+              wrap_with_block(base_enumerator, split_ys, target, &block)
+            else
+              wrap_with_split(base_enumerator, target)
+            end
+          else
+            df = EasyML::Data::PolarsReader.query(files, **query_params, &block)
+            split_features_targets(df, split_ys, target)
+          end
         end
 
         def cleanup
@@ -126,6 +139,32 @@ module EasyML
         end
 
         private
+
+        def wrap_with_block(base_enumerator, split_ys, target, &block)
+          Enumerator.new do |yielder|
+            base_enumerator.each do |df|
+              df = block.call(df)
+              result = process_dataframe(df, split_ys, target)
+              yielder << result
+            end
+          end
+        end
+
+        def wrap_with_split(base_enumerator, target)
+          Enumerator.new do |yielder|
+            base_enumerator.each do |df|
+              result = process_dataframe(df, true, target)
+              yielder << result
+            end
+          end
+        end
+
+        def process_dataframe(df, split_ys, target)
+          return df unless split_ys
+
+          df = df.collect if df.is_a?(Polars::LazyFrame)
+          split_features_targets(df, split_ys, target)
+        end
 
         def version_to_dir(version)
           relative_path = dir.gsub(Regexp.new(Rails.root.to_s), "")

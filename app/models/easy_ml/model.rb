@@ -285,7 +285,7 @@ module EasyML
       when :regression
         %w[mean_absolute_error mean_squared_error root_mean_squared_error r2_score]
       when :classification
-        %w[accuracy_score precision_score recall_score f1_score auc roc_auc]
+        %w[accuracy_score precision_score recall_score f1_score]
       else
         []
       end

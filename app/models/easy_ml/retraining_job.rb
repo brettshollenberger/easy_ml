@@ -80,6 +80,10 @@ module EasyML
       }
     end
 
+    def formatted_frequency
+      FREQUENCY_TYPES.find { |type| type[:value] == frequency }[:label]
+    end
+
     def should_run?
       return false if locked?
       return true if last_run_at.nil?

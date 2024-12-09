@@ -74,6 +74,7 @@ export interface RetrainingJob {
   id: number;
   model: string;
   frequency: Frequency;
+  formatted_frequency: string;
   at: number;
   evaluator: Record<string, unknown>;
   tuner_config: Record<string, unknown>;

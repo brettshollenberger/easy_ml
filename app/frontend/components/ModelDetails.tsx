@@ -36,16 +36,6 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
           >
             Overview
           </button>
-          <button
-            onClick={() => setActiveTab('dataset')}
-            className={`px-4 py-2 text-sm font-medium rounded-md ${
-              activeTab === 'dataset'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Dataset
-          </button>
         </div>
       </div>
 
@@ -75,12 +65,16 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-gray-400" />
-                  <span>Runs {job.frequency}</span>
+                  <span>{job.active ? `Runs ${job.formatted_frequency}` : "None (Triggered Manually)"}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                  <span>at {job.at.hour}:00</span>
-                </div>
+                {
+                  job.active && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-gray-400" />
+                      <span>at {job.at.hour}:00</span>
+                    </div>
+                  )
+                }
               </div>
             </div>
           )}
@@ -131,7 +125,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                         </span>
                         {run.should_promote && (
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium">
-                            Promoted
+                            promoted
                           </span>
                         )}
                       </div>

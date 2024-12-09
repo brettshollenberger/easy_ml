@@ -6,6 +6,9 @@ module EasyML
 
     def perform(retraining_run_id)
       retraining_run = RetrainingRun.find(retraining_run_id)
+      model = retraining_run.model
+      return if model.training?
+
       retraining_run.perform_retraining!
       retraining_run.retraining_job.unlock!
     end

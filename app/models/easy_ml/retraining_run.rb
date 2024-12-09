@@ -28,6 +28,8 @@ module EasyML
 
     validates :status, presence: true, inclusion: { in: %w[pending running completed failed] }
 
+    scope :running, -> { where(status: "running") }
+
     def perform_retraining!
       return false unless pending?
 
@@ -51,12 +53,13 @@ module EasyML
 
         results = metric_results(training_model)
         model_was_promoted = results[:should_promote] && training_model.promotable? && training_model.promote
+        failed_reasons = training_model.cannot_promote_reasons - "Model has not changed"
 
         update!(
           results.merge!(
-            status: model_was_promoted ? "completed" : "failed",
-            completed_at: model_was_promoted ? Time.current : nil,
-            error_message: model_was_promoted ? nil : training_model.cannot_promote_reasons&.first || "Did not pass evaluation",
+            status: failed_reasons.any? ? "completed" : "failed",
+            completed_at: failed_reasons.none? ? Time.current : nil,
+            error_message: failed_reasons.any? ? nil : training_model.failed_reasons&.first || "Did not pass evaluation",
             model: training_model,
             metadata: tuner_metadata,
             metrics: training_model.evaluate,

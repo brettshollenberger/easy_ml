@@ -58,6 +58,7 @@ export interface Model {
   last_run: RetrainingRun | null;
   retraining_job: RetrainingJob | null;
   formatted_frequency: string | null;
+  is_training: boolean;
 }
 
 export interface Prediction {

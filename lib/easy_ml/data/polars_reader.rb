@@ -60,13 +60,6 @@ module EasyML
         return query_files(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select,
                                   unique: unique, sort: sort, descending: descending).collect unless batch_size.present?
 
-        batch_key ||= identify_primary_key(files, select: select)
-        raise "When using batch_size, sort must match primary key (#{batch_key})" if sort.present? && batch_key != sort
-
-        sort = batch_key
-        batch_start = query_files(files, sort: sort, descending: descending, select: batch_key, limit: 1).collect[batch_key].to_a.last unless batch_start
-        final_value = query_files(files, sort: sort, descending: !descending, select: batch_key, limit: 1).collect[batch_key].to_a.last
-
         return batch_enumerator(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select, unique: unique, sort: sort, descending: descending,
                                        batch_size: batch_size, batch_start: batch_start, batch_key: batch_key) unless block_given?
 
@@ -76,21 +69,31 @@ module EasyML
 
       private
 
-      def self.batch_enumerator(files, batch_size, batch_start, final_value, batch_key, sort, descending)
+      def self.batch_enumerator(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
+                                       batch_size: nil, batch_start: nil, batch_key: nil, &block)
         Enumerator.new do |yielder|
-          process_batches(files, batch_size, batch_start, final_value, batch_key, sort, descending) do |batch|
+          process_batches(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select, unique: unique, sort: sort, descending: descending,
+                                 batch_size: batch_size, batch_start: batch_start, batch_key: batch_key) do |batch|
             yielder << batch
           end
         end
       end
 
-      def self.process_batches(files, batch_size, batch_start, final_value, batch_key, sort, descending, &block)
+      def self.process_batches(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
+                                      batch_size: nil, batch_start: nil, batch_key: nil, &block)
+        batch_key ||= identify_primary_key(files, select: select)
+        raise "When using batch_size, sort must match primary key (#{batch_key})" if sort.present? && batch_key != sort
+
+        sort = batch_key
+        batch_start = query_files(files, sort: sort, descending: descending, select: batch_key, limit: 1).collect[batch_key].to_a.last unless batch_start
+        final_value = query_files(files, sort: sort, descending: !descending, select: batch_key, limit: 1).collect[batch_key].to_a.last
+
         is_first_batch = true
         current_start = batch_start
 
         while current_start < final_value
           filter = is_first_batch ? Polars.col(sort) >= current_start : Polars.col(sort) > current_start
-          batch = query_files(files, sort: sort, descending: descending, limit: batch_size, filter: filter)
+          batch = query_files(files, drop_cols: drop_cols, filter: filter, limit: batch_size, select: select, unique: unique, sort: sort, descending: descending)
           yield batch
           current_start = query_files(files, sort: sort, descending: descending, limit: batch_size, filter: filter).sort(sort, reverse: !descending).limit(1).select(batch_key).collect[batch_key].to_a.last
           is_first_batch = false

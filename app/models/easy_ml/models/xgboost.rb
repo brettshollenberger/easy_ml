@@ -111,33 +111,65 @@ module EasyML
                                     early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
       end
 
-      def fit_in_batches(batch_size: 1024, batch_key: nil, batch_start: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
+      def fit_in_batches(batch_size: 1024, batch_key: nil, batch_start: nil, overlap: 1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
         validate_objective
         ensure_directory_exists(checkpoint_dir)
 
+        # Prepare validation data
         x_valid, y_valid = dataset.valid(split_ys: true)
         d_valid = preprocess(x_valid, y_valid)
 
         num_iterations = hyperparameters.to_h["n_estimators"]
         early_stopping_rounds = hyperparameters.to_h["early_stopping_rounds"]
 
-        current_iteration = 0
         num_batches = dataset.train(batch_size: batch_size, batch_start: batch_start, batch_key: batch_key).count
         iterations_per_batch = num_iterations / num_batches
         stopping_points = (1..num_batches).to_a.map { |n| n * iterations_per_batch }
         stopping_points[-1] = num_iterations
+
+        current_iteration = 0
         current_batch = 0
 
         callbacks = model.callbacks.nil? ? [] : model.callbacks.dup
         callbacks << ::XGBoost::EvaluationMonitor.new(period: 1)
-        cb_container = ::XGBoost::CallbackContainer.new(callbacks)
+        early_stopping_rounds = hyperparameters.to_h.dig("early_stopping_rounds")
 
+        # Generate batches without loading full dataset
         batches = dataset.train(split_ys: true, batch_size: batch_size, batch_start: batch_start, batch_key: batch_key)
+        prev_xs = []
+        prev_ys = []
 
         while current_iteration < num_iterations
+          # Load the next batch
           x_train, y_train = batches.next
+
+          # Add overlap from previous batch if applicable
+          merged_x, merged_y = nil, nil
+          if prev_xs.any?
+            merged_x = Polars.concat([x_train] + prev_xs.flatten)
+            merged_y = Polars.concat([y_train] + prev_ys.flatten)
+          end
+
+          if overlap > 0
+            prev_xs << [x_train]
+            prev_ys << [y_train]
+            if prev_xs.size > overlap
+              prev_xs = prev_xs[1..]
+              prev_ys = prev_ys[1..]
+            end
+          end
+
+          if merged_x.present?
+            x_train = merged_x
+            y_train = merged_y
+          end
+          20.times do
+            p x_train.shape
+          end
+
           d_train = preprocess(x_train, y_train)
           evals = [[d_train, "train"], [d_valid, "eval"]]
+
           model_file = current_batch == 0 ? nil : checkpoint_dir.join("#{current_batch - 1}.json").to_s
 
           @booster = booster_class.new(
@@ -145,17 +177,26 @@ module EasyML
             cache: [d_train, d_valid],
             model_file: model_file,
           )
+          loop_callbacks = callbacks.dup
+          if early_stopping_rounds
+            loop_callbacks << ::XGBoost::EarlyStopping.new(rounds: early_stopping_rounds)
+          end
+          cb_container = ::XGBoost::CallbackContainer.new(loop_callbacks)
           @booster = cb_container.before_training(@booster) if current_iteration == 0
 
-          while current_iteration < stopping_points[current_batch]
+          stopping_point = stopping_points[current_batch]
+          while current_iteration < stopping_point
             break if cb_container.before_iteration(@booster, current_iteration, d_train, evals)
             @booster.update(d_train, current_iteration)
             break if cb_container.after_iteration(@booster, current_iteration, d_train, evals)
             current_iteration += 1
           end
+          current_iteration = stopping_point # In case of early stopping
+
           @booster.save_model(checkpoint_dir.join("#{current_batch}.json").to_s)
           current_batch += 1
         end
+
         @booster = cb_container.after_training(@booster)
       end
 

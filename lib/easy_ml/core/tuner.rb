@@ -50,11 +50,11 @@ module EasyML
           config: {
             n_trials: n_trials,
             objective: objective,
-            hyperparameter_ranges: config
+            hyperparameter_ranges: config,
           },
           direction: direction,
           status: :running,
-          started_at: Time.current
+          started_at: Time.current,
         )
 
         @study = Optuna::Study.new(direction: direction)
@@ -69,7 +69,7 @@ module EasyML
           config: config,
           tune_started_at: tune_started_at,
           y_true: y_true,
-          x_true: x_true
+          x_true: x_true,
         )
 
         adapter.before_run
@@ -79,7 +79,7 @@ module EasyML
         @study.optimize(n_trials: n_trials, callbacks: [method(:loggers)]) do |trial|
           tuner_run = tuner_job.tuner_runs.new(
             trial_number: trial.number,
-            status: :running
+            status: :running,
           )
 
           begin
@@ -91,7 +91,7 @@ module EasyML
             tuner_run.update!(
               hyperparameters: model.hyperparameters.to_h,
               value: result,
-              status: :completed
+              status: :completed,
             )
 
             result
@@ -109,7 +109,7 @@ module EasyML
           metadata: adapter.metadata,
           best_tuner_run_id: best_run.id,
           status: :completed,
-          completed_at: Time.current
+          completed_at: Time.current,
         )
 
         best_run.hyperparameters

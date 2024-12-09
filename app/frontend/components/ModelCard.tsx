@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink, Play, Trash2, Loader2, XCircle, CheckCircle2 } from 'lucide-react';
+import { Activity, Calendar, Database, Settings, ExternalLink, Play, 
+        Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link, router } from "@inertiajs/react";
 import { cn } from '@/lib/utils';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
@@ -13,6 +14,7 @@ interface ModelCardProps {
 
 export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
   const [model, setModel] = useState(initialModel);
+  const [showError, setShowError] = useState(false);
 
   useEffect(() => {
     let pollInterval: number | undefined;
@@ -65,7 +67,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     if (lastRun.status === 'failed') {
       return <XCircle className="w-4 h-4 text-red-500" />;
     }
-    if (lastRun.status === 'completed') {
+    if (lastRun.status === 'success') {
       return <CheckCircle2 className="w-4 h-4 text-green-500" />;
     }
     return null;
@@ -75,7 +77,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     if (model.is_training) return 'Training in progress...';
     if (!lastRun) return 'Never trained';
     if (lastRun.status === 'failed') return 'Last run failed';
-    if (lastRun.status === 'completed') {
+    if (lastRun.status === 'success') {
       return lastRun.should_promote ? 'Last run succeeded' : 'Last run completed (below threshold)';
     }
     return 'Unknown status';
@@ -85,7 +87,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     if (model.is_training) return 'text-yellow-700';
     if (!lastRun) return 'text-gray-500';
     if (lastRun.status === 'failed') return 'text-red-700';
-    if (lastRun.status === 'completed') {
+    if (lastRun.status === 'success') {
       return lastRun.should_promote ? 'text-green-700' : 'text-orange-700';
     }
     return 'text-gray-700';
@@ -193,7 +195,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
         </div>
       </div>
 
-      {lastRun && (
+      {lastRun?.status === 'success' && (
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex flex-wrap gap-2">
             {Object.entries(lastRun.metrics as Record<string, number>).map(([key, value]) => (
@@ -209,6 +211,30 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {!model.is_training && lastRun?.status === 'failed' && lastRun.stacktrace && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <button
+            onClick={() => setShowError(!showError)}
+            className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700"
+          >
+            <AlertCircle className="w-4 h-4" />
+            <span>View Error Details</span>
+            {showError ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </button>
+          {showError && (
+            <div className="mt-2 p-3 bg-red-50 rounded-md">
+              <pre className="text-xs text-red-700 whitespace-pre-wrap font-mono">
+                {lastRun.stacktrace}
+              </pre>
+            </div>
+          )}
         </div>
       )}
     </div>

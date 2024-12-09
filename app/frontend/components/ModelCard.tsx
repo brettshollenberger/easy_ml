@@ -1,5 +1,5 @@
-import React from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink, Trash2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Activity, Calendar, Database, Settings, ExternalLink, Play, Trash2, Loader2 } from 'lucide-react';
 import { Link } from "@inertiajs/react";
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
@@ -13,6 +13,18 @@ export function ModelCard({ model, onViewDetails, handleDelete, rootPath }: Mode
   const dataset = model.dataset;
   const job = model.retraining_job;
   const lastRun = model.last_run;
+  const [isTraining, setIsTraining] = useState(false);
+
+  const handleTrain = async () => {
+    setIsTraining(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+      showAlert('error', 'Failed to start training');
+    } finally {
+      setIsTraining(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -25,11 +37,27 @@ export function ModelCard({ model, onViewDetails, handleDelete, rootPath }: Mode
           >
             {model.deployment_status}
           </span>
+          {isTraining && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Training
+            </span>
+          )}
         </div>
 
         <div className="flex justify-between items-start">
           <h3 className="text-lg font-semibold text-gray-900">{model.name}</h3>
           <div className="flex gap-2">
+            <button
+              onClick={handleTrain}
+              disabled={isTraining}
+              className={`text-gray-400 hover:text-green-600 transition-colors ${
+                isTraining ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title="Train model"
+            >
+              <Play className="w-5 h-5" />
+            </button>
             <Link
               href={`${rootPath}/models/${model.id}/edit`}
               className="text-gray-400 hover:text-gray-600"

@@ -99,7 +99,9 @@ module EasyML
             # Compute the AUC using the trapezoidal rule
             tpr = Numo::DFloat[*true_positive_rate]
             fpr = Numo::DFloat[*false_positive_rate]
-            (fpr[1..-1] - fpr[0...-1]).dot(tpr[1..-1] + tpr[0...-1]) / 2.0
+
+            auc = ((fpr[1..-1] - fpr[0...-1]) * (tpr[1..-1] + tpr[0...-1]) / 2.0).sum
+            auc
           end
 
           def direction

@@ -116,7 +116,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                       <div className="flex items-center gap-2 mt-1">
                         <span
                           className={`px-2 py-1 rounded-md text-sm font-medium ${
-                            run.status === 'completed'
+                            run.status === 'success'
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
                           }`}

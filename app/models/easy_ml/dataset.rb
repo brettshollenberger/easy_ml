@@ -177,15 +177,19 @@ module EasyML
       false
     end
 
+    def learn
+      learn_schema
+      learn_statistics
+      sync_columns
+    end
+
     def refreshing
       return false if locked?
 
       update(workflow_status: "analyzing")
       fully_reload
       yield
-      learn_schema
-      learn_statistics
-      sync_columns
+      learn
       now = UTC.now
       update(workflow_status: "ready", refreshed_at: now, updated_at: now)
       fully_reload
@@ -317,6 +321,7 @@ module EasyML
       df = drop_nulls(df)
       df = apply_transforms(df)
       df = preprocessor.postprocess(df, inference: inference)
+      learn if columns.none?
       df = apply_column_mask(df)
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
@@ -329,24 +334,20 @@ module EasyML
     # dataset.data(split_ys: true)
     # dataset.data(all_columns: true) # Include all columns, even ones we SHOULDN'T train on (e.g. drop_cols). Be very careful! This is for data analysis purposes ONLY!
     #
-    def train(**kwargs)
-      load_data(:train, **kwargs)
+    def train(**kwargs, &block)
+      load_data(:train, **kwargs, &block)
     end
 
-    def valid(**kwargs)
-      load_data(:valid, **kwargs)
+    def valid(**kwargs, &block)
+      load_data(:valid, **kwargs, &block)
     end
 
-    def test(**kwargs)
-      load_data(:test, **kwargs)
+    def test(**kwargs, &block)
+      load_data(:test, **kwargs, &block)
     end
 
-    def data(**kwargs)
-      load_data(:all, **kwargs)
-    end
-
-    def num_batches(segment)
-      processed.num_batches(segment)
+    def data(**kwargs, &block)
+      load_data(:all, **kwargs, &block)
     end
 
     def cleanup
@@ -535,11 +536,11 @@ module EasyML
       df.drop_nulls(subset: drop)
     end
 
-    def load_data(segment, **kwargs)
+    def load_data(segment, **kwargs, &block)
       if processed?
-        processed.load_data(segment, **kwargs)
+        processed.load_data(segment, **kwargs, &block)
       else
-        raw.load_data(segment, **kwargs)
+        raw.load_data(segment, **kwargs, &block)
       end
     end
 
@@ -551,14 +552,6 @@ module EasyML
     end
 
     # log_method :fit, "Learning statistics", verbose: true
-
-    def in_batches(segment, processed: true, &block)
-      if processed
-        processed.read(segment, &block)
-      else
-        raw.read(segment, &block)
-      end
-    end
 
     def split_data!
       split_data(force: true)

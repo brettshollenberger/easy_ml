@@ -206,6 +206,11 @@ module EasyML
       @is_fit = true
     end
 
+    def fit_in_batches(batch_size: 1024, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
+      model_adapter.fit_in_batches(batch_size: batch_size, checkpoint_dir: checkpoint_dir)
+      @is_fit = true
+    end
+
     attr_accessor :is_fit
 
     def is_fit?

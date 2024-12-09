@@ -27,15 +27,15 @@ module ModelSpecHelper
         training: {
           annual_revenue: {
             median: true,
-            clip: { min: 0, max: 1_000_000 }
+            clip: { min: 0, max: 1_000_000 },
           },
           loan_purpose: {
             categorical: {
               categorical_min: 2,
-              one_hot: true
-            }
-          }
-        }
+              one_hot: true,
+            },
+          },
+        },
       }
     end
     base.let(:target) { "rev" }
@@ -54,10 +54,10 @@ module ModelSpecHelper
                               "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
                               "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
                               "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                           2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
+                                           2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01],
                             }).with_column(
-                              Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                            )
+        Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
+      )
     end
 
     base.let(:datasource) do
@@ -84,20 +84,20 @@ module ModelSpecHelper
           today: today,
           date_col: date_col,
           months_test: months_test,
-          months_valid: months_valid
-        }
+          months_valid: months_valid,
+        },
       }
     end
 
     base.let(:dataset_config) do
       base_dataset_config.merge!(
-        datasource: datasource
+        datasource: datasource,
       )
     end
 
     base.let(:loans_dataset_config) do
       base_dataset_config.merge!(
-        datasource: loans_datasource
+        datasource: loans_datasource,
       )
     end
 
@@ -140,20 +140,20 @@ module ModelSpecHelper
           n_estimators: 1,
           learning_rate: learning_rate,
           max_depth: max_depth,
-          objective: objective
-        }
+          objective: objective,
+        },
       }
     end
     base.let(:model_config) do
       base_model_config.merge!(
-        dataset: dataset
+        dataset: dataset,
       )
     end
     base.let(:loans_model_config) do
       base_model_config.merge!(
         name: "Loans Model",
         dataset: loans_dataset,
-        task: :regression
+        task: :regression,
       )
     end
 
@@ -177,6 +177,56 @@ module ModelSpecHelper
       loans_model
     end
 
+    base.let(:titanic_dataset) do
+      dataset = EasyML::Dataset.create(
+        name: "Titanic",
+        datasource: EasyML::Datasource.new(
+          name: "Titanic Extended",
+          datasource_type: "file",
+        ),
+        splitter_attributes: { splitter_type: :random },
+      )
+      dataset.refresh
+      dataset.columns.find_by(name: "Survived").update(is_target: true)
+      dataset.columns.find_by(name: "Name").update(hidden: true)
+      dataset.columns.find_by(name: "Cabin").update(hidden: true)
+      dataset.columns.find_by(name: "Ticket").update(hidden: true)
+      dataset.columns.find_by(name: "Age").update(preprocessing_steps: {
+                                                    training: {
+                                                      method: :median,
+                                                    },
+                                                  })
+      dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
+                                                    training: {
+                                                      method: :categorical,
+                                                      params: {
+                                                        categorical_min: 2,
+                                                        one_hot: true,
+                                                      },
+                                                    },
+                                                  })
+      dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
+                                                         training: {
+                                                           method: :categorical,
+                                                           params: {
+                                                             categorical_min: 2,
+                                                             one_hot: true,
+                                                           },
+                                                         },
+                                                       })
+      dataset.refresh
+      dataset
+    end
+
+    base.let(:titanic_model) do
+      EasyML::Model.create(
+        name: "Titanic",
+        dataset: titanic_dataset,
+        task: :classification,
+        objective: "binary:logistic",
+      )
+    end
+
     # base.before(:each) do
     #   dataset.cleanup
     #   dataset.refresh!
@@ -193,7 +243,7 @@ module ModelSpecHelper
     EasyML::Model.new(params.reverse_merge!(dataset: dataset, metrics: %w[mean_absolute_error],
                                             task: :regression,
                                             hyperparameters: {
-                                              objective: "reg:squarederror"
+                                              objective: "reg:squarederror",
                                             })).tap do |model|
       model.fit
       model.save
@@ -215,13 +265,14 @@ module ModelSpecHelper
 
       method, params = extract_preprocessing_config(config)
 
+      binding.pry
       column.update(
         preprocessing_steps: {
           training: {
             method: method,
-            params: params
-          }
-        }
+            params: params,
+          },
+        },
       )
     end
   end
@@ -252,13 +303,13 @@ module ModelSpecHelper
     allow_any_instance_of(synced_directory).to receive(:sync).and_return(true)
     allow_any_instance_of(synced_directory).to receive(:clean_dir!).and_return(true)
     allow_any_instance_of(synced_directory).to receive(:files_to_sync).and_return(Dir.glob("#{path}/**/*.csv").map do |f|
-      OpenStruct.new(key: f)
-    end)
+                                                 OpenStruct.new(key: f)
+                                               end)
     allow_any_instance_of(EasyML::Datasources::S3Datasource).to receive(:exists?).and_return(true)
     allow_any_instance_of(synced_directory).to receive(:download_file).and_return(true)
 
     reader = EasyML::Data::PolarsReader.new(
-      root_dir: path
+      root_dir: path,
     )
     allow_any_instance_of(synced_directory).to receive(:reader).and_return(reader)
   end

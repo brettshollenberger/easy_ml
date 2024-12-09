@@ -8,10 +8,9 @@ module EasyML::Data
     attribute :verbose
 
     def self.learn(raw, processed)
-      {
-        raw: learn_split(raw),
-        processed: learn_split(processed)
-      }
+      output = { raw: learn_split(raw) }
+      output[:processed] = learn_split(processed) if processed.data.present?
+      output
     end
 
     def self.learn_split(split)
@@ -41,30 +40,30 @@ module EasyML::Data
 
         stats[col] = {
           num_rows: series.shape,
-          null_count: base_stats[col.to_sym][:null_count].to_i
+          null_count: base_stats[col.to_sym][:null_count].to_i,
         }
 
         # Add type-specific statistics
         case field_type
         when :integer, :float
           allowed_attrs = if id_column?(col)
-                            %i[field_type null_count min max]
-                          else
-                            base_stats[col.to_sym].keys
-                          end
+              %i[field_type null_count min max]
+            else
+              base_stats[col.to_sym].keys
+            end
           stats[col].merge!(base_stats[col.to_sym].slice(*allowed_attrs))
         when :categorical, :string, :text, :boolean
           stats[col].merge!(most_frequent_value: series.mode.sort.to_a&.first)
           if field_type == :categorical
             stats[col].merge!(
               unique_count: series.n_unique,
-              counts: Hash[series.value_counts.to_hashes.map(&:values)]
+              counts: Hash[series.value_counts.to_hashes.map(&:values)],
             )
           end
         when :datetime
           stats[col].merge!(
             unique_count: series.n_unique,
-            last_value: series.sort[-1]
+            last_value: series.sort[-1],
           )
         end
       end

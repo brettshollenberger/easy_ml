@@ -115,9 +115,6 @@ module EasyML
         validate_objective
         ensure_directory_exists(checkpoint_dir)
 
-        # Initialize the model with the first batch
-        unload
-        initialize_model
         x_valid, y_valid = dataset.valid(split_ys: true)
         d_valid = preprocess(x_valid, y_valid)
 
@@ -141,13 +138,22 @@ module EasyML
           x_train, y_train = batches.next
           d_train = preprocess(x_train, y_train)
           evals = [[d_train, "train"], [d_valid, "eval"]]
+          model_file = current_batch == 0 ? nil : checkpoint_dir.join("#{current_batch - 1}.json").to_s
+
+          @booster = booster_class.new(
+            params: hyperparameters.to_h.symbolize_keys,
+            cache: [d_train, d_valid],
+            model_file: model_file,
+          )
+          @booster = cb_container.before_training(@booster) if current_iteration == 0
 
           while current_iteration < stopping_points[current_batch]
-            break if cb_container.before_iteration(@booster, i, dtrain, nil)
-            @booster.update(i)
-            break if cb_container.after_iteration(@booster, i, dtrain, nil)
+            break if cb_container.before_iteration(@booster, current_iteration, d_train, evals)
+            @booster.update(d_train, current_iteration)
+            break if cb_container.after_iteration(@booster, current_iteration, d_train, evals)
             current_iteration += 1
           end
+          @booster.save_model(checkpoint_dir.join("#{current_batch}.json").to_s)
           current_batch += 1
         end
         @booster = cb_container.after_training(@booster)

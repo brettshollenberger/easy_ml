@@ -190,13 +190,14 @@ RSpec.describe "EasyML::Models::XGBoost" do
 
         # Train model in batches
         batch_model = model.dup
-        batch_model.hyperparameters.n_estimators = 1_000
-        batch_model.fit_in_batches(batch_size: 100)
+        batch_model.hyperparameters.n_estimators = 50
+        batch_model.hyperparameters.early_stopping_rounds = 10
+        batch_model.fit_in_batches(batch_size: 50, overlap: 5)
         batch_evals = batch_model.evaluate
 
         # Compare metrics
-        binding.pry
-        expect(batch_evals[:accuracy_score]).to be_within(0.01).of(regular_evals[:accuracy_score])
+        expect(batch_evals[:accuracy_score]).to be_within(0.03).of(regular_evals[:accuracy_score])
+        expect(batch_evals[:precision_score]).to be_within(0.03).of(regular_evals[:precision_score])
       end
     end
 

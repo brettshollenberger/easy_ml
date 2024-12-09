@@ -1,29 +1,94 @@
-import React, { useState } from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink, Play, Trash2, Loader2 } from 'lucide-react';
-import { Link } from "@inertiajs/react";
+import React, { useState, useEffect } from 'react';
+import { Activity, Calendar, Database, Settings, ExternalLink, Play, Trash2, Loader2, XCircle, CheckCircle2 } from 'lucide-react';
+import { Link, router } from "@inertiajs/react";
+import { cn } from '@/lib/utils';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
 interface ModelCardProps {
-  model: Model;
+  initialModel: Model;
   onViewDetails: (modelId: number) => void;
   handleDelete: (modelId: number) => void;
+  rootPath: string;
 }
 
-export function ModelCard({ model, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
+export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
+  const [model, setModel] = useState(initialModel);
+
+  useEffect(() => {
+    let pollInterval: number | undefined;
+
+    if (model.is_training) {
+      pollInterval = window.setInterval(async () => {
+        const response = await fetch(`${rootPath}/models/${model.id}`, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        const data = await response.json();
+        setModel(data.model);
+      }, 2000);
+    }
+
+    return () => {
+      if (pollInterval) {
+        window.clearInterval(pollInterval);
+      }
+    };
+  }, [model.is_training, model.id, rootPath]);
+
+  const handleTrain = async () => {
+    try {
+      setModel({
+        ...model,
+        is_training: true
+      })
+      await router.post(`${rootPath}/models/${model.id}/train`, {}, {
+        preserveScroll: true,
+        preserveState: true
+      });
+    } catch (error) {
+      console.error('Failed to start training:', error);
+    }
+  };
+
   const dataset = model.dataset;
   const job = model.retraining_job;
   const lastRun = model.last_run;
-  const [isTraining, setIsTraining] = useState(false);
 
-  const handleTrain = async () => {
-    setIsTraining(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-    } catch (error) {
-      showAlert('error', 'Failed to start training');
-    } finally {
-      setIsTraining(false);
+  const getStatusIcon = () => {
+    if (model.is_training) {
+      return <Loader2 className="w-4 h-4 animate-spin text-yellow-500" />;
     }
+    if (!lastRun) {
+      return null;
+    }
+    if (lastRun.status === 'failed') {
+      return <XCircle className="w-4 h-4 text-red-500" />;
+    }
+    if (lastRun.status === 'completed') {
+      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+    }
+    return null;
+  };
+
+  const getStatusText = () => {
+    if (model.is_training) return 'Training in progress...';
+    if (!lastRun) return 'Never trained';
+    if (lastRun.status === 'failed') return 'Last run failed';
+    if (lastRun.status === 'completed') {
+      return lastRun.should_promote ? 'Last run succeeded' : 'Last run completed (below threshold)';
+    }
+    return 'Unknown status';
+  };
+
+  const getStatusClass = () => {
+    if (model.is_training) return 'text-yellow-700';
+    if (!lastRun) return 'text-gray-500';
+    if (lastRun.status === 'failed') return 'text-red-700';
+    if (lastRun.status === 'completed') {
+      return lastRun.should_promote ? 'text-green-700' : 'text-orange-700';
+    }
+    return 'text-gray-700';
   };
 
   return (
@@ -37,10 +102,10 @@ export function ModelCard({ model, onViewDetails, handleDelete, rootPath }: Mode
           >
             {model.deployment_status}
           </span>
-          {isTraining && (
+          {model.is_training && (
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
               <Loader2 className="w-3 h-3 animate-spin" />
-              Training
+              training
             </span>
           )}
         </div>
@@ -50,9 +115,9 @@ export function ModelCard({ model, onViewDetails, handleDelete, rootPath }: Mode
           <div className="flex gap-2">
             <button
               onClick={handleTrain}
-              disabled={isTraining}
+              disabled={model.is_training}
               className={`text-gray-400 hover:text-green-600 transition-colors ${
-                isTraining ? 'opacity-50 cursor-not-allowed' : ''
+                model.is_training ? 'opacity-50 cursor-not-allowed' : ''
               }`}
               title="Train model"
             >
@@ -118,6 +183,12 @@ export function ModelCard({ model, onViewDetails, handleDelete, rootPath }: Mode
             {model.last_run_at
               ? `Last run: ${new Date(model.last_run_at || '').toLocaleDateString()}`
               : 'Never run'}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {getStatusIcon()}
+          <span className={cn("text-sm", getStatusClass())}>
+            {getStatusText()}
           </span>
         </div>
       </div>

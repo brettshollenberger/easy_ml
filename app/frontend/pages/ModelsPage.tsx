@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Brain, Plus, Trash2 } from 'lucide-react';
 import { ModelCard } from '../components/ModelCard';
 import { EmptyState } from '../components/EmptyState';
@@ -93,7 +93,7 @@ export default function ModelsPage({ rootPath, models }) {
                 <ModelCard
                   rootPath={rootPath}
                   key={model.id}
-                  model={model}
+                  initialModel={model}
                   onViewDetails={setSelectedModelId}
                   handleDelete={handleDelete}
                 />

@@ -87,7 +87,7 @@ module EasyML
 
     delegate :prepare_data, :preprocess, to: :model_adapter
 
-    STATUSES = %w[training inference retired]
+    STATUSES = %w[development inference retired]
     STATUSES.each do |status|
       define_method "#{status}?" do
         self.status.to_sym == status.to_sym
@@ -104,6 +104,10 @@ module EasyML
         EasyML::RetrainingWorker.new.perform(run.id)
       end
       run
+    end
+
+    def training?
+      retraining_runs.running.any?
     end
 
     def deployment_status

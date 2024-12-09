@@ -36,6 +36,10 @@ module EasyML
                :updated_at,
                :last_run_at
 
+    attribute :is_training do |object|
+      object.training?
+    end
+
     attribute :last_run do |object|
       RetrainingRunSerializer.new(object.last_run).serializable_hash.dig(:data, :attributes)
     end

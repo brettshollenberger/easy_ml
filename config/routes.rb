@@ -3,6 +3,9 @@ EasyML::Engine.routes.draw do
 
   # Models
   resources :models, as: :easy_ml_models do
+    member do
+      post :train
+    end
     get "new", on: :collection, as: "new"
   end
 

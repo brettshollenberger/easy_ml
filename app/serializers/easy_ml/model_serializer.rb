@@ -44,6 +44,23 @@ module EasyML
       RetrainingRunSerializer.new(object.last_run).serializable_hash.dig(:data, :attributes)
     end
 
+    attribute :recent_runs do |object, params|
+      limit = params[:limit] || 20
+      offset = params[:offset] || 0
+
+      runs = object.retraining_runs
+        .order(created_at: :desc)
+        .offset(offset)
+        .limit(limit)
+
+      {
+        runs: RetrainingRunSerializer.new(runs).serializable_hash[:data].map { |run| run[:attributes] },
+        total_count: object.retraining_runs.count,
+        limit: limit,
+        offset: offset,
+      }
+    end
+
     attribute :version do |object|
       object.formatted_version
     end

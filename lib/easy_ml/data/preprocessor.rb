@@ -15,42 +15,42 @@ module EasyML::Data
       categorical: %i[categorical_min one_hot ordinal_encoding],
       most_frequent: %i[one_hot ordinal_encoding],
       mean: [:clip],
-      median: [:clip]
+      median: [:clip],
     }
 
     PREPROCESSING_STRATEGIES = {
       float: [
         { value: "mean", label: "Mean" },
         { value: "median", label: "Median" },
-        { value: "constant", label: "Constant Value" }
+        { value: "constant", label: "Constant Value" },
       ],
       integer: [
         { value: "mean", label: "Mean" },
         { value: "median", label: "Median" },
-        { value: "constant", label: "Constant Value" }
+        { value: "constant", label: "Constant Value" },
       ],
       boolean: [
         { value: "most_frequent", label: "Most Frequent" },
-        { value: "constant", label: "Constant Value" }
+        { value: "constant", label: "Constant Value" },
       ],
       datetime: [
         { value: "ffill", label: "Forward Fill" },
         { value: "constant", label: "Constant Value" },
-        { value: "today", label: "Current Date" }
+        { value: "today", label: "Current Date" },
       ],
       string: [
         { value: "most_frequent", label: "Most Frequent" },
-        { value: "constant", label: "Constant Value" }
+        { value: "constant", label: "Constant Value" },
       ],
       text: [
         { value: "most_frequent", label: "Most Frequent" },
-        { value: "constant", label: "Constant Value" }
+        { value: "constant", label: "Constant Value" },
       ],
       categorical: [
         { value: "categorical", label: "Categorical" },
         { value: "most_frequent", label: "Most Frequent" },
-        { value: "constant", label: "Constant Value" }
-      ]
+        { value: "constant", label: "Constant Value" },
+      ],
     }.freeze
 
     attribute :directory
@@ -91,7 +91,7 @@ module EasyML::Data
 
         cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min) || 0
         val_counts = df[col].value_counts
-        allowed_categories[col] = val_counts[val_counts["count"] >= cat_min][col].to_a
+        allowed_categories[col] = val_counts[val_counts["count"] >= cat_min][col].to_a.compact
       end
       allowed_categories
     end
@@ -121,10 +121,10 @@ module EasyML::Data
       return df if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
       steps = if inference
-                preprocessing_steps[:training].merge(preprocessing_steps[:inference] || {})
-              else
-                preprocessing_steps[:training]
-              end
+          preprocessing_steps[:training].merge(preprocessing_steps[:inference] || {})
+        else
+          preprocessing_steps[:training]
+        end
 
       df = apply_transformations(df, steps)
 
@@ -155,7 +155,7 @@ module EasyML::Data
 
     def serialize
       attributes.merge!(
-        statistics: serialize_statistics(statistics || {})
+        statistics: serialize_statistics(statistics || {}),
       )
     end
 
@@ -173,7 +173,7 @@ module EasyML::Data
           options: params,
           path: directory,
           attribute: col,
-          statistics: statistics.dig(col)
+          statistics: statistics.dig(col),
         )
       end
     end
@@ -208,7 +208,7 @@ module EasyML::Data
     end
 
     def apply_one_hot(df, col)
-      approved_values = statistics.dig(col, :allowed_categories)
+      approved_values = statistics.dig(col, :allowed_categories).sort
 
       # Create one-hot encoded columns
       approved_values.each do |value|
@@ -260,7 +260,7 @@ module EasyML::Data
       {
         value: as_hash,
         label_encoder: label_encoder,
-        label_decoder: label_decoder
+        label_decoder: label_decoder,
       }
     end
 
@@ -359,7 +359,7 @@ module EasyML::Data
 
     def self.constants
       {
-        preprocessing_strategies: PREPROCESSING_STRATEGIES
+        preprocessing_strategies: PREPROCESSING_STRATEGIES,
       }
     end
   end

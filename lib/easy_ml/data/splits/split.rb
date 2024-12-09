@@ -18,12 +18,6 @@ module EasyML
           raise NotImplementedError, "Subclasses must implement #save"
         end
 
-        def read(segment, split_ys: false, target: nil, drop_cols: [], **options)
-          validate_segment!(segment)
-          validate_read_options!(options)
-          raise NotImplementedError, "Subclasses must implement #read"
-        end
-
         def data(**kwargs, &block)
           load_data(:all, **kwargs, &block)
         end
@@ -67,7 +61,7 @@ module EasyML
         end
 
         def validate_read_options!(options)
-          valid_options = %i[filter limit select unique]
+          valid_options = %i[filter limit select unique sort descending batch_size batch_start batch_key]
           invalid_options = options.keys - valid_options
           return if invalid_options.empty?
 

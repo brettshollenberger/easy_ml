@@ -7,6 +7,7 @@
 #  retraining_job_id   :bigint           not null
 #  tuner_job_id        :bigint
 #  status              :string           default("pending")
+#  trigger             :string           default("manual")
 #  metric_value        :float
 #  threshold           :float
 #  threshold_direction :string
@@ -25,9 +26,11 @@ module EasyML
 
     belongs_to :retraining_job
     belongs_to :model, class_name: "EasyML::Model"
+    has_one :model_file, class_name: "EasyML::ModelFile", inverse_of: :retraining_run
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
     validates :status, presence: true, inclusion: { in: %w[pending running success failed] }
+    validates :trigger, inclusion: { in: %w[manual schedule] }
 
     scope :running, -> { where(status: "running") }
 
@@ -53,6 +56,7 @@ module EasyML
           tuner_metadata = {}
         end
 
+        binding.pry
         results = metric_results(training_model)
         model_was_promoted = results[:should_promote] && training_model.promotable? && training_model.promote
         failed_reasons = training_model.cannot_promote_reasons - ["Model has not changed"]
@@ -62,7 +66,7 @@ module EasyML
           results.merge!(
             status: status,
             completed_at: failed_reasons.none? ? Time.current : nil,
-            error_message: failed_reasons.any? ? nil : failed_reasons&.first || "Did not pass evaluation",
+            error_message: failed_reasons.none? ? nil : failed_reasons&.first || "Did not pass evaluation",
             model: training_model,
             metadata: tuner_metadata,
             metrics: training_model.evaluate,

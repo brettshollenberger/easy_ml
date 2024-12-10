@@ -49,7 +49,8 @@ module EasyML
     end
 
     belongs_to :dataset
-    belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
+    has_many :model_files, class_name: "EasyML::ModelFile"
+    has_one :deployed_model_file, -> { where(deployed: true) }, class_name: "EasyML::ModelFile"
 
     has_one :retraining_job, class_name: "EasyML::RetrainingJob"
     accepts_nested_attributes_for :retraining_job
@@ -93,6 +94,10 @@ module EasyML
       define_method "#{status}?" do
         self.status.to_sym == status.to_sym
       end
+    end
+
+    def latest_model_file
+      @model_file ||= model_files.order(id: :desc).limit(1)&.first
     end
 
     def train(async: true)
@@ -153,7 +158,7 @@ module EasyML
     def save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless is_fit?
 
-      model_file = get_model_file
+      model_file = new_model_file!
 
       bump_version(force: true)
       path = model_file.full_path(version)
@@ -169,15 +174,15 @@ module EasyML
     end
 
     def cleanup!
-      get_model_file&.cleanup!
+      latest_model_file&.cleanup!
     end
 
     def cleanup
-      get_model_file&.cleanup(files_to_keep)
+      latest_model_file&.cleanup(files_to_keep)
     end
 
     def loaded?
-      model_file = get_model_file
+      model_file = deployed_model_file
       return false if model_file.persisted? && !File.exist?(model_file.full_path.to_s)
 
       file_exists = true
@@ -192,8 +197,9 @@ module EasyML
 
     def model_changed?
       return false unless is_fit?
-      return true if model_file.present? && !model_file.persisted?
-      return true if model_file.present? && model_file.fit? && inference_version.nil?
+      return true if latest_model_file.nil?
+      return true if latest_model_file.present? && !latest_model_file.persisted?
+      return true if latest_model_file.present? && latest_model_file.fit? && inference_version.nil?
 
       model_adapter.model_changed?(inference_version.sha)
     end
@@ -219,7 +225,7 @@ module EasyML
     attr_accessor :is_fit
 
     def is_fit?
-      model_file = get_model_file
+      model_file = latest_model_file
       return true if model_file.present? && model_file.fit?
 
       model_adapter.is_fit?
@@ -334,15 +340,20 @@ module EasyML
       # Prepare the inference model by freezing + saving the model, dataset, and datasource
       # (This creates ModelHistory, DatasetHistory, etc)
       save_model_file
-      self.sha = model_file.sha
-      save
-      dataset.lock
-      snapshot
+      self.sha = latest_model_file.sha
+
+      EasyML::Model.transaction do
+        deployed_model_file
+        latest_model_file.deployed_at = Time.now
+        latest_model_file.deployed = true
+        save
+        dataset.lock
+        snapshot
+      end
 
       # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
       bump_version(force: true)
       dataset.bump_versions(version)
-      self.model_file = new_model_file!
       save
       true
     end
@@ -400,12 +411,8 @@ module EasyML
       name.gsub(/\s{2,}/, " ").gsub(/\s/, "_").downcase
     end
 
-    def get_model_file
-      model_file || new_model_file!
-    end
-
     def new_model_file!
-      build_model_file(
+      model_files.new(
         root_dir: root_dir,
         model: self,
         s3_bucket: EasyML::Configuration.s3_bucket,
@@ -448,10 +455,10 @@ module EasyML
     end
 
     def files_to_keep
-      inference_models = EasyML::ModelHistory.latest_snapshots
-      training_models = EasyML::Model.all
+      inference_files = EasyML::ModelHistory.latest_snapshots.includes(:model_files).map(&:deployed_model_file)
+      training_files = EasyML::Model.all.includes(:model_files).map(&:latest_model_file)
 
-      ([self] + training_models + inference_models).compact.map(&:model_file).compact.map(&:full_path).uniq
+      (inference_files + training_files).compact.map(&:full_path).uniq
     end
 
     def underscored_name

@@ -10,15 +10,7 @@ RSpec.describe EasyML::RetrainingRun do
   after(:all) do
     EasyML::Cleaner.clean
   end
-  let(:model_name) do
-    "My Model"
-  end
   let(:model) do
-    model_config[:name] = model_name
-    model_config[:task] = "regression"
-    model_config[:callbacks] = [
-      { wandb: { project_name: "Fancy Project" } },
-    ]
     EasyML::Model.create(**loans_model_config).tap do |model|
       model.fit
       model.promote
@@ -46,6 +38,7 @@ RSpec.describe EasyML::RetrainingRun do
       active: true,
       metric: :root_mean_squared_error,
       threshold: 1000,
+      auto_deploy: false,
       tuner_config: {
         n_trials: 5,
         objective: :mean_absolute_error,
@@ -105,7 +98,7 @@ RSpec.describe EasyML::RetrainingRun do
         expect(retraining_job.reload.last_tuning_at).to be_nil
       end
 
-      it "doesn't update model if model has not changed" do
+      it "doesn't update model if model has not changed", :focus do
         allow(retraining_job).to receive(:should_tune?).and_return(false)
 
         expect(EasyML::Orchestrator).to receive(:train)
@@ -126,7 +119,7 @@ RSpec.describe EasyML::RetrainingRun do
     end
 
     it "doesn't perform retraining if not pending" do
-      retraining_run.update!(status: "completed")
+      retraining_run.update!(status: "success")
       expect(retraining_run.perform_retraining!).to be false
     end
 

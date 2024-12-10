@@ -17,6 +17,7 @@
 #  metric           :string           not null
 #  direction        :string           not null
 #  threshold        :float            not null
+#  auto_deploy      :boolean          default(FALSE)
 #  batch_mode       :boolean
 #  batch_size       :integer
 #  batch_overlap    :integer
@@ -33,6 +34,7 @@ module EasyML
     belongs_to :model, class_name: "EasyML::Model", inverse_of: :retraining_job
     validates :model, presence: true,
                       uniqueness: { message: "already has a retraining job" }
+    validates :auto_deploy, inclusion: { in: [true, false] }
 
     VALID_FREQUENCIES = %w[day week month].freeze
     FREQUENCY_TYPES = [

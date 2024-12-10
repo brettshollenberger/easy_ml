@@ -2,13 +2,17 @@
 #
 # Table name: easy_ml_model_files
 #
-#  id            :bigint           not null, primary key
-#  filename      :string           not null
-#  path          :string           not null
-#  configuration :json
-#  model_type    :string
-#  created_at    :datetime         not null
-#  updated_at    :datetime         not null
+#  id                :bigint           not null, primary key
+#  filename          :string           not null
+#  path              :string           not null
+#  configuration     :json
+#  model_type        :string
+#  model_id          :bigint
+#  retraining_run_id :bigint
+#  created_at        :datetime         not null
+#  updated_at        :datetime         not null
+#  deployed_at       :datetime
+#  deployed          :boolean
 #
 module EasyML
   class ModelFile < ActiveRecord::Base
@@ -19,7 +23,8 @@ module EasyML
     self.filter_attributes += [:configuration]
 
     validates :filename, presence: true
-    has_one :model, class_name: "EasyML::Model", inverse_of: :model_file
+    belongs_to :model, class_name: "EasyML::Model", inverse_of: :model_files
+    belongs_to :retraining_run, class_name: "EasyML::RetrainingRun", inverse_of: :model_file
 
     include EasyML::Concerns::Configurable
     add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :s3_access_key_id, :s3_secret_access_key, :root_dir
@@ -32,7 +37,7 @@ module EasyML
         s3_region: s3_region,
         s3_access_key_id: s3_access_key_id,
         s3_secret_access_key: s3_secret_access_key,
-        root_dir: root_dir
+        root_dir: root_dir,
       )
     end
 

@@ -34,6 +34,8 @@ module EasyML
         end
 
         def get(name)
+          return if name.nil?
+
           @registry ||= {}
           option = (@registry[name.to_sym] || @registry.detect do |_k, opts|
             opts[:aliases].include?(name.to_sym)

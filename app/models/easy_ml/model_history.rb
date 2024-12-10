@@ -14,6 +14,7 @@
 #  root_dir           :string
 #  file               :json
 #  sha                :string
+#  last_trained_at    :datetime
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  history_started_at :datetime         not null

@@ -37,9 +37,9 @@ module EasyML
         # Configure tuner with model and dataset
         tuner_instance.model = training_model
         adapter = case tuner_instance.model.model_type.to_sym
-                  when :xgboost
-                    EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
-                  end
+          when :xgboost
+            EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
+          end
         tuner_instance.adapter = adapter
         tuner_instance.dataset = training_model.dataset
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 // import { useNavigate } from 'react-router-dom';
-import { Calendar, Lock, AlertCircle } from 'lucide-react';
+import { TrainFront, Lock, AlertCircle } from 'lucide-react';
 import { SearchableSelect } from './SearchableSelect';
 import { ScheduleModal } from './ScheduleModal';
 import { router } from '@inertiajs/react';
@@ -24,6 +24,9 @@ interface ModelFormProps {
         day_of_week?: string;
         day_of_month?: number;
       };
+      batch_mode?: string;
+      batch_size?: number;
+      batch_overlap?: number;
       tuning_frequency?: string;
       active: boolean;
       metric?: string;
@@ -60,6 +63,7 @@ const ErrorDisplay = ({ error }: { error?: string }) => (
 export function ModelForm({ initialData, datasets, constants, isEditing, errors: initialErrors }: ModelFormProps) {
   const { rootPath } = usePage().props;
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [isDataSet, setIsDataSet] = useState(false);
 
   const form = useInertiaForm({
     model: {
@@ -74,6 +78,9 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
         id: initialData.retraining_job.id,
         frequency: initialData.retraining_job.frequency,
         tuning_frequency: initialData.retraining_job.tuning_frequency || 'month',
+        batch_mode: initialData.retraining_job.batch_mode,
+        batch_size: initialData.retraining_job.batch_size,
+        batch_overlap: initialData.retraining_job.batch_overlap,
         at: {
           hour: initialData.retraining_job.at?.hour ?? 2,
           day_of_week: initialData.retraining_job.at?.day_of_week ?? 1,
@@ -116,6 +123,13 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     }
   }, [data.model.task]);
 
+  useEffect(() => {
+    if (isDataSet) {
+      save();
+      setIsDataSet(false); // Reset the flag
+    }
+  }, [isDataSet]);
+
   const handleScheduleSave = (scheduleData: any) => {
     setData({
       ...data,
@@ -124,7 +138,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
         retraining_job_attributes: scheduleData.retraining_job_attributes
       }
     });
-    save();
+    setIsDataSet(true);
   };
 
   const save = () => {
@@ -184,8 +198,8 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
           onClick={() => setShowScheduleModal(true)}
           className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          <Calendar className="w-4 h-4" />
-          Configure Schedule
+          <TrainFront className="w-4 h-4" />
+          Configure Training
         </button>
       </div>
 

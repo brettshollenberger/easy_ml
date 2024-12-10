@@ -17,6 +17,9 @@
 #  metric           :string           not null
 #  direction        :string           not null
 #  threshold        :float            not null
+#  batch_mode       :boolean
+#  batch_size       :integer
+#  batch_overlap    :integer
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #

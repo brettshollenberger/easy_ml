@@ -15,6 +15,9 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.string :metric, null: false
       t.string :direction, null: false
       t.float :threshold, null: false
+      t.boolean :batch_mode
+      t.integer :batch_size
+      t.integer :batch_overlap
 
       t.timestamps
 
@@ -23,6 +26,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.index :last_run_at
       t.index :last_tuning_at
       t.index :locked_at
+      t.index :batch_mode
     end
 
     create_table :easy_ml_retraining_runs do |t|

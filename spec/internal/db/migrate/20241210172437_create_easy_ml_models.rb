@@ -12,10 +12,12 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.string :root_dir
       t.json :file
       t.string :sha
+      t.datetime :last_trained_at
 
       t.timestamps
 
       t.index :created_at
+      t.index :last_trained_at
       t.index :name
       t.index :version
       t.index :status

@@ -2,19 +2,20 @@
 #
 # Table name: easy_ml_models
 #
-#  id            :bigint           not null, primary key
-#  name          :string           not null
-#  model_type    :string
-#  status        :string
-#  dataset_id    :bigint
-#  model_file_id :bigint
-#  configuration :json
-#  version       :string           not null
-#  root_dir      :string
-#  file          :json
-#  sha           :string
-#  created_at    :datetime         not null
-#  updated_at    :datetime         not null
+#  id              :bigint           not null, primary key
+#  name            :string           not null
+#  model_type      :string
+#  status          :string
+#  dataset_id      :bigint
+#  model_file_id   :bigint
+#  configuration   :json
+#  version         :string           not null
+#  root_dir        :string
+#  file            :json
+#  sha             :string
+#  last_trained_at :datetime
+#  created_at      :datetime         not null
+#  updated_at      :datetime         not null
 #
 require_relative "models/hyperparameters"
 

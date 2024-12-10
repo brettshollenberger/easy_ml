@@ -108,6 +108,9 @@ module EasyML
     end
 
     def num_rows
+      if datasource&.num_rows.nil?
+        datasource.after_sync
+      end
       datasource&.num_rows
     end
 

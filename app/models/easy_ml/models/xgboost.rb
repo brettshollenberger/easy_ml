@@ -163,9 +163,6 @@ module EasyML
             x_train = merged_x
             y_train = merged_y
           end
-          20.times do
-            p x_train.shape
-          end
 
           d_train = preprocess(x_train, y_train)
           evals = [[d_train, "train"], [d_valid, "eval"]]

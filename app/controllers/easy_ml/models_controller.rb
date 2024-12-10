@@ -108,41 +108,6 @@ module EasyML
 
     private
 
-    # def model_data(model)
-    #   {
-    #     id: model.id,
-    #     name: model.name,
-    #     description: model.description,
-    #     status: model.status,
-    #     accuracy: model.current_accuracy,
-    #     last_trained_at: model.last_trained_at&.iso8601,
-    #     created_at: model.created_at.iso8601,
-    #   }
-    # end
-
-    # def job_data(job)
-    #   {
-    #     id: job.id,
-    #     model: job.model.name,
-    #     status: job.status,
-    #     progress: job.progress,
-    #     started_at: job.started_at&.iso8601,
-    #     estimated_completion: job.estimated_completion_at&.iso8601
-    #   }
-    # end
-
-    # def run_data(run)
-    #   {
-    #     id: run.id,
-    #     modelId: run.model_id,
-    #     status: run.status,
-    #     accuracy: run.accuracy,
-    #     training_duration: run.training_duration,
-    #     completed_at: run.completed_at&.iso8601,
-    #     error_message: run.error_message
-    #   }
-    # end
-
     def model_params
       params.require(:model).permit(
         :name,
@@ -159,6 +124,9 @@ module EasyML
           :direction,
           :threshold,
           :tuning_frequency,
+          :batch_mode,
+          :batch_size,
+          :batch_overlap,
           at: [:hour, :day_of_week, :day_of_month],
           tuner_config: [
             :n_trials,

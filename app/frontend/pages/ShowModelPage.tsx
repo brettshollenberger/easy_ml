@@ -24,7 +24,7 @@ interface PageProps {
 export default function ShowModelPage({ model, rootPath }: PageProps) {
   return (
     <div className="max-w-3xl mx-auto py-8">
-      <ModelDetails model={model} />
+      <ModelDetails model={model} rootPath={rootPath} />
     </div>
   );
 }

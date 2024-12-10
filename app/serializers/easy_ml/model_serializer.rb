@@ -44,7 +44,7 @@ module EasyML
       RetrainingRunSerializer.new(object.last_run).serializable_hash.dig(:data, :attributes)
     end
 
-    attribute :recent_runs do |object, params|
+    attribute :retraining_runs do |object, params|
       limit = params[:limit] || 20
       offset = params[:offset] || 0
 
@@ -58,6 +58,8 @@ module EasyML
         total_count: object.retraining_runs.count,
         limit: limit,
         offset: offset,
+        next_offset: offset + limit,
+        prev_offset: offset - limit,
       }
     end
 

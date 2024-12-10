@@ -54,6 +54,7 @@ export interface Model {
   configuration: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  retraining_runs: RetrainingRun[];
   last_run_at: string | null;
   last_run: RetrainingRun | null;
   retraining_job: RetrainingJob | null;
@@ -106,4 +107,5 @@ export interface RetrainingRun {
   created_at: string;
   updated_at: string;
   stacktrace: string | null;
+  metrics: Record<string, number>;
 }

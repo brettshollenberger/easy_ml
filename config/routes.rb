@@ -1,10 +1,10 @@
 EasyML::Engine.routes.draw do
   root to: "models#index"
 
-  # Models
   resources :models, as: :easy_ml_models do
     member do
       post :train
+      get :retraining_runs, to: "retraining_runs#index"
     end
     get "new", on: :collection, as: "new"
   end

@@ -154,6 +154,7 @@ module ModelSpecHelper
         name: "Loans Model",
         dataset: loans_dataset,
         task: :regression,
+        objective: "reg:squarederror",
       )
     end
 

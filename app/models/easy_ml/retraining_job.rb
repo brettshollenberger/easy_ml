@@ -34,6 +34,7 @@ module EasyML
     validates :model, presence: true,
                       uniqueness: { message: "already has a retraining job" }
 
+    VALID_FREQUENCIES = %w[day week month].freeze
     FREQUENCY_TYPES = [
       {
         value: "day",
@@ -51,11 +52,13 @@ module EasyML
         description: "Run once every month",
       },
     ].freeze
-    validates :frequency, presence: true, inclusion: { in: %w[day week month] }
+    validates :frequency, presence: true, inclusion: { in: VALID_FREQUENCIES }
+    validates :metric, presence: true, inclusion: { in: EasyML::Core::ModelEvaluator.metrics.map(&:to_s) }
     validates :status, presence: true
     validates :at, presence: true
+    validates :threshold, presence: true
     validates :tuning_frequency, inclusion: {
-                                   in: %w[day week month],
+                                   in: VALID_FREQUENCIES,
                                    allow_nil: true,
                                  }
     validate :evaluator_must_be_valid
@@ -84,11 +87,14 @@ module EasyML
     end
 
     def formatted_frequency
-      FREQUENCY_TYPES.find { |type| type[:value] == frequency }[:label]
+      if active
+        FREQUENCY_TYPES.find { |type| type[:value] == frequency }[:label]
+      else
+        "Manually"
+      end
     end
 
     def should_run?
-      return false if locked?
       return true if last_run_at.nil?
 
       case frequency
@@ -170,6 +176,8 @@ module EasyML
     private
 
     def metric_class
+      return nil unless metric
+
       EasyML::Core::ModelEvaluator.get(metric).new
     end
 
@@ -180,8 +188,8 @@ module EasyML
     end
 
     def validate_at_format
-      return if at.blank?
       return errors.add(:at, "must be a hash") unless at.is_a?(Hash)
+      return if VALID_FREQUENCIES.exclude?(frequency.to_s)
 
       required_keys = case frequency
         when "day"
@@ -194,6 +202,8 @@ module EasyML
 
       missing_keys = required_keys - at.keys.map(&:to_s)
       errors.add(:at, "missing required keys: #{missing_keys.join(", ")}") if missing_keys.any?
+
+      return if at.blank?
 
       # Validate no extra keys are present
       allowed_keys = case frequency

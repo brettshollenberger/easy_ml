@@ -6,6 +6,7 @@ module EasyML
 
     def perform
       RetrainingJob.current.each do |job|
+        next unless job.should_run?
         next unless job.lock!
 
         begin

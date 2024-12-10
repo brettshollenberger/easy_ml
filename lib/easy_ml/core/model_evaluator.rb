@@ -48,7 +48,7 @@ module EasyML
         def default_evaluator(task)
           {
             classification: {
-              metric: "accuracy",
+              metric: "accuracy_score",
               threshold: 0.70,
               direction: "maximize",
             },
@@ -193,15 +193,15 @@ EasyML::Core::ModelEvaluator.register(
   :classification,
   %w[f1]
 )
-EasyML::Core::ModelEvaluator.register(
-  :auc,
-  EasyML::Core::Evaluators::ClassificationEvaluators::AUC,
-  :classification,
-  %w[auc]
-)
-EasyML::Core::ModelEvaluator.register(
-  :roc_auc,
-  EasyML::Core::Evaluators::ClassificationEvaluators::ROC_AUC,
-  :classification,
-  %w[roc_auc]
-)
+# EasyML::Core::ModelEvaluator.register(
+#   :auc,
+#   EasyML::Core::Evaluators::ClassificationEvaluators::AUC,
+#   :classification,
+#   %w[auc]
+# )
+# EasyML::Core::ModelEvaluator.register(
+#   :roc_auc,
+#   EasyML::Core::Evaluators::ClassificationEvaluators::ROC_AUC,
+#   :classification,
+#   %w[roc_auc]
+# )

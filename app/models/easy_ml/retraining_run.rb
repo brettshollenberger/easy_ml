@@ -25,13 +25,17 @@ module EasyML
 
     belongs_to :retraining_job
     belongs_to :model, class_name: "EasyML::Model"
+    has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
-    validates :status, presence: true, inclusion: { in: %w[pending running completed failed] }
+    validates :status, presence: true, inclusion: { in: %w[pending running success failed] }
+
+    scope :running, -> { where(status: "running") }
 
     def perform_retraining!
       return false unless pending?
 
       begin
+        EasyML::Event.create_event(self, "started")
         update!(status: "running", started_at: Time.current)
 
         # Only use tuner if tuning frequency has been met
@@ -51,21 +55,25 @@ module EasyML
 
         results = metric_results(training_model)
         model_was_promoted = results[:should_promote] && training_model.promotable? && training_model.promote
+        failed_reasons = training_model.cannot_promote_reasons - ["Model has not changed"]
+        status = failed_reasons.any? ? "failed" : "success"
 
         update!(
           results.merge!(
-            status: model_was_promoted ? "completed" : "failed",
-            completed_at: model_was_promoted ? Time.current : nil,
-            error_message: model_was_promoted ? nil : training_model.cannot_promote_reasons&.first || "Did not pass evaluation",
+            status: status,
+            completed_at: failed_reasons.none? ? Time.current : nil,
+            error_message: failed_reasons.any? ? nil : failed_reasons&.first || "Did not pass evaluation",
             model: training_model,
             metadata: tuner_metadata,
             metrics: training_model.evaluate,
           )
         )
 
+        EasyML::Event.create_event(self, status)
         retraining_job.update!(last_run_at: Time.current)
         true
       rescue StandardError => e
+        EasyML::Event.handle_error(self, e)
         update!(
           status: "failed",
           completed_at: Time.current,

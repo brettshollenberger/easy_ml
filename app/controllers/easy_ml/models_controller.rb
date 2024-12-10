@@ -77,11 +77,13 @@ module EasyML
       model = Model.includes(:retraining_job, :retraining_runs)
                    .find(params[:id])
 
-      render inertia: "pages/ShowModelPage", props: {
-        model: model_to_json(model),
-      # runs: model.retraining_runs.map { |run| retraining_run_to_json(run) },
-      # job: model.current_retraining_job&.then { |job| retraining_job_to_json(job) },
-      }
+      if request.format.json?
+        render json: { model: model_to_json(model) }
+      else
+        render inertia: "pages/ShowModelPage", props: {
+                 model: model_to_json(model),
+               }
+      end
     end
 
     def destroy
@@ -94,6 +96,14 @@ module EasyML
         flash[:alert] = "Failed to delete the model."
         redirect_to easy_ml_models_path
       end
+    end
+
+    def train
+      model = EasyML::Model.find(params[:id])
+      model.train
+      flash[:notice] = "Model training started!"
+
+      redirect_to easy_ml_models_path
     end
 
     private

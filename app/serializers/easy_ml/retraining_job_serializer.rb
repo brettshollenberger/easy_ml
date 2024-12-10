@@ -7,6 +7,7 @@ module EasyML
     attributes :id,
                :active,
                :frequency,
+               :formatted_frequency,
                :tuning_frequency,
                :at,
                :metric,

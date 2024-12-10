@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
@@ -7,14 +7,67 @@ interface ModelDetailsProps {
   onBack: () => void;
 }
 
+interface PaginatedRuns {
+  runs: RetrainingRun[];
+  total_count: number;
+  limit: number;
+  offset: number;
+}
+
 const ITEMS_PER_PAGE = 3;
 
-export function ModelDetails({ model, onBack }: ModelDetailsProps) {
+export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'dataset'>('overview');
+  const [runs, setRuns] = useState<RetrainingRun[]>(model.retraining_runs?.runs || []);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    offset: 0,
+    limit: 20,
+    total_count: model.retraining_runs?.total_count || 0
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const dataset = model.dataset;
   const job = model.retraining_job;
-  const runs = model.last_run ? [model.last_run] : [];
+
+  const updateCurrentPage = (newPage) => {
+    setCurrentPage(newPage);
+    if (totalPages - newPage < 2 && hasMoreRuns) {
+      loadMoreRuns();
+    }
+  }
+
+  const loadMoreRuns = async () => {
+    if (loading || !hasMoreRuns) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch(`${rootPath}/models/${model.id}/retraining_runs?offset=${pagination.offset + pagination.limit}&limit=${pagination.limit}`);
+      const data = await response.json();
+      const paginatedData = data.data.attributes.retraining_runs as PaginatedRuns;
+      
+      setRuns([...runs, ...paginatedData.runs]);
+      setPagination({
+        offset: paginatedData.offset,
+        limit: paginatedData.limit,
+        total_count: paginatedData.total_count
+      });
+    } catch (error) {
+      console.error('Error loading more runs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasMoreRuns = pagination.offset + pagination.limit < pagination.total_count;
+
+  useEffect(() => {
+    const totalPages = Math.ceil(runs.length / ITEMS_PER_PAGE);
+    const remainingPages = totalPages - currentPage;
+    
+    if (remainingPages <= 2 && hasMoreRuns) {
+      loadMoreRuns();
+    }
+  }, [currentPage, runs, hasMoreRuns]);
 
   const totalPages = Math.ceil(runs.length / ITEMS_PER_PAGE);
   const paginatedRuns = runs.slice(
@@ -35,16 +88,6 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
             }`}
           >
             Overview
-          </button>
-          <button
-            onClick={() => setActiveTab('dataset')}
-            className={`px-4 py-2 text-sm font-medium rounded-md ${
-              activeTab === 'dataset'
-                ? 'bg-blue-100 text-blue-700'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Dataset
           </button>
         </div>
       </div>
@@ -75,12 +118,16 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-gray-400" />
-                  <span>Runs {job.frequency}</span>
+                  <span>{job.active ? `Runs ${job.formatted_frequency}` : "None (Triggered Manually)"}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-gray-400" />
-                  <span>at {job.at.hour}:00</span>
-                </div>
+                {
+                  job.active && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-gray-400" />
+                      <span>at {job.at.hour}:00</span>
+                    </div>
+                  )
+                }
               </div>
             </div>
           )}
@@ -89,10 +136,10 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
         {activeTab === 'overview' ? (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Training History</h3>
+              <h3 className="text-lg font-semibold">Retraining Runs</h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => updateCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
                 >
@@ -102,7 +149,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => updateCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                   className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
                 >
@@ -112,34 +159,26 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
             </div>
 
             <div className="space-y-4">
-              {paginatedRuns.map((run) => (
-                <div
-                  key={run.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
-                >
+              {paginatedRuns.map((run, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="flex items-center gap-2 mt-1">
                         <span
                           className={`px-2 py-1 rounded-md text-sm font-medium ${
-                            run.status === 'completed'
+                            run.status === 'success'
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
                           }`}
                         >
                           {run.status}
                         </span>
-                        {run.should_promote && (
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-md text-sm font-medium">
-                            Promoted
-                          </span>
-                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <BarChart2 className="w-4 h-4 text-gray-400" />
                       <span className="text-sm text-gray-600">
-                        {new Date(run.started_at || '').toLocaleString()}
+                        {new Date(run.started_at).toLocaleString()}
                       </span>
                     </div>
                   </div>
@@ -157,17 +196,6 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                             <span className="text-lg font-semibold">
                               {value.toFixed(4)}
                             </span>
-                            {run.threshold && (
-                              <span
-                                className={`text-sm ${
-                                  run.should_promote
-                                    ? 'text-green-600'
-                                    : 'text-red-600'
-                                }`}
-                              >
-                                ({run.threshold.toFixed(4)})
-                              </span>
-                            )}
                           </div>
                         </div>
                       ))}

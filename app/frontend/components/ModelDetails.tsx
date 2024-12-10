@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
@@ -16,25 +16,34 @@ interface PaginatedRuns {
 
 const ITEMS_PER_PAGE = 3;
 
-export function ModelDetails({ model, onBack }: ModelDetailsProps) {
+export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'dataset'>('overview');
-  const [runs, setRuns] = useState<RetrainingRun[]>(model.recent_runs?.runs || []);
+  const [runs, setRuns] = useState<RetrainingRun[]>(model.retraining_runs?.runs || []);
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({
     offset: 0,
     limit: 20,
-    total_count: model.recent_runs?.total_count || 0
+    total_count: model.retraining_runs?.total_count || 0
   });
   const [currentPage, setCurrentPage] = useState(1);
   const dataset = model.dataset;
   const job = model.retraining_job;
 
+  const updateCurrentPage = (newPage) => {
+    setCurrentPage(newPage);
+    if (totalPages - newPage < 2 && hasMoreRuns) {
+      loadMoreRuns();
+    }
+  }
+
   const loadMoreRuns = async () => {
+    if (loading || !hasMoreRuns) return;
+    
     setLoading(true);
     try {
-      const response = await fetch(`/api/models/${model.id}/retraining_runs?offset=${pagination.offset + pagination.limit}&limit=${pagination.limit}`);
+      const response = await fetch(`${rootPath}/models/${model.id}/retraining_runs?offset=${pagination.offset + pagination.limit}&limit=${pagination.limit}`);
       const data = await response.json();
-      const paginatedData = data.data.attributes.recent_runs as PaginatedRuns;
+      const paginatedData = data.data.attributes.retraining_runs as PaginatedRuns;
       
       setRuns([...runs, ...paginatedData.runs]);
       setPagination({
@@ -50,6 +59,15 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
   };
 
   const hasMoreRuns = pagination.offset + pagination.limit < pagination.total_count;
+
+  useEffect(() => {
+    const totalPages = Math.ceil(runs.length / ITEMS_PER_PAGE);
+    const remainingPages = totalPages - currentPage;
+    
+    if (remainingPages <= 2 && hasMoreRuns) {
+      loadMoreRuns();
+    }
+  }, [currentPage, runs, hasMoreRuns]);
 
   const totalPages = Math.ceil(runs.length / ITEMS_PER_PAGE);
   const paginatedRuns = runs.slice(
@@ -121,7 +139,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
               <h3 className="text-lg font-semibold">Retraining Runs</h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => updateCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
                   className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
                 >
@@ -131,7 +149,7 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                   Page {currentPage} of {totalPages}
                 </span>
                 <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => updateCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
                   className="p-1 rounded-md hover:bg-gray-100 disabled:opacity-50"
                 >
@@ -186,17 +204,6 @@ export function ModelDetails({ model, onBack }: ModelDetailsProps) {
                 </div>
               ))}
             </div>
-            {hasMoreRuns && (
-              <div className="mt-4 text-center">
-                <button
-                  onClick={loadMoreRuns}
-                  disabled={loading}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
-                >
-                  {loading ? 'Loading...' : 'Load More Runs'}
-                </button>
-              </div>
-            )}
           </div>
         ) : (
           dataset && (

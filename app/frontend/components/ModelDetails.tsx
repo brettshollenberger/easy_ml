@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight, Rocket, Loader2 } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
 interface ModelDetailsProps {
@@ -26,6 +26,7 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
     total_count: model.retraining_runs?.total_count || 0
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [deployingRunId, setDeployingRunId] = useState<number | null>(null);
   const dataset = model.dataset;
   const job = model.retraining_job;
 
@@ -35,6 +36,21 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
       loadMoreRuns();
     }
   }
+
+  const isCurrentlyDeployed = (run: RetrainingRun) => {
+    return model.deployment_status === 'inference' && run.id === runs[0].id;
+  };
+
+  const handleDeploy = async (run: RetrainingRun) => {
+    setDeployingRunId(run.id);
+    try {
+      // Simulate deployment delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } catch (error) {
+    } finally {
+      setDeployingRunId(null);
+    }
+  };
 
   const loadMoreRuns = async () => {
     if (loading || !hasMoreRuns) return;
@@ -173,6 +189,12 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
                         >
                           {run.status}
                         </span>
+                        {isCurrentlyDeployed(run) && (
+                          <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-md text-sm font-medium flex items-center gap-1">
+                            <Rocket className="w-4 h-4" />
+                            deployed
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -180,6 +202,32 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
                       <span className="text-sm text-gray-600">
                         {new Date(run.started_at).toLocaleString()}
                       </span>
+                      {run.status === 'success' && run.should_promote && (
+                        <button
+                          onClick={() => handleDeploy(run)}
+                          disabled={deployingRunId === run.id || isCurrentlyDeployed(run)}
+                          className={`ml-4 inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium ${
+                            deployingRunId === run.id
+                              ? 'bg-gray-100 text-gray-500'
+                              : isCurrentlyDeployed(run)
+                              ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                          title={isCurrentlyDeployed(run) ? 'This version is currently deployed' : undefined}
+                        >
+                          {deployingRunId === run.id ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Deploying...
+                            </>
+                          ) : (
+                            <>
+                              <Rocket className="w-4 h-4" />
+                              Deploy
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
 

@@ -12,6 +12,9 @@ module EasyML
                :at,
                :metric,
                :threshold,
-               :tuner_config
+               :tuner_config,
+               :batch_mode,
+               :batch_size,
+               :batch_overlap
   end
 end

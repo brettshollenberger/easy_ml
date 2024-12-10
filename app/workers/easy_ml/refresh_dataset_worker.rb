@@ -5,7 +5,7 @@ module EasyML
       retry: false,
       lock: :until_executed,
       on_conflict: :log,
-      lock_args_method: ->(args) { args.first }
+      lock_args_method: ->(args) { args.first },
     )
 
     def perform(id)

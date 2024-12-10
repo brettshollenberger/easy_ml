@@ -87,7 +87,7 @@ module EasyML
 
     delegate :prepare_data, :preprocess, to: :model_adapter
 
-    STATUSES = %w[training inference retired]
+    STATUSES = %w[development inference retired]
     STATUSES.each do |status|
       define_method "#{status}?" do
         self.status.to_sym == status.to_sym
@@ -104,6 +104,10 @@ module EasyML
         EasyML::RetrainingWorker.new.perform(run.id)
       end
       run
+    end
+
+    def training?
+      retraining_runs.running.any?
     end
 
     def deployment_status
@@ -285,7 +289,7 @@ module EasyML
       when :regression
         %w[mean_absolute_error mean_squared_error root_mean_squared_error r2_score]
       when :classification
-        %w[accuracy_score precision_score recall_score f1_score auc roc_auc]
+        %w[accuracy_score precision_score recall_score f1_score]
       else
         []
       end

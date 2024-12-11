@@ -7,6 +7,7 @@
 #  path          :string           not null
 #  configuration :json
 #  model_type    :string
+#  model_id      :bigint
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
 #
@@ -19,7 +20,7 @@ module EasyML
     self.filter_attributes += [:configuration]
 
     validates :filename, presence: true
-    has_one :model, class_name: "EasyML::Model", inverse_of: :model_file
+    belongs_to :model, class_name: "EasyML::Model"
 
     include EasyML::Concerns::Configurable
     add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :s3_access_key_id, :s3_secret_access_key, :root_dir
@@ -32,7 +33,7 @@ module EasyML
         s3_region: s3_region,
         s3_access_key_id: s3_access_key_id,
         s3_secret_access_key: s3_secret_access_key,
-        root_dir: root_dir
+        root_dir: root_dir,
       )
     end
 

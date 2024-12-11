@@ -24,6 +24,7 @@ gem "sprockets-rails"
 gem "suo"
 gem "wandb", "~> 0.1.9"
 gem "xgb", "~> 0.9.0"
+gem "date", "~> 3.4.1"
 
 group :development, :test do
   gem "combustion"

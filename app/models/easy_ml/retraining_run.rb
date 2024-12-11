@@ -9,13 +9,15 @@
 #  status              :string           default("pending")
 #  metric_value        :float
 #  threshold           :float
+#  trigger             :string           default("manual")
 #  threshold_direction :string
-#  should_promote      :boolean
+#  deployable          :boolean
 #  started_at          :datetime
 #  completed_at        :datetime
 #  error_message       :text
 #  metadata            :jsonb
 #  metrics             :jsonb
+#  best_params         :jsonb
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #
@@ -40,8 +42,8 @@ module EasyML
 
         # Only use tuner if tuning frequency has been met
         if should_tune?
-          training_model = Orchestrator.train(retraining_job.model.name, tuner: retraining_job.tuner_config,
-                                                                         evaluator: retraining_job.evaluator)
+          training_model, best_params = Orchestrator.train(retraining_job.model.name, tuner: retraining_job.tuner_config,
+                                                                                      evaluator: retraining_job.evaluator)
           retraining_job.update!(last_tuning_at: Time.current)
 
           # Get metadata from the latest tuner job if it exists
@@ -49,13 +51,15 @@ module EasyML
                                            .order(created_at: :desc)
                                            .first&.metadata || {}
         else
-          training_model = Orchestrator.train(retraining_job.model.name, evaluator: retraining_job.evaluator)
+          training_model, _ = Orchestrator.train(retraining_job.model.name, evaluator: retraining_job.evaluator)
           tuner_metadata = {}
         end
 
         results = metric_results(training_model)
-        model_was_promoted = results[:should_promote] && training_model.promotable? && training_model.promote
-        failed_reasons = training_model.cannot_promote_reasons - ["Model has not changed"]
+        failed_reasons = training_model.cannot_deploy_reasons - ["Model has not changed"]
+        if results[:deployable] == false
+          failed_reasons += ["Did not pass evaluation"]
+        end
         status = failed_reasons.any? ? "failed" : "success"
 
         update!(
@@ -66,13 +70,24 @@ module EasyML
             model: training_model,
             metadata: tuner_metadata,
             metrics: training_model.evaluate,
+            best_params: best_params,
           )
         )
 
         EasyML::Event.create_event(self, status)
         retraining_job.update!(last_run_at: Time.current)
+
+        reload
+        if deployable? && retraining_job.auto_deploy
+          training_model.save_model_file
+          training_model.reload
+          EasyML::Deploy.create!(retraining_run: self, model: training_model, model_file: training_model.model_file, trigger: trigger)
+        end
         true
       rescue StandardError => e
+        20.times do
+          p e if Rails.env.test?
+        end
         EasyML::Event.handle_error(self, e)
         update!(
           status: "failed",
@@ -87,8 +102,8 @@ module EasyML
       status == "pending"
     end
 
-    def completed?
-      status == "completed"
+    def success?
+      status == "success"
     end
 
     def failed?
@@ -106,7 +121,7 @@ module EasyML
     end
 
     def metric_results(training_model)
-      return training_model.promotable? unless retraining_job.evaluator.present?
+      return training_model.deployable? unless retraining_job.evaluator.present?
 
       training_model.dataset.refresh
       evaluator = retraining_job.evaluator.symbolize_keys
@@ -126,18 +141,18 @@ module EasyML
       if evaluator[:min].present?
         threshold = evaluator[:min]
         threshold_direction = "minimize"
-        should_promote = metric_value < threshold
+        deployable = metric_value < threshold
       else
         threshold = evaluator[:max]
         threshold_direction = "maximize"
-        should_promote = metric_value > threshold
+        deployable = metric_value > threshold
       end
 
       {
         metric_value: metric_value,
         threshold: threshold,
         threshold_direction: threshold_direction,
-        should_promote: should_promote,
+        deployable: deployable,
       }
     end
   end

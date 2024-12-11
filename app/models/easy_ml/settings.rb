@@ -2,20 +2,22 @@
 #
 # Table name: easy_ml_settings
 #
-#  id                   :bigint           not null, primary key
-#  storage              :string
-#  timezone             :string
-#  s3_access_key_id     :string
-#  s3_secret_access_key :string
-#  s3_bucket            :string
-#  s3_region            :string
-#  s3_prefix            :string
-#  created_at           :datetime         not null
-#  updated_at           :datetime         not null
+#  id            :bigint           not null, primary key
+#  configuration :json
+#  created_at    :datetime         not null
+#  updated_at    :datetime         not null
 #
+require_relative "concerns/configurable"
+
 module EasyML
   class Settings < ActiveRecord::Base
     self.table_name = "easy_ml_settings"
+    include EasyML::Concerns::Configurable
+
+    add_configuration_attributes :storage,
+      :s3_access_key_id, :s3_secret_access_key,
+      :s3_bucket, :s3_region, :s3_prefix, :timezone,
+      :wandb_api_key
 
     validates :storage, inclusion: { in: %w[file s3] }, if: -> { storage.present? }
 
@@ -23,12 +25,12 @@ module EasyML
       { value: "America/New_York", label: "Eastern Time" },
       { value: "America/Chicago", label: "Central Time" },
       { value: "America/Denver", label: "Mountain Time" },
-      { value: "America/Los_Angeles", label: "Pacific Time" }
+      { value: "America/Los_Angeles", label: "Pacific Time" },
     ]
 
     def self.constants
       {
-        TIMEZONES: TIMEZONES
+        TIMEZONES: TIMEZONES,
       }
     end
   end

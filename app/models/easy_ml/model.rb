@@ -49,7 +49,7 @@ module EasyML
     end
 
     belongs_to :dataset
-    belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
+    belongs_to :model_file, class_name: "EasyML::ModelFile", foreign_key: "model_file_id", optional: true
 
     has_one :retraining_job, class_name: "EasyML::RetrainingJob"
     accepts_nested_attributes_for :retraining_job
@@ -161,6 +161,7 @@ module EasyML
       model_file.upload(full_path)
 
       model_file.save
+      self.model_file = model_file
       cleanup
     end
 
@@ -225,8 +226,8 @@ module EasyML
       model_adapter.is_fit?
     end
 
-    def promotable?
-      cannot_promote_reasons.none?
+    def deployable?
+      cannot_deploy_reasons.none?
     end
 
     def decode_labels(ys, col: nil)
@@ -325,11 +326,11 @@ module EasyML
       )
     end
 
-    class CannotPromoteError < StandardError
+    class CannotdeployError < StandardError
     end
 
-    def promote
-      raise CannotPromoteError, cannot_promote_reasons.first if cannot_promote_reasons.any?
+    def deploy
+      raise CannotdeployError, cannot_deploy_reasons.first if cannot_deploy_reasons.any?
 
       # Prepare the inference model by freezing + saving the model, dataset, and datasource
       # (This creates ModelHistory, DatasetHistory, etc)
@@ -349,12 +350,11 @@ module EasyML
 
     def inference_pipeline(df); end
 
-    def cannot_promote_reasons
+    def cannot_deploy_reasons
       [
         is_fit? ? nil : "Model has not been trained",
         dataset.target.present? ? nil : "Dataset has no target",
         !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource",
-        model_changed? ? nil : "Model has not changed",
       ].compact
     end
 

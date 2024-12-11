@@ -1714,7 +1714,7 @@ GEM
       activerecord (>= 5.a)
       database_cleaner-core (~> 2.0.0)
     database_cleaner-core (2.0.1)
-    date (3.4.0)
+    date (3.4.1)
     diff-lcs (1.5.1)
     drb (2.2.1)
     dry-cli (1.2.0)
@@ -1957,6 +1957,7 @@ DEPENDENCIES
   aws-sdk (~> 3.1)
   combustion
   database_cleaner-active_record
+  date (~> 3.4.1)
   easy_ml!
   glue_gun_dsl!
   guard

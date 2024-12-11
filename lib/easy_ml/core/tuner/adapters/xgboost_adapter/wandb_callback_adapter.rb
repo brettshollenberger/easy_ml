@@ -31,7 +31,7 @@ module EasyML
 
                   metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
                   Wandb.log(metrics)
-                end
+                end,
               ]
             end
           end

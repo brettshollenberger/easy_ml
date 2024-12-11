@@ -19,7 +19,7 @@ RSpec.describe EasyML::RetrainingJob do
   let(:model) do
     loans_model.fit
     loans_model.save
-    loans_model.promote
+    loans_model.deploy
     loans_model
   end
 
@@ -152,21 +152,21 @@ RSpec.describe EasyML::RetrainingJob do
       end
     end
 
-    describe "#lock!" do
+    describe "#lock_job!" do
       it "sets locked_at timestamp" do
-        expect { job.lock! }.to change { job.locked_at }.from(nil)
+        expect { job.lock_job! }.to change { job.locked_at }.from(nil)
       end
 
       it "returns false if already locked" do
-        job.lock!
-        expect(job.lock!).to be false
+        job.lock_job!
+        expect(job.lock_job!).to be false
       end
     end
 
-    describe "#unlock!" do
+    describe "#unlock_job!" do
       it "clears locked_at timestamp" do
-        job.lock!
-        expect { job.unlock! }.to change { job.locked_at }.to(nil)
+        job.lock_job!
+        expect { job.unlock_job! }.to change { job.locked_at }.to(nil)
       end
     end
   end

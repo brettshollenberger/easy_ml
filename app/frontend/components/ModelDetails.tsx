@@ -202,7 +202,7 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
                       <span className="text-sm text-gray-600">
                         {new Date(run.started_at).toLocaleString()}
                       </span>
-                      {run.status === 'success' && run.should_promote && (
+                      {run.status === 'success' && run.deployable && (
                         <button
                           onClick={() => handleDeploy(run)}
                           disabled={deployingRunId === run.id || isCurrentlyDeployed(run)}

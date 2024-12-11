@@ -5,7 +5,7 @@ module EasyML
     include JSONAPI::Serializer
 
     attributes :id,
-               :should_promote,
+               :deployable,
                :metrics,
                :metric_value,
                :threshold,
@@ -26,7 +26,7 @@ module EasyML
         nil
       else
         last_event = object.events.order(id: :desc).limit(1).last
-        last_event&.stacktrace if last_event&.status.to_s == "error"
+        last_event&.stacktrace if last_event&.status.to_s == "failed"
       end
     end
   end

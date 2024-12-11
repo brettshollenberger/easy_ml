@@ -16,7 +16,7 @@ module EasyML
     MAX_LINE_LENGTH = 65
     self.table_name = "easy_ml_events"
 
-    STATUSES = %w[started success error].freeze
+    STATUSES = %w[started success failed].freeze
 
     belongs_to :eventable, polymorphic: true, optional: true
 
@@ -32,7 +32,7 @@ module EasyML
     scope :for_worker, ->(worker_class) { where(name: worker_name(worker_class)) }
     scope :started, -> { where(status: "started") }
     scope :succeeded, -> { where(status: "success") }
-    scope :failed, -> { where(status: "error") }
+    scope :failed, -> { where(status: "failed") }
 
     def self.create_event(model, status, error = nil)
       EasyML::Event.create!(
@@ -44,7 +44,7 @@ module EasyML
     end
 
     def self.handle_error(model, error)
-      create_event(model, "error", error)
+      create_event(model, "failed", error)
       Rails.logger.error("#{self.class.name} failed: #{error.message}")
     end
 

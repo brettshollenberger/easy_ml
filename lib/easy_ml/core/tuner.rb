@@ -91,7 +91,7 @@ module EasyML
             tuner_run.update!(
               hyperparameters: model.hyperparameters.to_h,
               value: result,
-              status: :completed,
+              status: :success,
             )
 
             result
@@ -108,12 +108,13 @@ module EasyML
         tuner_job.update!(
           metadata: adapter.metadata,
           best_tuner_run_id: best_run.id,
-          status: :completed,
+          status: :success,
           completed_at: Time.current,
         )
 
         best_run.hyperparameters
       rescue StandardError => e
+        binding.pry
         tuner_job&.update!(status: :failed, completed_at: Time.current)
         raise e
       end

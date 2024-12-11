@@ -7,7 +7,7 @@ RSpec.describe EasyML::Orchestrator do
     EasyML::Datasource.create(
       name: "Polars Datasource",
       datasource_type: "polars",
-      df: df
+      df: df,
     )
   end
 
@@ -27,7 +27,7 @@ RSpec.describe EasyML::Orchestrator do
 
   describe ".predict" do
     it "loads model and makes predictions" do
-      model.promote
+      model.deploy
 
       df, = model.dataset.test(split_ys: true)
       model_preds = model.predict(df)
@@ -38,7 +38,7 @@ RSpec.describe EasyML::Orchestrator do
     end
 
     it "doesn't reload the model when model already loaded" do
-      model.promote
+      model.deploy
 
       df, = model.dataset.test(split_ys: true)
       expect_any_instance_of(EasyML::Models::XGBoost).to receive(:initialize_model).once.and_call_original
@@ -49,7 +49,7 @@ RSpec.describe EasyML::Orchestrator do
     end
 
     it "does reload the model when inference model changes" do
-      model.promote
+      model.deploy
       df, = model.dataset.test(split_ys: true)
 
       # Orchestrator already ran model loading her
@@ -57,19 +57,19 @@ RSpec.describe EasyML::Orchestrator do
         described_class.predict(model.name, df)
       end
 
-      expect(model).to_not be_promotable
-      expect(model.cannot_promote_reasons).to include("Model has not changed")
+      expect(model).to_not be_deployable
+      expect(model.cannot_deploy_reasons).to include("Model has not changed")
 
       randomize_hypers(model)
-      expect(model).to_not be_promotable
+      expect(model).to_not be_deployable
       model.fit
-      expect(model).to be_promotable
+      expect(model).to be_deployable
 
       old_preds = model.latest_snapshot.predict(df)
       new_preds = model.predict(df)
       expect(old_preds).to_not eq new_preds
 
-      model.promote
+      model.deploy
 
       # So if Orchestrator runs model loading again here, test passes
       expect_any_instance_of(EasyML::Models::XGBoost).to receive(:initialize_model).once.and_call_original
@@ -87,7 +87,7 @@ RSpec.describe EasyML::Orchestrator do
 
   describe ".train" do
     it "trains the latest model" do
-      model.promote
+      model.deploy
 
       randomize_hypers(model)
       model.save
@@ -99,13 +99,13 @@ RSpec.describe EasyML::Orchestrator do
       training_model = described_class.train(model.name)
       expect(training_model.status).to eq "training"
       expect(training_model.is_fit?).to be true
-      expect(training_model).to be_promotable
+      expect(training_model).to be_deployable
       expect(training_model.name).to eq model.name
       expect(training_model.version).to_not eq model.version
     end
 
     it "accepts a tuner for hyperparameter optimization" do
-      model.promote
+      model.deploy
 
       tuner = {
         n_trials: 5,
@@ -113,14 +113,14 @@ RSpec.describe EasyML::Orchestrator do
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 }
-        }
+          max_depth: { min: 1, max: 5 },
+        },
       }
 
       expect_any_instance_of(EasyML::Core::Tuner).to receive(:tune).and_return({
                                                                                  "learning_rate" => 0.05,
                                                                                  "n_estimators" => 2,
-                                                                                 "max_depth" => 3
+                                                                                 "max_depth" => 3,
                                                                                })
 
       training_model = described_class.train(model.name, tuner: tuner)
@@ -138,7 +138,7 @@ RSpec.describe EasyML::Orchestrator do
     end
 
     it "raises error when trying to train an inference model directly" do
-      model.promote
+      model.deploy
       inference_model = model.inference_version
 
       expect do
@@ -147,7 +147,7 @@ RSpec.describe EasyML::Orchestrator do
     end
 
     it "accepts tuner configuration for hyperparameter optimization" do
-      model.promote
+      model.deploy
 
       tuner = {
         n_trials: 5,
@@ -155,8 +155,8 @@ RSpec.describe EasyML::Orchestrator do
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 }
-        }
+          max_depth: { min: 1, max: 5 },
+        },
       }
 
       # Expect the tuner to be created with the config
@@ -165,7 +165,7 @@ RSpec.describe EasyML::Orchestrator do
       expect_any_instance_of(EasyML::Core::Tuner).to receive(:tune).and_return({
                                                                                  "learning_rate" => 0.05,
                                                                                  "n_estimators" => 2,
-                                                                                 "max_depth" => 3
+                                                                                 "max_depth" => 3,
                                                                                })
 
       training_model = described_class.train(model.name, tuner: tuner)

@@ -10,7 +10,7 @@ module EasyML
       return if model.training?
 
       retraining_run.perform_retraining!
-      retraining_run.retraining_job.unlock!
+      retraining_run.retraining_job.unlock_job!
     end
   end
 end

@@ -1,18 +1,19 @@
-require "glue_gun"
 require_relative "polars_reader"
 
 module EasyML
   module Data
     class SyncedDirectory
-      include GlueGun::DSL
+      attr_accessor :root_dir, :s3_bucket, :s3_prefix, :s3_access_key_id, :s3_secret_access_key, :cache_for, :polars_args
 
-      attribute :root_dir, :string
-      attribute :s3_bucket, :string
-      attribute :s3_prefix, :string
-      attribute :s3_access_key_id, :string
-      attribute :s3_secret_access_key, :string
-      attribute :cache_for, default: nil
-      attribute :polars_args, :hash, default: {}
+      def initialize(options = {})
+        @root_dir = options.dig(:root_dir)
+        @s3_bucket = options.dig(:s3_bucket)
+        @s3_prefix = options.dig(:s3_prefix)
+        @s3_access_key_id = options.dig(:s3_access_key_id)
+        @s3_secret_access_key = options.dig(:s3_secret_access_key)
+        @cache_for = options.dig(:cache_for)
+        @polars_args = options.dig(:polars_args)
+      end
 
       delegate :query, :data, to: :reader
 
@@ -33,9 +34,7 @@ module EasyML
       end
 
       def remote_files
-        puts "LISTNING REMOTE FILES!!!"
         s3.list_objects_v2(bucket: s3_bucket, prefix: s3_prefix)
-        puts "DONE!"
       end
 
       def should_sync?(force = false)

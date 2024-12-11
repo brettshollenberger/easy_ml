@@ -1,12 +1,12 @@
-require "glue_gun"
-
 module EasyML
   module Support
     class LocalFile
-      include GlueGun::DSL
+      attr_accessor :root_dir, :filename
 
-      attribute :root_dir, :string
-      attribute :filename, :string
+      def initialize(options = {})
+        @root_dir = options[:root_dir]
+        @filename = options[:filename]
+      end
 
       def upload(file_path)
         file_path

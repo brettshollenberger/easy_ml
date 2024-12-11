@@ -4,35 +4,34 @@ require_relative "tuner/adapters"
 module EasyML
   module Core
     class Tuner
-      include GlueGun::DSL
+      attr_accessor :model, :dataset, :project_name, :task, :config,
+                    :metrics, :objective, :n_trials, :direction, :evaluator,
+                    :study, :results, :adapter
 
-      attribute :model
-      attribute :dataset
-      attribute :project_name, :string
-      attribute :task, :string
-      attribute :config, :hash, default: {}
-      attribute :metrics, :array
-      attribute :objective, :string
-      attribute :n_trials, default: 100
-      attribute :direction, default: "minimize"
-      attribute :evaluator
-      attr_accessor :study, :results
+      def initialize(options = {})
+        @model = options[:model]
+        @dataset = options[:dataset]
+        @project_name = options[:project_name]
+        @task = options[:task]
+        @config = options[:config] || {}
+        @metrics = options[:metrics]
+        @objective = options[:objective]
+        @n_trials = options[:n_trials] || 100
+        @direction = options[:direction] || "minimize"
+        @evaluator = options[:evaluator]
+        @adapter = initialize_adapter
+      end
 
-      dependency :adapter, lazy: true do |dep|
-        dep.option :xgboost do |opt|
-          opt.set_class Adapters::XGBoostAdapter
-          opt.bind_attribute :model
-          opt.bind_attribute :config
-          opt.bind_attribute :project_name
-          opt.bind_attribute :tune_started_at
-          opt.bind_attribute :y_true
-        end
-
-        dep.when do |_dep|
-          case model
-          when EasyML::Core::Models::XGBoost
-            { option: :xgboost }
-          end
+      def initialize_adapter
+        case model&.model_type
+        when "xgboost"
+          Adapters::XGBoostAdapter.new(
+            model: model,
+            config: config,
+            project_name: project_name,
+            tune_started_at: nil,  # This will be set during tune
+            y_true: nil, # This will be set during tune
+          )
         end
       end
 
@@ -64,13 +63,9 @@ module EasyML
         model.dataset.refresh
         x_true, y_true = model.dataset.test(split_ys: true)
         tune_started_at = EasyML::Support::UTC.now
-        adapter = adapter_class.new(
-          model: model,
-          config: config,
-          tune_started_at: tune_started_at,
-          y_true: y_true,
-          x_true: x_true,
-        )
+        adapter.tune_started_at = tune_started_at
+        adapter.y_true = y_true
+        adapter.x_true = x_true
 
         adapter.before_run
 
@@ -127,13 +122,6 @@ module EasyML
           run_metrics[model.evaluator[:metric]]
         else
           run_metrics[objective.to_sym]
-        end
-      end
-
-      def adapter_class
-        case model.model_type
-        when "xgboost"
-          Adapters::XGBoostAdapter
         end
       end
 

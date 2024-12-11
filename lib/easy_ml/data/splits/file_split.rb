@@ -4,19 +4,20 @@ module EasyML
   module Data
     module Splits
       class FileSplit < Split
-        include GlueGun::DSL
         include EasyML::Data::Utils
 
-        attribute :dir, :string
-        attribute :polars_args, :hash, default: {}
-        attribute :max_rows_per_file, :integer, default: 1_000_000
-        attribute :batch_size, :integer, default: 10_000
-        attribute :verbose, :boolean, default: false
-        attribute :dataset
-        attribute :datasource
+        attr_accessor :dir, :polars_args, :max_rows_per_file, :batch_size, :verbose,
+                      :dataset, :datasource
 
-        def initialize(options)
+        def initialize(options = {})
           super
+          @dir = options[:dir]
+          @polars_args = options[:polars_args] || {}
+          @max_rows_per_file = options[:max_rows_per_file] || 1_000_000
+          @batch_size = options[:batch_size] || 10_000
+          @verbose = options[:verbose] || false
+          @dataset = options[:dataset]
+          @datasource = options[:datasource]
           FileUtils.mkdir_p(dir)
         end
 

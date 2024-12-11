@@ -18,7 +18,7 @@ module EasyML
     def index
       @settings = Settings.first_or_create
       render inertia: "pages/SettingsPage", props: {
-        settings: { settings: @settings.as_json }
+        settings: { settings: @settings.as_json },
       }
     end
 
@@ -37,7 +37,7 @@ module EasyML
       end
       flash.now[:notice] = "Settings saved."
       render inertia: "pages/SettingsPage", props: {
-        settings: @settings.as_json
+        settings: @settings.as_json,
       }
     end
 

@@ -37,7 +37,7 @@ module EasyML
     validates :model, presence: true,
                       uniqueness: { message: "already has a retraining job" }
 
-    VALID_FREQUENCIES = %w[day week month].freeze
+    VALID_FREQUENCIES = %w[day week month always].freeze
     FREQUENCY_TYPES = [
       {
         value: "day",
@@ -83,6 +83,10 @@ module EasyML
       }
     end
 
+    def tuner_config
+      (read_attribute(:tuner_config) || {}).merge!(objective: metric).stringify_keys
+    end
+
     def formatted_frequency
       if active
         FREQUENCY_TYPES.find { |type| type[:value] == frequency }[:label]
@@ -117,6 +121,8 @@ module EasyML
       return true if last_tuning_at.nil?
 
       case tuning_frequency
+      when "always"
+        true
       when "hour"
         last_tuning_at < Time.current.beginning_of_hour
       when "day"

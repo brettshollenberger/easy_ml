@@ -58,15 +58,16 @@ module EasyML
         results = metric_results(training_model)
         failed_reasons = training_model.cannot_deploy_reasons - ["Model has not changed"]
         if results[:deployable] == false
-          failed_reasons += ["Did not pass evaluation"]
+          status = "failed"
+        else
+          status = failed_reasons.any? ? "failed" : "success"
         end
-        status = failed_reasons.any? ? "failed" : "success"
 
         update!(
           results.merge!(
             status: status,
             completed_at: failed_reasons.none? ? Time.current : nil,
-            error_message: failed_reasons.any? ? nil : failed_reasons&.first || "Did not pass evaluation",
+            error_message: failed_reasons.any? ? failed_reasons&.first : nil,
             model: training_model,
             metadata: tuner_metadata,
             metrics: training_model.evaluate,
@@ -74,7 +75,11 @@ module EasyML
           )
         )
 
-        EasyML::Event.create_event(self, status)
+        if failed_reasons.any?
+          EasyML::Event.handle_error(self, failed_reasons.first)
+        else
+          EasyML::Event.create_event(self, status)
+        end
         retraining_job.update!(last_run_at: Time.current)
 
         reload

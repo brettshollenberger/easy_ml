@@ -113,6 +113,7 @@ module EasyML
       def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
         validate_objective
 
+        puts "PREPARE DATA... This may take a minute..."
         d_train, d_valid, = prepare_data if x_train.nil?
         evals = [[d_train, "train"], [d_valid, "eval"]]
         @booster = base_model.train(hyperparameters.to_h, d_train,
@@ -143,7 +144,6 @@ module EasyML
 
         callbacks = model.callbacks.nil? ? [] : model.callbacks.dup
         callbacks << ::XGBoost::EvaluationMonitor.new(period: 1)
-        early_stopping_rounds = hyperparameters.to_h.dig("early_stopping_rounds")
 
         # Generate batches without loading full dataset
         batches = dataset.train(split_ys: true, batch_size: batch_size, batch_start: batch_start, batch_key: batch_key)

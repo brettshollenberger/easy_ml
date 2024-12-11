@@ -127,6 +127,7 @@ module EasyML
           :batch_mode,
           :batch_size,
           :batch_overlap,
+          :batch_key,
           at: [:hour, :day_of_week, :day_of_month],
           tuner_config: [
             :n_trials,

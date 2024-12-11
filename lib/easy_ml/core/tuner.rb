@@ -63,7 +63,7 @@ module EasyML
         model.task = task
         model.dataset.refresh
         x_true, y_true = model.dataset.test(split_ys: true)
-        tune_started_at = UTC.now
+        tune_started_at = EasyML::Support::UTC.now
         adapter = adapter_class.new(
           model: model,
           config: config,
@@ -77,6 +77,7 @@ module EasyML
         model.prepare_data
 
         @study.optimize(n_trials: n_trials, callbacks: [method(:loggers)]) do |trial|
+          puts "Running trial #{trial.number}"
           tuner_run = tuner_job.tuner_runs.new(
             trial_number: trial.number,
             status: :running,

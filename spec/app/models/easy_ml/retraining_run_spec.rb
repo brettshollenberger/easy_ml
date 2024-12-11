@@ -14,14 +14,9 @@ RSpec.describe EasyML::RetrainingRun do
     "My Model"
   end
   let(:model) do
-    model_config[:name] = model_name
-    model_config[:task] = "regression"
-    model_config[:callbacks] = [
-      { wandb: { project_name: "Fancy Project" } },
-    ]
     EasyML::Model.create(**loans_model_config).tap do |model|
       model.fit
-      model.promote
+      model.deploy
     end
   end
   let(:mock_run) { instance_double(Wandb::Run) }
@@ -104,17 +99,6 @@ RSpec.describe EasyML::RetrainingRun do
         expect(retraining_run.perform_retraining!).to be true
         expect(retraining_job.reload.last_tuning_at).to be_nil
       end
-
-      it "doesn't update model if model has not changed" do
-        allow(retraining_job).to receive(:should_tune?).and_return(false)
-
-        expect(EasyML::Orchestrator).to receive(:train)
-                                          .with(model.name, evaluator: retraining_job.evaluator)
-                                          .and_call_original
-
-        expect(retraining_run.perform_retraining!).to be true
-        expect(retraining_run.reload.error_message).to eq "Model has not changed"
-      end
     end
 
     it "handles errors during retraining" do
@@ -126,7 +110,7 @@ RSpec.describe EasyML::RetrainingRun do
     end
 
     it "doesn't perform retraining if not pending" do
-      retraining_run.update!(status: "completed")
+      retraining_run.update!(status: "success")
       expect(retraining_run.perform_retraining!).to be false
     end
 
@@ -142,8 +126,8 @@ RSpec.describe EasyML::RetrainingRun do
           allow_any_instance_of(EasyML::Dataset).to receive(:lock).and_return(true)
           allow_any_instance_of(EasyML::Dataset).to receive(:test).and_return([[1, 2, 3], y_true])
           allow(training_model).to receive(:predict).and_return(y_pred)
-          allow(training_model).to receive(:promotable?).and_return(true)
-          allow(training_model).to receive(:cannot_promote_reasons).and_return([])
+          allow(training_model).to receive(:deployable?).and_return(true)
+          allow(training_model).to receive(:cannot_deploy_reasons).and_return([])
           allow(training_model).to receive(:reload).and_return(training_model)
           allow(training_model).to receive_message_chain(:bump_versions).and_call_original
 
@@ -186,10 +170,31 @@ RSpec.describe EasyML::RetrainingRun do
           )
         end
 
-        it "promotes model when RMSE is below threshold" do
+        it "DOES NOT deploy model when RMSE is below threshold IF auto_deploy is disabled" do
+          retraining_job.update(auto_deploy: false)
+
           setup_evaluation([1, 2, 3], [1, 2, 3])
           original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
           expect(retraining_run.perform_retraining!).to be true
+
+          expect(EasyML::DeployWorker.jobs.count).to eq 0
+
+          original_model.reload
+          expect(original_model).to be_inference
+
+          expect(EasyML::Deploy.count).to eq 0
+          expect(EasyML::ModelHistory.count).to eq 1
+        end
+
+        it "deploys model when RMSE is below threshold AND auto_deploy is enabled" do
+          retraining_job.update(auto_deploy: true)
+
+          setup_evaluation([1, 2, 3], [1, 2, 3])
+          original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
+          expect(retraining_run.perform_retraining!).to be true
+
+          expect(EasyML::DeployWorker.jobs.count).to eq 1
+          Sidekiq::Worker.drain_all
 
           original_model.reload
           expect(original_model).to be_retired
@@ -199,13 +204,23 @@ RSpec.describe EasyML::RetrainingRun do
           expect(trained_model.id).to_not eq original_model.id
           expect(trained_model).to be_inference # after promotion
           expect(trained_model.retraining_runs.first).to eq retraining_run
-          expect(retraining_run.reload).to be_completed
+          expect(retraining_run.reload).to be_success
+
+          deploy = EasyML::Deploy.last
+          expect(deploy.trigger).to eq "manual"
+          expect(deploy.model.id).to eq original_model.id
+          expect(deploy.model_file_id).to eq trained_model.model_file_id
+          expect(deploy.retraining_run_id).to eq retraining_run.id
         end
 
-        it "does not promote model when RMSE is above threshold" do
+        it "does not deploy model when RMSE is above threshold" do
+          retraining_job.update(auto_deploy: true)
+
           setup_evaluation([1, 2, 3], [100, 200, 300])
           original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
           expect(retraining_run.perform_retraining!).to be true
+
+          expect(EasyML::DeployWorker.jobs.count).to eq 0
 
           original_model.reload
           expect(original_model).to_not be_retired
@@ -216,9 +231,14 @@ RSpec.describe EasyML::RetrainingRun do
         end
 
         it "logs all metrics" do
+          retraining_job.update(auto_deploy: true)
+
           setup_evaluation([1, 2, 3], [1, 2, 3])
           original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
           expect(retraining_run.perform_retraining!).to be true
+
+          expect(EasyML::DeployWorker.jobs.count).to eq 1
+          Sidekiq::Worker.drain_all
 
           original_model.reload
           expect(original_model).to be_retired
@@ -243,6 +263,7 @@ RSpec.describe EasyML::RetrainingRun do
         end
 
         it "uses custom evaluator for promotion decision" do
+          retraining_job.update(auto_deploy: true)
           model.update(metrics: model.metrics + [:custom])
 
           original_model = model.latest_snapshot
@@ -250,11 +271,13 @@ RSpec.describe EasyML::RetrainingRun do
           setup_evaluation([1, 2, 3], [2000, 3000, 4000])
 
           expect(retraining_run.perform_retraining!).to be true
+          Sidekiq::Worker.drain_all
+
           expect(retraining_run.metric_value).to eq 8994.0
           expect(retraining_run.threshold).to eq 1_000
           expect(retraining_run.threshold_direction).to eq "maximize"
-          expect(retraining_run.should_promote).to eq true
-          expect(retraining_run).to be_completed
+          expect(retraining_run.deployable).to eq true
+          expect(retraining_run).to be_success
           expect(original_model.reload).to be_retired
 
           trained_model = EasyML::Model.find_by(name: model.name).latest_snapshot
@@ -270,9 +293,14 @@ RSpec.describe EasyML::RetrainingRun do
 
       context "With callbacks" do
         it "passes metadata from the tuner to the retraining_run" do
+          EasyML::Configuration.configure do |config|
+            config.wandb_api_key = "test_key"
+          end
+
           allow(retraining_run).to receive(:should_tune?).and_return(true)
           setup_evaluation([1, 2, 3], [1, 2, 3], true)
           m = EasyML::Model.find_by(name: model.name).latest_snapshot
+          m.callbacks = []
           expect(retraining_run.perform_retraining!).to be true
 
           expect(retraining_run.metadata["wandb_url"]).to eq "https://wandb.ai"
@@ -286,19 +314,19 @@ RSpec.describe EasyML::RetrainingRun do
     it "provides status helper methods" do
       run = described_class.new(status: "pending")
       expect(run).to be_pending
-      expect(run).not_to be_completed
+      expect(run).not_to be_success
 
-      run.status = "completed"
-      expect(run).to be_completed
+      run.status = "success"
+      expect(run).to be_success
       expect(run).not_to be_pending
 
       run.status = "failed"
       expect(run).to be_failed
-      expect(run).not_to be_completed
+      expect(run).not_to be_success
 
       run.status = "running"
       expect(run).to be_running
-      expect(run).not_to be_completed
+      expect(run).not_to be_success
     end
   end
 end

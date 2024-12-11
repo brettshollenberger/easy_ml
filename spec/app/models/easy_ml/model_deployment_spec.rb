@@ -16,7 +16,7 @@ RSpec.describe EasyML::Models do
     EasyML::Datasource.create(
       name: "Titanic Core",
       datasource_type: "s3",
-      s3_bucket: "titanic"
+      s3_bucket: "titanic",
     )
   end
 
@@ -26,8 +26,8 @@ RSpec.describe EasyML::Models do
       name: "Titanic Dataset",
       datasource: datasource,
       splitter_attributes: {
-        splitter_type: "random"
-      }
+        splitter_type: "random",
+      },
     }
   end
 
@@ -47,22 +47,22 @@ RSpec.describe EasyML::Models do
                                                     training: {
                                                       method: :categorical,
                                                       params: {
-                                                        one_hot: true
-                                                      }
-                                                    }
+                                                        one_hot: true,
+                                                      },
+                                                    },
                                                   })
       dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
                                                          training: {
                                                            method: :categorical,
                                                            params: {
-                                                             one_hot: true
-                                                           }
-                                                         }
+                                                             one_hot: true,
+                                                           },
+                                                         },
                                                        })
       dataset.columns.find_by(name: "Age").update(preprocessing_steps: {
                                                     training: {
-                                                      method: :median
-                                                    }
+                                                      method: :median,
+                                                    },
                                                   })
       dataset.refresh
     end
@@ -74,7 +74,7 @@ RSpec.describe EasyML::Models do
       max_depth: 8,
       n_estimators: 1,
       booster: "gbtree",
-      objective: "reg:squarederror"
+      objective: "reg:squarederror",
     }
   end
 
@@ -88,13 +88,14 @@ RSpec.describe EasyML::Models do
       model_type: "xgboost",
       task: task,
       dataset: dataset,
+      objective: objective,
       hyperparameters: {
         booster: :gbtree,
         learning_rate: learning_rate,
         max_depth: max_depth,
         objective: objective,
-        n_estimators: 1
-      }
+        n_estimators: 1,
+      },
     }
   end
 
@@ -109,17 +110,17 @@ RSpec.describe EasyML::Models do
                             "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
                             "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
                             "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
+                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01],
                           }).with_column(
-                            Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                          )
+      Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
+    )
   end
 
   let(:polars_datasource) do
     EasyML::Datasource.create!(
       name: "Polars datasource",
       datasource_type: "polars",
-      df: df
+      df: df,
     )
   end
 
@@ -131,8 +132,8 @@ RSpec.describe EasyML::Models do
         today: today,
         date_col: "date",
         months_test: months_test,
-        months_valid: months_valid
-      }
+        months_valid: months_valid,
+      },
     )
     mock_s3_download(day_1_dir)
     mock_s3_upload
@@ -146,19 +147,19 @@ RSpec.describe EasyML::Models do
                                                                  method: :median,
                                                                  params: {
                                                                    clip: {
-                                                                     min: 0, max: 1_000_000
-                                                                   }
-                                                                 }
-                                                               }
+                                                                     min: 0, max: 1_000_000,
+                                                                   },
+                                                                 },
+                                                               },
                                                              })
       dataset.columns.find_by(name: "loan_purpose").update(preprocessing_steps: {
                                                              training: {
                                                                method: :categorical,
                                                                params: {
                                                                  categorical_min: 2,
-                                                                 one_hot: true
-                                                               }
-                                                             }
+                                                                 one_hot: true,
+                                                               },
+                                                             },
                                                            })
     end
   end
@@ -178,15 +179,15 @@ RSpec.describe EasyML::Models do
   def build_model(params)
     Timecop.freeze(incr_time)
     EasyML::Model.new(params.reverse_merge!(
-                        dataset: dataset,
-                        metrics: %w[mean_absolute_error],
-                        task: :regression,
-                        model_type: "xgboost",
-                        hyperparameters: {
-                          objective: "reg:squarederror",
-                          n_estimators: 1
-                        }
-                      )).tap do |model|
+      dataset: dataset,
+      metrics: %w[mean_absolute_error],
+      task: :regression,
+      model_type: "xgboost",
+      hyperparameters: {
+        objective: "reg:squarederror",
+        n_estimators: 1,
+      },
+    )).tap do |model|
       model.fit
       model.save
     end
@@ -196,8 +197,8 @@ RSpec.describe EasyML::Models do
     @time += 1.second
   end
 
-  describe "#promote" do
-    it "uses snapshot model for prediction" do
+  describe "#deploy" do
+    it "uses snapshot model for prediction", :focus do
       mock_s3_upload
 
       @time = EasyML::Support::EST.now
@@ -205,7 +206,7 @@ RSpec.describe EasyML::Models do
 
       model.fit
       model.save
-      model.promote
+      model.deploy
       model_v1 = model.latest_snapshot
 
       Timecop.freeze(@time + 2.hours)
@@ -260,14 +261,14 @@ RSpec.describe EasyML::Models do
       model.fit
       model.save
 
-      # When model1 gets promoted, we want to have a copy of its file!
+      # When model1 gets deployed, we want to have a copy of its file!
       # We're mocking the download from s3...
       #
       @mock_s3_location = SPEC_ROOT.join("saved_file.json")
       FileUtils.rm(@mock_s3_location) if File.exist?(@mock_s3_location)
       FileUtils.cp(model.model_file.full_path, @mock_s3_location)
 
-      model.promote
+      model.deploy
       model_v1 = model.latest_snapshot
 
       Timecop.freeze(@time + 2.hours)
@@ -321,7 +322,7 @@ RSpec.describe EasyML::Models do
       live_predictions = model_v2.latest_snapshot.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum) # Even though we use "v2" model to load the snapshot, the latest LIVE snapshot is v1
 
-      model.promote # Now the latest snapshot becomes v2
+      model.deploy # Now the latest snapshot becomes v2
       live_predictions = model.reload.latest_snapshot.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
       expect(model.latest_snapshot.dataset.data.count).to eq 891
@@ -340,7 +341,7 @@ RSpec.describe EasyML::Models do
 
       Timecop.freeze(EasyML::Support::EST.parse("2024-02-02"))
 
-      model.promote
+      model.deploy
       model_v1 = model.latest_snapshot
 
       expect(model.dataset.raw.dir).to match(/20240202050000/)
@@ -403,7 +404,7 @@ RSpec.describe EasyML::Models do
       # Since the v1 model is no longer live, we've deleted the model file... we need to expect it'll be requested from s3 too
       FileUtils.mv(model_v1.model_file.full_path, SPEC_ROOT.join("backups/models"))
 
-      model.promote # Now the latest snapshot becomes v2
+      model.deploy # Now the latest snapshot becomes v2
 
       expect(model_v1.model_file).to receive(:download) do
         FileUtils.mv(

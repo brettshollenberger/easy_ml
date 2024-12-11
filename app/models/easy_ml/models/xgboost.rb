@@ -72,8 +72,19 @@ module EasyML
         klass.new(params)
       end
 
+      def add_auto_configurable_callbacks(params)
+        if EasyML::Configuration.wandb_api_key.present?
+          params << {
+            callback_type: :wandb,
+            project_name: model.name,
+          }
+        end
+      end
+
       def build_callbacks(params)
         return [] unless params.is_a?(Array)
+
+        add_auto_configurable_callbacks(params)
 
         params.map do |conf|
           conf.symbolize_keys!

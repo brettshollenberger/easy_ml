@@ -28,6 +28,7 @@ module EasyML
       raise ActiveRecord::RecordNotFound if training_model.nil?
 
       tuner = tuner.symbolize_keys if tuner.present?
+      best_params = nil
 
       if tuner
         # Create tuner from config
@@ -55,7 +56,7 @@ module EasyML
       training_model.evaluator = evaluator if evaluator.present?
       training_model.fit
       training_model.save
-      training_model
+      return training_model, best_params
     end
 
     def reset

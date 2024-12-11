@@ -28,7 +28,7 @@ module EasyML
     enum status: {
       pending: "pending",
       running: "running",
-      completed: "completed",
+      success: "success",
       failed: "failed",
     }
 

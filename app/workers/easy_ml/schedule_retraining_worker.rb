@@ -7,12 +7,12 @@ module EasyML
     def perform
       RetrainingJob.current.each do |job|
         next unless job.should_run?
-        next unless job.lock!
+        next unless job.lock_job!
 
         begin
           model.train
         rescue StandardError
-          job.unlock!
+          job.unlock_job!
         end
       end
     end

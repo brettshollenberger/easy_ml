@@ -9,7 +9,7 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
   end
   let(:model) do
     pretrain_loans_model.tap do |model|
-      model.promote
+      model.deploy
     end
   end
 
@@ -25,9 +25,9 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
         config: {
           learning_rate: { min: 0.01, max: 0.1 },
           n_estimators: { min: 1, max: 2 },
-          max_depth: { min: 1, max: 5 }
-        }
-      }
+          max_depth: { min: 1, max: 5 },
+        },
+      },
     )
   end
   describe "#perform" do
@@ -64,8 +64,8 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
     end
 
     it "only processes jobs that can be locked" do
-      allow(job1).to receive(:lock!).and_return(false)
-      allow(job2).to receive(:lock!).and_return(true)
+      allow(job1).to receive(:lock_job!).and_return(false)
+      allow(job2).to receive(:lock_job!).and_return(true)
 
       expect do
         subject.perform
@@ -76,7 +76,7 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
 
     it "unlocks job if run creation fails" do
       allow(job1.retraining_runs).to receive(:create!).and_raise("Test error")
-      expect(job1).to receive(:unlock!)
+      expect(job1).to receive(:unlock_job!)
 
       subject.perform
     end

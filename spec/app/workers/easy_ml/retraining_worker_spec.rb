@@ -9,7 +9,7 @@ RSpec.describe EasyML::RetrainingWorker do
     end
     let(:model) do
       pretrain_loans_model.tap do |model|
-        model.promote
+        model.deploy
       end
     end
     let(:retraining_job) do
@@ -23,16 +23,16 @@ RSpec.describe EasyML::RetrainingWorker do
           objective: :mean_absolute_error,
           config: {
             learning_rate: { min: 0.01, max: 0.1 },
-            n_estimators: { min: 1, max: 2 }
-          }
-        }
+            n_estimators: { min: 1, max: 2 },
+          },
+        },
       )
     end
 
     let(:retraining_run) do
       EasyML::RetrainingRun.create!(
         retraining_job: retraining_job,
-        status: :pending
+        status: :pending,
       )
     end
 
@@ -43,14 +43,14 @@ RSpec.describe EasyML::RetrainingWorker do
     end
 
     it "unlocks the associated job after processing" do
-      expect(retraining_job).to receive(:unlock!)
+      expect(retraining_job).to receive(:unlock_job!)
 
       subject.perform(retraining_run.id)
     end
 
     it "does not unlock the job after an error" do
       allow(retraining_run).to receive(:perform_retraining!).and_raise(StandardError, "Something went wrong")
-      expect(retraining_job).to_not receive(:unlock!)
+      expect(retraining_job).to_not receive(:unlock_job!)
 
       expect { subject.perform(retraining_run.id) }.to raise_error(StandardError)
     end

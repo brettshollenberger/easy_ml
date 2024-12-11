@@ -99,7 +99,7 @@ export interface RetrainingRun {
   metric_value: number | null;
   threshold: number | null;
   threshold_direction: ThresholdDirection;
-  should_promote: boolean;
+  deployable: boolean;
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;

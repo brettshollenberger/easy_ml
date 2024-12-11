@@ -15,6 +15,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.string :metric, null: false
       t.string :direction, null: false
       t.float :threshold, null: false
+      t.boolean :auto_deploy, default: false
       t.boolean :batch_mode
       t.integer :batch_size
       t.integer :batch_overlap
@@ -27,6 +28,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.index :last_tuning_at
       t.index :locked_at
       t.index :batch_mode
+      t.index :auto_deploy
     end
 
     create_table :easy_ml_retraining_runs do |t|
@@ -36,13 +38,15 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.string :status, default: 'pending'
       t.float :metric_value
       t.float :threshold
+      t.string :trigger, default: 'manual'
       t.string :threshold_direction
-      t.boolean :should_promote
+      t.boolean :deployable
       t.datetime :started_at
       t.datetime :completed_at
       t.text :error_message
       t.jsonb :metadata
       t.jsonb :metrics
+      t.jsonb :best_params
 
       t.timestamps
 
@@ -53,6 +57,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.index :tuner_job_id
       t.index :retraining_job_id
       t.index :model_id
+      t.index :trigger
     end
   end
 end

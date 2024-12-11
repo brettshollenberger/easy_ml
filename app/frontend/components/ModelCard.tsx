@@ -78,7 +78,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     if (!lastRun) return 'Never trained';
     if (lastRun.status === 'failed') return 'Last run failed';
     if (lastRun.status === 'success') {
-      return lastRun.should_promote ? 'Last run succeeded' : 'Last run completed (below threshold)';
+      return lastRun.deployable ? 'Last run succeeded' : 'Last run completed (below threshold)';
     }
     return 'Unknown status';
   };
@@ -88,7 +88,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     if (!lastRun) return 'text-gray-500';
     if (lastRun.status === 'failed') return 'text-red-700';
     if (lastRun.status === 'success') {
-      return lastRun.should_promote ? 'text-green-700' : 'text-orange-700';
+      return lastRun.deployable ? 'text-green-700' : 'text-orange-700';
     }
     return 'text-gray-700';
   };
@@ -202,7 +202,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
               <div
                 key={key}
                 className={`px-2 py-1 rounded-md text-xs font-medium ${
-                  lastRun.should_promote
+                  lastRun.deployable
                     ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
                 }`}

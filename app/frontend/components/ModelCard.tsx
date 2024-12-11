@@ -195,7 +195,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
         </div>
       </div>
 
-      {lastRun?.status === 'success' && (
+      {lastRun?.metrics && (
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex flex-wrap gap-2">
             {Object.entries(lastRun.metrics as Record<string, number>).map(([key, value]) => (

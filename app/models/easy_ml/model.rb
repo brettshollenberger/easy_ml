@@ -104,7 +104,7 @@ module EasyML
       else
         EasyML::RetrainingWorker.new.perform(run.id)
       end
-      run
+      run.reload
     end
 
     def training?
@@ -152,6 +152,7 @@ module EasyML
 
     def save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless is_fit?
+      return unless model_adapter.loaded?
 
       model_file = get_model_file
 
@@ -212,7 +213,7 @@ module EasyML
 
       if x_train.nil?
         puts "Refreshing dataset"
-        dataset.refresh
+        # dataset.refresh
       end
       model_adapter.fit(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid)
       @is_fit = true

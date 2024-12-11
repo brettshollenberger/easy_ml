@@ -15,6 +15,7 @@ module EasyML
                :tuner_config,
                :batch_mode,
                :batch_size,
-               :batch_overlap
+               :batch_overlap,
+               :batch_key
   end
 end

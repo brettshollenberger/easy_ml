@@ -33,7 +33,9 @@ module EasyML
       end
 
       def remote_files
+        puts "LISTNING REMOTE FILES!!!"
         s3.list_objects_v2(bucket: s3_bucket, prefix: s3_prefix)
+        puts "DONE!"
       end
 
       def should_sync?(force = false)
@@ -44,7 +46,7 @@ module EasyML
         sync(force: true, parallel: parallel)
       end
 
-      def sync(force: false, parallel: true)
+      def sync(force: false, parallel: false)
         return false unless should_sync?(force)
 
         files = files_to_sync
@@ -58,7 +60,9 @@ module EasyML
       end
 
       def files_to_sync
+        puts "LISTNING REMOTE FILES!!!"
         objects = s3.list_objects_v2(bucket: s3_bucket, prefix: s3_prefix).contents
+        puts "DONE!"
         objects.reject { |object| object.key.end_with?("/") }
       end
 
@@ -118,7 +122,7 @@ module EasyML
         s3.get_object(
           response_target: local_file_path,
           bucket: s3_bucket,
-          key: object.key
+          key: object.key,
         )
 
         Rails.logger.info("Downloaded #{object.key} to #{local_file_path}")
@@ -195,7 +199,7 @@ module EasyML
         @reader = EasyML::Data::PolarsReader.new(
           root_dir: dir,
           polars_args: polars_args,
-          refresh: false
+          refresh: false,
         )
       end
 
@@ -212,20 +216,18 @@ module EasyML
       end
 
       def s3
-        @s3 ||= begin
-          credentials = Aws::Credentials.new(
-            s3_access_key_id,
-            s3_secret_access_key
-          )
-          Aws::S3::Client.new(
-            credentials: credentials,
-            http_open_timeout: 5, # Timeout for establishing connection (in seconds)
-            http_read_timeout: 30, # Timeout for reading response (in seconds))
-            http_wire_trace: false, # Enable verbose HTTP logging
-            http_idle_timeout: 0,
-            logger: Logger.new(STDOUT) # Logs to STDOUT; you can also set a file
-          )
-        end
+        credentials = Aws::Credentials.new(
+          s3_access_key_id,
+          s3_secret_access_key
+        )
+        Aws::S3::Client.new(
+          credentials: credentials,
+          http_open_timeout: 5, # Timeout for establishing connection (in seconds)
+          http_read_timeout: 30, # Timeout for reading response (in seconds))
+          http_wire_trace: false, # Enable verbose HTTP logging
+          http_idle_timeout: 0,
+          logger: Logger.new(STDOUT), # Logs to STDOUT; you can also set a file
+        )
       end
 
       def ungzip_file(gzipped_file_path)
@@ -298,7 +300,7 @@ module EasyML
               bucket: s3_bucket,
               key: "#{s3_key}.gz",
               body: file,
-              content_encoding: "gzip"
+              content_encoding: "gzip",
             )
           end
 
@@ -320,7 +322,7 @@ module EasyML
           # Check if file exists in S3
           response = s3.head_object(
             bucket: s3_bucket,
-            key: "#{s3_key}.gz"
+            key: "#{s3_key}.gz",
           )
 
           # Compare modification times

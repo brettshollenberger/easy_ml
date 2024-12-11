@@ -45,9 +45,10 @@ module EasyML
           end
 
           def suggest_parameters(trial, config)
-            defaults.keys.inject({}) do |hash, param_name|
+            config.keys.inject({}) do |hash, param_name|
               hash.tap do
                 param_value = suggest_parameter(trial, param_name, config)
+                puts "Suggesting #{param_name}: #{param_value}"
                 model.hyperparameters.send("#{param_name}=", param_value)
                 hash[param_name] = param_value
               end
@@ -66,12 +67,18 @@ module EasyML
 
           def suggest_parameter(trial, param_name, config)
             param_config = config[param_name]
+            if !param_config.is_a?(Hash)
+              return param_config
+            end
+
             min = param_config[:min]
             max = param_config[:max]
             log = param_config[:log]
 
             if log
               trial.suggest_loguniform(param_name.to_s, min, max)
+            elsif max.is_a?(Integer) && min.is_a?(Integer)
+              trial.suggest_int(param_name.to_s, min, max)
             else
               trial.suggest_uniform(param_name.to_s, min, max)
             end

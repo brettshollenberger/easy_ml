@@ -44,6 +44,13 @@ module EasyML
     end
 
     def self.handle_error(model, error)
+      if error.is_a?(String)
+        begin
+          raise error
+        rescue StandardError => e
+          error = e
+        end
+      end
       create_event(model, "failed", error)
       Rails.logger.error("#{self.class.name} failed: #{error.message}")
     end

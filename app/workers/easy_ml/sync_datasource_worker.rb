@@ -24,9 +24,6 @@ module EasyML
     def on_success(_status, options)
       options.symbolize_keys!
 
-      100.times do
-        p "Success!"
-      end
       datasource = EasyML::Datasource.find(options[:datasource_id])
 
       begin
@@ -55,9 +52,6 @@ module EasyML
       datasource.before_sync
       files = datasource.files_to_sync
       return if files.empty?
-      100.times do
-        p "Runnin!"
-      end
 
       batch = Sidekiq::Batch.new
       batch.description = "Syncing datasource #{datasource.id}"

@@ -12,6 +12,7 @@
 #  created_at        :datetime         not null
 #  updated_at        :datetime         not null
 #  deployed_at       :datetime
+#  deployed_ended_at :datetime
 #  deployed          :boolean
 #
 module EasyML

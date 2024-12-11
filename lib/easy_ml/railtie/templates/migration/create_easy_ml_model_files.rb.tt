@@ -9,6 +9,7 @@ class CreateEasyMLModelFiles < ActiveRecord::Migration[6.0]
       t.bigint :retraining_run_id
       t.timestamps
       t.datetime :deployed_at
+      t.datetime :deployed_ended_at
       t.boolean :deployed
 
       t.index :created_at
@@ -17,6 +18,7 @@ class CreateEasyMLModelFiles < ActiveRecord::Migration[6.0]
       t.index :model_id
       t.index :retraining_run_id
       t.index :deployed_at
+      t.index :deployed_ended_at
       t.index :deployed
     end
   end

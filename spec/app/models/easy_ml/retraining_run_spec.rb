@@ -98,7 +98,7 @@ RSpec.describe EasyML::RetrainingRun do
         expect(retraining_job.reload.last_tuning_at).to be_nil
       end
 
-      it "doesn't update model if model has not changed", :focus do
+      it "doesn't update model if model has not changed" do
         allow(retraining_job).to receive(:should_tune?).and_return(false)
 
         expect(EasyML::Orchestrator).to receive(:train)

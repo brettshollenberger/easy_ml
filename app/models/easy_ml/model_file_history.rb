@@ -13,6 +13,7 @@
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  deployed_at        :datetime
+#  deployed_ended_at  :datetime
 #  deployed           :boolean
 #  history_started_at :datetime         not null
 #  history_ended_at   :datetime

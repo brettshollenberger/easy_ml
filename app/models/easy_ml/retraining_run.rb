@@ -56,7 +56,6 @@ module EasyML
           tuner_metadata = {}
         end
 
-        binding.pry
         results = metric_results(training_model)
         model_was_promoted = results[:should_promote] && training_model.promotable? && training_model.promote
         failed_reasons = training_model.cannot_promote_reasons - ["Model has not changed"]

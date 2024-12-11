@@ -58,7 +58,7 @@ module EasyML
 
     after_initialize :bump_version, if: -> { new_record? }
     after_initialize :set_defaults, if: -> { new_record? }
-    before_save :save_model_file, if: -> { is_fit? && !is_history_class? && model_changed? && !@skip_save_model_file }
+    before_save :save_model_file, if: -> { should_save_model_file? }
 
     VALID_TASKS = %i[regression classification].freeze
 
@@ -97,7 +97,11 @@ module EasyML
     end
 
     def latest_model_file
-      @model_file ||= model_files.order(id: :desc).limit(1)&.first
+      @latest_model_file ||= model_files.order(id: :desc).limit(1)&.first
+    end
+
+    def model_file
+      latest_model_file
     end
 
     def train(async: true)
@@ -155,18 +159,30 @@ module EasyML
       model_adapter.predict(xs)
     end
 
+    attr_accessor :saving_model
+
+    def should_save_model_file?
+      is_fit? && !is_history_class? && model_changed? && !@skip_save_model_file
+    end
+
     def save_model_file
-      raise "No trained model! Need to train model before saving (call model.fit)" unless is_fit?
+      @skip_save_model_file = true
+      begin
+        raise "No trained model! Need to train model before saving (call model.fit)" unless is_fit?
 
-      model_file = new_model_file!
+        model_file = new_model_file!
 
-      bump_version(force: true)
-      path = model_file.full_path(version)
-      full_path = model_adapter.save_model_file(path)
-      model_file.upload(full_path)
+        bump_version(force: true)
+        path = model_file.full_path(version)
+        full_path = model_adapter.save_model_file(path)
+        model_file.upload(full_path)
 
-      model_file.save
-      cleanup
+        model_file.save
+        @latest_model_file = nil
+        cleanup
+      ensure
+        @skip_save_model_file = false
+      end
     end
 
     def feature_names
@@ -182,7 +198,7 @@ module EasyML
     end
 
     def loaded?
-      model_file = deployed_model_file
+      model_file = latest_model_file
       return false if model_file.persisted? && !File.exist?(model_file.full_path.to_s)
 
       file_exists = true
@@ -343,13 +359,18 @@ module EasyML
       self.sha = latest_model_file.sha
 
       EasyML::Model.transaction do
-        deployed_model_file
-        latest_model_file.deployed_at = Time.now
-        latest_model_file.deployed = true
+        current_time = Time.now
+        if deployed_model_file.present?
+          deployed_model_file.update(deployed: false, deployed_ended_at: current_time)
+        end
+        latest_model_file.update(
+          deployed_at: current_time,
+          deployed: true,
+        )
         save
-        dataset.lock
-        snapshot
       end
+      dataset.lock
+      snapshot
 
       # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
       bump_version(force: true)
@@ -438,10 +459,10 @@ module EasyML
     end
 
     def load_model_file
-      return unless model_file&.full_path && File.exist?(model_file.full_path)
+      return unless latest_model_file&.full_path && File.exist?(latest_model_file.full_path)
 
       begin
-        model_adapter.load_model_file(model_file.full_path)
+        model_adapter.load_model_file(latest_model_file.full_path)
       rescue StandardError => e
         binding.pry
       end
@@ -451,7 +472,7 @@ module EasyML
       return unless persisted?
       return if loaded? && !force
 
-      get_model_file.download
+      latest_model_file.download
     end
 
     def files_to_keep

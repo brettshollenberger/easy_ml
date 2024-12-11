@@ -110,12 +110,12 @@ module EasyML
         combined_lazy_df = combined_lazy_df.select(select) if select.present?
         combined_lazy_df = combined_lazy_df.unique if unique
 
+        # Apply sorting if provided
+        combined_lazy_df = combined_lazy_df.sort(sort, reverse: descending) if sort
+
         # Apply drop columns
         drop_cols &= combined_lazy_df.columns
         combined_lazy_df = combined_lazy_df.drop(drop_cols) unless drop_cols.empty?
-
-        # Apply sorting if provided
-        combined_lazy_df = combined_lazy_df.sort(sort, reverse: descending) if sort
 
         # Collect the DataFrame (execute the lazy operations)
         combined_lazy_df = combined_lazy_df.limit(limit) if limit

@@ -85,9 +85,6 @@ module EasyML
         end
         true
       rescue StandardError => e
-        20.times do
-          p e if Rails.env.test?
-        end
         EasyML::Event.handle_error(self, e)
         update!(
           status: "failed",

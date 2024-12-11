@@ -101,6 +101,37 @@ RSpec.describe EasyML::RetrainingRun do
       end
     end
 
+    it "saves best_params" do
+      allow(retraining_job).to receive(:should_tune?).and_return(true)
+
+      expect(retraining_run.perform_retraining!).to be true
+      expect(retraining_run.reload.best_params.keys).to include("learning_rate", "n_estimators", "max_depth")
+    end
+
+    it "trains in batches when not using tuner" do
+      retraining_job.update(tuner_config: nil, batch_mode: true, batch_size: 100, batch_overlap: 2)
+      expect_any_instance_of(EasyML::Model).to receive(:fit_in_batches).and_call_original
+
+      expect(retraining_run.perform_retraining!).to be true
+    end
+
+    it "trains in batches when using tuner" do
+      allow(retraining_job).to receive(:should_tune?).and_return(true)
+
+      retraining_job.update(batch_mode: true, batch_size: 100, batch_overlap: 2, batch_key: "business_name")
+      expect_any_instance_of(EasyML::Model).to receive(:fit_in_batches).exactly(6).times.and_call_original
+
+      expect(retraining_run.perform_retraining!).to be true
+    end
+
+    it "trains NOT in batches when no batches configured" do
+      allow(retraining_job).to receive(:should_tune?).and_return(true)
+
+      expect_any_instance_of(EasyML::Model).to_not receive(:fit_in_batches)
+
+      expect(retraining_run.perform_retraining!).to be true
+    end
+
     it "handles errors during retraining" do
       allow(EasyML::Orchestrator).to receive(:train).and_raise("Test error")
 

@@ -83,7 +83,7 @@ RSpec.describe EasyML::Data::PolarsReader do
         batches.push(batch)
       end
 
-      # expect no overlap between batches
+      # expect no batch_overlap between batches
       batches.each_cons(2) { |a, b|
         expect(a["PassengerId"].to_a.max).to be < b["PassengerId"].to_a.min
       }
@@ -98,7 +98,7 @@ RSpec.describe EasyML::Data::PolarsReader do
         batches.push(batch)
       end
 
-      # expect no overlap between batches
+      # expect no batch_overlap between batches
       batches.each_cons(2) { |a, b|
         expect(a["PassengerId"].to_a.max).to be < b["PassengerId"].to_a.min
       }

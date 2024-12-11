@@ -203,7 +203,13 @@ module EasyML
       model_adapter.feature_importances
     end
 
+    def fit_in_batches?
+      retraining_job.present? && retraining_job.batch_mode == true
+    end
+
     def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
+      return fit_in_batches(**batch_args) if fit_in_batches?
+
       if x_train.nil?
         puts "Refreshing dataset"
         dataset.refresh
@@ -212,8 +218,18 @@ module EasyML
       @is_fit = true
     end
 
-    def fit_in_batches(batch_size: 1024, overlap: 0.1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
-      model_adapter.fit_in_batches(batch_size: batch_size, overlap: overlap, checkpoint_dir: checkpoint_dir)
+    def batch_args
+      defaults = {
+        batch_size: 1024,
+        batch_overlap: 3,
+        batch_key: nil,
+      }
+      overrides = { batch_size: retraining_job&.batch_size, batch_overlap: retraining_job&.batch_overlap, batch_key: retraining_job&.batch_key }.compact
+      defaults.merge!(overrides)
+    end
+
+    def fit_in_batches(batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
+      model_adapter.fit_in_batches(batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir)
       @is_fit = true
     end
 

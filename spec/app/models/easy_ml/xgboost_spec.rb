@@ -199,7 +199,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         batch_model = model.dup
         batch_model.hyperparameters.n_estimators = 50
         batch_model.hyperparameters.early_stopping_rounds = 10
-        batch_model.fit_in_batches(batch_size: 50, overlap: 5)
+        batch_model.fit_in_batches(batch_size: 50, batch_overlap: 5)
         batch_evals = batch_model.evaluate
 
         # Compare metrics

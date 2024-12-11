@@ -19,6 +19,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.boolean :batch_mode
       t.integer :batch_size
       t.integer :batch_overlap
+      t.string :batch_key
 
       t.timestamps
 

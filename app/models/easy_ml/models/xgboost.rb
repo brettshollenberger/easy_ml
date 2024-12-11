@@ -122,7 +122,7 @@ module EasyML
                                     early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
       end
 
-      def fit_in_batches(batch_size: 1024, batch_key: nil, batch_start: nil, overlap: 1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
+      def fit_in_batches(batch_size: 1024, batch_key: nil, batch_start: nil, batch_overlap: 1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
         validate_objective
         ensure_directory_exists(checkpoint_dir)
 
@@ -154,17 +154,17 @@ module EasyML
           # Load the next batch
           x_train, y_train = batches.next
 
-          # Add overlap from previous batch if applicable
+          # Add batch_overlap from previous batch if applicable
           merged_x, merged_y = nil, nil
           if prev_xs.any?
             merged_x = Polars.concat([x_train] + prev_xs.flatten)
             merged_y = Polars.concat([y_train] + prev_ys.flatten)
           end
 
-          if overlap > 0
+          if batch_overlap > 0
             prev_xs << [x_train]
             prev_ys << [y_train]
-            if prev_xs.size > overlap
+            if prev_xs.size > batch_overlap
               prev_xs = prev_xs[1..]
               prev_ys = prev_ys[1..]
             end

@@ -6,8 +6,6 @@ require_relative "simple_imputer"
 
 module EasyML::Data
   class Preprocessor
-    include GlueGun::DSL
-
     CATEGORICAL_COMMON_MIN = 50
 
     ALLOWED_PARAMS = {
@@ -53,12 +51,16 @@ module EasyML::Data
       ],
     }.freeze
 
-    attribute :directory
-    attribute :verbose
-    attribute :imputers
-    attribute :preprocessing_steps
-
+    attr_accessor :directory, :verbose, :imputers, :preprocessing_steps
     attr_reader :statistics
+
+    def initialize(options = {})
+      @directory = options[:directory]
+      @verbose = options[:verbose]
+      @imputers = options[:imputers]
+      @preprocessing_steps = options[:preprocessing_steps]
+      @statistics = {}
+    end
 
     def statistics=(stats)
       @statistics = (stats || {}).deep_symbolize_keys
@@ -154,9 +156,13 @@ module EasyML::Data
     end
 
     def serialize
-      attributes.merge!(
+      {
+        directory: directory,
+        verbose: verbose,
+        imputers: imputers,
+        preprocessing_steps: preprocessing_steps,
         statistics: serialize_statistics(statistics || {}),
-      )
+      }
     end
 
     private

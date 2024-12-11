@@ -2,22 +2,44 @@ module EasyML
   module Models
     module Hyperparameters
       class XGBoost < Base
-        include GlueGun::DSL
+        attr_accessor :learning_rate, :max_depth, :n_estimators, :booster,
+                      :objective, :lambda, :alpha
 
-        # Core parameters
-        attribute :learning_rate, :float, default: 0.1
-        attribute :max_depth, :integer, default: 6
-        attribute :n_estimators, :integer, default: 100
-        attribute :booster, :string, default: "gbtree"
-        attribute :objective, :string, default: "reg:squarederror"
-        attribute :lambda, :float, default: 1.0   # L2 regularization
-        attribute :alpha, :float, default: 0.0    # L1 regularization
+        VALID_OBJECTIVES = %w[binary:logistic binary:hinge multi:softmax multi:softprob reg:squarederror reg:logistic].freeze
+        VALID_BOOSTERS = %w[gbtree gblinear dart].freeze
 
-        validates :objective,
-                  inclusion: { in: %w[binary:logistic binary:hinge multi:softmax multi:softprob reg:squarederror
-                                     reg:logistic] }
-        validates :booster,
-                  inclusion: { in: %w[gbtree gblinear dart] }
+        def initialize(options = {})
+          super
+          @learning_rate = options[:learning_rate] || 0.1
+          @max_depth = options[:max_depth] || 6
+          @n_estimators = options[:n_estimators] || 100
+          @booster = options[:booster] || "gbtree"
+          @objective = options[:objective] || "reg:squarederror"
+          @lambda = options[:lambda] || 1.0
+          @alpha = options[:alpha] || 0.0
+          validate!
+        end
+
+        def validate!
+          unless VALID_OBJECTIVES.include?(@objective)
+            raise ArgumentError, "Invalid objective. Must be one of: #{VALID_OBJECTIVES.join(", ")}"
+          end
+          unless VALID_BOOSTERS.include?(@booster)
+            raise ArgumentError, "Invalid booster. Must be one of: #{VALID_BOOSTERS.join(", ")}"
+          end
+        end
+
+        def to_h
+          super.merge(
+            learning_rate: @learning_rate,
+            max_depth: @max_depth,
+            n_estimators: @n_estimators,
+            booster: @booster,
+            objective: @objective,
+            lambda: @lambda,
+            alpha: @alpha,
+          )
+        end
 
         def self.hyperparameter_constants
           {

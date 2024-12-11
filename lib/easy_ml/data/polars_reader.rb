@@ -1,13 +1,21 @@
 module EasyML
   module Data
     class PolarsReader
-      include GlueGun::DSL
+      attr_accessor :root_dir, :polars_args, :refresh, :num_rows
+      attr_reader :schema
 
-      attribute :root_dir
-      attribute :polars_args, :hash, default: {}
-      attribute :refresh, :boolean, default: false
-      attribute :num_rows, :integer
-      attribute :schema
+      def initialize(options = {})
+        @root_dir = options[:root_dir]
+        @polars_args = options[:polars_args] || {}
+        @refresh = options[:refresh] || false
+        @num_rows = options[:num_rows]
+        @schema = options[:schema]
+      end
+
+      def schema=(value)
+        @schema = value
+        polars_args[:dtypes] = value
+      end
 
       def normalize
         learn_dataset
@@ -37,10 +45,6 @@ module EasyML
         else
           csv_files
         end
-      end
-
-      def schema
-        polars_args[:dtypes]
       end
 
       def data

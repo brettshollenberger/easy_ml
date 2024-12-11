@@ -2,13 +2,16 @@ module EasyML
   module Models
     module Hyperparameters
       class Base
-        include GlueGun::DSL
+        attr_accessor :learning_rate, :max_iterations, :batch_size,
+                      :regularization, :early_stopping_rounds
 
-        attribute :learning_rate, :float, default: 0.01
-        attribute :max_iterations, :integer, default: 100
-        attribute :batch_size, :integer, default: 32
-        attribute :regularization, :float, default: 0.0001
-        attribute :early_stopping_rounds
+        def initialize(options = {})
+          @learning_rate = options[:learning_rate] || 0.01
+          @max_iterations = options[:max_iterations] || 100
+          @batch_size = options[:batch_size] || 32
+          @regularization = options[:regularization] || 0.0001
+          @early_stopping_rounds = options[:early_stopping_rounds]
+        end
 
         def self.common_tree_params
           {
@@ -70,7 +73,13 @@ module EasyML
         end
 
         def to_h
-          attributes.with_indifferent_access
+          {
+            learning_rate: @learning_rate,
+            max_iterations: @max_iterations,
+            batch_size: @batch_size,
+            regularization: @regularization,
+            early_stopping_rounds: @early_stopping_rounds,
+          }
         end
 
         def merge(other)

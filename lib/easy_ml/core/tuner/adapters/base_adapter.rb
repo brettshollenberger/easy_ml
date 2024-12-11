@@ -5,16 +5,20 @@ module EasyML
     class Tuner
       module Adapters
         class BaseAdapter
-          include GlueGun::DSL
           include EasyML::Core::Tuner::Adapters::Callbacks
 
-          attribute :config, :hash
-          attribute :project_name, :string
-          attribute :tune_started_at
-          attribute :model
-          attribute :x_true
-          attribute :y_true
-          attribute :metadata
+          attr_accessor :config, :project_name, :tune_started_at, :model,
+                        :x_true, :y_true, :metadata
+
+          def initialize(options = {})
+            @config = options[:config] || {}
+            @project_name = options[:project_name]
+            @tune_started_at = options[:tune_started_at]
+            @model = options[:model]
+            @x_true = options[:x_true]
+            @y_true = options[:y_true]
+            @metadata = options[:metadata] || {}
+          end
 
           def before_run
             run_callbacks(:before_run)
@@ -26,11 +30,6 @@ module EasyML
 
           def after_run
             run_callbacks(:after_run)
-          end
-
-          def metadata
-            @metadata ||= {}
-            @metadata
           end
 
           def defaults

@@ -1,4 +1,5 @@
 require "action_controller"
+
 module EasyML
   class ApplicationController < ActionController::Base
     helper EasyML::ApplicationHelper
@@ -9,12 +10,17 @@ module EasyML
     protect_from_forgery with: :exception
 
     before_action :hot_reload
+
     def hot_reload
       return unless Rails.env.development? && ENV["EASY_ML_DEMO_APP"]
 
       Dir[EasyML::Engine.root.join("lib/**/*")].select { |f| Pathname.new(f).extname == ".rb" }.each do |file|
         load file
       end
+    end
+
+    def settings_to_json(settings)
+      SettingsSerializer.new(settings).serializable_hash.dig(:data, :attributes)
     end
 
     def dataset_to_json(dataset)
@@ -54,7 +60,7 @@ module EasyML
         rootPath: easy_ml_root,
         url: request.path.gsub(Regexp.new(easy_ml_root), ""),
         errors: session.delete(:errors) || {},
-        flash: flash_messages
+        flash: flash_messages,
       }
     end
   end

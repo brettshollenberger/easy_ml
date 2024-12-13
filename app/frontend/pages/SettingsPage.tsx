@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { usePage } from '@inertiajs/react'
 import { useInertiaForm } from 'use-inertia-form';
 import { Settings2, Save, AlertCircle, Key, Database, Globe2 } from 'lucide-react';
+import { PluginSettings } from '../components/settings/PluginSettings';
 
 interface Settings {
   settings: {
@@ -10,6 +11,7 @@ interface Settings {
     s3_region: string;
     s3_access_key_id: string;
     s3_secret_access_key: string;
+    wandb_api_key: string;
   }
 }
 
@@ -29,7 +31,8 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
       s3_bucket: initialSettings?.settings?.s3_bucket || '',
       s3_region: initialSettings?.settings?.s3_region || 'us-east-1',
       s3_access_key_id: initialSettings?.settings?.s3_access_key_id || '',
-      s3_secret_access_key: initialSettings?.settings?.s3_secret_access_key || ''
+      s3_secret_access_key: initialSettings?.settings?.s3_secret_access_key || '',
+      wandb_api_key: initialSettings?.settings?.wandb_api_key || ''
     }
   });
 
@@ -110,6 +113,7 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
           {/* S3 Configuration */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
+
               <Database className="w-5 h-5 text-gray-500" />
               <h3 className="text-lg font-medium text-gray-900">S3 Configuration</h3>
             </div>
@@ -225,6 +229,13 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="border-t border-gray-200 pt-8">
+            <PluginSettings
+              settings={formData.settings}
+              onChange={(settings) => setFormData({ ...settings })}
+            />
           </div>
 
           <div className="pt-6 border-t flex items-center justify-between">

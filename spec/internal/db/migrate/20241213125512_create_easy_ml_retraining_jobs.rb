@@ -48,6 +48,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.jsonb :metadata
       t.jsonb :metrics
       t.jsonb :best_params
+      t.string :wandb_url
 
       t.timestamps
 
@@ -59,6 +60,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.index :retraining_job_id
       t.index :model_id
       t.index :trigger
+      t.index :wandb_url
     end
   end
 end

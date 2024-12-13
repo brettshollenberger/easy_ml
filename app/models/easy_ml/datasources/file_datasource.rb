@@ -50,7 +50,7 @@ module EasyML
       def reader
         @reader ||= EasyML::Data::PolarsReader.new(
           root_dir: datasource.root_dir,
-          polars_args: (datasource.configuration || {}).dig("polars_args")
+          polars_args: (datasource.configuration || {}).dig("polars_args"),
         )
       end
     end

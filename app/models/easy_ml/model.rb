@@ -14,6 +14,7 @@
 #  file            :json
 #  sha             :string
 #  last_trained_at :datetime
+#  is_training     :boolean
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -86,7 +87,7 @@ module EasyML
     validate :validate_metrics_allowed
     before_save :set_root_dir
 
-    delegate :prepare_data, :preprocess, to: :model_adapter
+    delegate :prepare_data, :preprocess, to: :adapter
 
     STATUSES = %w[development inference retired]
     STATUSES.each do |status|
@@ -95,20 +96,60 @@ module EasyML
       end
     end
 
-    def train(async: true)
-      evaluator = self.evaluator.symbolize_keys
-      job = retraining_job || create_retraining_job(active: false, evaluator: evaluator, metric: evaluator.dig(:metric), direction: evaluator.dig(:direction), threshold: evaluator.dig(:threshold), frequency: "day", at: { hour: 0 })
-      run = job.retraining_runs.create!(status: "pending", model_id: self.id)
-      if async
-        EasyML::RetrainingWorker.perform_async(run.id)
-      else
-        EasyML::RetrainingWorker.new.perform(run.id)
-      end
-      run.reload
+    def training?
+      is_training == true
     end
 
-    def training?
-      retraining_runs.running.any?
+    def train(async: true)
+      update(is_training: true)
+      if async
+        EasyML::TrainingWorker.perform_later(id)
+      else
+        actually_train
+      end
+    end
+
+    def pending_run
+      self.evaluator = retraining_job.evaluator
+      evaluator = self.evaluator.symbolize_keys
+      job = retraining_job || create_retraining_job(active: false, evaluator: evaluator, metric: evaluator.dig(:metric), direction: evaluator.dig(:direction), threshold: evaluator.dig(:threshold), frequency: "day", at: { hour: 0 })
+      job.retraining_runs.find_or_create_by(status: "pending", model: self)
+    end
+
+    def actually_train
+      key = "training:#{self.class.name}:#{self.id}"
+      EasyML::Support::Lockable.with_lock_client(key, stale_timeout: 0.01, resources: 1) do |client|
+        client.lock do
+          run = pending_run
+          run.wrap_training do
+            best_params = nil
+            if run.should_tune?
+              best_params = hyperparameter_search
+            end
+            fit
+            save
+            [self, best_params]
+          end
+          update(is_training: false)
+          run.reload
+        end
+      end
+    end
+
+    def hyperparameter_search
+      tuner = retraining_job.tuner_config.symbolize_keys
+      tuner.merge!(evaluator: evaluator) if evaluator.present?
+      tuner_instance = EasyML::Core::Tuner.new(tuner)
+      tuner_instance.model = self
+      adapter = case model_type.to_sym
+        when :xgboost
+          EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
+        end
+      tuner_instance.adapter = adapter
+      tuner_instance.dataset = dataset
+      tuner_instance.tune.tap do |key, value|
+        hyperparameters[key] = value
+      end
     end
 
     def deployment_status
@@ -116,7 +157,7 @@ module EasyML
     end
 
     def formatted_model_type
-      model_adapter.class.name.split("::").last
+      adapter.class.name.split("::").last
     end
 
     def formatted_version
@@ -138,27 +179,27 @@ module EasyML
     end
 
     def hyperparameters
-      @hypers ||= model_adapter.build_hyperparameters(@hyperparameters)
+      @hypers ||= adapter.build_hyperparameters(@hyperparameters)
     end
 
     def callbacks
-      @cbs ||= model_adapter.build_callbacks(@callbacks)
+      @cbs ||= adapter.build_callbacks(@callbacks)
     end
 
     def predict(xs)
       load_model!
-      model_adapter.predict(xs)
+      adapter.predict(xs)
     end
 
     def save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless is_fit?
-      return unless model_adapter.loaded?
+      return unless adapter.loaded?
 
       model_file = get_model_file
 
       bump_version(force: true)
       path = model_file.full_path(version)
-      full_path = model_adapter.save_model_file(path)
+      full_path = adapter.save_model_file(path)
       model_file.upload(full_path)
 
       model_file.save
@@ -167,7 +208,7 @@ module EasyML
     end
 
     def feature_names
-      model_adapter.feature_names
+      adapter.feature_names
     end
 
     def cleanup!
@@ -187,9 +228,9 @@ module EasyML
         file_exists = File.exist?(model_file.full_path)
       end
 
-      loaded = model_adapter.loaded?
+      loaded = adapter.loaded?
       load_model_file unless loaded
-      file_exists && model_adapter.loaded?
+      file_exists && adapter.loaded?
     end
 
     def model_changed?
@@ -197,11 +238,11 @@ module EasyML
       return true if model_file.present? && !model_file.persisted?
       return true if model_file.present? && model_file.fit? && inference_version.nil?
 
-      model_adapter.model_changed?(inference_version.sha)
+      adapter.model_changed?(inference_version.sha)
     end
 
     def feature_importances
-      model_adapter.feature_importances
+      adapter.feature_importances
     end
 
     def fit_in_batches?
@@ -215,7 +256,7 @@ module EasyML
         puts "Refreshing dataset"
         # dataset.refresh
       end
-      model_adapter.fit(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid)
+      adapter.fit(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid)
       @is_fit = true
     end
 
@@ -229,8 +270,20 @@ module EasyML
       defaults.merge!(overrides)
     end
 
+    def batch_mode
+      retraining_job&.batch_mode || false
+    end
+
+    def prepare_callbacks(tune_started_at)
+      adapter.prepare_callbacks(tune_started_at)
+    end
+
+    def after_tuning
+      adapter.after_tuning
+    end
+
     def fit_in_batches(batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
-      model_adapter.fit_in_batches(batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir)
+      adapter.fit_in_batches(batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir)
       @is_fit = true
     end
 
@@ -240,7 +293,7 @@ module EasyML
       model_file = get_model_file
       return true if model_file.present? && model_file.fit?
 
-      model_adapter.is_fit?
+      adapter.is_fit?
     end
 
     def deployable?
@@ -401,6 +454,15 @@ module EasyML
       @metrics = value
     end
 
+    def adapter
+      @adapter ||= begin
+          adapter_class = MODEL_OPTIONS[model_type]
+          raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
+
+          adapter_class.constantize.new(self)
+        end
+    end
+
     private
 
     def default_evaluation_inputs
@@ -451,7 +513,7 @@ module EasyML
       return unless model_file&.full_path && File.exist?(model_file.full_path)
 
       begin
-        model_adapter.load_model_file(model_file.full_path)
+        adapter.load_model_file(model_file.full_path)
       rescue StandardError => e
         binding.pry
       end
@@ -488,15 +550,6 @@ module EasyML
 
       errors.add(:metrics,
                  "don't know how to handle #{"metrics".pluralize(unknown_metrics)} #{unknown_metrics.join(", ")}, use EasyML::Core::ModelEvaluator.register(:name, Evaluator, :regression|:classification)")
-    end
-
-    def model_adapter
-      @model_adapter ||= begin
-          adapter_class = MODEL_OPTIONS[model_type]
-          raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
-
-          adapter_class.constantize.new(self)
-        end
     end
   end
 end

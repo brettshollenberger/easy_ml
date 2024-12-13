@@ -74,10 +74,23 @@ module EasyML
 
       def add_auto_configurable_callbacks(params)
         if EasyML::Configuration.wandb_api_key.present?
-          params << {
-            callback_type: :wandb,
-            project_name: model.name,
-          }
+          params.map!(&:deep_symbolize_keys)
+          unless params.any? { |c| c[:callback_type]&.to_sym == :wandb }
+            params << {
+              callback_type: :wandb,
+              project_name: model.name,
+              log_feature_importance: false,
+              define_metric: false,
+            }
+          end
+
+          unless params.any? { |c| c[:callback_type]&.to_sym == :evals_callback }
+            params << {
+              callback_type: :evals_callback,
+            }
+          end
+
+          params.sort_by! { |c| c[:callback_type] == :evals_callback ? 0 : 1 }
         end
       end
 
@@ -85,6 +98,8 @@ module EasyML
         return [] unless params.is_a?(Array)
 
         add_auto_configurable_callbacks(params)
+
+        params.uniq! { |c| c[:callback_type] }
 
         params.map do |conf|
           conf.symbolize_keys!
@@ -97,13 +112,31 @@ module EasyML
 
           klass = case callback_type.to_sym
             when :wandb then Wandb::XGBoostCallback
+            when :evals_callback then EasyML::Models::XGBoost::EvalsCallback
             end
           raise "Unknown callback type #{callback_type}" unless klass.present?
 
           klass.new(conf).tap do |instance|
             instance.instance_variable_set(:@callback_type, callback_type)
+            instance.send(:model=, model) if instance.respond_to?(:model=)
           end
         end
+      end
+
+      def after_tuning
+        model.callbacks.each do |callback|
+          callback.after_tuning if callback.respond_to?(:after_tuning)
+        end
+      end
+
+      def prepare_callbacks(tuner)
+        model.callbacks.each do |callback|
+          callback.prepare_callback(tuner) if callback.respond_to?(:prepare_callback)
+        end
+
+        wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
+        return unless wandb_callback.present?
+        wandb_callback.project_name = tuner.project_name
       end
 
       def is_fit?
@@ -116,7 +149,8 @@ module EasyML
         puts "PREPARE DATA... This may take a minute..."
         d_train, d_valid, = prepare_data if x_train.nil?
         evals = [[d_train, "train"], [d_valid, "eval"]]
-        @booster = base_model.train(hyperparameters.to_h, d_train,
+        @booster = base_model.train(hyperparameters.to_h,
+                                    d_train,
                                     evals: evals,
                                     num_boost_round: hyperparameters["n_estimators"],
                                     callbacks: model.callbacks || [],
@@ -208,6 +242,11 @@ module EasyML
         @booster = cb_container.after_training(@booster)
       end
 
+      def weights
+        @booster.save_model("tmp/xgboost_model.json")
+        @booster.get_dump
+      end
+
       def predict(xs)
         raise "No trained model! Train a model before calling predict" unless @booster.present?
         raise "Cannot predict on nil — XGBoost" if xs.nil?
@@ -263,11 +302,19 @@ module EasyML
 
         initialize_model do
           attrs = {
-            params: hyperparameters.to_h.symbolize_keys,
+            params: hyperparameters.to_h.symbolize_keys.compact,
             model_file: path,
-          }.deep_compact
+          }.compact
           booster_class.new(**attrs)
         end
+      end
+
+      def external_model
+        @booster
+      end
+
+      def external_model=(booster)
+        @booster = booster
       end
 
       def model_changed?(prev_hash)
@@ -311,7 +358,6 @@ module EasyML
 
       def prepare_data
         if @d_train.nil?
-          puts "Preparing data, this may take a minute..."
           x_sample, y_sample = dataset.train(split_ys: true, limit: 5)
           preprocess(x_sample, y_sample) # Ensure we fail fast if the dataset is misconfigured
           x_train, y_train = dataset.train(split_ys: true)
@@ -320,13 +366,14 @@ module EasyML
           @d_train = preprocess(x_train, y_train)
           @d_valid = preprocess(x_valid, y_valid)
           @d_test = preprocess(x_test, y_test)
-          puts "Done!"
         end
 
         [@d_train, @d_valid, @d_test]
       end
 
       def preprocess(xs, ys = nil)
+        return xs if xs.is_a?(::XGBoost::DMatrix)
+
         orig_xs = xs.dup
         column_names = xs.columns
         xs = _preprocess(xs)

@@ -9,6 +9,7 @@ class CreateEasyMLTunerJobs < ActiveRecord::Migration[6.0]
       t.datetime :started_at
       t.datetime :completed_at
       t.jsonb :metadata
+      t.string :wandb_url
 
       t.timestamps
 
@@ -17,6 +18,7 @@ class CreateEasyMLTunerJobs < ActiveRecord::Migration[6.0]
       t.index :completed_at
       t.index :model_id
       t.index :best_tuner_run_id
+      t.index :wandb_url
     end
 
     create_table :easy_ml_tuner_runs do |t|
@@ -25,12 +27,14 @@ class CreateEasyMLTunerJobs < ActiveRecord::Migration[6.0]
       t.float :value
       t.integer :trial_number
       t.string :status
+      t.string :wandb_url
 
       t.timestamps
 
       t.index [:tuner_job_id, :value]
       t.index [:tuner_job_id, :trial_number], name: "idx_tuner_runs_and_trial_number"
       t.index :status
+      t.index :wandb_url
     end
   end
 end

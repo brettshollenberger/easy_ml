@@ -59,9 +59,7 @@ module EasyML
       end
 
       def files_to_sync
-        puts "LISTNING REMOTE FILES!!!"
         objects = s3.list_objects_v2(bucket: s3_bucket, prefix: s3_prefix).contents
-        puts "DONE!"
         objects.reject { |object| object.key.end_with?("/") }
       end
 

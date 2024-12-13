@@ -3,16 +3,25 @@ module EasyML
     module Hyperparameters
       class XGBoost
         class GBLinear < XGBoost
-          # Linear booster specific parameters
-          attribute :updater, :string, default: "shotgun"
-          attribute :feature_selector, :string, default: "cyclic"
-          attribute :lambda, :float, default: 1.0
-          attribute :alpha, :float, default: 0.0
+          attr_accessor :updater, :feature_selector, :lambda, :alpha
 
-          validates :updater,
-                    inclusion: { in: %w[shotgun coord_descent] }
-          validates :feature_selector,
-                    inclusion: { in: %w[cyclic shuffle greedy thrifty] }
+          def initialize(options = {})
+            super
+            @updater = options[:updater] || "shotgun"
+            @feature_selector = options[:feature_selector] || "cyclic"
+            @lambda = options[:lambda] || 1.0
+            @alpha = options[:alpha] || 0.0
+            validate!
+          end
+
+          def validate!
+            unless %w[shotgun coord_descent].include?(@updater)
+              raise ArgumentError, "Invalid updater: #{@updater}"
+            end
+            unless %w[cyclic shuffle greedy thrifty].include?(@feature_selector)
+              raise ArgumentError, "Invalid feature_selector: #{@feature_selector}"
+            end
+          end
 
           def self.hyperparameter_constants
             # GBLinear only uses learning_rate from tree params

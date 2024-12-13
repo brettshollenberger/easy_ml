@@ -11,6 +11,7 @@
 #  started_at        :datetime
 #  completed_at      :datetime
 #  metadata          :jsonb
+#  wandb_url         :string
 #  created_at        :datetime         not null
 #  updated_at        :datetime         not null
 #

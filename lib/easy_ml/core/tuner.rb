@@ -124,6 +124,7 @@ module EasyML
 
         best_run.hyperparameters
       rescue StandardError => e
+        binding.pry
         tuner_job&.update!(status: :failed, completed_at: Time.current)
         raise e
       end

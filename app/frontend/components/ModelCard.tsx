@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink, Play, 
+import { Activity, Calendar, Database, Settings, ExternalLink, Play, LineChart,
         Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link, router } from "@inertiajs/react";
 import { cn } from '@/lib/utils';
@@ -125,6 +125,19 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             >
               <Play className="w-5 h-5" />
             </button>
+            {
+              model.metrics_url && (
+                <a
+                  href={model.metrics_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-purple-600 transition-colors"
+                  title="View metrics"
+                >
+                  <LineChart className="w-5 h-5" />
+                </a>
+              )
+            }
             <Link
               href={`${rootPath}/models/${model.id}/edit`}
               className="text-gray-400 hover:text-gray-600"

@@ -60,6 +60,7 @@ export interface Model {
   retraining_job: RetrainingJob | null;
   formatted_frequency: string | null;
   is_training: boolean;
+  metrics_url: string | null;
 }
 
 export interface Prediction {
@@ -108,4 +109,5 @@ export interface RetrainingRun {
   updated_at: string;
   stacktrace: string | null;
   metrics: Record<string, number>;
+  metrics_url: string | null;
 }

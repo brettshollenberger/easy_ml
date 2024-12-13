@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight, Rocket, Loader2 } from 'lucide-react';
+import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight, Rocket, Loader2, LineChart } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 
 interface ModelDetailsProps {
@@ -180,6 +180,17 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="flex items-center gap-2 mt-1">
+                        {run.metrics_url && (
+                          <a
+                            href={run.metrics_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-gray-400 hover:text-purple-600 transition-colors"
+                            title="View metrics"
+                          >
+                            <LineChart className="w-5 h-5" />
+                          </a>
+                        )}
                         <span
                           className={`px-2 py-1 rounded-md text-sm font-medium ${
                             run.status === 'success'

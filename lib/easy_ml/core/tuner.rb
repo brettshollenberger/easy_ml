@@ -45,7 +45,7 @@ module EasyML
         EasyML::Configuration.wandb_api_key.present?
       end
 
-      def tune
+      def tune(&progress_block)
         set_defaults!
         @adapter = initialize_adapter
         @tune_started_at = EasyML::Support::UTC.now
@@ -91,7 +91,7 @@ module EasyML
           @current_run = tuner_run
 
           begin
-            run_metrics = tune_once(trial, x_true, y_true, adapter)
+            run_metrics = tune_once(trial, x_true, y_true, adapter, &progress_block)
             result = calculate_result(run_metrics)
             @results.push(result)
 
@@ -141,8 +141,9 @@ module EasyML
         end
       end
 
-      def tune_once(trial, x_true, y_true, adapter)
+      def tune_once(trial, x_true, y_true, adapter, &progress_block)
         adapter.run_trial(trial) do |model|
+          model.fit(&progress_block)
           y_pred = model.predict(x_true)
           model.metrics = metrics
           metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)

@@ -89,6 +89,12 @@ module EasyML
             }
           end
 
+          unless params.any? { |c| c[:callback_type]&.to_sym == :progress_callback }
+            params << {
+              callback_type: :progress_callback,
+            }
+          end
+
           params.sort_by! { |c| c[:callback_type] == :evals_callback ? 0 : 1 }
         end
       end
@@ -112,6 +118,7 @@ module EasyML
           klass = case callback_type.to_sym
             when :wandb then Wandb::XGBoostCallback
             when :evals_callback then EasyML::Models::XGBoost::EvalsCallback
+            when :progress_callback then EasyML::Models::XGBoost::ProgressCallback
             end
           raise "Unknown callback type #{callback_type}" unless klass.present?
 
@@ -142,17 +149,21 @@ module EasyML
         @booster.present? && @booster.feature_names.any?
       end
 
-      def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
+      attr_accessor :progress_callback
+
+      def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
         validate_objective
 
         puts "PREPARE DATA... This may take a minute..."
         d_train, d_valid, = prepare_data if x_train.nil?
+
         evals = [[d_train, "train"], [d_valid, "eval"]]
+        self.progress_callback = progress_block
         @booster = base_model.train(hyperparameters.to_h,
                                     d_train,
                                     evals: evals,
                                     num_boost_round: hyperparameters["n_estimators"],
-                                    callbacks: model.callbacks || [],
+                                    callbacks: model.callbacks,
                                     early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
       end
 

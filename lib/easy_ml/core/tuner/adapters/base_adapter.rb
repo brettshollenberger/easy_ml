@@ -24,7 +24,6 @@ module EasyML
           def run_trial(trial)
             config = deep_merge_defaults(self.config.clone.deep_symbolize_keys)
             suggest_parameters(trial, config)
-            model.fit
             yield model
           end
 

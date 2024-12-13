@@ -139,18 +139,18 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
               )
             }
             <Link
-              href={`${rootPath}/models/${model.id}/edit`}
-              className="text-gray-400 hover:text-gray-600"
-              title="Edit model"
-            >
-              <Settings className="w-5 h-5" />
-            </Link>
-            <Link
               href={`${rootPath}/models/${model.id}`}
               className="text-gray-400 hover:text-gray-600"
               title="View details"
             >
               <ExternalLink className="w-5 h-5" />
+            </Link>
+            <Link
+              href={`${rootPath}/models/${model.id}/edit`}
+              className="text-gray-400 hover:text-gray-600"
+              title="Edit model"
+            >
+              <Settings className="w-5 h-5" />
             </Link>
             <button
               onClick={() => handleDelete(model.id)}

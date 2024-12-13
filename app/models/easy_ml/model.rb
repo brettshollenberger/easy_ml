@@ -117,7 +117,7 @@ module EasyML
       job.retraining_runs.find_or_create_by(status: "pending", model: self)
     end
 
-    def actually_train
+    def actually_train(&progress_block)
       key = "training:#{self.class.name}:#{self.id}"
       EasyML::Support::Lockable.with_lock_client(key, stale_timeout: 0.01, resources: 1) do |client|
         client.lock do
@@ -125,9 +125,9 @@ module EasyML
           run.wrap_training do
             best_params = nil
             if run.should_tune?
-              best_params = hyperparameter_search
+              best_params = hyperparameter_search(&progress_block)
             end
-            fit
+            fit(&progress_block)
             save
             [self, best_params]
           end
@@ -137,7 +137,7 @@ module EasyML
       end
     end
 
-    def hyperparameter_search
+    def hyperparameter_search(&progress_block)
       tuner = retraining_job.tuner_config.symbolize_keys
       tuner.merge!(evaluator: evaluator) if evaluator.present?
       tuner_instance = EasyML::Core::Tuner.new(tuner)
@@ -148,7 +148,7 @@ module EasyML
         end
       tuner_instance.adapter = adapter
       tuner_instance.dataset = dataset
-      tuner_instance.tune.tap do |best_params|
+      tuner_instance.tune(&progress_block).tap do |best_params|
         best_params.each do |key, value|
           self.hyperparameters.send("#{key}=", value)
         end
@@ -252,14 +252,14 @@ module EasyML
       retraining_job.present? && retraining_job.batch_mode == true
     end
 
-    def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
-      return fit_in_batches(**batch_args) if fit_in_batches?
+    def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
+      return fit_in_batches(**batch_args, &progress_block) if fit_in_batches?
 
       if x_train.nil?
         puts "Refreshing dataset"
         # dataset.refresh
       end
-      adapter.fit(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid)
+      adapter.fit(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
       @is_fit = true
     end
 
@@ -285,8 +285,8 @@ module EasyML
       adapter.after_tuning
     end
 
-    def fit_in_batches(batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
-      adapter.fit_in_batches(batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir)
+    def fit_in_batches(batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"), &progress_block)
+      adapter.fit_in_batches(batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir, &progress_block)
       @is_fit = true
     end
 

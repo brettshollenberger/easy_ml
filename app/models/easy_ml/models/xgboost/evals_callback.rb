@@ -89,11 +89,14 @@ module EasyML
         end
 
         def after_tuning
+          return unless @feature_importances
+
           project_name = tuner.project_name
           Wandb.login(api_key: EasyML::Configuration.wandb_api_key)
           Wandb.init(project: project_name)
 
           # Calculate running averages
+
           avg_importances = @feature_importances.transform_values do |stats|
             stats[:sum] / stats[:count]
           end

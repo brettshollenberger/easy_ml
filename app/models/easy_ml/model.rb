@@ -118,8 +118,8 @@ module EasyML
     end
 
     def actually_train(&progress_block)
-      key = "training:#{self.class.name}:#{self.id}"
-      EasyML::Support::Lockable.with_lock_client(key, stale_timeout: 0.01, resources: 1) do |client|
+      key = "training:#{self.name}:#{self.id}"
+      EasyML::Support::Lockable.with_lock_client(key, stale_timeout: 60, resources: 1) do |client|
         client.lock do
           run = pending_run
           run.wrap_training do
@@ -411,14 +411,13 @@ module EasyML
       self.sha = model_file.sha
       save
       dataset.lock
-      snapshot
-
-      # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
-      bump_version(force: true)
-      dataset.bump_versions(version)
-      self.model_file = new_model_file!
-      save
-      true
+      snapshot.tap do
+        # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
+        bump_version(force: true)
+        dataset.bump_versions(version)
+        self.model_file = new_model_file!
+        save
+      end
     end
 
     def inference_pipeline(df); end

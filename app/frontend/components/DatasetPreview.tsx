@@ -11,6 +11,7 @@ const STATS_PER_PAGE = 6;
 export function DatasetPreview({ dataset }: DatasetPreviewProps) {
   const [showStats, setShowStats] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const columns = dataset.sample_data[0] ?  Object.keys(dataset.sample_data[0]) : [];
 
   const totalPages = Math.ceil(dataset.columns.length / STATS_PER_PAGE);
   const paginatedColumns = dataset.columns.slice(
@@ -28,7 +29,7 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
           </div>
           <p className="text-gray-600 mt-1">{dataset.description}</p>
           <p className="text-sm text-gray-500 mt-2">
-            {dataset.num_rows.toLocaleString()} rows • {dataset.columns.length} columns • Last synced{' '}
+            {dataset.num_rows.toLocaleString()} rows • <span className="font-medium">Raw:</span> {dataset.columns.length} columns • <span className="font-medium">Processed:</span> {columns.length} columns • Last synced{' '}
             {new Date(dataset.updated_at).toLocaleDateString()}
           </p>
         </div>
@@ -125,13 +126,13 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
               <table className="min-w-full divide-y divide-gray-300">
                 <thead className="bg-gray-50">
                   <tr>
-                    {dataset.columns.map((column: Column) => (
+                    {columns.map((column) => (
                       <th
-                        key={column.name}
+                        key={column}
                         scope="col"
                         className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900"
                       >
-                        {column.name}
+                        {column}
                       </th>
                     ))}
                   </tr>
@@ -139,12 +140,12 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                 <tbody className="divide-y divide-gray-200 bg-white">
                   {dataset.sample_data.map((row: Record<string, any>, i: number) => (
                     <tr key={i}>
-                      {dataset.columns.map((column: Column) => (
+                      {columns.map((column) => (
                         <td
-                          key={column.name}
+                          key={row[column]}
                           className="whitespace-nowrap px-3 py-4 text-sm text-gray-500"
                         >
-                          {row[column.name]?.toString()}
+                          {row[column]?.toString()}
                         </td>
                       ))}
                     </tr>

@@ -89,9 +89,9 @@ module EasyML::Data
 
       allowed_categories = {}
       (preprocessing_steps[:training] || {}).each_key do |col|
-        next unless preprocessing_steps.dig(:training, col, :method).to_s == "categorical"
+        next unless preprocessing_steps.dig(:training, col, :params, :one_hot)
 
-        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min) || 0
+        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min) || 10
         val_counts = df[col].value_counts
         allowed_categories[col] = val_counts[val_counts["count"] >= cat_min][col].to_a.compact
       end

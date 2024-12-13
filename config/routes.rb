@@ -6,6 +6,7 @@ EasyML::Engine.routes.draw do
       post :train
       get :retraining_runs, to: "retraining_runs#index"
     end
+    resources :deploys, only: [:create]
     get "new", on: :collection, as: "new"
   end
 

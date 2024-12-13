@@ -234,7 +234,7 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
           <div className="border-t border-gray-200 pt-8">
             <PluginSettings
               settings={formData.settings}
-              onChange={(settings) => setFormData({ ...settings })}
+              setData={(settings) => setFormData({ ...settings })}
             />
           </div>
 

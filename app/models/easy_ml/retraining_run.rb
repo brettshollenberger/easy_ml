@@ -30,7 +30,7 @@ module EasyML
     belongs_to :model, class_name: "EasyML::Model"
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
-    validates :status, presence: true, inclusion: { in: %w[pending running success failed] }
+    validates :status, presence: true, inclusion: { in: %w[pending running success failed deployed] }
 
     scope :running, -> { where(status: "running") }
 

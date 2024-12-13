@@ -36,7 +36,7 @@ module EasyML
 
     def self.create_event(model, status, error = nil)
       EasyML::Event.create!(
-        name: self.class.name.demodulize,
+        name: model.class.name.demodulize,
         status: status,
         eventable: model,
         stacktrace: format_stacktrace(error),

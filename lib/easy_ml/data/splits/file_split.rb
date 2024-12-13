@@ -21,6 +21,18 @@ module EasyML
           FileUtils.mkdir_p(dir)
         end
 
+        def attributes
+          {
+            dir: dir,
+            polars_args: polars_args,
+            max_rows_per_file: max_rows_per_file,
+            batch_size: batch_size,
+            verbose: verbose,
+            dataset: dataset,
+            datasource: datasource,
+          }.with_indifferent_access
+        end
+
         def s3_prefix
           File.join("datasets", dir.split("datasets").last)
         end

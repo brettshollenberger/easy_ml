@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, BarChart2, Database, ChevronLeft, ChevronRight, Rocket, Loader2, LineChart } from 'lucide-react';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
+import { router } from "@inertiajs/react";
 
 interface ModelDetailsProps {
   model: Model;
@@ -44,9 +45,16 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
   const handleDeploy = async (run: RetrainingRun) => {
     setDeployingRunId(run.id);
     try {
-      // Simulate deployment delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await router.post(`${rootPath}/models/${model.id}/deploys`, {
+        retraining_run_id: run.id
+      }, {
+        preserveScroll: true,
+        preserveState: true
+      });
+      
+      // Flash message will be handled by Inertia
     } catch (error) {
+      console.error('Deploy error:', error);
     } finally {
       setDeployingRunId(null);
     }

@@ -18,6 +18,7 @@
 #  metadata            :jsonb
 #  metrics             :jsonb
 #  best_params         :jsonb
+#  wandb_url           :string
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #
@@ -33,32 +34,25 @@ module EasyML
 
     scope :running, -> { where(status: "running") }
 
-    def perform_retraining!
+    def wrap_training(&block)
       return false unless pending?
 
       begin
         EasyML::Event.create_event(self, "started")
         update!(status: "running", started_at: Time.current)
 
-        # Only use tuner if tuning frequency has been met
-        if should_tune?
-          training_model, best_params = Orchestrator.train(retraining_job.model.name, tuner: retraining_job.tuner_config,
-                                                                                      evaluator: retraining_job.evaluator)
-          retraining_job.update!(last_tuning_at: Time.current)
+        training_model, best_params = yield
 
-          # Get metadata from the latest tuner job if it exists
-          tuner_metadata = EasyML::TunerJob.where(model: training_model)
-                                           .order(created_at: :desc)
-                                           .first&.metadata || {}
-        else
-          training_model, _ = Orchestrator.train(retraining_job.model.name, evaluator: retraining_job.evaluator)
-          tuner_metadata = {}
+        if best_params.present?
+          tuner = EasyML::TunerJob.where(model: training_model)
+            .order(id: :desc)
+            .first
         end
 
         results = metric_results(training_model)
         failed_reasons = training_model.cannot_deploy_reasons - ["Model has not changed"]
         if results[:deployable] == false
-          status = "failed"
+          status = "success"
         else
           status = failed_reasons.any? ? "failed" : "success"
         end
@@ -69,9 +63,11 @@ module EasyML
             completed_at: failed_reasons.none? ? Time.current : nil,
             error_message: failed_reasons.any? ? failed_reasons&.first : nil,
             model: training_model,
-            metadata: tuner_metadata,
             metrics: training_model.evaluate,
             best_params: best_params,
+            tuner_job_id: tuner&.id,
+            metadata: tuner&.metadata,
+            wandb_url: tuner&.wandb_url,
           )
         )
 
@@ -116,11 +112,11 @@ module EasyML
       status == "running"
     end
 
-    private
-
     def should_tune?
       retraining_job.tuner_config.present? && retraining_job.should_tune?
     end
+
+    private
 
     def metric_results(training_model)
       return training_model.deployable? unless retraining_job.evaluator.present?

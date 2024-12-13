@@ -20,24 +20,24 @@ module EasyML
     DATASOURCE_OPTIONS = {
       "s3" => "EasyML::Datasources::S3Datasource",
       "file" => "EasyML::Datasources::FileDatasource",
-      "polars" => "EasyML::Datasources::PolarsDatasource"
+      "polars" => "EasyML::Datasources::PolarsDatasource",
     }
     DATASOURCE_TYPES = [
       {
         value: "s3",
         label: "Amazon S3",
-        description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets"
+        description: "Connect to data stored in Amazon Simple Storage Service (S3) buckets",
       },
       {
         value: "file",
         label: "Local Files",
-        description: "Connect to data stored in local files"
+        description: "Connect to data stored in local files",
       },
       {
         value: "polars",
         label: "Polars DataFrame",
-        description: "In-memory dataframe storage using Polars"
-      }
+        description: "In-memory dataframe storage using Polars",
+      },
     ].freeze
     DATASOURCE_NAMES = DATASOURCE_OPTIONS.keys.freeze
     DATASOURCE_CONSTANTS = DATASOURCE_OPTIONS.values.map(&:constantize)
@@ -61,13 +61,13 @@ module EasyML
     end
 
     delegate :query, :in_batches, :files, :all_files, :last_updated_at, :data, :needs_refresh?,
-             :refresh, :refresh!, :should_sync?, :files_to_sync, :s3_access_key_id, :s3_secret_access_key,
+             :should_sync?, :files_to_sync, :s3_access_key_id, :s3_secret_access_key,
              :download_file, :clean, to: :adapter
 
     def self.constants
       {
         DATASOURCE_TYPES: DATASOURCE_TYPES,
-        s3: EasyML::Datasources::S3Datasource.constants
+        s3: EasyML::Datasources::S3Datasource.constants,
       }
     end
 
@@ -83,7 +83,7 @@ module EasyML
     end
 
     def refresh_async
-      EasyML::SyncDatasourceWorker.perform_async(id)
+      EasyML::SyncDatasourceWorker.perform_later(id)
     end
 
     def before_sync
@@ -105,6 +105,23 @@ module EasyML
       save
     end
 
+    def refresh
+      unless adapter.needs_refresh?
+        update!(is_syncing: false)
+        return
+      end
+
+      syncing do
+        adapter.refresh
+      end
+    end
+
+    def refresh!
+      syncing do
+        adapter.refresh!
+      end
+    end
+
     def syncing
       before_sync
       yield.tap do
@@ -116,11 +133,11 @@ module EasyML
 
     def adapter
       @adapter ||= begin
-        adapter_class = DATASOURCE_OPTIONS[datasource_type]
-        raise "Don't know how to use datasource adapter #{datasource_type}!" unless adapter_class.present?
+          adapter_class = DATASOURCE_OPTIONS[datasource_type]
+          raise "Don't know how to use datasource adapter #{datasource_type}!" unless adapter_class.present?
 
-        adapter_class.constantize.new(self)
-      end
+          adapter_class.constantize.new(self)
+        end
     end
 
     def default_root_dir

@@ -1,16 +1,13 @@
-require_relative "callbacks"
-
 module EasyML
   module Core
     class Tuner
       module Adapters
         class BaseAdapter
-          include EasyML::Core::Tuner::Adapters::Callbacks
-
           attr_accessor :config, :project_name, :tune_started_at, :model,
-                        :x_true, :y_true, :metadata
+                        :x_true, :y_true, :metadata, :model
 
           def initialize(options = {})
+            @model = options[:model]
             @config = options[:config] || {}
             @project_name = options[:project_name]
             @tune_started_at = options[:tune_started_at]
@@ -18,18 +15,6 @@ module EasyML
             @x_true = options[:x_true]
             @y_true = options[:y_true]
             @metadata = options[:metadata] || {}
-          end
-
-          def before_run
-            run_callbacks(:before_run)
-          end
-
-          def after_iteration
-            run_callbacks(:after_iteration)
-          end
-
-          def after_run
-            run_callbacks(:after_run)
           end
 
           def defaults

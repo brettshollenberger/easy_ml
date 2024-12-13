@@ -13,6 +13,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.json :file
       t.string :sha
       t.datetime :last_trained_at
+      t.boolean :is_training
 
       t.timestamps
 
@@ -27,6 +28,7 @@ class CreateEasyMLModels < ActiveRecord::Migration[6.0]
       t.index :model_type
       t.index :model_file_id
       t.index :sha
+      t.index :is_training
     end
   end
 end

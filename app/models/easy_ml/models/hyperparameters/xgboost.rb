@@ -17,7 +17,7 @@ module EasyML
           @objective = options[:objective] || "reg:squarederror"
           @lambda = options[:lambda] || 1.0
           @alpha = options[:alpha] || 0.0
-          validate!
+          validate! if self.class.name == "EasyML::Models::Hyperparameters::XGBoost"
         end
 
         def validate!

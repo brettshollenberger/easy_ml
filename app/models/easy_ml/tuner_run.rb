@@ -8,6 +8,7 @@
 #  value           :float
 #  trial_number    :integer
 #  status          :string
+#  wandb_url       :string
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #

@@ -116,7 +116,7 @@ module EasyML
 
     def refresh_async
       update(workflow_status: "analyzing")
-      EasyML::RefreshDatasetWorker.perform_async(id)
+      EasyML::RefreshDatasetWorker.perform_later(id)
     end
 
     def raw

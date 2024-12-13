@@ -184,7 +184,7 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
                           className={`px-2 py-1 rounded-md text-sm font-medium ${
                             run.status === 'success'
                               ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
+                              : run.status === 'running' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
                           }`}
                         >
                           {run.status}

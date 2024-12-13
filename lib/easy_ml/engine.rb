@@ -26,10 +26,10 @@ module EasyML
       Rails.root.join("easy_ml")
     end
 
-    config.autoload_paths = config.autoload_paths.dup << root.join("app/models")
-    config.eager_load_paths = config.eager_load_paths.dup << root.join("app/models")
-    paths["lib"] << EasyML::Engine.root.join("lib")
-    paths["lib"].autoload!
+    # config.autoload_paths = config.autoload_paths.dup << root.join("app/models")
+    # config.eager_load_paths = config.eager_load_paths.dup << root.join("app/models")
+    # paths["lib"] << EasyML::Engine.root.join("lib")
+    # paths["lib"].autoload!
 
     initializer "easy_ml.inflections" do
       require_relative "initializers/inflections"
@@ -47,6 +47,12 @@ module EasyML
         ).each do |file|
           require file
         end
+      end
+    end
+
+    initializer "easy_ml.active_job_config" do
+      ActiveSupport.on_load(:active_job) do
+        self.queue_adapter = :resque
       end
     end
 

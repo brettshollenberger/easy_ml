@@ -21,6 +21,7 @@
 #  batch_mode       :boolean
 #  batch_size       :integer
 #  batch_overlap    :integer
+#  batch_key        :string
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #

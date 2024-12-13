@@ -1,19 +1,10 @@
 module EasyML
   class DeployWorker < ApplicationWorker
-    include Sidekiq::Worker
-
-    sidekiq_options(
-      queue: :easy_ml,
-      retry: false,
-      lock: :until_executed,
-      on_conflict: :log,
-      lock_args_method: ->(args) { args.first },
-    )
-
     def perform(id)
       deploy = EasyML::Deploy.find(id)
       raise "Model already being deployed" unless deploy.unlocked?
 
+      # Use Suo instead
       deploy.lock_job!
       deploy.update(status: "running")
       create_event(deploy, "started")

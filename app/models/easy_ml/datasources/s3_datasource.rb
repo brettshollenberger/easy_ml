@@ -40,17 +40,11 @@ module EasyML
       end
 
       def refresh
-        return unless needs_refresh?
-
-        datasource.syncing do
-          synced_directory.sync
-        end
+        synced_directory.sync
       end
 
       def refresh!
-        datasource.syncing do
-          synced_directory.sync!
-        end
+        synced_directory.sync!
       end
 
       def files_to_sync

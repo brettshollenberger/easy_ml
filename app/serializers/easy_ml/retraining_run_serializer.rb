@@ -13,6 +13,10 @@ module EasyML
                :status,
                :error_message
 
+    attribute :metrics_url do |run|
+      run.wandb_url
+    end
+
     attribute :started_at do |run|
       run.started_at&.in_time_zone(EasyML::Configuration.timezone)
     end

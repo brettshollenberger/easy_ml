@@ -101,6 +101,7 @@ module EasyML
     end
 
     def train(async: true)
+      pending_run # Ensure we update the pending job before enqueuing in background so UI updates properly
       update(is_training: true)
       if async
         EasyML::TrainingWorker.perform_later(id)
@@ -147,8 +148,10 @@ module EasyML
         end
       tuner_instance.adapter = adapter
       tuner_instance.dataset = dataset
-      tuner_instance.tune.tap do |key, value|
-        hyperparameters[key] = value
+      tuner_instance.tune.tap do |best_params|
+        best_params.each do |key, value|
+          self.hyperparameters.send("#{key}=", value)
+        end
       end
     end
 

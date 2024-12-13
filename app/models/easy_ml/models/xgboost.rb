@@ -13,7 +13,6 @@
 #  file          :json
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
-#
 module EasyML
   module Models
     class XGBoost < BaseModel

@@ -59,7 +59,12 @@ module EasyML
         def after_training(booster)
           return booster unless wandb_enabled?
 
-          tuner.current_run.wandb_url = Wandb.current_run.url
+          unless tuner.current_run.wandb_url.present? && model.last_run.wandb_url.present?
+            tuner.current_run.wandb_url = Wandb.current_run.url
+            base_url = Wandb.current_run.url.split("/runs").first
+            model.last_run.update(wandb_url: base_url)
+          end
+
           track_feature_importance(booster)
           booster
         end
@@ -98,13 +103,14 @@ module EasyML
 
           # Use a consistent table and plot for updates
           table = Wandb::Table.new(data: fi_data, columns: %w[Feature Importance])
-          bar_plot = Wandb::Plot.bar(table.table, "Feature", "Importance", title: "Feature Importance (Across All Runs)")
+          bar_plot = Wandb::Plot.bar(table.table, label: "Feature", value: "Importance", title: "Feature Importance (Across All Runs)")
 
           # Convert all values to basic Ruby types that can be serialized to JSON
           log_data = {
             "feature_importance" => bar_plot.__pyptr__,
           }
           Wandb.log(log_data)
+          Wandb.finish
         end
       end
     end

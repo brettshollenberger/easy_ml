@@ -37,6 +37,7 @@ interface ModelFormProps {
         objective: string;
         config: Record<string, any>;
       };
+      tuning_enabled?: boolean;
     };
   };
   datasets: Array<Dataset>;
@@ -91,7 +92,8 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
         active: initialData.retraining_job.active,
         metric: initialData.retraining_job.metric,
         threshold: initialData.retraining_job.threshold,
-        tuner_config: initialData.retraining_job.tuner_config
+        tuner_config: initialData.retraining_job.tuner_config,
+        tuning_enabled: initialData.retraining_job.tuning_enabled || false,
       } : undefined
     }
   });

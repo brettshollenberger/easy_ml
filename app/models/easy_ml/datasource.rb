@@ -45,10 +45,10 @@ module EasyML
     validates :name, presence: true
     validates :datasource_type, presence: true
     validates :datasource_type, inclusion: { in: DATASOURCE_NAMES }
-    validate :validate_datasource_exists
+    # validate :validate_datasource_exists
 
     before_save :set_root_dir
-    after_initialize :read_adapter_from_configuration
+    after_initialize :read_adapter_from_configuration, if: :persisted?
     after_find :read_adapter_from_configuration
     before_save :store_adapter_in_configuration
 

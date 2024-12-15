@@ -189,7 +189,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-400" />
           <span className="text-sm text-gray-600">
-            {job.active ? `Retrains ${model.formatted_frequency}` : 'Retrains manually'}
+            {job?.active ? `Retrains ${model.formatted_frequency}` : 'Retrains manually'}
           </span>
         </div>
         <div className="flex items-center gap-2">

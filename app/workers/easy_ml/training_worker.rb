@@ -13,7 +13,7 @@ module EasyML
       @model.actually_train do |iteration_info|
         @last_activity = Time.current
       end
-      # ensure
+    ensure
       #   @monitor_thread&.exit
     end
 

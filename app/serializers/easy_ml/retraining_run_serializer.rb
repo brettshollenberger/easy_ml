@@ -11,7 +11,9 @@ module EasyML
                :threshold,
                :threshold_direction,
                :status,
-               :error_message
+               :error_message,
+               :is_deploying,
+               :deployed
 
     attribute :metrics_url do |run|
       run.wandb_url

@@ -36,10 +36,12 @@ module EasyML
     end
 
     def edit
-      model = Model.find(params[:id])
+      model = Model.includes(includes_list).find(params[:id])
       render inertia: "pages/EditModelPage", props: {
         model: model_to_json(model),
-        datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+        datasets: EasyML::Dataset.all.map do |dataset|
+          dataset.slice(:id, :name, :num_rows)
+        end,
         constants: EasyML::Model.constants,
       }
     end

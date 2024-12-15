@@ -55,9 +55,12 @@ module EasyML
           end
           model.load_model
           deployed_model = model.deploy
-          update(model_history_id: deployed_model.id, snapshot_id: deployed_model.snapshot_id, status: :success)
-          model.retraining_runs.where(status: :deployed).update_all(status: :success)
-          retraining_run.update(model_history_id: deployed_model.id, snapshot_id: deployed_model.snapshot_id, deploy_id: id, status: :deployed, is_deploying: false)
+
+          EasyML::Deploy.transaction do
+            update(model_history_id: deployed_model.id, snapshot_id: deployed_model.snapshot_id, status: :success)
+            model.retraining_runs.where(status: :deployed).update_all(status: :success)
+            retraining_run.update(model_history_id: deployed_model.id, snapshot_id: deployed_model.snapshot_id, deploy_id: id, status: :deployed, is_deploying: false)
+          end
 
           deployed_model.tap do
             EasyML::Event.create_event(self, "success")

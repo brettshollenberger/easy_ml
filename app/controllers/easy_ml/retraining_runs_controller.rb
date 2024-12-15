@@ -10,5 +10,10 @@ module EasyML
         params: { limit: limit, offset: offset },
       ).serializable_hash
     end
+
+    def show
+      run = EasyML::RetrainingRun.find(params[:id])
+      render json: RetrainingRunSerializer.new(run).serializable_hash
+    end
   end
 end

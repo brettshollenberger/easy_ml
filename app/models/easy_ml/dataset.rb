@@ -346,7 +346,11 @@ module EasyML
     end
 
     def test(**kwargs, &block)
-      load_data(:test, **kwargs, &block)
+      begin
+        load_data(:test, **kwargs, &block)
+      rescue => e
+        binding.pry
+      end
     end
 
     def data(**kwargs, &block)
@@ -540,10 +544,14 @@ module EasyML
     end
 
     def load_data(segment, **kwargs, &block)
-      if processed?
-        processed.load_data(segment, **kwargs, &block)
-      else
-        raw.load_data(segment, **kwargs, &block)
+      begin
+        if processed?
+          processed.load_data(segment, **kwargs, &block)
+        else
+          raw.load_data(segment, **kwargs, &block)
+        end
+      rescue => e
+        binding.pry
       end
     end
 

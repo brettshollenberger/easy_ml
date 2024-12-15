@@ -2,7 +2,7 @@ import { Dataset } from './dataset';
 
 export type ModelStatus = 'success' | 'failed';
 export type DeploymentStatus = 'training' | 'inference' | 'retired';
-export type JobStatus = 'running' | 'success' | 'failed';
+export type JobStatus = 'running' | 'success' | 'failed' | 'deployed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
 
@@ -102,6 +102,7 @@ export interface RetrainingRun {
   threshold_direction: ThresholdDirection;
   deployable: boolean;
   started_at: string | null;
+  is_deploying: boolean;
   completed_at: string | null;
   error_message: string | null;
   metadata: Record<string, unknown>;

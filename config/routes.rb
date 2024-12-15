@@ -10,6 +10,8 @@ EasyML::Engine.routes.draw do
     get "new", on: :collection, as: "new"
   end
 
+  resources :retraining_runs, only: [:show]
+
   # Datasources
   resources :datasources, as: :easy_ml_datasources do
     member do

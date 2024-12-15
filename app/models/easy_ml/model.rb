@@ -110,10 +110,30 @@ module EasyML
       end
     end
 
+    def get_retraining_job
+      if retraining_job
+        self.evaluator = retraining_job.evaluator
+        evaluator = self.evaluator.symbolize_keys
+      else
+        default_eval = Core::ModelEvaluator.default_evaluator(task)
+        self.evaluator = default_eval
+        evaluator = default_eval
+      end
+
+      retraining_job || create_retraining_job(
+        model: self,
+        active: false,
+        evaluator: evaluator,
+        metric: evaluator[:metric],
+        direction: evaluator[:direction],
+        threshold: evaluator[:threshold],
+        frequency: "month",
+        at: { hour: 0, day_of_month: 1 },
+      )
+    end
+
     def pending_run
-      self.evaluator = retraining_job.evaluator
-      evaluator = self.evaluator.symbolize_keys
-      job = retraining_job || create_retraining_job(active: false, evaluator: evaluator, metric: evaluator.dig(:metric), direction: evaluator.dig(:direction), threshold: evaluator.dig(:threshold), frequency: "day", at: { hour: 0 })
+      job = get_retraining_job
       job.retraining_runs.find_or_create_by(status: "pending", model: self)
     end
 
@@ -252,14 +272,13 @@ module EasyML
       retraining_job.present? && retraining_job.batch_mode == true
     end
 
-    def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
-      return fit_in_batches(**batch_args, &progress_block) if fit_in_batches?
+    def fit(tuning: false, x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
+      return fit_in_batches(**batch_args.merge!(tuning: tuning), &progress_block) if fit_in_batches?
 
       if x_train.nil?
-        puts "Refreshing dataset"
-        # dataset.refresh
+        dataset.refresh
       end
-      adapter.fit(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
+      adapter.fit(tuning: tuning, x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
       @is_fit = true
     end
 
@@ -285,8 +304,8 @@ module EasyML
       adapter.after_tuning
     end
 
-    def fit_in_batches(batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"), &progress_block)
-      adapter.fit_in_batches(batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir, &progress_block)
+    def fit_in_batches(tuning: false, batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"), &progress_block)
+      adapter.fit_in_batches(tuning: tuning, batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir, &progress_block)
       @is_fit = true
     end
 

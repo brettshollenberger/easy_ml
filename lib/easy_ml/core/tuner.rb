@@ -124,7 +124,6 @@ module EasyML
 
         best_run.hyperparameters
       rescue StandardError => e
-        binding.pry
         tuner_job&.update!(status: :failed, completed_at: Time.current)
         raise e
       end
@@ -143,7 +142,7 @@ module EasyML
 
       def tune_once(trial, x_true, y_true, adapter, &progress_block)
         adapter.run_trial(trial) do |model|
-          model.fit(&progress_block)
+          model.fit(tuning: true, &progress_block)
           y_pred = model.predict(x_true)
           model.metrics = metrics
           metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)

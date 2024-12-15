@@ -118,6 +118,7 @@ module EasyML
     end
 
     def should_tune?
+      return false unless tuning_enabled
       return false unless tuning_frequency.present?
       return true if last_tuning_at.nil?
 
@@ -187,12 +188,19 @@ module EasyML
           ["hour", "day_of_month"]
         end
 
+      defaults = {
+        "hour" => 0,
+        "day_of_week" => 0, # Sunday
+        "day_of_month" => 1,
+      }
+
       missing_keys = required_keys - at.keys.map(&:to_s)
-      errors.add(:at, "missing required keys: #{missing_keys.join(", ")}") if missing_keys.any?
+      missing_keys.each do |key|
+        at[key] = defaults[key]
+      end
 
       return if at.blank?
 
-      # Validate no extra keys are present
       allowed_keys = case frequency
         when "day"
           ["hour"]

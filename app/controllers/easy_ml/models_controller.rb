@@ -19,7 +19,7 @@ module EasyML
     include EasyML::Engine.routes.url_helpers
 
     def index
-      models = EasyML::Model.all.order(:last_trained_at, :id)
+      models = EasyML::Model.all.includes(includes_list).order(:last_trained_at, :id)
 
       render inertia: "pages/ModelsPage", props: {
         models: models.map { |model| model_to_json(model) },
@@ -28,7 +28,9 @@ module EasyML
 
     def new
       render inertia: "pages/NewModelPage", props: {
-        datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+        datasets: EasyML::Dataset.all.map do |dataset|
+          dataset.slice(:id, :name, :num_rows)
+        end,
         constants: EasyML::Model.constants,
       }
     end
@@ -50,7 +52,9 @@ module EasyML
         redirect_to easy_ml_models_path
       else
         render inertia: "pages/NewModelPage", props: {
-          datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
+          datasets: EasyML::Dataset.all.map do |dataset|
+            dataset.slice(:id, :name, :num_rows)
+          end,
           constants: EasyML::Model.constants,
           errors: model.errors.to_hash(true),
         }
@@ -74,7 +78,7 @@ module EasyML
     end
 
     def show
-      model = Model.includes(:retraining_job, :retraining_runs)
+      model = Model.includes(includes_list)
                    .find(params[:id])
 
       if request.format.json?
@@ -108,6 +112,10 @@ module EasyML
 
     private
 
+    def includes_list
+      [:retraining_runs, :retraining_job, dataset: [:columns, :transforms, :splitter]]
+    end
+
     def model_params
       params.require(:model).permit(
         :name,
@@ -128,6 +136,7 @@ module EasyML
           :batch_size,
           :batch_overlap,
           :batch_key,
+          :tuning_enabled,
           at: [:hour, :day_of_week, :day_of_month],
           tuner_config: [
             :n_trials,

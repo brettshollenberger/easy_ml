@@ -34,6 +34,7 @@ interface ScheduleModalProps {
         objective: string;
         config: Record<string, any>;
       };
+      tuning_enabled?: boolean;
     };
   };
   tunerJobConstants: any;
@@ -105,7 +106,8 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
           ...defaultNumericParameters,
           ...initialData.retraining_job.tuner_config.config
         }
-      } : undefined
+      } : undefined,
+      tuning_enabled: initialData.retraining_job?.tuning_enabled ?? false
     }
   });
 
@@ -630,11 +632,12 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                   <input
                     type="checkbox"
                     id="tuningEnabled"
-                    checked={formData.retraining_job_attributes.tuner_config !== undefined}
+                    checked={formData.retraining_job_attributes.tuning_enabled || false}
                     onChange={(e) => setFormData(prev => ({
                       ...prev,
                       retraining_job_attributes: {
                         ...prev.retraining_job_attributes,
+                        tuning_enabled: e.target.checked,
                         tuner_config: e.target.checked ? {
                           n_trials: 10,
                           config: defaultNumericParameters
@@ -649,7 +652,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                 </div>
               </div>
 
-              {formData.retraining_job_attributes.tuner_config && (
+              {formData.retraining_job_attributes.tuning_enabled && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div>

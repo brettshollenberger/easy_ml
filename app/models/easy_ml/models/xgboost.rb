@@ -140,9 +140,25 @@ module EasyML
           callback.prepare_callback(tuner) if callback.respond_to?(:prepare_callback)
         end
 
+        set_wandb_project(tuner.project_name)
+      end
+
+      def set_wandb_project(project_name)
         wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
         return unless wandb_callback.present?
-        wandb_callback.project_name = tuner.project_name
+        wandb_callback.project_name = project_name
+      end
+
+      def get_wandb_project
+        wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
+        return nil unless wandb_callback.present?
+        wandb_callback.project_name
+      end
+
+      def delete_wandb_project
+        wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
+        return nil unless wandb_callback.present?
+        wandb_callback.project_name = nil
       end
 
       def is_fit?
@@ -151,7 +167,7 @@ module EasyML
 
       attr_accessor :progress_callback
 
-      def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
+      def fit(tuning: false, x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
         validate_objective
 
         puts "PREPARE DATA... This may take a minute..."
@@ -159,17 +175,29 @@ module EasyML
 
         evals = [[d_train, "train"], [d_valid, "eval"]]
         self.progress_callback = progress_block
+        set_default_wandb_project_name unless tuning
         @booster = base_model.train(hyperparameters.to_h,
                                     d_train,
                                     evals: evals,
                                     num_boost_round: hyperparameters["n_estimators"],
                                     callbacks: model.callbacks,
                                     early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
+        delete_wandb_project unless tuning
+        return @booster
       end
 
-      def fit_in_batches(batch_size: 1024, batch_key: nil, batch_start: nil, batch_overlap: 1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
+      def set_default_wandb_project_name
+        return if get_wandb_project.present?
+
+        started_at = EasyML::Support::UTC.now
+        project_name = "#{model.name}_#{started_at.strftime("%Y_%m_%d_%H_%M_%S")}"
+        set_wandb_project(project_name)
+      end
+
+      def fit_in_batches(tuning: false, batch_size: 1024, batch_key: nil, batch_start: nil, batch_overlap: 1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
         validate_objective
         ensure_directory_exists(checkpoint_dir)
+        set_default_wandb_project_name unless tuning
 
         # Prepare validation data
         x_valid, y_valid = dataset.valid(split_ys: true)
@@ -250,6 +278,8 @@ module EasyML
         end
 
         @booster = cb_container.after_training(@booster)
+        delete_wandb_project unless tuning
+        return @booster
       end
 
       def weights

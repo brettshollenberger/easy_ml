@@ -27,23 +27,44 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
     total_count: model.retraining_runs?.total_count || 0
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [deployingRunId, setDeployingRunId] = useState<number | null>(null);
   const dataset = model.dataset;
   const job = model.retraining_job;
+  const hasMoreRuns = pagination.offset + pagination.limit < pagination.total_count;
 
-  const updateCurrentPage = (newPage) => {
-    setCurrentPage(newPage);
-    if (totalPages - newPage < 2 && hasMoreRuns) {
-      loadMoreRuns();
+  useEffect(() => {
+    let pollInterval: number | undefined;
+
+    const deployingRun = runs.find(run => run.is_deploying);
+    if (deployingRun) {
+      pollInterval = window.setInterval(async () => {
+        const response = await fetch(`${rootPath}/retraining_runs/${deployingRun.id}`, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        const data = await response.json();
+        
+        if (!data.is_deploying) {
+          window.location.href = window.location.href; // Full page reload when done
+        }
+      }, 2000);
     }
-  }
 
-  const isCurrentlyDeployed = (run: RetrainingRun) => {
-    return model.deployment_status === 'inference' && run.id === runs[0].id;
-  };
+    return () => {
+      if (pollInterval) {
+        window.clearInterval(pollInterval);
+      }
+    };
+  }, [runs]);
 
   const handleDeploy = async (run: RetrainingRun) => {
-    setDeployingRunId(run.id);
+    if (run.is_deploying) return;
+    
+    const updatedRuns = runs.map(r => 
+      r.id === run.id ? { ...r, is_deploying: true } : r
+    );
+    setRuns(updatedRuns);
+
     try {
       await router.post(`${rootPath}/models/${model.id}/deploys`, {
         retraining_run_id: run.id
@@ -51,38 +72,15 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
         preserveScroll: true,
         preserveState: true
       });
-      
-      // Flash message will be handled by Inertia
     } catch (error) {
-      console.error('Deploy error:', error);
-    } finally {
-      setDeployingRunId(null);
+      console.error('Failed to deploy model:', error);
+      // Reset deploying state on error
+      const resetRuns = runs.map(r => 
+        r.id === run.id ? { ...r, is_deploying: false } : r
+      );
+      setRuns(resetRuns);
     }
   };
-
-  const loadMoreRuns = async () => {
-    if (loading || !hasMoreRuns) return;
-    
-    setLoading(true);
-    try {
-      const response = await fetch(`${rootPath}/models/${model.id}/retraining_runs?offset=${pagination.offset + pagination.limit}&limit=${pagination.limit}`);
-      const data = await response.json();
-      const paginatedData = data.data.attributes.retraining_runs as PaginatedRuns;
-      
-      setRuns([...runs, ...paginatedData.runs]);
-      setPagination({
-        offset: paginatedData.offset,
-        limit: paginatedData.limit,
-        total_count: paginatedData.total_count
-      });
-    } catch (error) {
-      console.error('Error loading more runs:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const hasMoreRuns = pagination.offset + pagination.limit < pagination.total_count;
 
   useEffect(() => {
     const totalPages = Math.ceil(runs.length / ITEMS_PER_PAGE);
@@ -98,6 +96,17 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
+
+  const updateCurrentPage = (newPage) => {
+    setCurrentPage(newPage);
+    if (totalPages - newPage < 2 && hasMoreRuns) {
+      loadMoreRuns();
+    }
+  }
+
+  const isCurrentlyDeployed = (run: RetrainingRun) => {
+    return run.status === 'deployed';
+  };
 
   return (
     <div className="space-y-6">
@@ -188,31 +197,36 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <div className="flex items-center gap-2 mt-1">
-                        {run.metrics_url && (
-                          <a
-                            href={run.metrics_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-gray-400 hover:text-purple-600 transition-colors"
-                            title="View metrics"
-                          >
-                            <LineChart className="w-5 h-5" />
-                          </a>
-                        )}
-                        <span
-                          className={`px-2 py-1 rounded-md text-sm font-medium ${
-                            run.status === 'success'
-                              ? 'bg-green-100 text-green-800'
-                              : run.status === 'running' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {run.status}
-                        </span>
+                        {
+                          !isCurrentlyDeployed(run) && (
+                            <span
+                              className={`px-2 py-1 rounded-md text-sm font-medium ${
+                                run.status === 'success'
+                                  ? 'bg-green-100 text-green-800'
+                                  : run.status === 'running' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'
+                              }`}
+                            >
+                              {run.status}
+                            </span>
+                          )
+                        }
                         {isCurrentlyDeployed(run) && (
                           <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-md text-sm font-medium flex items-center gap-1">
                             <Rocket className="w-4 h-4" />
                             deployed
                           </span>
+                        )}
+                        {run.metrics_url && (
+                          <a
+                            href={run.metrics_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+                            title="View run metrics"
+                          >
+                            <LineChart className="w-4 h-4" />
+                            metrics
+                          </a>
                         )}
                       </div>
                     </div>
@@ -222,30 +236,35 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
                         {new Date(run.started_at).toLocaleString()}
                       </span>
                       {run.status === 'success' && run.deployable && (
-                        <button
-                          onClick={() => handleDeploy(run)}
-                          disabled={deployingRunId === run.id || isCurrentlyDeployed(run)}
-                          className={`ml-4 inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium ${
-                            deployingRunId === run.id
-                              ? 'bg-gray-100 text-gray-500'
-                              : isCurrentlyDeployed(run)
-                              ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700'
-                          }`}
-                          title={isCurrentlyDeployed(run) ? 'This version is currently deployed' : undefined}
-                        >
-                          {deployingRunId === run.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Deploying...
-                            </>
+                        <div className="flex gap-2 items-center">
+                          {isCurrentlyDeployed(run) ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              deployed
+                            </span>
                           ) : (
-                            <>
-                              <Rocket className="w-4 h-4" />
-                              Deploy
-                            </>
+                            <button
+                              onClick={() => handleDeploy(run)}
+                              disabled={run.is_deploying}
+                              className={`ml-4 inline-flex items-center gap-2 px-3 py-1 rounded-md text-sm font-medium 
+                                ${run.is_deploying 
+                                  ? 'bg-yellow-100 text-yellow-800' 
+                                  : 'bg-blue-600 text-white hover:bg-blue-500'
+                                }`}
+                            >
+                              {run.is_deploying ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Deploying...
+                                </>
+                              ) : (
+                                <>
+                                  <Rocket className="w-3 h-3" />
+                                  Deploy
+                                </>
+                              )}
+                            </button>
                           )}
-                        </button>
+                        </div>
                       )}
                     </div>
                   </div>

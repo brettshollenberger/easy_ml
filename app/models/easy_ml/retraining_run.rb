@@ -81,16 +81,18 @@ module EasyML
         else
           EasyML::Event.create_event(self, status)
         end
-        retraining_job.update!(last_run_at: Time.current)
+        params = { last_run_at: Time.current, last_tuning_at: best_params.present? ? Time.current : nil }.compact
+        retraining_job.update!(params)
 
         reload
         if deployable? && retraining_job.auto_deploy
           training_model.save_model_file
           training_model.reload
-          EasyML::Deploy.create!(retraining_run: self, model: training_model, model_file: training_model.model_file, trigger: trigger)
+          deploy = EasyML::Deploy.create!(retraining_run: self, model: training_model, model_file: training_model.model_file, trigger: trigger)
+          deploy.deploy
         end
         true
-      rescue StandardError => e
+      rescue => e
         EasyML::Event.handle_error(self, e)
         update!(
           status: "failed",
@@ -103,6 +105,10 @@ module EasyML
 
     def pending?
       status == "pending"
+    end
+
+    def deployed?
+      status == "deployed"
     end
 
     def success?

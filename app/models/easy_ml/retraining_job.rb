@@ -7,13 +7,13 @@
 #  frequency        :string           not null
 #  at               :json             not null
 #  evaluator        :json
+#  tuning_enabled   :boolean          default(FALSE)
 #  tuner_config     :json
 #  tuning_frequency :string
 #  last_tuning_at   :datetime
 #  active           :boolean          default(TRUE)
 #  status           :string           default("pending")
 #  last_run_at      :datetime
-#  locked_at        :datetime
 #  metric           :string           not null
 #  direction        :string           not null
 #  threshold        :float            not null
@@ -28,8 +28,6 @@
 module EasyML
   class RetrainingJob < ActiveRecord::Base
     self.table_name = "easy_ml_retraining_jobs"
-
-    include EasyML::Concerns::Lockable
 
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun", dependent: :destroy
     has_many :tuner_jobs, through: :retraining_runs

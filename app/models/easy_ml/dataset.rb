@@ -116,7 +116,7 @@ module EasyML
 
     def refresh_async
       update(workflow_status: "analyzing")
-      EasyML::RefreshDatasetWorker.perform_later(id)
+      EasyML::RefreshDatasetJob.perform_later(id)
     end
 
     def raw
@@ -346,11 +346,7 @@ module EasyML
     end
 
     def test(**kwargs, &block)
-      begin
-        load_data(:test, **kwargs, &block)
-      rescue => e
-        binding.pry
-      end
+      load_data(:test, **kwargs, &block)
     end
 
     def data(**kwargs, &block)
@@ -544,14 +540,10 @@ module EasyML
     end
 
     def load_data(segment, **kwargs, &block)
-      begin
-        if processed?
-          processed.load_data(segment, **kwargs, &block)
-        else
-          raw.load_data(segment, **kwargs, &block)
-        end
-      rescue => e
-        binding.pry
+      if processed?
+        processed.load_data(segment, **kwargs, &block)
+      else
+        raw.load_data(segment, **kwargs, &block)
       end
     end
 

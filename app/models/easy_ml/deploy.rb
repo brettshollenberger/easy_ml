@@ -4,19 +4,19 @@
 #
 #  id                :bigint           not null, primary key
 #  model_id          :bigint
+#  model_history_id  :bigint
 #  retraining_run_id :bigint
 #  model_file_id     :bigint
 #  status            :string           not null
 #  trigger           :string           default("manual")
 #  stacktrace        :text
-#  locked_at         :datetime
+#  snapshot_id       :string
 #  created_at        :datetime         not null
 #  updated_at        :datetime         not null
 #
 module EasyML
   class Deploy < ActiveRecord::Base
     self.table_name = "easy_ml_deploys"
-    include EasyML::Concerns::Lockable
 
     belongs_to :model, class_name: "EasyML::Model"
     belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
@@ -37,7 +37,7 @@ module EasyML
 
     def deploy(async: true)
       if async
-        EasyML::DeployWorker.perform_later(id)
+        EasyML::DeployJob.perform_later(id)
       else
         actually_deploy
       end

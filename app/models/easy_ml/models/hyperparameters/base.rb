@@ -73,13 +73,9 @@ module EasyML
         end
 
         def to_h
-          {
-            learning_rate: @learning_rate,
-            max_iterations: @max_iterations,
-            batch_size: @batch_size,
-            regularization: @regularization,
-            early_stopping_rounds: @early_stopping_rounds,
-          }
+          instance_variables.each_with_object({}) do |var, hash|
+            hash[var.to_s.delete("@").to_sym] = instance_variable_get(var)
+          end.with_indifferent_access
         end
 
         def merge(other)

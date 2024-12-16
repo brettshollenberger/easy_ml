@@ -1,5 +1,5 @@
 module EasyML
-  class RefreshDatasetWorker < ApplicationWorker
+  class RefreshDatasetJob < ApplicationJob
     def perform(id)
       dataset = EasyML::Dataset.find(id)
       create_event(dataset, "started")

@@ -9,11 +9,11 @@ module EasyML
       def initialize(options = {})
         @root_dir = options[:root_dir]
         @filename = options[:filename]
-        @s3_bucket = options[:s3_bucket]
+        @s3_bucket = options[:s3_bucket] || EasyML::Configuration.s3_bucket
         @s3_prefix = options[:s3_prefix]
-        @s3_access_key_id = options[:s3_access_key_id]
-        @s3_secret_access_key = options[:s3_secret_access_key]
-        @s3_region = options[:s3_region]
+        @s3_access_key_id = options[:s3_access_key_id] || EasyML::Configuration.s3_access_key_id
+        @s3_secret_access_key = options[:s3_secret_access_key] || EasyML::Configuration.s3_secret_access_key
+        @s3_region = options[:s3_region] || EasyML::Configuration.s3_region
       end
 
       # root_dir + s3_prefix = path
@@ -95,7 +95,7 @@ module EasyML
       def s3
         @s3 ||= begin
             credentials = Aws::Credentials.new(s3_access_key_id, s3_secret_access_key)
-            Aws::S3::Client.new(credentials: credentials, region: s3_region)
+            Aws::S3::Client.new(credentials: credentials)
           end
       end
     end

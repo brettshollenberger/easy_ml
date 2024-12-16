@@ -104,7 +104,7 @@ module EasyML
       pending_run # Ensure we update the pending job before enqueuing in background so UI updates properly
       update(is_training: true)
       if async
-        EasyML::TrainingWorker.perform_later(id)
+        EasyML::TrainingJob.perform_later(id)
       else
         actually_train
       end

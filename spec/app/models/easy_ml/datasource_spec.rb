@@ -18,7 +18,7 @@ RSpec.describe EasyML::Datasource do
                                    annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
                                    points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
                                    created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
-                                                    2024-08-01 2024-09-01]
+                                                    2024-08-01 2024-09-01],
                                  })
 
       # Convert the 'created_date' column to datetime
@@ -32,7 +32,7 @@ RSpec.describe EasyML::Datasource do
       datasource = EasyML::Datasource.create!(
         name: "My Polars Df",
         datasource_type: "polars",
-        df: df
+        df: df,
       )
       datasource = EasyML::Datasource.find(datasource.id)
       expect(datasource.data).to eq df
@@ -42,7 +42,7 @@ RSpec.describe EasyML::Datasource do
       datasource = EasyML::Datasource.create!(
         name: "My Polars Df",
         datasource_type: "polars",
-        df: df
+        df: df,
       )
       datasource = EasyML::Datasource.find(datasource.id)
       datasource.snapshot
@@ -64,7 +64,7 @@ RSpec.describe EasyML::Datasource do
           name: "s3 Datasource",
           datasource_type: "s3",
           s3_bucket: "bucket",
-          s3_prefix: "raw"
+          s3_prefix: "raw",
         )
 
         datasource = EasyML::Datasource.find(s3_datasource.id)
@@ -92,7 +92,7 @@ RSpec.describe EasyML::Datasource do
       s3_datasource = EasyML::Datasource.create!(
         name: "Multi File",
         datasource_type: "s3",
-        s3_bucket: "bucket"
+        s3_bucket: "bucket",
       )
       allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
@@ -107,7 +107,7 @@ RSpec.describe EasyML::Datasource do
       s3_datasource = EasyML::Datasource.create!(
         name: "Multi File",
         datasource_type: "s3",
-        s3_bucket: "bucket"
+        s3_bucket: "bucket",
       )
       allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
@@ -115,8 +115,8 @@ RSpec.describe EasyML::Datasource do
       expect(s3_datasource.data.count).to eq 0
 
       s3_datasource.refresh_async
-      expect(EasyML::SyncDatasourceWorker.jobs.count).to eq 1
-      Sidekiq::Worker.drain_all
+      expect(EasyML::SyncDatasourceJob.jobs.count).to eq 1
+      ResqueSpec.perform_all
       expect(s3_datasource.data.count).to eq 16
     end
   end
@@ -130,14 +130,14 @@ RSpec.describe EasyML::Datasource do
             'business_name': "str",
             'annual_revenue': "f64",
             'rev': "f64",
-            'created_date': "datetime"
-          }
+            'created_date': "datetime",
+          },
         }
 
         file_datasource = EasyML::Datasource.create!(
           name: "Single File",
           datasource_type: "file",
-          polars_args: polars_args
+          polars_args: polars_args,
         )
 
         # Invoking this splits the file

@@ -1,5 +1,5 @@
 module EasyML
-  class TrainingWorker < ApplicationWorker
+  class TrainingJob < ApplicationJob
     class TrainingTimeoutError < StandardError; end
 
     INACTIVITY_TIMEOUT = 15 # seconds

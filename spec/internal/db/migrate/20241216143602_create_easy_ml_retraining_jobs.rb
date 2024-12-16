@@ -5,13 +5,13 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.string :frequency, null: false  # day, week, month, hour
       t.json :at, null: false           # hour of day (0-23)
       t.json :evaluator                 # Model evaluator
+      t.boolean :tuning_enabled, default: false
       t.json :tuner_config              # configuration for the tuner
       t.string :tuning_frequency        # day, week, month, hour - when to run with tuner
       t.datetime :last_tuning_at        # track last tuning run
       t.boolean :active, default: true
       t.string :status, default: "pending"
       t.datetime :last_run_at
-      t.datetime :locked_at
       t.string :metric, null: false
       t.string :direction, null: false
       t.float :threshold, null: false
@@ -27,13 +27,14 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.index :active
       t.index :last_run_at
       t.index :last_tuning_at
-      t.index :locked_at
       t.index :batch_mode
       t.index :auto_deploy
+      t.index :tuning_enabled
     end
 
     create_table :easy_ml_retraining_runs do |t|
       t.bigint :model_id
+      t.bigint :model_history_id
       t.bigint :retraining_job_id, null: false
       t.bigint :tuner_job_id, null: true
       t.string :status, default: 'pending'
@@ -41,7 +42,6 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.float :threshold
       t.string :trigger, default: 'manual'
       t.string :threshold_direction
-      t.boolean :deployable
       t.datetime :started_at
       t.datetime :completed_at
       t.text :error_message
@@ -49,6 +49,11 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.jsonb :metrics
       t.jsonb :best_params
       t.string :wandb_url
+      t.string :snapshot_id
+      t.boolean :deployable
+      t.boolean :is_deploying
+      t.boolean :deployed
+      t.bigint :deploy_id
 
       t.timestamps
 
@@ -61,6 +66,11 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
       t.index :model_id
       t.index :trigger
       t.index :wandb_url
+      t.index :snapshot_id
+      t.index :deploy_id
+      t.index :model_history_id
+      t.index :deployable
+      t.index :is_deploying
     end
   end
 end

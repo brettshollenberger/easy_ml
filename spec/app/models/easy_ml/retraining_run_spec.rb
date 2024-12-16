@@ -208,7 +208,7 @@ RSpec.describe EasyML::RetrainingRun do
           original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
           expect(retraining_run.perform_retraining!).to be true
 
-          expect(EasyML::DeployWorker.jobs.count).to eq 0
+          expect(EasyML::DeployJob.jobs.count).to eq 0
 
           original_model.reload
           expect(original_model).to be_inference
@@ -224,8 +224,8 @@ RSpec.describe EasyML::RetrainingRun do
           original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
           expect(retraining_run.perform_retraining!).to be true
 
-          expect(EasyML::DeployWorker.jobs.count).to eq 1
-          Sidekiq::Worker.drain_all
+          expect(EasyML::DeployJob.jobs.count).to eq 1
+          ResqueSpec.perform_all
 
           original_model.reload
           expect(original_model).to be_retired
@@ -251,7 +251,7 @@ RSpec.describe EasyML::RetrainingRun do
           original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
           expect(retraining_run.perform_retraining!).to be true
 
-          expect(EasyML::DeployWorker.jobs.count).to eq 0
+          expect(EasyML::DeployJob.jobs.count).to eq 0
 
           original_model.reload
           expect(original_model).to_not be_retired
@@ -268,8 +268,8 @@ RSpec.describe EasyML::RetrainingRun do
           original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
           expect(retraining_run.perform_retraining!).to be true
 
-          expect(EasyML::DeployWorker.jobs.count).to eq 1
-          Sidekiq::Worker.drain_all
+          expect(EasyML::DeployJob.jobs.count).to eq 1
+          ResqueSpec.perform_all
 
           original_model.reload
           expect(original_model).to be_retired
@@ -302,7 +302,7 @@ RSpec.describe EasyML::RetrainingRun do
           setup_evaluation([1, 2, 3], [2000, 3000, 4000])
 
           expect(retraining_run.perform_retraining!).to be true
-          Sidekiq::Worker.drain_all
+          ResqueSpec.perform_all
 
           expect(retraining_run.metric_value).to eq 8994.0
           expect(retraining_run.threshold).to eq 1_000

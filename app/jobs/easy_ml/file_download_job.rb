@@ -1,6 +1,6 @@
 module EasyML
-  class FileDownloadWorker
-    include Sidekiq::Worker
+  class FileDownloadJob
+    include Sidekiq::Job
 
     sidekiq_options queue: :easy_ml, retry: 3
 

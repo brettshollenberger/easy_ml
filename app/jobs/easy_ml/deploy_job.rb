@@ -1,5 +1,5 @@
 module EasyML
-  class DeployWorker < ApplicationWorker
+  class DeployJob < ApplicationJob
     def perform(id)
       deploy = EasyML::Deploy.find(id)
 

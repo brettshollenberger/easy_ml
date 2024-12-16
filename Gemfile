@@ -29,6 +29,7 @@ group :development, :test do
   gem "rspec", "~> 3.0"
   gem "rspec-rails"
   gem "rspec-sidekiq"
+  gem "resque_spec"
   gem "spring"
   gem "spring-commands-rspec"
   gem "timecop"

@@ -29,18 +29,6 @@ module EasyML
           end
         end
 
-        def to_h
-          super.merge(
-            learning_rate: @learning_rate,
-            max_depth: @max_depth,
-            n_estimators: @n_estimators,
-            booster: @booster,
-            objective: @objective,
-            lambda: @lambda,
-            alpha: @alpha,
-          )
-        end
-
         def self.hyperparameter_constants
           {
             booster: {

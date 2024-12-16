@@ -9,7 +9,6 @@ class CreateEasyMLDeploys < ActiveRecord::Migration[6.0]
       t.string :trigger, default: 'manual'
       t.text :stacktrace
       t.string :snapshot_id
-      t.datetime :locked_at
       t.timestamps
 
       t.index :created_at
@@ -20,7 +19,6 @@ class CreateEasyMLDeploys < ActiveRecord::Migration[6.0]
       t.index :retraining_run_id
       t.index :status
       t.index :trigger
-      t.index :locked_at
     end
   end
 end 

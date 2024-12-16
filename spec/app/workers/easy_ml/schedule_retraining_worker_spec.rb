@@ -1,7 +1,7 @@
 require "spec_helper"
 require "support/model_spec_helper"
 
-RSpec.describe EasyML::ScheduleRetrainingWorker do
+RSpec.describe EasyML::ScheduleRetrainingJob do
   include ModelSpecHelper
 
   let(:model_name) do
@@ -59,8 +59,8 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
         subject.perform
       end.to change(EasyML::RetrainingRun, :count).by(2)
 
-      expect(EasyML::RetrainingWorker).to have_enqueued_sidekiq_job(EasyML::RetrainingRun.last.id)
-      expect(EasyML::RetrainingWorker).to have_enqueued_sidekiq_job(EasyML::RetrainingRun.last(2).first.id)
+      expect(EasyML::RetrainingJob).to have_enqueued_sidekiq_job(EasyML::RetrainingRun.last.id)
+      expect(EasyML::RetrainingJob).to have_enqueued_sidekiq_job(EasyML::RetrainingRun.last(2).first.id)
     end
 
     it "only processes jobs that can be locked" do
@@ -71,7 +71,7 @@ RSpec.describe EasyML::ScheduleRetrainingWorker do
         subject.perform
       end.to change(EasyML::RetrainingRun, :count).by(1)
 
-      expect(EasyML::RetrainingWorker).to have_enqueued_sidekiq_job(EasyML::RetrainingRun.last.id)
+      expect(EasyML::RetrainingJob).to have_enqueued_sidekiq_job(EasyML::RetrainingRun.last.id)
     end
 
     it "unlocks job if run creation fails" do

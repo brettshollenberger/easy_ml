@@ -170,7 +170,6 @@ module EasyML
       def fit(tuning: false, x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
         validate_objective
 
-        puts "PREPARE DATA... This may take a minute..."
         d_train, d_valid, = prepare_data if x_train.nil?
 
         evals = [[d_train, "train"], [d_valid, "eval"]]
@@ -203,8 +202,8 @@ module EasyML
         x_valid, y_valid = dataset.valid(split_ys: true)
         d_valid = preprocess(x_valid, y_valid)
 
-        num_iterations = hyperparameters.to_h["n_estimators"]
-        early_stopping_rounds = hyperparameters.to_h["early_stopping_rounds"]
+        num_iterations = hyperparameters.to_h[:n_estimators]
+        early_stopping_rounds = hyperparameters.to_h[:early_stopping_rounds]
 
         num_batches = dataset.train(batch_size: batch_size, batch_start: batch_start, batch_key: batch_key).count
         iterations_per_batch = num_iterations / num_batches

@@ -4,6 +4,7 @@
 #
 #  id                  :bigint           not null, primary key
 #  model_id            :bigint
+#  model_history_id    :bigint
 #  retraining_job_id   :bigint           not null
 #  tuner_job_id        :bigint
 #  status              :string           default("pending")
@@ -11,7 +12,6 @@
 #  threshold           :float
 #  trigger             :string           default("manual")
 #  threshold_direction :string
-#  deployable          :boolean
 #  started_at          :datetime
 #  completed_at        :datetime
 #  error_message       :text
@@ -19,6 +19,11 @@
 #  metrics             :jsonb
 #  best_params         :jsonb
 #  wandb_url           :string
+#  snapshot_id         :string
+#  deployable          :boolean
+#  is_deploying        :boolean
+#  deployed            :boolean
+#  deploy_id           :bigint
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #

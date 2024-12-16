@@ -3,7 +3,9 @@
 require "bundler/setup"
 require "timecop"
 require "benchmark"
-require "sidekiq/testing"
+require "resque"
+require "resque_spec"
+require "active_job"
 require "pry"
 Bundler.require :default, :development
 
@@ -71,7 +73,7 @@ RSpec.configure do |config|
   end
 
   config.before(:each) do |_example|
-    Sidekiq::Worker.clear_all
+    ResqueSpec.reset!
   end
 
   if ENV["RAILS_SPECS"] || RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
@@ -88,10 +90,8 @@ RSpec.configure do |config|
   end
 end
 
-# Enable fake mode for Sidekiq testing
-# Sidekiq::Testing.fake!
-Sidekiq::Testing.server_middleware do |chain|
-  chain.add Sidekiq::Batch::Middleware::ServerMiddleware
-end
+# Configure Resque for testing
+ResqueSpec.disable_ext = false
+Resque.redis = Redis.new(url: ENV["REDIS_URL"] || "redis://localhost:6379")
 EST = EasyML::Support::EST
 UTC = EasyML::Support::UTC

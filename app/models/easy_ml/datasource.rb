@@ -83,7 +83,7 @@ module EasyML
     end
 
     def refresh_async
-      EasyML::SyncDatasourceWorker.perform_later(id)
+      EasyML::SyncDatasourceJob.perform_later(id)
     end
 
     def before_sync

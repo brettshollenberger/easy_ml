@@ -46,8 +46,8 @@ module EasyML
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
-    has_many :transforms, dependent: :destroy, class_name: "EasyML::Transform"
-    accepts_nested_attributes_for :transforms, allow_destroy: true
+    has_many :features, dependent: :destroy, class_name: "EasyML::Feature"
+    accepts_nested_attributes_for :features, allow_destroy: true
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
@@ -80,7 +80,7 @@ module EasyML
           { value: type.to_s, label: type.to_s.titleize }
         end,
         preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies],
-        transform_options: EasyML::Transforms::Registry.list_flat,
+        feature_options: EasyML::Features::Registry.list_flat,
       }
     end
 
@@ -174,7 +174,7 @@ module EasyML
     def needs_refresh?
       return true if refreshed_at.nil?
       return true if columns.where("updated_at > ?", refreshed_at).exists?
-      return true if transforms.where("updated_at > ?", refreshed_at).exists?
+      return true if features.where("updated_at > ?", refreshed_at).exists?
       return true if datasource&.needs_refresh?
 
       false
@@ -322,7 +322,7 @@ module EasyML
 
     def normalize(df = nil, split_ys: false, inference: false)
       df = drop_nulls(df)
-      df = apply_transforms(df)
+      df = apply_features(df)
       df = preprocessor.postprocess(df, inference: inference)
       learn if columns.none?
       df = apply_column_mask(df)
@@ -564,9 +564,9 @@ module EasyML
       return unless force || should_split?
 
       cleanup
-      transforms = self.transforms.ordered.load
+      features = self.features.ordered.load
       datasource.in_batches do |df|
-        df = apply_transforms(df, transforms) if transforms.any?
+        df = apply_features(df, features) if features.any?
         train_df, valid_df, test_df = splitter.split(df)
         raw.save(:train, train_df)
         raw.save(:valid, valid_df)
@@ -581,15 +581,15 @@ module EasyML
       processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at
     end
 
-    def apply_transforms(df, transforms = self.transforms)
-      if transforms.nil? || transforms.empty?
+    def apply_features(df, features = self.features)
+      if features.nil? || features.empty?
         df
       else
-        transforms.ordered.reduce(df) do |acc_df, transform|
-          result = transform.apply!(acc_df)
+        features.ordered.reduce(df) do |acc_df, feature|
+          result = feature.apply!(acc_df)
 
           unless result.is_a?(Polars::DataFrame)
-            raise "Transform '#{transform.transform_method}' must return a Polars::DataFrame, got #{result.class}"
+            raise "Feature '#{feature.feature_method}' must return a Polars::DataFrame, got #{result.class}"
           end
 
           result

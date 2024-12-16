@@ -1,63 +1,81 @@
-import React, { useState } from 'react';
-import { GripVertical, X, Plus, ArrowDown, ArrowUp, Settings2 } from 'lucide-react';
-import { SearchableSelect } from '../SearchableSelect';
-import { TransformConfigPopover } from './TransformConfigPopover';
-import { Transform } from "../../types/dataset";
+import React, { useState } from "react";
+import {
+  GripVertical,
+  X,
+  Plus,
+  ArrowDown,
+  ArrowUp,
+  Settings2,
+} from "lucide-react";
+import { SearchableSelect } from "../SearchableSelect";
+import { FeatureConfigPopover } from "./FeatureConfigPopover";
+import { Feature } from "../../types/dataset";
 
-interface TransformPickerProps {
-  options: Transform[];
-  initialTransforms?: Transform[];
-  onTransformsChange: (transforms: Transform[]) => void;
+interface FeaturePickerProps {
+  options: Feature[];
+  initialFeatures?: Feature[];
+  onFeaturesChange: (transforms: Feature[]) => void;
 }
 
-export function TransformPicker({ options, initialTransforms = [], onTransformsChange }: TransformPickerProps) {
-  const [selectedTransforms, setSelectedTransforms] = useState<Transform[]>(initialTransforms);
+export function FeaturePicker({
+  options,
+  initialFeatures = [],
+  onFeaturesChange,
+}: FeaturePickerProps) {
+  const [selectedFeatures, setSelectedFeatures] =
+    useState<Feature[]>(initialFeatures);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
-  console.log(selectedTransforms)
-  const availableTransforms = options.filter(
-    transform => !selectedTransforms.find(t => t.name === transform.name)
+  console.log(selectedFeatures);
+  const availableFeatures = options.filter(
+    (feature) => !selectedFeatures.find((t) => t.name === feature.name)
   );
 
-  const updateTransforms = (newTransforms: Transform[]) => {
-    const transformsWithPosition = newTransforms.map((transform, index) => ({
-      ...transform,
-      transform_position: index
+  const updateFeatures = (newFeatures: Feature[]) => {
+    const transformsWithPosition = newFeatures.map((feature, index) => ({
+      ...feature,
+      feature_position: index,
     }));
-    
-    setSelectedTransforms(transformsWithPosition);
-    onTransformsChange(transformsWithPosition);
+
+    setSelectedFeatures(transformsWithPosition);
+    onFeaturesChange(transformsWithPosition);
   };
 
-  const handleAddTransform = (transformName: string) => {
-    const transform = options.find(t => t.name === transformName);
-    if (transform) {
-      const newTransform = {
-        ...transform,
-        transform_position: selectedTransforms.length
+  const handleAddFeature = (transformName: string) => {
+    const feature = options.find((t) => t.name === transformName);
+    if (feature) {
+      const newFeature = {
+        ...feature,
+        feature_position: selectedFeatures.length,
       };
-      updateTransforms([...selectedTransforms, newTransform]);
+      updateFeatures([...selectedFeatures, newFeature]);
     }
   };
 
   const handleRemove = (index: number) => {
-    const newTransforms = [...selectedTransforms];
-    newTransforms.splice(index, 1);
-    updateTransforms(newTransforms);
+    const newFeatures = [...selectedFeatures];
+    newFeatures.splice(index, 1);
+    updateFeatures(newFeatures);
   };
 
   const handleMoveUp = (index: number) => {
     if (index === 0) return;
-    const newTransforms = [...selectedTransforms];
-    [newTransforms[index - 1], newTransforms[index]] = [newTransforms[index], newTransforms[index - 1]];
-    updateTransforms(newTransforms);
+    const newFeatures = [...selectedFeatures];
+    [newFeatures[index - 1], newFeatures[index]] = [
+      newFeatures[index],
+      newFeatures[index - 1],
+    ];
+    updateFeatures(newFeatures);
   };
 
   const handleMoveDown = (index: number) => {
-    if (index === selectedTransforms.length - 1) return;
-    const newTransforms = [...selectedTransforms];
-    [newTransforms[index], newTransforms[index + 1]] = [newTransforms[index + 1], newTransforms[index]];
-    updateTransforms(newTransforms);
+    if (index === selectedFeatures.length - 1) return;
+    const newFeatures = [...selectedFeatures];
+    [newFeatures[index], newFeatures[index + 1]] = [
+      newFeatures[index + 1],
+      newFeatures[index],
+    ];
+    updateFeatures(newFeatures);
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -68,10 +86,10 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === index) return;
 
-    const newTransforms = [...selectedTransforms];
-    const [draggedTransform] = newTransforms.splice(draggedIndex, 1);
-    newTransforms.splice(index, 0, draggedTransform);
-    updateTransforms(newTransforms);
+    const newFeatures = [...selectedFeatures];
+    const [draggedFeature] = newFeatures.splice(draggedIndex, 1);
+    newFeatures.splice(index, 0, draggedFeature);
+    updateFeatures(newFeatures);
     setDraggedIndex(index);
   };
 
@@ -81,35 +99,37 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
 
   return (
     <div className="space-y-4">
-      {/* Add Transform */}
+      {/* Add Feature */}
       <div className="flex items-center gap-4">
         <div className="flex-1">
           <SearchableSelect
-            options={availableTransforms.map(transform => ({
-              value: transform.name,
-              label: transform.name,
-              description: transform.description
+            options={availableFeatures.map((feature) => ({
+              value: feature.name,
+              label: feature.name,
+              description: feature.description,
             }))}
             value=""
-            onChange={(value) => handleAddTransform(value as string)}
+            onChange={(value) => handleAddFeature(value as string)}
             placeholder="Add a transform..."
           />
         </div>
-        <TransformConfigPopover />
+        <FeatureConfigPopover />
       </div>
 
-      {/* Selected Transforms */}
+      {/* Selected Features */}
       <div className="space-y-2">
-        {selectedTransforms.map((transform, index) => (
+        {selectedFeatures.map((feature, index) => (
           <div
-            key={transform.name}
+            key={feature.name}
             draggable
             onDragStart={(e) => handleDragStart(e, index)}
             onDragOver={(e) => handleDragOver(e, index)}
             onDragEnd={handleDragEnd}
             className={`flex items-center gap-3 p-3 bg-white border rounded-lg ${
-              draggedIndex === index ? 'border-blue-500 shadow-lg' : 'border-gray-200'
-            } ${draggedIndex !== null ? 'cursor-grabbing' : ''}`}
+              draggedIndex === index
+                ? "border-blue-500 shadow-lg"
+                : "border-gray-200"
+            } ${draggedIndex !== null ? "cursor-grabbing" : ""}`}
           >
             <button
               type="button"
@@ -120,16 +140,24 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-gray-900">{transform.name}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  transform.transform_type === 'calculation' ? 'bg-blue-100 text-blue-800' :
-                  transform.transform_type === 'lookup' ? 'bg-purple-100 text-purple-800' :
-                  'bg-green-100 text-green-800'
-                }`}>
-                  {'transform'}
+                <span className="font-medium text-gray-900">
+                  {feature.name}
+                </span>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    feature.feature_type === "calculation"
+                      ? "bg-blue-100 text-blue-800"
+                      : feature.feature_type === "lookup"
+                      ? "bg-purple-100 text-purple-800"
+                      : "bg-green-100 text-green-800"
+                  }`}
+                >
+                  {"feature"}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 truncate">{transform.description}</p>
+              <p className="text-sm text-gray-500 truncate">
+                {feature.description}
+              </p>
             </div>
 
             <div className="flex items-center gap-1">
@@ -145,7 +173,7 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
               <button
                 type="button"
                 onClick={() => handleMoveDown(index)}
-                disabled={index === selectedTransforms.length - 1}
+                disabled={index === selectedFeatures.length - 1}
                 className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50"
                 title="Move down"
               >
@@ -163,7 +191,7 @@ export function TransformPicker({ options, initialTransforms = [], onTransformsC
           </div>
         ))}
 
-        {selectedTransforms.length === 0 && (
+        {selectedFeatures.length === 0 && (
           <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg">
             <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
             <p className="text-sm text-gray-500">

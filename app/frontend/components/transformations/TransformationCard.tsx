@@ -1,14 +1,14 @@
 import React from 'react';
 // import { Link } from 'react-router-dom';
 import { Code2, Settings, Trash2, FolderOpen } from 'lucide-react';
-import type { Transformation, TransformationGroup } from '../../types';
+import type { Featureation, FeatureationGroup } from '../../types';
 
-interface TransformationCardProps {
-  transformation: Transformation;
-  group: TransformationGroup;
+interface FeatureationCardProps {
+  feature: Featureation;
+  group: FeatureationGroup;
 }
 
-export function TransformationCard({ transformation, group }: TransformationCardProps) {
+export function FeatureationCard({ feature, group }: FeatureationCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex justify-between items-start mb-4">
@@ -16,24 +16,24 @@ export function TransformationCard({ transformation, group }: TransformationCard
           <Code2 className="w-5 h-5 text-blue-600 mt-1" />
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              {transformation.name}
+              {feature.name}
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              {transformation.description}
+              {feature.description}
             </p>
           </div>
         </div>
         <div className="flex gap-2">
           <Link
-            to={`/transformations/${transformation.id}/edit`}
+            to={`/features/${feature.id}/edit`}
             className="text-gray-400 hover:text-blue-600 transition-colors"
-            title="Edit transformation"
+            title="Edit feature"
           >
             <Settings className="w-5 h-5" />
           </Link>
           <button
             className="text-gray-400 hover:text-red-600 transition-colors"
-            title="Delete transformation"
+            title="Delete feature"
           >
             <Trash2 className="w-5 h-5" />
           </button>
@@ -44,7 +44,7 @@ export function TransformationCard({ transformation, group }: TransformationCard
         <div>
           <span className="text-sm text-gray-500">Input Columns</span>
           <div className="flex flex-wrap gap-2 mt-1">
-            {transformation.inputColumns.map((column) => (
+            {feature.inputColumns.map((column) => (
               <span
                 key={column}
                 className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
@@ -57,7 +57,7 @@ export function TransformationCard({ transformation, group }: TransformationCard
         <div>
           <span className="text-sm text-gray-500">Output Columns</span>
           <div className="flex flex-wrap gap-2 mt-1">
-            {transformation.outputColumns.map((column) => (
+            {feature.outputColumns.map((column) => (
               <span
                 key={column}
                 className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
@@ -72,14 +72,14 @@ export function TransformationCard({ transformation, group }: TransformationCard
       <div className="mt-4 pt-4 border-t border-gray-100">
         <div className="flex items-center justify-between">
           <Link
-            to={`/transformations/groups/${group.id}`}
+            to={`/features/groups/${group.id}`}
             className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
           >
             <FolderOpen className="w-4 h-4" />
             {group.name}
           </Link>
           <span className="text-sm text-gray-500">
-            Last updated {new Date(transformation.updatedAt).toLocaleDateString()}
+            Last updated {new Date(feature.updatedAt).toLocaleDateString()}
           </span>
         </div>
       </div>

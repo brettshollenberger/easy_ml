@@ -115,7 +115,7 @@ module EasyML
     private
 
     def includes_list
-      [:retraining_runs, :retraining_job, dataset: [:columns, :transforms, :splitter]]
+      [:retraining_runs, :retraining_job, dataset: [:columns, :features, :splitter]]
     end
 
     def model_params

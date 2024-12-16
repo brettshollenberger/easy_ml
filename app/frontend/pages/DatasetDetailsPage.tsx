@@ -49,13 +49,13 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
     }, {} as Record<number, Record<string, any>>);
 
     // Format transforms for nested attributes
-    const transformChanges = updatedDataset.transforms?.map((transform, index) => ({
-      id: transform.id,
-      name: transform.name,
-      transform_class: transform.transform_class,
-      transform_method: transform.transform_method,
-      transform_position: index,
-      _destroy: transform._destroy
+    const transformChanges = updatedDataset.transforms?.map((feature, index) => ({
+      id: feature.id,
+      name: feature.name,
+      feature_class: feature.feature_class,
+      feature_method: feature.feature_method,
+      feature_position: index,
+      _destroy: feature._destroy
     }));
 
     // Only make the API call if there are actual changes

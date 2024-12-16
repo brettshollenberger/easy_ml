@@ -131,11 +131,11 @@ RSpec.describe EasyML::Datasource do
     end
   end
 
-  describe "Transforms" do
+  describe "Features" do
     let(:datasource) { polars_datasource }
 
     class DidConvert
-      include EasyML::Transforms
+      include EasyML::Features
 
       def did_convert(df)
         df.with_column(
@@ -143,13 +143,13 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      transform :did_convert,
-                name: "did_convert",
-                description: "Boolean true/false, did the loan application fund?"
+      feature :did_convert,
+              name: "did_convert",
+              description: "Boolean true/false, did the loan application fund?"
     end
 
     class Age
-      include EasyML::Transforms
+      include EasyML::Features
 
       def age(df)
         df.with_column(
@@ -157,13 +157,13 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      transform :age,
-                name: "age",
-                description: "Age of the owner"
+      feature :age,
+              name: "age",
+              description: "Age of the owner"
     end
 
     class BusinessInception
-      include EasyML::Transforms
+      include EasyML::Features
 
       def business_inception(df)
         df.with_column(
@@ -173,13 +173,13 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      transform :business_inception,
-                name: "Business Inception",
-                description: "Business inception date"
+      feature :business_inception,
+              name: "Business Inception",
+              description: "Business inception date"
     end
 
     class DaysInBusiness
-      include EasyML::Transforms
+      include EasyML::Features
 
       def days_in_business(df)
         df.with_column(
@@ -187,28 +187,28 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      transform :days_in_business,
-                name: "Days in business",
-                description: "Days since the business inception date"
+      feature :days_in_business,
+              name: "Days in business",
+              description: "Days since the business inception date"
     end
 
-    class BadTransform
-      include EasyML::Transforms
+    class BadFeature
+      include EasyML::Features
 
-      def bad_transform(_df)
+      def bad_feature(_df)
         "not a dataframe" # Intentionally return wrong type
       end
 
-      transform :bad_transform,
-                name: "Bad Transform",
-                description: "A transform that doesn't return a DataFrame"
+      feature :bad_feature,
+              name: "Bad Feature",
+              description: "A feature that doesn't return a DataFrame"
     end
 
     before do
-      EasyML::Transforms::Registry.register(DidConvert)
-      EasyML::Transforms::Registry.register(Age)
-      EasyML::Transforms::Registry.register(BusinessInception)
-      EasyML::Transforms::Registry.register(DaysInBusiness)
+      EasyML::Features::Registry.register(DidConvert)
+      EasyML::Features::Registry.register(Age)
+      EasyML::Features::Registry.register(BusinessInception)
+      EasyML::Features::Registry.register(DaysInBusiness)
     end
 
     it "creates computed columns in the correct order" do
@@ -217,38 +217,38 @@ RSpec.describe EasyML::Datasource do
       dataset.refresh!
       expect(dataset).to_not be_needs_refresh
 
-      EasyML::Transform.new(
+      EasyML::Feature.new(
         dataset: dataset,
-        transform_class: BusinessInception,
-        transform_method: :business_inception,
+        feature_class: BusinessInception,
+        feature_method: :business_inception,
       ).insert
 
-      EasyML::Transform.new(
+      EasyML::Feature.new(
         dataset: dataset,
-        transform_class: DaysInBusiness,
-        transform_method: :days_in_business,
+        feature_class: DaysInBusiness,
+        feature_method: :days_in_business,
       ).insert
 
       # Insert age between business_inception and days_in_business
-      EasyML::Transform.new(
+      EasyML::Feature.new(
         dataset: dataset,
-        transform_class: Age,
-        transform_method: :age,
+        feature_class: Age,
+        feature_method: :age,
       ).insert_after(:business_inception)
 
       # Prepend did_convert to be first
-      EasyML::Transform.new(
+      EasyML::Feature.new(
         dataset: dataset,
-        transform_class: DidConvert,
-        transform_method: :did_convert,
+        feature_class: DidConvert,
+        feature_method: :did_convert,
       ).prepend
 
       expect(dataset).to be_needs_refresh
       dataset.refresh!
       expect(dataset).to_not be_needs_refresh
 
-      transforms = dataset.transforms.ordered
-      expect(transforms.map(&:transform_method)).to eq(
+      features = dataset.features.ordered
+      expect(features.map(&:feature_method)).to eq(
         %w[did_convert business_inception age days_in_business]
       )
 
@@ -260,22 +260,22 @@ RSpec.describe EasyML::Datasource do
       expect(dataset.data["days_in_business"].to_a).to all(be > 0)
     end
 
-    it "raises appropriate error if any transform doesn't return df" do
-      # Register the bad transform
-      EasyML::Transforms::Registry.register(BadTransform)
+    it "raises appropriate error if any feature doesn't return df" do
+      # Register the bad feature
+      EasyML::Features::Registry.register(BadFeature)
 
-      # Create a transform that will fail
-      transform = EasyML::Transform.new(
+      # Create a feature that will fail
+      feature = EasyML::Feature.new(
         dataset: dataset,
-        transform_class: BadTransform,
-        transform_method: :bad_transform,
+        feature_class: BadFeature,
+        feature_method: :bad_feature,
       )
-      transform.insert
+      feature.insert
 
       # Attempt to refresh the dataset
       expect do
         dataset.refresh!
-      end.to raise_error(/Transform 'bad_transform' must return a Polars::DataFrame/)
+      end.to raise_error(/Feature 'bad_feature' must return a Polars::DataFrame/)
     end
   end
 
@@ -324,12 +324,12 @@ RSpec.describe EasyML::Datasource do
           expect(dataset).to be_needs_refresh
         end
 
-        it "returns true when transforms have been updated" do
+        it "returns true when features have been updated" do
           Timecop.travel 1.minute do
-            EasyML::Transform.create!(
+            EasyML::Feature.create!(
               dataset: dataset,
-              transform_class: Age,
-              transform_method: :age,
+              feature_class: Age,
+              feature_method: :age,
             )
           end
 

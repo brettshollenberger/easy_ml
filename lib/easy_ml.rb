@@ -18,7 +18,7 @@ module EasyML
   require_relative "easy_ml/core_ext"
   require_relative "easy_ml/logging"
   require_relative "easy_ml/data"
-  require_relative "easy_ml/transforms"
+  require_relative "easy_ml/features"
   require_relative "easy_ml/core"
   require_relative "easy_ml/orchestrator"
 end

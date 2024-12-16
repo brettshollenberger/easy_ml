@@ -1,13 +1,13 @@
 import React from 'react';
 // import { Link } from 'react-router-dom';
 import { FolderOpen, Settings, Trash2 } from 'lucide-react';
-import type { TransformationGroup } from '../../types';
+import type { FeatureationGroup } from '../../types';
 
-interface TransformationGroupCardProps {
-  group: TransformationGroup;
+interface FeatureationGroupCardProps {
+  group: FeatureationGroup;
 }
 
-export function TransformationGroupCard({ group }: TransformationGroupCardProps) {
+export function FeatureationGroupCard({ group }: FeatureationGroupCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex justify-between items-start mb-4">
@@ -24,7 +24,7 @@ export function TransformationGroupCard({ group }: TransformationGroupCardProps)
         </div>
         <div className="flex gap-2">
           <Link
-            to={`/transformations/groups/${group.id}/edit`}
+            to={`/features/groups/${group.id}/edit`}
             className="text-gray-400 hover:text-blue-600 transition-colors"
             title="Edit group"
           >
@@ -42,7 +42,7 @@ export function TransformationGroupCard({ group }: TransformationGroupCardProps)
       <div className="mt-4 pt-4 border-t border-gray-100">
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-500">
-            {group.transformations.length} transformations
+            {group.features.length} features
           </span>
           <span className="text-gray-500">
             Last updated {new Date(group.updatedAt).toLocaleDateString()}

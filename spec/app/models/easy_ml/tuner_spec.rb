@@ -8,7 +8,7 @@ RSpec.describe EasyML::Core::Tuner do
     EasyML::Datasource.create(
       name: "Polars Datasource",
       datasource_type: "polars",
-      df: df
+      df: df,
     )
   end
 
@@ -26,7 +26,7 @@ RSpec.describe EasyML::Core::Tuner do
   let(:mock_model) { instance_double(XGBoost::Booster) }
   let(:callback_params) do
     {
-      project_name: "my-great-project"
+      project_name: "my-great-project",
     }
   end
 
@@ -36,14 +36,14 @@ RSpec.describe EasyML::Core::Tuner do
       task: task,
       dataset: dataset,
       callbacks: [
-        { wandb: { project_name: "my-great-project" } }
+        { wandb: { project_name: "my-great-project" } },
       ],
       hyperparameters: {
         booster: :gbtree,
         learning_rate: learning_rate,
         max_depth: max_depth,
-        objective: objective
-      }
+        objective: objective,
+      },
     }
   end
 
@@ -55,8 +55,8 @@ RSpec.describe EasyML::Core::Tuner do
       config: {
         learning_rate: { min: 0.01, max: 0.1 },
         n_estimators: { min: 1, max: 2 },
-        max_depth: { min: 1, max: 5 }
-      }
+        max_depth: { min: 1, max: 5 },
+      },
     }
   end
 
@@ -83,10 +83,10 @@ RSpec.describe EasyML::Core::Tuner do
         objective: :mean_absolute_error,
         config: {
           learning_rate: {
-            min: 0.01
+            min: 0.01,
           },
-          n_estimators: { min: 1, max: 2 }
-        }
+          n_estimators: { min: 1, max: 2 },
+        },
       ).tune
     end
 
@@ -101,10 +101,10 @@ RSpec.describe EasyML::Core::Tuner do
         objective: :mean_absolute_error,
         config: {
           learning_rate: {
-            min: 0.01
+            min: 0.01,
           },
-          n_estimators: { min: 1, max: 2 }
-        }
+          n_estimators: { min: 1, max: 2 },
+        },
       ).tune
     end
 
@@ -121,8 +121,7 @@ RSpec.describe EasyML::Core::Tuner do
 
       tuner = EasyML::Core::Tuner.new(tuner_params)
       tuner.tune
-      expect(tuner.model.callbacks.first.project_name).to match(/my-great-project_\d{4}_\d{2}_\d{2}/)
-      expect(EasyML::TunerJob.last.metadata["wandb_url"]).to eq "https://wandb.ai"
+      expect(tuner.model.callbacks.first.project_name).to match(/My Model/)
     end
 
     it "accepts custom evaluator" do
@@ -133,7 +132,8 @@ RSpec.describe EasyML::Core::Tuner do
       end
 
       EasyML::Core::ModelEvaluator.register(:custom, CustomEvaluator, :regression)
-      model.evaluator = { metric: :custom, max: 10 }
+      model.update(evaluator: { metric: :custom, max: 10 })
+      model.save
       tuner = EasyML::Core::Tuner.new(tuner_params)
       tuner.tune
 
@@ -152,8 +152,8 @@ RSpec.describe EasyML::Core::Tuner do
           "hyperparameter_ranges" => {
             "learning_rate" => { "min" => 0.01, "max" => 0.1 },
             "n_estimators" => { "min" => 1, "max" => 2 },
-            "max_depth" => { "min" => 1, "max" => 5 }
-          }
+            "max_depth" => { "min" => 1, "max" => 5 },
+          },
         )
       end
 

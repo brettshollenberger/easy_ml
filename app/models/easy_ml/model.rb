@@ -338,7 +338,7 @@ module EasyML
     end
 
     def evaluator
-      read_attribute(:evaluator) || default_evaluator
+      instance_variable_get(:@evaluator) || default_evaluator
     end
 
     def default_evaluator

@@ -96,8 +96,14 @@ RSpec.describe EasyML::Datasource do
       )
       allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
+      expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 2
+      expect(Dir.glob(multi_file_dir.join("*.parquet")).count).to eq 0
+      expect(s3_datasource.data.count).to eq 16
       allow(Rails.env).to receive(:test?).and_return(true)
+
       s3_datasource.refresh
+      expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 2
+      expect(Dir.glob(multi_file_dir.join("*.parquet")).count).to eq 2
       expect(s3_datasource.data.count).to eq 16
     end
 
@@ -110,10 +116,14 @@ RSpec.describe EasyML::Datasource do
       )
       allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
+      expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 2
+      expect(Dir.glob(multi_file_dir.join("*.parquet")).count).to eq 0
       allow(Rails.env).to receive(:test?).and_return(true)
 
       expect { s3_datasource.refresh_async }.to have_enqueued_job(EasyML::SyncDatasourceJob)
       perform_enqueued_jobs
+      expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 2
+      expect(Dir.glob(multi_file_dir.join("*.parquet")).count).to eq 2
       expect(s3_datasource.data.count).to eq 16
     end
   end

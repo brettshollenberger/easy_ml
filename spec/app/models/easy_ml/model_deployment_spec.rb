@@ -198,7 +198,7 @@ RSpec.describe EasyML::Models do
   end
 
   describe "#deploy" do
-    it "uses snapshot model for prediction", :focus do
+    it "uses snapshot model for prediction" do
       mock_s3_upload
 
       @time = EasyML::Support::EST.now

@@ -1,23 +1,23 @@
-module EasyML::Transforms
+module EasyML::Features
   def self.included(base)
     base.extend(ClassMethods)
   end
 
   module ClassMethods
-    def transforms
-      @transforms ||= []
+    def features
+      @features ||= []
     end
 
-    def transform(method_name, name: nil, description: nil)
-      transforms << {
+    def feature(method_name, name: nil, description: nil)
+      features << {
         method: method_name,
         name: name || method_name.to_s.humanize,
-        description: description
+        description: description,
       }
     end
 
-    def apply_transforms(df)
-      new.apply_transforms(df)
+    def apply_features(df)
+      new.apply_features(df)
     end
   end
 
@@ -25,25 +25,25 @@ module EasyML::Transforms
     (list1 - list2).any?
   end
 
-  def apply_transforms(df)
-    self.class.transforms.reduce(df) do |df, transform|
-      send(transform[:method], df)
+  def apply_features(df)
+    self.class.features.reduce(df) do |df, feature|
+      send(feature[:method], df)
     end
   end
 
   class Registry
     class << self
-      def register(transform_class, namespace: nil)
+      def register(feature_class, namespace: nil)
         namespace = namespace&.to_sym
         registry[namespace] ||= {}
 
-        transform_class.transforms.each do |transform|
-          [namespace, transform[:name]].compact.join("/")
-          registry[namespace][transform[:name]] = {
-            transform_class: transform_class,
-            name: transform[:name],
-            transform_method: transform[:method],
-            description: transform[:description]
+        feature_class.features.each do |feature|
+          [namespace, feature[:name]].compact.join("/")
+          registry[namespace][feature[:name]] = {
+            feature_class: feature_class,
+            name: feature[:name],
+            feature_method: feature[:method],
+            description: feature[:description],
           }
         end
       end

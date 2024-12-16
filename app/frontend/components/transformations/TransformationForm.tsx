@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
-import type { Dataset, TransformationGroup } from '../../types';
+import type { Dataset, FeatureationGroup } from '../../types';
 import { CodeEditor } from './CodeEditor';
 import { DataPreview } from './DataPreview';
 
-interface TransformationFormProps {
+interface FeatureationFormProps {
   datasets: Dataset[];
-  groups: TransformationGroup[];
+  groups: FeatureationGroup[];
   initialData?: {
     name: string;
     description: string;
@@ -20,13 +20,13 @@ interface TransformationFormProps {
   onCancel: () => void;
 }
 
-export function TransformationForm({
+export function FeatureationForm({
   datasets,
   groups,
   initialData,
   onSubmit,
   onCancel
-}: TransformationFormProps) {
+}: FeatureationFormProps) {
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     description: initialData?.description || '',
@@ -192,7 +192,7 @@ export function TransformationForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Transformation Code
+          Featureation Code
         </label>
         <div className="bg-gray-50 rounded-lg p-4">
           <CodeEditor
@@ -227,7 +227,7 @@ export function TransformationForm({
           type="submit"
           className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          {initialData ? 'Save Changes' : 'Create Transformation'}
+          {initialData ? 'Save Changes' : 'Create Featureation'}
         </button>
       </div>
     </form>

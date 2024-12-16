@@ -1,14 +1,14 @@
 # == Schema Information
 #
-# Table name: easy_ml_transform_histories
+# Table name: easy_ml_feature_histories
 #
 #  id                 :bigint           not null, primary key
-#  transform_id       :integer          not null
+#  feature_id       :integer          not null
 #  dataset_id         :integer          not null
 #  name               :string
-#  transform_class    :string           not null
-#  transform_method   :string           not null
-#  transform_position :integer
+#  feature_class    :string           not null
+#  feature_method   :string           not null
+#  feature_position :integer
 #  applied_at         :datetime
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
@@ -18,8 +18,8 @@
 #  snapshot_id        :string
 #
 module EasyML
-  class TransformHistory < ActiveRecord::Base
-    self.table_name = "easy_ml_transform_histories"
+  class FeatureHistory < ActiveRecord::Base
+    self.table_name = "easy_ml_feature_histories"
     include Historiographer::History
   end
 end

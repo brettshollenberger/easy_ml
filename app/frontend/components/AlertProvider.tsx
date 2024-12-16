@@ -70,7 +70,7 @@ export function AlertContainer() {
           key={alert.id}
           className={`flex items-center justify-between p-4 rounded-lg shadow-lg 
             transition-all duration-300 ease-in-out
-            ${alert.isLeaving ? 'opacity-0 transform -translate-y-2' : 'opacity-100'}
+            ${alert.isLeaving ? 'opacity-0 feature -translate-y-2' : 'opacity-100'}
             ${
               alert.type === 'success' ? 'bg-green-50 text-green-900' :
               alert.type === 'error' ? 'bg-red-50 text-red-900' :

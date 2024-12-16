@@ -1,28 +1,43 @@
-import type { Datasource } from './datasource';
+import type { Datasource } from "./datasource";
 
-export type DatasetWorkflowStatus = 'analyzing' | 'ready' | 'failed' | 'locked';
-export type DatasetStatus = 'training' | 'inference' | 'retired';
-export type ColumnType = 'float' | 'integer' | 'boolean' | 'categorical' | 'datetime' | 'text' | 'string';
+export type DatasetWorkflowStatus = "analyzing" | "ready" | "failed" | "locked";
+export type DatasetStatus = "training" | "inference" | "retired";
+export type ColumnType =
+  | "float"
+  | "integer"
+  | "boolean"
+  | "categorical"
+  | "datetime"
+  | "text"
+  | "string";
 
 export type PreprocessingSteps = {
   training?: PreprocessingStep;
   inference?: PreprocessingStep;
-}
+};
 
-export type Transform = {
+export type Feature = {
   id?: number;
   name: string;
-  transform_class: string;
-  transform_method: string;
-  transform_position: number;
+  feature_class: string;
+  feature_method: string;
+  feature_position: number;
   dataset_id?: number;
   description?: string;
-  transform_type?: 'calculation' | 'lookup' | 'other';
+  feature_type?: "calculation" | "lookup" | "other";
   _destroy?: boolean;
-}
+};
 
 export type PreprocessingStep = {
-  method: 'none' | 'mean' | 'median' | 'ffill' | 'most_frequent' | 'categorical' | 'constant' | 'today';
+  method:
+    | "none"
+    | "mean"
+    | "median"
+    | "ffill"
+    | "most_frequent"
+    | "categorical"
+    | "constant"
+    | "today";
   params: {
     value?: number;
     constant?: string;
@@ -84,7 +99,7 @@ export interface Dataset {
   datasource_id: number;
   columns: Array<Column>;
   sample_data: Record<string, any>[];
-  transforms?: Array<Transform>;
+  transforms?: Array<Feature>;
   preprocessing_steps: {
     training: Record<string, any>;
   };
@@ -103,12 +118,12 @@ export interface NewDatasetForm {
     description?: string;
     datasource_id?: number;
     splitter_attributes: {
-        splitter_type: string;
-        date_col: string;
-        months_test: number;
-        months_valid: number;
-      };
-  }
+      splitter_type: string;
+      date_col: string;
+      months_test: number;
+      months_valid: number;
+    };
+  };
 }
 
 export interface NewDatasetFormProps {
@@ -116,7 +131,7 @@ export interface NewDatasetFormProps {
     COLUMN_TYPES: Array<{ value: string; label: string }>;
   };
   datasources: Datasource[];
-} 
+}
 
 export interface PreprocessingConstants {
   column_types: Array<{ value: ColumnType; label: string }>;

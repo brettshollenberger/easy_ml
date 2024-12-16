@@ -14,11 +14,11 @@ export function DataPreview({ dataset, code, inputColumns, outputColumns }: Data
   const [error, setError] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<Record<string, any>[] | null>(null);
 
-  const runTransformation = () => {
+  const runFeatureation = () => {
     setIsRunning(true);
     setError(null);
 
-    // Simulate transformation execution
+    // Simulate feature execution
     setTimeout(() => {
       try {
         // In a real implementation, this would execute the Ruby code
@@ -37,7 +37,7 @@ export function DataPreview({ dataset, code, inputColumns, outputColumns }: Data
       <div className="flex justify-between items-center">
         <h4 className="text-sm font-medium text-gray-900">Data Preview</h4>
         <button
-          onClick={runTransformation}
+          onClick={runFeatureation}
           disabled={isRunning}
           className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
@@ -52,7 +52,7 @@ export function DataPreview({ dataset, code, inputColumns, outputColumns }: Data
             <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5" />
             <div>
               <h4 className="text-sm font-medium text-red-800">
-                Transformation Error
+                Featureation Error
               </h4>
               <pre className="mt-1 text-sm text-red-700 whitespace-pre-wrap font-mono">
                 {error}
@@ -103,7 +103,7 @@ export function DataPreview({ dataset, code, inputColumns, outputColumns }: Data
           <div>
             <div className="px-4 py-2 bg-gray-50 border-b border-gray-200">
               <h5 className="text-sm font-medium text-gray-700">
-                {previewData ? 'Transformed Data' : 'Output Preview'}
+                {previewData ? 'Featureed Data' : 'Output Preview'}
               </h5>
             </div>
             <div className="overflow-x-auto">
@@ -138,7 +138,7 @@ export function DataPreview({ dataset, code, inputColumns, outputColumns }: Data
                 </table>
               ) : (
                 <div className="p-8 text-center text-sm text-gray-500">
-                  Run the transformation to see the preview
+                  Run the feature to see the preview
                 </div>
               )}
             </div>

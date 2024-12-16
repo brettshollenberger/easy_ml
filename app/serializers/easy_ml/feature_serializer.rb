@@ -5,9 +5,9 @@
 #  id                 :bigint           not null, primary key
 #  dataset_id         :bigint           not null
 #  name               :string
-#  transform_class    :string           not null
-#  transform_method   :string           not null
-#  transform_position :integer
+#  feature_class    :string           not null
+#  feature_method   :string           not null
+#  feature_position :integer
 #  applied_at         :datetime
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
@@ -15,13 +15,13 @@
 require "jsonapi/serializer"
 
 module EasyML
-  class TransformSerializer
+  class FeatureSerializer
     include JSONAPI::Serializer
 
-    attributes :id, :transform_class, :transform_method, :transform_position, :name
+    attributes :id, :feature_class, :feature_method, :feature_position, :name
 
-    attribute :description do |transform|
-      (EasyML::Transforms::Registry.find(transform.name) || {}).dig(:description)
+    attribute :description do |feature|
+      (EasyML::Features::Registry.find(feature.name) || {}).dig(:description)
     end
   end
 end

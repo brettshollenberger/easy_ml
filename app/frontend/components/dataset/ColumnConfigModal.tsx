@@ -1,14 +1,25 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { X, Settings2, AlertCircle, Target, EyeOff, Search, Wand2, Play, Loader2, Sparkles } from 'lucide-react';
-import { PreprocessingConfig } from './PreprocessingConfig';
-import { ColumnList } from './ColumnList';
-import { ColumnFilters } from './ColumnFilters';
-import { AutosaveIndicator } from './AutosaveIndicator';
-import { SearchableSelect } from '../SearchableSelect';
-import { useAutosave } from '../../hooks/useAutosave';
-import { Dataset, Column, Transform } from "../../types/dataset";
-import type { PreprocessingStep } from '../../types/dataset';
-import { TransformPicker } from './TransformPicker';
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import {
+  X,
+  Settings2,
+  AlertCircle,
+  Target,
+  EyeOff,
+  Search,
+  Wand2,
+  Play,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
+import { PreprocessingConfig } from "./PreprocessingConfig";
+import { ColumnList } from "./ColumnList";
+import { ColumnFilters } from "./ColumnFilters";
+import { AutosaveIndicator } from "./AutosaveIndicator";
+import { SearchableSelect } from "../SearchableSelect";
+import { useAutosave } from "../../hooks/useAutosave";
+import { Dataset, Column, Feature } from "../../types/dataset";
+import type { PreprocessingStep } from "../../types/dataset";
+import { FeaturePicker } from "./FeaturePicker";
 import { router } from "@inertiajs/react";
 
 interface ColumnConfig {
@@ -23,73 +34,96 @@ interface ColumnConfigModalProps {
   constants: any;
 }
 
-export function ColumnConfigModal({ 
-  isOpen, 
-  onClose, 
-  initialDataset, 
+export function ColumnConfigModal({
+  isOpen,
+  onClose,
+  initialDataset,
   onSave,
-  constants
+  constants,
 }: ColumnConfigModalProps) {
   const [dataset, setDataset] = useState<Dataset>(initialDataset);
-  const [activeTab, setActiveTab] = useState<'columns' | 'transforms'>('columns');
+  const [activeTab, setActiveTab] = useState<"columns" | "transforms">(
+    "columns"
+  );
   const [isApplying, setIsApplying] = useState(false);
-  const [config, setConfig] = useState<ColumnConfig>({ targetColumn: dataset.target });
+  const [config, setConfig] = useState<ColumnConfig>({
+    targetColumn: dataset.target,
+  });
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<{
-    view: 'all' | 'training' | 'hidden' | 'preprocessed' | 'nulls';
+    view: "all" | "training" | "hidden" | "preprocessed" | "nulls";
     types: string[];
   }>({
-    view: 'all',
-    types: []
+    view: "all",
+    types: [],
   });
-  const [needsRefresh, setNeedsRefresh] = useState(initialDataset.needs_refresh || false);
+  const [needsRefresh, setNeedsRefresh] = useState(
+    initialDataset.needs_refresh || false
+  );
 
-  const handleSave = useCallback(async (data: Dataset) => {
-    await onSave(data);
-  }, [onSave]);
+  const handleSave = useCallback(
+    async (data: Dataset) => {
+      await onSave(data);
+    },
+    [onSave]
+  );
 
   const { saving, saved, error } = useAutosave(dataset, handleSave, 2000);
 
   const colHasPreprocessingSteps = (col: Column) => {
-    return col.preprocessing_steps?.training != null && col.preprocessing_steps?.training?.method !== 'none'
-  }
+    return (
+      col.preprocessing_steps?.training != null &&
+      col.preprocessing_steps?.training?.method !== "none"
+    );
+  };
 
   const filteredColumns = useMemo(() => {
-    return dataset.columns.filter(column => {
-      const matchesSearch = column.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesType = activeFilters.types.length === 0 || activeFilters.types.includes(column.datatype);
-      
+    return dataset.columns.filter((column) => {
+      const matchesSearch = column.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      const matchesType =
+        activeFilters.types.length === 0 ||
+        activeFilters.types.includes(column.datatype);
+
       const matchesView = (() => {
         switch (activeFilters.view) {
-          case 'training':
+          case "training":
             return !column.hidden && !column.drop_if_null;
-          case 'hidden':
+          case "hidden":
             return column.hidden;
-          case 'preprocessed':
+          case "preprocessed":
             return colHasPreprocessingSteps(column);
-          case 'nulls':
+          case "nulls":
             return (column.statistics?.processed?.null_count || 0) > 0;
           default:
             return true;
         }
       })();
-      
+
       return matchesSearch && matchesType && matchesView;
     });
   }, [dataset.columns, searchQuery, activeFilters]);
 
-  const columnStats = useMemo(() => ({
-    total: dataset.columns.length,
-    filtered: filteredColumns.length,
-    training: dataset.columns.filter(c => !c.hidden && !c.drop_if_null).length,
-    hidden: dataset.columns.filter(c => c.hidden).length,
-    withPreprocessing: dataset.columns.filter(colHasPreprocessingSteps).length,
-    withNulls: dataset.columns.filter(c => (c.statistics?.processed?.null_count || 0) > 0).length
-  }), [dataset.columns, filteredColumns]);
+  const columnStats = useMemo(
+    () => ({
+      total: dataset.columns.length,
+      filtered: filteredColumns.length,
+      training: dataset.columns.filter((c) => !c.hidden && !c.drop_if_null)
+        .length,
+      hidden: dataset.columns.filter((c) => c.hidden).length,
+      withPreprocessing: dataset.columns.filter(colHasPreprocessingSteps)
+        .length,
+      withNulls: dataset.columns.filter(
+        (c) => (c.statistics?.processed?.null_count || 0) > 0
+      ).length,
+    }),
+    [dataset.columns, filteredColumns]
+  );
 
-  const columnTypes = useMemo(() => 
-    Array.from(new Set(dataset.columns.map(c => c.datatype))),
+  const columnTypes = useMemo(
+    () => Array.from(new Set(dataset.columns.map((c) => c.datatype))),
     [dataset.columns]
   );
 
@@ -98,7 +132,7 @@ export function ColumnConfigModal({
   };
 
   const toggleHiddenColumn = (columnName: string) => {
-    const updatedColumns = dataset.columns.map(c => ({
+    const updatedColumns = dataset.columns.map((c) => ({
       ...c,
       hidden: c.name === columnName ? !c.hidden : c.hidden,
     }));
@@ -112,8 +146,8 @@ export function ColumnConfigModal({
 
   const setTargetColumn = (columnName: string) => {
     const name = String(columnName);
-    setConfig({targetColumn: columnName});
-    const updatedColumns = dataset.columns.map(c => ({
+    setConfig({ targetColumn: columnName });
+    const updatedColumns = dataset.columns.map((c) => ({
       ...c,
       is_target: c.name === name,
     }));
@@ -126,7 +160,7 @@ export function ColumnConfigModal({
   };
 
   const setColumnType = (columnName: string, datatype: string) => {
-    const updatedColumns = dataset.columns.map(c => ({
+    const updatedColumns = dataset.columns.map((c) => ({
       ...c,
       datatype: c.name === columnName ? datatype : c.datatype,
     }));
@@ -144,47 +178,49 @@ export function ColumnConfigModal({
     inference: PreprocessingStep | undefined,
     useDistinctInference: boolean
   ) => {
-    const column = dataset.columns.find(c => c.name === columnName);
+    const column = dataset.columns.find((c) => c.name === columnName);
     if (!column) return;
 
-    const updatedColumns = dataset.columns.map(c => {
+    const updatedColumns = dataset.columns.map((c) => {
       if (c.name !== columnName) return c;
-      
+
       return {
         ...c,
         preprocessing_steps: {
           training,
-          ...(useDistinctInference && inference ? { inference } : {})
-        }
+          ...(useDistinctInference && inference ? { inference } : {}),
+        },
       };
     });
 
     setDataset({
       ...dataset,
-      columns: updatedColumns
+      columns: updatedColumns,
     });
     setNeedsRefresh(true);
   };
 
-  const handleTransformsChange = (newTransforms: Transform[]) => {
-    const existingTransforms = dataset.transforms || [];
-    
-    const removedTransforms = existingTransforms
-      .filter(existing => !newTransforms.find(t => t.name === existing.name))
-      .map(transform => ({ ...transform, _destroy: true }));
+  const handleFeaturesChange = (newFeatures: Feature[]) => {
+    const existingFeatures = dataset.transforms || [];
+
+    const removedFeatures = existingFeatures
+      .filter(
+        (existing) => !newFeatures.find((t) => t.name === existing.name)
+      )
+      .map((feature) => ({ ...feature, _destroy: true }));
 
     const transformsWithDatasetId = [
-      ...newTransforms,
-      ...removedTransforms
-    ].map((transform, index) => ({
-      ...transform,
+      ...newFeatures,
+      ...removedFeatures,
+    ].map((feature, index) => ({
+      ...feature,
       dataset_id: dataset.id,
-      transform_position: index,
+      feature_position: index,
     }));
 
-    setDataset(prevDataset => ({
+    setDataset((prevDataset) => ({
       ...prevDataset,
-      transforms: transformsWithDatasetId
+      transforms: transformsWithDatasetId,
     }));
     setNeedsRefresh(true);
   };
@@ -192,25 +228,31 @@ export function ColumnConfigModal({
   const handleApplyChanges = async () => {
     setIsApplying(true);
     try {
-      await onSave(dataset)
-      router.post(`/easy_ml/datasets/${dataset.id}/refresh`, {}, {
-        onSuccess: () => {
-          setIsApplying(false);
-        },
-        onError: () => {
-          console.error('Error refreshing dataset');
-          setIsApplying(false);
+      await onSave(dataset);
+      router.post(
+        `/easy_ml/datasets/${dataset.id}/refresh`,
+        {},
+        {
+          onSuccess: () => {
+            setIsApplying(false);
+          },
+          onError: () => {
+            console.error("Error refreshing dataset");
+            setIsApplying(false);
+          },
         }
-      });
+      );
     } catch (error) {
-      console.error('Error refreshing dataset:', error);
+      console.error("Error refreshing dataset:", error);
       setIsApplying(false);
     }
   };
 
   if (!isOpen) return null;
 
-  const selectedColumnData = selectedColumn ? dataset.columns.find(c => c.name === selectedColumn) : null;
+  const selectedColumnData = selectedColumn
+    ? dataset.columns.find((c) => c.name === selectedColumn)
+    : null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -242,11 +284,11 @@ export function ColumnConfigModal({
 
         <div className="flex border-b shrink-0">
           <button
-            onClick={() => setActiveTab('columns')}
+            onClick={() => setActiveTab("columns")}
             className={`px-4 py-2 text-sm font-medium border-b-2 ${
-              activeTab === 'columns'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === "columns"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             <div className="flex items-center gap-2">
@@ -255,18 +297,18 @@ export function ColumnConfigModal({
             </div>
           </button>
           <button
-            onClick={() => setActiveTab('transforms')}
+            onClick={() => setActiveTab("transforms")}
             className={`px-4 py-2 text-sm font-medium border-b-2 ${
-              activeTab === 'transforms'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+              activeTab === "transforms"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
             <div className="flex items-center gap-2">
               <Wand2 className="w-4 h-4" />
-              Transforms
+              Features
               <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-600 rounded-full">
-                {constants.transform_options.length}
+                {constants.feature_options.length}
               </span>
             </div>
           </button>
@@ -295,7 +337,7 @@ export function ColumnConfigModal({
           )}
         </div>
 
-        {activeTab === 'columns' ? (
+        {activeTab === "columns" ? (
           <React.Fragment>
             <div className="grid grid-cols-7 flex-1 min-h-0">
               <div className="col-span-3 border-r overflow-hidden flex flex-col">
@@ -304,14 +346,14 @@ export function ColumnConfigModal({
                     Target Column
                   </label>
                   <SearchableSelect
-                    options={dataset.columns.map(column => (
-                      {
-                        value: column.name,
-                        label: column.name
-                      }
-                    ))}
-                    value={config.targetColumn || ''}
-                    onChange={(value) => value && setTargetColumn(String(value))}
+                    options={dataset.columns.map((column) => ({
+                      value: column.name,
+                      label: column.name,
+                    }))}
+                    value={config.targetColumn || ""}
+                    onChange={(value) =>
+                      value && setTargetColumn(String(value))
+                    }
                   />
                 </div>
                 <div className="shrink-0">
@@ -343,7 +385,7 @@ export function ColumnConfigModal({
                     setColumnType={setColumnType}
                     setDataset={setDataset}
                     constants={constants}
-                    onUpdate={(training, inference, useDistinctInference) => 
+                    onUpdate={(training, inference, useDistinctInference) =>
                       handlePreprocessingUpdate(
                         selectedColumnData.name,
                         training,
@@ -361,7 +403,8 @@ export function ColumnConfigModal({
             </div>
             <div className="border-t p-4 flex justify-between items-center shrink-0">
               <div className="text-sm text-gray-600">
-                {dataset.columns.filter(c => !c.hidden).length} columns selected for training
+                {dataset.columns.filter((c) => !c.hidden).length} columns
+                selected for training
               </div>
               <div className="flex gap-3">
                 <button
@@ -375,14 +418,13 @@ export function ColumnConfigModal({
           </React.Fragment>
         ) : (
           <div className="p-6 h-[calc(90vh-8rem)] overflow-y-auto">
-            <TransformPicker
-              options={constants.transform_options}
-              initialTransforms={dataset.transforms}
-              onTransformsChange={handleTransformsChange}
+            <FeaturePicker
+              options={constants.feature_options}
+              initialFeatures={dataset.transforms}
+              onFeaturesChange={handleFeaturesChange}
             />
           </div>
         )}
-
       </div>
     </div>
   );

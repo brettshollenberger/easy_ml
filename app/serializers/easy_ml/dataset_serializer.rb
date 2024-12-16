@@ -52,8 +52,8 @@ module EasyML
     end
 
     attribute :transforms do |dataset|
-      dataset.transforms.ordered.map do |transform|
-        TransformSerializer.new(transform).serializable_hash.dig(:data, :attributes)
+      dataset.transforms.ordered.map do |feature|
+        FeatureSerializer.new(feature).serializable_hash.dig(:data, :attributes)
       end
     end
 

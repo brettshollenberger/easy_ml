@@ -71,7 +71,7 @@ module EasyML
     scope :active, -> { where(active: true) }
 
     def self.current
-      active.unlocked.select do |job|
+      active.select do |job|
         job.should_run?
       end
     end
@@ -267,6 +267,7 @@ module EasyML
     end
 
     def validate_metrics_allowed
+      return unless metric
       metric_unknown = EasyML::Core::ModelEvaluator.metrics.exclude?(metric.to_sym)
       return unless metric_unknown
 

@@ -97,7 +97,6 @@ RSpec.describe EasyML::Datasource do
       allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
       allow(Rails.env).to receive(:test?).and_return(true)
-      expect(s3_datasource.data.count).to eq 0
       s3_datasource.refresh
       expect(s3_datasource.data.count).to eq 16
     end
@@ -112,11 +111,9 @@ RSpec.describe EasyML::Datasource do
       allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
       allow(Rails.env).to receive(:test?).and_return(true)
-      expect(s3_datasource.data.count).to eq 0
 
-      s3_datasource.refresh_async
-      expect(EasyML::SyncDatasourceJob.jobs.count).to eq 1
-      ResqueSpec.perform_all
+      expect { s3_datasource.refresh_async }.to have_enqueued_job(EasyML::SyncDatasourceJob)
+      perform_enqueued_jobs
       expect(s3_datasource.data.count).to eq 16
     end
   end

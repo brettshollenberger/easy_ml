@@ -162,7 +162,14 @@ module EasyML
       end
 
       def self.to_lazy_frames(files)
-        files.map { |file| Polars.scan_parquet(file) }
+        files.map do |file|
+          case Pathname.new(file).extname.gsub(/\./, "")
+          when "csv"
+            Polars.scan_csv(file)
+          when "parquet"
+            Polars.scan_parquet(file)
+          end
+        end
       end
 
       def read_file(file)

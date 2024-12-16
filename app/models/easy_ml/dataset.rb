@@ -320,12 +320,29 @@ module EasyML
       # alert_nulls
     end
 
+    def needs_learn?(df)
+      never_learned = columns.none?
+      new_features = features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
+      new_cols = (df.columns - columns.map(&:name))
+
+      one_hot_cols = new_cols.group_by { |col| col.split("_").first }.each do |prefix, cols|
+        next if cols.count { |col| col.start_with?("#{prefix}_") } >= 2
+        return true
+      end.select do |prefix, cols|
+        columns.any? { |col| col.name.start_with?(prefix) }
+      end.flat_map(&:last)
+
+      new_cols = new_cols - one_hot_cols
+
+      return never_learned || new_features || new_cols
+    end
+
     def normalize(df = nil, split_ys: false, inference: false)
       df = drop_nulls(df)
       df = apply_features(df)
       df = preprocessor.postprocess(df, inference: inference)
       # Learn will update columns, so if any features have been added since the last time columns were learned, we should re-learn the schema
-      learn if columns.none? || features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
+      learn if needs_learn?(df)
       df = apply_column_mask(df)
       df, = processed.split_features_targets(df, true, target) if split_ys
       df

@@ -295,9 +295,8 @@ RSpec.describe EasyML::Datasource do
         mock_s3_download(multi_file_dir)
         mock_s3_upload
 
-        dataset.refresh_async
-        expect(EasyML::RefreshDatasetJob.jobs.count).to eq 1
-        ResqueSpec.perform_all
+        expect { dataset.refresh_async }.to have_enqueued_job(EasyML::RefreshDatasetJob)
+        perform_enqueued_jobs
         expect(dataset.data.count).to eq 16
       end
     end

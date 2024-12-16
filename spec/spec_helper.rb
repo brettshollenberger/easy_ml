@@ -5,6 +5,7 @@ require "timecop"
 require "benchmark"
 require "resque"
 require "resque_spec"
+require "resque_spec/scheduler"
 require "active_job"
 require "pry"
 Bundler.require :default, :development
@@ -39,6 +40,8 @@ if any_rails_files
 end
 
 RSpec.configure do |config|
+  include ActiveJob::TestHelper
+
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
 
@@ -48,6 +51,10 @@ RSpec.configure do |config|
     c.syntax = :expect
   end
   config.filter_run_when_matching :focus
+
+  config.before(:suite) do
+    ActiveJob::Base.queue_adapter = :test
+  end
 
   config.before(:each, :logsql) do
     ActiveRecord::Base.logger = Logger.new(STDOUT)

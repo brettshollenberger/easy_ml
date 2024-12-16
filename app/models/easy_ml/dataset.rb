@@ -324,7 +324,8 @@ module EasyML
       df = drop_nulls(df)
       df = apply_features(df)
       df = preprocessor.postprocess(df, inference: inference)
-      learn if columns.none?
+      # Learn will update columns, so if any features have been added since the last time columns were learned, we should re-learn the schema
+      learn if columns.none? || features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
       df = apply_column_mask(df)
       df, = processed.split_features_targets(df, true, target) if split_ys
       df

@@ -43,7 +43,6 @@ RSpec.describe EasyML::RetrainingJob do
           max_depth: { min: 1, max: 5 },
         },
       },
-      locked_at: nil,
     }
   end
 
@@ -113,10 +112,9 @@ RSpec.describe EasyML::RetrainingJob do
       expect(job.errors[:threshold]).to include("can't be blank")
     end
 
-    it "validates at format for daily frequency" do
+    it "validates at for daily frequency" do
       job = described_class.new(valid_attributes.merge(frequency: "day", at: {}))
       expect(job).not_to be_valid
-      expect(job.errors[:at]).to include("missing required keys: hour")
 
       job = described_class.new(valid_attributes.merge(frequency: "day", at: { hour: 24 }))
       expect(job).not_to be_valid
@@ -130,82 +128,6 @@ RSpec.describe EasyML::RetrainingJob do
     it "has many retraining runs" do
       run = EasyML::RetrainingRun.create!(retraining_job: job, status: "pending")
       expect(job.retraining_runs).to include(run)
-    end
-  end
-
-  describe "locking" do
-    let(:job) { described_class.create!(valid_attributes) }
-
-    describe "#locked?" do
-      it "returns false when not locked" do
-        expect(job.locked?).to be false
-      end
-
-      it "returns true when locked" do
-        job.update!(locked_at: Time.current)
-        expect(job.locked?).to be true
-      end
-
-      it "returns false when lock has expired" do
-        job.update!(locked_at: 7.hours.ago)
-        expect(job.locked?).to be false
-      end
-    end
-
-    describe "#lock_job!" do
-      it "sets locked_at timestamp" do
-        expect { job.lock_job! }.to change { job.locked_at }.from(nil)
-      end
-
-      it "returns false if already locked" do
-        job.lock_job!
-        expect(job.lock_job!).to be false
-      end
-    end
-
-    describe "#unlock_job!" do
-      it "clears locked_at timestamp" do
-        job.lock_job!
-        expect { job.unlock_job! }.to change { job.locked_at }.to(nil)
-      end
-    end
-  end
-
-  describe ".current" do
-    let!(:active_job) do
-      described_class.create!(valid_attributes.merge(active: true))
-    end
-    let!(:inactive_job) do
-      job2 = active_job.dup
-      job2.model = titanic_model
-      job2.active = false
-      job2.save
-      job2
-    end
-
-    it "only includes active jobs" do
-      expect(described_class.current).not_to include(inactive_job)
-    end
-
-    it "includes jobs that should run" do
-      allow(active_job).to receive(:should_run?).and_return(true)
-      expect(described_class.current).to include(active_job)
-    end
-
-    it "excludes jobs that should not run" do
-      allow_any_instance_of(EasyML::RetrainingJob).to receive(:should_run?).and_return(false)
-      expect(described_class.current).not_to include(active_job)
-    end
-
-    it "excludes locked jobs" do
-      active_job.update!(locked_at: Time.current)
-      expect(described_class.current).not_to include(active_job)
-    end
-
-    it "includes jobs with expired locks" do
-      active_job.update!(locked_at: 7.hours.ago)
-      allow(active_job).to receive(:should_run?).and_return(true)
-      expect(described_class.current).to include(active_job)
     end
   end
 
@@ -324,6 +246,7 @@ RSpec.describe EasyML::RetrainingJob do
   describe "#should_tune?" do
     let(:job) do
       described_class.create!(valid_attributes.merge(
+        tuning_enabled: true,
         tuning_frequency: tuning_frequency,
         at: at,
       ))

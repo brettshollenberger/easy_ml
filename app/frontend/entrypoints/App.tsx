@@ -11,9 +11,9 @@ import { DatasetsPage } from './pages/DatasetsPage';
 import { NewDatasetPage } from './pages/NewDatasetPage';
 import { DatasetDetailsPage } from './pages/DatasetDetailsPage';
 import { SettingsPage } from './pages/SettingsPage';
-import { TransformationsPage } from './pages/TransformationsPage';
-import { NewTransformationPage } from './pages/NewTransformationPage';
-import { EditTransformationPage } from './pages/EditTransformationPage';
+import { FeaturesPage } from './pages/FeaturesPage';
+import { NewFeaturePage } from './pages/NewFeaturePage';
+import { EditFeaturePage } from './pages/EditFeaturePage';
 
 export default function App() {
   return (
@@ -29,9 +29,9 @@ export default function App() {
           <Route path="/datasets" element={<DatasetsPage />} />
           <Route path="/datasets/new" element={<NewDatasetPage />} />
           <Route path="/datasets/:id" element={<DatasetDetailsPage />} />
-          <Route path="/transformations" element={<TransformationsPage />} />
-          <Route path="/transformations/new" element={<NewTransformationPage />} />
-          <Route path="/transformations/:id/edit" element={<EditTransformationPage />} />
+          <Route path="/features" element={<FeaturesPage />} />
+          <Route path="/features/new" element={<NewFeaturePage />} />
+          <Route path="/features/:id/edit" element={<EditFeaturePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Navigation>

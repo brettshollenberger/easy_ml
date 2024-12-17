@@ -9,7 +9,7 @@ RSpec.describe EasyML::Data::Preprocessor do
                                   group: %w[a a a b b a c c] + [nil, nil],
                                   points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9, nil, nil],
                                   created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
-                                                   2024-08-01 2024-09-01] + [nil, nil]
+                                                   2024-08-01 2024-09-01] + [nil, nil],
                                 })
 
     # Convert the 'created_date' column to datetime
@@ -20,7 +20,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     @datasource = EasyML::Datasource.create(
       name: "dataset",
       datasource_type: "polars",
-      df: @df
+      df: @df,
     )
 
     @dataset = EasyML::Dataset.create(
@@ -31,8 +31,8 @@ RSpec.describe EasyML::Data::Preprocessor do
         today: EasyML::Support::EST.parse("2024-10-01"),
         date_col: "created_date",
         months_test: 2,
-        months_valid: 2
-      }
+        months_valid: 2,
+      },
     )
     @dataset.refresh # Will create columns
 
@@ -43,9 +43,9 @@ RSpec.describe EasyML::Data::Preprocessor do
     @dataset.columns.find_by(name: "annual_revenue").update(
       preprocessing_steps: {
         training: {
-          method: :mean
-        }
-      }
+          method: :mean,
+        },
+      },
     )
 
     @dataset.refresh
@@ -62,9 +62,9 @@ RSpec.describe EasyML::Data::Preprocessor do
     @dataset.columns.find_by(name: "annual_revenue").update(
       preprocessing_steps: {
         training: {
-          method: :median
-        }
-      }
+          method: :median,
+        },
+      },
     )
 
     @dataset.refresh
@@ -81,9 +81,9 @@ RSpec.describe EasyML::Data::Preprocessor do
     @dataset.columns.find_by(name: "created_date").update(
       preprocessing_steps: {
         training: {
-          method: :ffill
-        }
-      }
+          method: :ffill,
+        },
+      },
     )
 
     @dataset.refresh
@@ -101,9 +101,9 @@ RSpec.describe EasyML::Data::Preprocessor do
     @dataset.columns.find_by(name: "group").update(
       preprocessing_steps: {
         training: {
-          method: :most_frequent
-        }
-      }
+          method: :most_frequent,
+        },
+      },
     )
 
     @dataset.refresh
@@ -123,10 +123,10 @@ RSpec.describe EasyML::Data::Preprocessor do
         training: {
           method: :constant,
           params: {
-            constant: "c"
-          }
-        }
-      }
+            constant: "c",
+          },
+        },
+      },
     )
 
     @dataset.refresh
@@ -141,11 +141,11 @@ RSpec.describe EasyML::Data::Preprocessor do
           params: {
             clip: {
               min: 0,
-              max: 10
-            }
-          }
-        }
-      }
+              max: 10,
+            },
+          },
+        },
+      },
     )
 
     # expect(@dataset.statistics.dig("raw", "mean"))
@@ -165,10 +165,10 @@ RSpec.describe EasyML::Data::Preprocessor do
         training: {
           method: :categorical,
           params: {
-            categorical_min: 3
-          }
-        }
-      }
+            categorical_min: 3,
+          },
+        },
+      },
     )
 
     # expect(@dataset.statistics.dig("raw", "mean"))
@@ -185,9 +185,9 @@ RSpec.describe EasyML::Data::Preprocessor do
       @dataset.columns.find_by(name: float_col).update(
         preprocessing_steps: {
           training: {
-            method: :mean
-          }
-        }
+            method: :mean,
+          },
+        },
       )
 
       @dataset.refresh
@@ -200,9 +200,9 @@ RSpec.describe EasyML::Data::Preprocessor do
       @dataset.columns.find_by(name: float_col).update(
         preprocessing_steps: {
           training: {
-            method: :median
-          }
-        }
+            method: :median,
+          },
+        },
       )
 
       @dataset.refresh
@@ -218,10 +218,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :constant,
             params: {
-              constant: constant_value
-            }
-          }
-        }
+              constant: constant_value,
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -237,11 +237,11 @@ RSpec.describe EasyML::Data::Preprocessor do
             params: {
               clip: {
                 min: 0.3,
-                max: 0.7
-              }
-            }
-          }
-        }
+                max: 0.7,
+              },
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -257,11 +257,11 @@ RSpec.describe EasyML::Data::Preprocessor do
             params: {
               clip: {
                 min: 0.3,
-                max: 0.7
-              }
-            }
-          }
-        }
+                max: 0.7,
+              },
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -278,9 +278,9 @@ RSpec.describe EasyML::Data::Preprocessor do
       @dataset.columns.find_by(name: int_col).update(
         preprocessing_steps: {
           training: {
-            method: :mean
-          }
-        }
+            method: :mean,
+          },
+        },
       )
 
       @dataset.refresh
@@ -293,9 +293,9 @@ RSpec.describe EasyML::Data::Preprocessor do
       @dataset.columns.find_by(name: int_col).update(
         preprocessing_steps: {
           training: {
-            method: :median
-          }
-        }
+            method: :median,
+          },
+        },
       )
 
       @dataset.refresh
@@ -311,10 +311,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :constant,
             params: {
-              constant: constant_value
-            }
-          }
-        }
+              constant: constant_value,
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -330,11 +330,11 @@ RSpec.describe EasyML::Data::Preprocessor do
             params: {
               clip: {
                 min: 100,
-                max: 300
-              }
-            }
-          }
-        }
+                max: 300,
+              },
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -357,9 +357,9 @@ RSpec.describe EasyML::Data::Preprocessor do
       @dataset.columns.find_by(name: "bool_col").update(
         preprocessing_steps: {
           training: {
-            method: :most_frequent
-          }
-        }
+            method: :most_frequent,
+          },
+        },
       )
 
       @dataset.refresh
@@ -374,10 +374,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :constant,
             params: {
-              constant: true
-            }
-          }
-        }
+              constant: true,
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -390,9 +390,9 @@ RSpec.describe EasyML::Data::Preprocessor do
       @dataset.columns.find_by(name: "created_date").update(
         preprocessing_steps: {
           training: {
-            method: :today
-          }
-        }
+            method: :today,
+          },
+        },
       )
 
       @dataset.refresh
@@ -410,10 +410,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :categorical,
             params: {
-              one_hot: true
-            }
-          }
-        }
+              one_hot: true,
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -430,10 +430,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :categorical,
             params: {
-              ordinal_encoding: true
-            }
-          }
-        }
+              ordinal_encoding: true,
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -448,10 +448,10 @@ RSpec.describe EasyML::Data::Preprocessor do
             method: :categorical,
             params: {
               categorical_min: 3,
-              one_hot: true
-            }
-          }
-        }
+              one_hot: true,
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -471,10 +471,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :constant,
             params: {
-              constant: constant_value
-            }
-          }
-        }
+              constant: constant_value,
+            },
+          },
+        },
       )
 
       expect(@dataset.data[float_col].dtype).to eq Polars::Float64
@@ -495,10 +495,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :constant,
             params: {
-              constant: "true"
-            }
-          }
-        }
+              constant: "true",
+            },
+          },
+        },
       )
 
       expect(@dataset.data["bool_col"].dtype).to eq Polars::Boolean
@@ -515,10 +515,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :constant,
             params: {
-              constant: constant_value
-            }
-          }
-        }
+              constant: constant_value,
+            },
+          },
+        },
       )
 
       expect(@dataset.data[float_col].dtype).to eq Polars::Float64
@@ -533,10 +533,10 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :constant,
             params: {
-              constant: constant_value
-            }
-          }
-        }
+              constant: constant_value,
+            },
+          },
+        },
       )
 
       @dataset.refresh
@@ -547,12 +547,12 @@ RSpec.describe EasyML::Data::Preprocessor do
       @dataset.columns.find_by(name: "created_date").update(
         preprocessing_steps: {
           training: {
-            method: :ffill
+            method: :ffill,
           },
           inference: {
-            method: :today
-          }
-        }
+            method: :today,
+          },
+        },
       )
 
       @dataset.refresh
@@ -566,7 +566,7 @@ RSpec.describe EasyML::Data::Preprocessor do
       expect(@dataset.data[null_mask].count).to eq 2
 
       inference_df = Polars::DataFrame.new({
-                                             created_date: [nil]
+                                             created_date: [nil],
                                            })
       normalized = @dataset.normalize(inference_df, inference: true)
       expect(normalized["created_date"].to_a).to all(eq UTC.today.beginning_of_day)

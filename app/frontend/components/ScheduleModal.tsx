@@ -10,6 +10,9 @@ interface ScheduleModalProps {
     task: string;
     metrics: string[];
     modelType?: string;
+    dataset?: {
+      columns: Array<{ name: string }>;
+    };
     retraining_job?: {
       frequency: string;
       tuning_frequency: string;
@@ -22,6 +25,7 @@ interface ScheduleModalProps {
       batch_mode?: boolean;
       batch_size?: number;
       batch_overlap?: number;
+      batch_key?: string;
       active: boolean;
       metric?: string;
       threshold?: number;
@@ -30,6 +34,7 @@ interface ScheduleModalProps {
         objective: string;
         config: Record<string, any>;
       };
+      tuning_enabled?: boolean;
     };
   };
   tunerJobConstants: any;
@@ -86,6 +91,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
       batch_mode: initialData.retraining_job?.batch_mode || false,
       batch_size: initialData.retraining_job?.batch_size || 100,
       batch_overlap: initialData.retraining_job?.batch_overlap || 1,
+      batch_key: initialData.retraining_job?.batch_key || '',
       at: {
         hour: initialData.retraining_job?.at?.hour ?? 2,
         day_of_week: initialData.retraining_job?.at?.day_of_week ?? 1,
@@ -100,7 +106,8 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
           ...defaultNumericParameters,
           ...initialData.retraining_job.tuner_config.config
         }
-      } : undefined
+      } : undefined,
+      tuning_enabled: initialData.retraining_job?.tuning_enabled ?? false
     }
   });
 
@@ -493,80 +500,62 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                   )}
 
                   {formData.retraining_job_attributes.batch_mode && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="relative">
-                        <label htmlFor="batchSize" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                          Batch Size
-                          <button
-                            type="button"
-                            onClick={() => setActiveBatchPopover(activeBatchPopover === 'size' ? null : 'size')}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <Layers className="w-4 h-4" />
-                          </button>
-                        </label>
-                        <input
-                          type="number"
-                          id="batchSize"
-                          min="100"
-                          step="100"
-                          value={formData.retraining_job_attributes.batch_size}
-                          onChange={(e) => setFormData({ ...formData, retraining_job_attributes: { ...formData.retraining_job_attributes, batch_size: parseInt(e.target.value) } })}  
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                        />
-                        {activeBatchPopover === 'size' && (
-                          <div className="absolute z-10 mt-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 p-4">
-                            <div className="text-sm text-gray-700">
-                              <p className="font-medium mb-2">Batch Size</p>
-                              <p>Number of rows processed in each training batch. Larger batches use more memory but may train faster.</p>
-                              <div className="mt-2 text-xs text-gray-500">
-                                <p>Recommended ranges:</p>
-                                <ul className="list-disc pl-4 mt-1">
-                                  <li>Small dataset (&lt;10k rows): 100-500</li>
-                                  <li>Medium dataset: 500-2000</li>
-                                  <li>Large dataset (&gt;100k rows): 1000-5000</li>
-                                </ul>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                    <div className="mt-4">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Batch Size
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.retraining_job_attributes.batch_size}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              retraining_job_attributes: {
+                                ...formData.retraining_job_attributes,
+                                batch_size: parseInt(e.target.value)
+                              }
+                            })}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Batch Overlap
+                          </label>
+                          <input
+                            type="number"
+                            value={formData.retraining_job_attributes.batch_overlap}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              retraining_job_attributes: {
+                                ...formData.retraining_job_attributes,
+                                batch_overlap: parseInt(e.target.value)
+                              }
+                            })}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          />
+                        </div>
                       </div>
-                      <div className="relative">
-                        <label htmlFor="batchOverlap" className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                          Batch Overlap
-                          <button
-                            type="button"
-                            onClick={() => setActiveBatchPopover(activeBatchPopover === 'overlap' ? null : 'overlap')}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <Repeat className="w-4 h-4" />
-                          </button>
+                      <div className="mt-4">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Batch Key
                         </label>
-                        <input
-                          type="number"
-                          id="batchOverlap"
-                          min="1"
-                          max="10"
-                          value={formData.retraining_job_attributes.batch_overlap}
-                          onChange={(e) => setFormData({ ...formData, retraining_job_attributes: { ...formData.retraining_job_attributes, batch_overlap: parseInt(e.target.value) } })}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        <SearchableSelect
+                          value={formData.retraining_job_attributes.batch_key}
+                          onChange={(value) => setFormData({
+                            ...formData,
+                            retraining_job_attributes: {
+                              ...formData.retraining_job_attributes,
+                              batch_key: value
+                            }
+                          })}
+                          options={initialData.dataset?.columns?.map(column => ({
+                            value: column.name,
+                            label: column.name
+                          })) || []}
+                          placeholder="Select a column for batch key"
                         />
-                        {activeBatchPopover === 'overlap' && (
-                          <div className="absolute z-10 mt-1 w-64 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 p-4">
-                            <div className="text-sm text-gray-700">
-                              <p className="font-medium mb-2">Batch Overlap</p>
-                              <p>Number of consecutive batches shown to the model at once. Higher overlap helps maintain consistency between batches.</p>
-                              <div className="mt-2 text-xs text-gray-500">
-                                <p>Impact of different values:</p>
-                                <ul className="list-disc pl-4 mt-1">
-                                  <li>1-2: Faster training, less consistency</li>
-                                  <li>3-5: Balanced speed/consistency</li>
-                                  <li>6-10: Better consistency, slower training</li>
-                                </ul>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   )}
@@ -643,11 +632,12 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                   <input
                     type="checkbox"
                     id="tuningEnabled"
-                    checked={formData.retraining_job_attributes.tuner_config !== undefined}
+                    checked={formData.retraining_job_attributes.tuning_enabled || false}
                     onChange={(e) => setFormData(prev => ({
                       ...prev,
                       retraining_job_attributes: {
                         ...prev.retraining_job_attributes,
+                        tuning_enabled: e.target.checked,
                         tuner_config: e.target.checked ? {
                           n_trials: 10,
                           config: defaultNumericParameters
@@ -662,7 +652,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                 </div>
               </div>
 
-              {formData.retraining_job_attributes.tuner_config && (
+              {formData.retraining_job_attributes.tuning_enabled && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -671,6 +661,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                       </label>
                       <SearchableSelect
                         options={[
+                          { value: 'always', label: 'Always', description: 'Tune hyperparameters every time' },
                           { value: 'week', label: 'Weekly', description: 'Tune hyperparameters once every week' },
                           { value: 'month', label: 'Monthly', description: 'Tune hyperparameters once every month' }
                         ]}
@@ -679,7 +670,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                           ...prev,
                           retraining_job_attributes: {
                             ...prev.retraining_job_attributes,
-                            tuning_frequency: value as 'week' | 'month'
+                            tuning_frequency: value as 'week' | 'month' | 'always'
                           }
                         }))}
                       />

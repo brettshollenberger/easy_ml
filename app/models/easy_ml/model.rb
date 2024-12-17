@@ -14,6 +14,7 @@
 #  file            :json
 #  sha             :string
 #  last_trained_at :datetime
+#  is_training     :boolean
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -49,7 +50,7 @@ module EasyML
     end
 
     belongs_to :dataset
-    belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
+    belongs_to :model_file, class_name: "EasyML::ModelFile", foreign_key: "model_file_id", optional: true
 
     has_one :retraining_job, class_name: "EasyML::RetrainingJob"
     accepts_nested_attributes_for :retraining_job
@@ -86,7 +87,7 @@ module EasyML
     validate :validate_metrics_allowed
     before_save :set_root_dir
 
-    delegate :prepare_data, :preprocess, to: :model_adapter
+    delegate :prepare_data, :preprocess, to: :adapter
 
     STATUSES = %w[development inference retired]
     STATUSES.each do |status|
@@ -95,20 +96,83 @@ module EasyML
       end
     end
 
-    def train(async: true)
-      evaluator = self.evaluator.symbolize_keys
-      job = retraining_job || create_retraining_job(active: false, evaluator: evaluator, metric: evaluator.dig(:metric), direction: evaluator.dig(:direction), threshold: evaluator.dig(:threshold), frequency: "day", at: { hour: 0 })
-      run = job.retraining_runs.create!(status: "pending", model_id: self.id)
-      if async
-        EasyML::RetrainingWorker.perform_async(run.id)
-      else
-        EasyML::RetrainingWorker.new.perform(run.id)
-      end
-      run
+    def training?
+      is_training == true
     end
 
-    def training?
-      retraining_runs.running.any?
+    def train(async: true)
+      pending_run # Ensure we update the pending job before enqueuing in background so UI updates properly
+      update(is_training: true)
+      if async
+        EasyML::TrainingJob.perform_later(id)
+      else
+        actually_train
+      end
+    end
+
+    def get_retraining_job
+      if retraining_job
+        self.evaluator = retraining_job.evaluator
+        evaluator = self.evaluator.symbolize_keys
+      else
+        default_eval = Core::ModelEvaluator.default_evaluator(task)
+        self.evaluator = default_eval
+        evaluator = default_eval
+      end
+
+      retraining_job || create_retraining_job(
+        model: self,
+        active: false,
+        evaluator: evaluator,
+        metric: evaluator[:metric],
+        direction: evaluator[:direction],
+        threshold: evaluator[:threshold],
+        frequency: "month",
+        at: { hour: 0, day_of_month: 1 },
+      )
+    end
+
+    def pending_run
+      job = get_retraining_job
+      job.retraining_runs.find_or_create_by(status: "pending", model: self)
+    end
+
+    def actually_train(&progress_block)
+      key = "training:#{self.name}:#{self.id}"
+      EasyML::Support::Lockable.with_lock_client(key, stale_timeout: 60, resources: 1) do |client|
+        client.lock do
+          run = pending_run
+          run.wrap_training do
+            best_params = nil
+            if run.should_tune?
+              best_params = hyperparameter_search(&progress_block)
+            end
+            fit(&progress_block)
+            save
+            [self, best_params]
+          end
+          update(is_training: false)
+          run.reload
+        end
+      end
+    end
+
+    def hyperparameter_search(&progress_block)
+      tuner = retraining_job.tuner_config.symbolize_keys
+      tuner.merge!(evaluator: evaluator) if evaluator.present?
+      tuner_instance = EasyML::Core::Tuner.new(tuner)
+      tuner_instance.model = self
+      adapter = case model_type.to_sym
+        when :xgboost
+          EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
+        end
+      tuner_instance.adapter = adapter
+      tuner_instance.dataset = dataset
+      tuner_instance.tune(&progress_block).tap do |best_params|
+        best_params.each do |key, value|
+          self.hyperparameters.send("#{key}=", value)
+        end
+      end
     end
 
     def deployment_status
@@ -116,7 +180,7 @@ module EasyML
     end
 
     def formatted_model_type
-      model_adapter.class.name.split("::").last
+      adapter.class.name.split("::").last
     end
 
     def formatted_version
@@ -138,34 +202,36 @@ module EasyML
     end
 
     def hyperparameters
-      @hypers ||= model_adapter.build_hyperparameters(@hyperparameters)
+      @hypers ||= adapter.build_hyperparameters(@hyperparameters)
     end
 
     def callbacks
-      @cbs ||= model_adapter.build_callbacks(@callbacks)
+      @cbs ||= adapter.build_callbacks(@callbacks)
     end
 
     def predict(xs)
       load_model!
-      model_adapter.predict(xs)
+      adapter.predict(xs)
     end
 
     def save_model_file
       raise "No trained model! Need to train model before saving (call model.fit)" unless is_fit?
+      return unless adapter.loaded?
 
       model_file = get_model_file
 
       bump_version(force: true)
       path = model_file.full_path(version)
-      full_path = model_adapter.save_model_file(path)
+      full_path = adapter.save_model_file(path)
       model_file.upload(full_path)
 
       model_file.save
+      self.model_file = model_file
       cleanup
     end
 
     def feature_names
-      model_adapter.feature_names
+      adapter.feature_names
     end
 
     def cleanup!
@@ -185,9 +251,9 @@ module EasyML
         file_exists = File.exist?(model_file.full_path)
       end
 
-      loaded = model_adapter.loaded?
+      loaded = adapter.loaded?
       load_model_file unless loaded
-      file_exists && model_adapter.loaded?
+      file_exists && adapter.loaded?
     end
 
     def model_changed?
@@ -195,24 +261,51 @@ module EasyML
       return true if model_file.present? && !model_file.persisted?
       return true if model_file.present? && model_file.fit? && inference_version.nil?
 
-      model_adapter.model_changed?(inference_version.sha)
+      adapter.model_changed?(inference_version.sha)
     end
 
     def feature_importances
-      model_adapter.feature_importances
+      adapter.feature_importances
     end
 
-    def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
+    def fit_in_batches?
+      retraining_job.present? && retraining_job.batch_mode == true
+    end
+
+    def fit(tuning: false, x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
+      return fit_in_batches(**batch_args.merge!(tuning: tuning), &progress_block) if fit_in_batches?
+
       if x_train.nil?
-        puts "Refreshing dataset"
         dataset.refresh
       end
-      model_adapter.fit(x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid)
+      adapter.fit(tuning: tuning, x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
       @is_fit = true
     end
 
-    def fit_in_batches(batch_size: 1024, overlap: 0.1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
-      model_adapter.fit_in_batches(batch_size: batch_size, overlap: overlap, checkpoint_dir: checkpoint_dir)
+    def batch_args
+      defaults = {
+        batch_size: 1024,
+        batch_overlap: 3,
+        batch_key: nil,
+      }
+      overrides = { batch_size: retraining_job&.batch_size, batch_overlap: retraining_job&.batch_overlap, batch_key: retraining_job&.batch_key }.compact
+      defaults.merge!(overrides)
+    end
+
+    def batch_mode
+      retraining_job&.batch_mode || false
+    end
+
+    def prepare_callbacks(tune_started_at)
+      adapter.prepare_callbacks(tune_started_at)
+    end
+
+    def after_tuning
+      adapter.after_tuning
+    end
+
+    def fit_in_batches(tuning: false, batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"), &progress_block)
+      adapter.fit_in_batches(tuning: tuning, batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir, &progress_block)
       @is_fit = true
     end
 
@@ -222,11 +315,11 @@ module EasyML
       model_file = get_model_file
       return true if model_file.present? && model_file.fit?
 
-      model_adapter.is_fit?
+      adapter.is_fit?
     end
 
-    def promotable?
-      cannot_promote_reasons.none?
+    def deployable?
+      cannot_deploy_reasons.none?
     end
 
     def decode_labels(ys, col: nil)
@@ -245,7 +338,7 @@ module EasyML
     end
 
     def evaluator
-      read_attribute(:evaluator) || default_evaluator
+      instance_variable_get(:@evaluator) || default_evaluator
     end
 
     def default_evaluator
@@ -325,11 +418,11 @@ module EasyML
       )
     end
 
-    class CannotPromoteError < StandardError
+    class CannotdeployError < StandardError
     end
 
-    def promote
-      raise CannotPromoteError, cannot_promote_reasons.first if cannot_promote_reasons.any?
+    def deploy
+      raise CannotdeployError, cannot_deploy_reasons.first if cannot_deploy_reasons.any?
 
       # Prepare the inference model by freezing + saving the model, dataset, and datasource
       # (This creates ModelHistory, DatasetHistory, etc)
@@ -337,24 +430,22 @@ module EasyML
       self.sha = model_file.sha
       save
       dataset.lock
-      snapshot
-
-      # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
-      bump_version(force: true)
-      dataset.bump_versions(version)
-      self.model_file = new_model_file!
-      save
-      true
+      snapshot.tap do
+        # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
+        bump_version(force: true)
+        dataset.bump_versions(version)
+        self.model_file = new_model_file!
+        save
+      end
     end
 
     def inference_pipeline(df); end
 
-    def cannot_promote_reasons
+    def cannot_deploy_reasons
       [
         is_fit? ? nil : "Model has not been trained",
         dataset.target.present? ? nil : "Dataset has no target",
         !dataset.datasource.in_memory? ? nil : "Cannot perform inference using an in-memory datasource",
-        model_changed? ? nil : "Model has not changed",
       ].compact
     end
 
@@ -382,6 +473,15 @@ module EasyML
       value = value.map(&:to_s)
       value = value.uniq
       @metrics = value
+    end
+
+    def adapter
+      @adapter ||= begin
+          adapter_class = MODEL_OPTIONS[model_type]
+          raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
+
+          adapter_class.constantize.new(self)
+        end
     end
 
     private
@@ -434,7 +534,7 @@ module EasyML
       return unless model_file&.full_path && File.exist?(model_file.full_path)
 
       begin
-        model_adapter.load_model_file(model_file.full_path)
+        adapter.load_model_file(model_file.full_path)
       rescue StandardError => e
         binding.pry
       end
@@ -471,15 +571,6 @@ module EasyML
 
       errors.add(:metrics,
                  "don't know how to handle #{"metrics".pluralize(unknown_metrics)} #{unknown_metrics.join(", ")}, use EasyML::Core::ModelEvaluator.register(:name, Evaluator, :regression|:classification)")
-    end
-
-    def model_adapter
-      @model_adapter ||= begin
-          adapter_class = MODEL_OPTIONS[model_type]
-          raise "Don't know how to use model adapter #{model_type}!" unless adapter_class.present?
-
-          adapter_class.constantize.new(self)
-        end
     end
   end
 end

@@ -26,10 +26,10 @@ module EasyML
       Rails.root.join("easy_ml")
     end
 
-    config.autoload_paths = config.autoload_paths.dup << root.join("app/models")
-    config.eager_load_paths = config.eager_load_paths.dup << root.join("app/models")
-    paths["lib"] << EasyML::Engine.root.join("lib")
-    paths["lib"].autoload!
+    # config.autoload_paths = config.autoload_paths.dup << root.join("app/models")
+    # config.eager_load_paths = config.eager_load_paths.dup << root.join("app/models")
+    # paths["lib"] << EasyML::Engine.root.join("lib")
+    # paths["lib"].autoload!
 
     initializer "easy_ml.inflections" do
       require_relative "initializers/inflections"
@@ -40,13 +40,19 @@ module EasyML
       Polars.enable_string_cache
     end
 
-    unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate easy_ml:migration].include?(ARGV.first)
+    unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate db:drop easy_ml:migration].include?(ARGV.first)
       config.after_initialize do
         Dir.glob(
           File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)
         ).each do |file|
           require file
         end
+      end
+    end
+
+    initializer "easy_ml.active_job_config" do
+      ActiveSupport.on_load(:active_job) do
+        self.queue_adapter = :resque
       end
     end
 

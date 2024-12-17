@@ -7,19 +7,21 @@
 #  frequency        :string           not null
 #  at               :json             not null
 #  evaluator        :json
+#  tuning_enabled   :boolean          default(FALSE)
 #  tuner_config     :json
 #  tuning_frequency :string
 #  last_tuning_at   :datetime
 #  active           :boolean          default(TRUE)
 #  status           :string           default("pending")
 #  last_run_at      :datetime
-#  locked_at        :datetime
 #  metric           :string           not null
 #  direction        :string           not null
 #  threshold        :float            not null
+#  auto_deploy      :boolean          default(FALSE)
 #  batch_mode       :boolean
 #  batch_size       :integer
 #  batch_overlap    :integer
+#  batch_key        :string
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #
@@ -34,6 +36,7 @@ module EasyML
     validates :model, presence: true,
                       uniqueness: { message: "already has a retraining job" }
 
+    VALID_FREQUENCIES = %w[day week month always].freeze
     FREQUENCY_TYPES = [
       {
         value: "day",
@@ -51,28 +54,24 @@ module EasyML
         description: "Run once every month",
       },
     ].freeze
-    validates :frequency, presence: true, inclusion: { in: %w[day week month] }
+    validates :frequency, presence: true, inclusion: { in: VALID_FREQUENCIES }
+    validates :metric, presence: true
+    validate :validate_metrics_allowed
     validates :status, presence: true
     validates :at, presence: true
+    validates :threshold, presence: true
     validates :tuning_frequency, inclusion: {
-                                   in: %w[day week month],
+                                   in: VALID_FREQUENCIES,
                                    allow_nil: true,
                                  }
     validate :evaluator_must_be_valid
     validate :validate_at_format
     after_initialize :set_direction, unless: :persisted?
 
-    scope :active, -> { where(active: true) }
-    scope :locked, lambda {
-      where("locked_at IS NOT NULL AND locked_at > ?", LOCK_TIMEOUT.ago)
-    }
-
-    scope :unlocked, lambda {
-      where("locked_at IS NULL OR locked_at <= ?", LOCK_TIMEOUT.ago)
-    }
+    scope :active, -> { joins(:model).where(active: true) }
 
     def self.current
-      active.unlocked.select do |job|
+      active.select do |job|
         job.should_run?
       end
     end
@@ -83,12 +82,19 @@ module EasyML
       }
     end
 
+    def tuner_config
+      (read_attribute(:tuner_config) || {}).merge!(objective: metric).stringify_keys
+    end
+
     def formatted_frequency
-      FREQUENCY_TYPES.find { |type| type[:value] == frequency }[:label]
+      if active
+        FREQUENCY_TYPES.find { |type| type[:value] == frequency }[:label]
+      else
+        "Manually"
+      end
     end
 
     def should_run?
-      return false if locked?
       return true if last_run_at.nil?
 
       case frequency
@@ -110,10 +116,13 @@ module EasyML
     end
 
     def should_tune?
+      return false unless tuning_enabled
       return false unless tuning_frequency.present?
       return true if last_tuning_at.nil?
 
       case tuning_frequency
+      when "always"
+        true
       when "hour"
         last_tuning_at < Time.current.beginning_of_hour
       when "day"
@@ -126,23 +135,6 @@ module EasyML
         current_time = Time.current
         current_time.hour == at["hour"] && current_time.day == 1 && last_tuning_at < current_time.beginning_of_month
       end
-    end
-
-    def locked?
-      return false if locked_at.nil?
-      return false if locked_at < LOCK_TIMEOUT.ago
-
-      true
-    end
-
-    def lock!
-      return false if locked?
-
-      update!(locked_at: Time.current)
-    end
-
-    def unlock!
-      update!(locked_at: nil)
     end
 
     def metric=(metric)
@@ -170,6 +162,8 @@ module EasyML
     private
 
     def metric_class
+      return nil unless metric
+
       EasyML::Core::ModelEvaluator.get(metric).new
     end
 
@@ -180,8 +174,8 @@ module EasyML
     end
 
     def validate_at_format
-      return if at.blank?
       return errors.add(:at, "must be a hash") unless at.is_a?(Hash)
+      return if VALID_FREQUENCIES.exclude?(frequency.to_s)
 
       required_keys = case frequency
         when "day"
@@ -192,10 +186,19 @@ module EasyML
           ["hour", "day_of_month"]
         end
 
-      missing_keys = required_keys - at.keys.map(&:to_s)
-      errors.add(:at, "missing required keys: #{missing_keys.join(", ")}") if missing_keys.any?
+      defaults = {
+        "hour" => 0,
+        "day_of_week" => 0, # Sunday
+        "day_of_month" => 1,
+      }
 
-      # Validate no extra keys are present
+      missing_keys = required_keys - at.keys.map(&:to_s)
+      missing_keys.each do |key|
+        at[key] = defaults[key]
+      end
+
+      return if at.blank?
+
       allowed_keys = case frequency
         when "day"
           ["hour"]
@@ -234,8 +237,6 @@ module EasyML
       end
     end
 
-    LOCK_TIMEOUT = 6.hours
-
     def evaluator_must_be_valid
       return if evaluator.nil? || evaluator.blank?
 
@@ -263,6 +264,15 @@ module EasyML
       return if evaluator.new.respond_to?(:evaluate)
 
       errors.add(:evaluator, "evaluator must implement evaluate method")
+    end
+
+    def validate_metrics_allowed
+      return unless metric
+      metric_unknown = EasyML::Core::ModelEvaluator.metrics.exclude?(metric.to_sym)
+      return unless metric_unknown
+
+      errors.add(:metrics,
+                 "don't know how to handle metric #{metric}, use EasyML::Core::ModelEvaluator.register(:name, Evaluator, :regression|:classification)")
     end
   end
 end

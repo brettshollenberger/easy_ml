@@ -1,13 +1,10 @@
 require_relative "base_adapter"
-require_relative "xgboost_adapter/wandb_callback_adapter"
 
 module EasyML
   module Core
     class Tuner
       module Adapters
         class XGBoostAdapter < BaseAdapter
-          register_callback_adapter Wandb::XGBoostCallback, WandbCallbackAdapter
-
           def defaults
             {
               learning_rate: {

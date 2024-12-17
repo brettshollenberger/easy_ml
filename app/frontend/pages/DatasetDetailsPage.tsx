@@ -20,7 +20,7 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
   const onSave = useCallback((updatedDataset: Dataset) => {
     // Find dataset-level changes
     const datasetChanges = Object.entries(updatedDataset).reduce((acc, [key, value]) => {
-      if (key !== 'columns' && key !== 'transforms' && !isEqual(currentDataset[key as keyof Dataset], value)) {
+      if (key !== 'columns' && key !== 'features' && !isEqual(currentDataset[key as keyof Dataset], value)) {
         acc[key as keyof Dataset] = value;
       }
       return acc;
@@ -48,25 +48,25 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
       return acc;
     }, {} as Record<number, Record<string, any>>);
 
-    // Format transforms for nested attributes
-    const transformChanges = updatedDataset.transforms?.map((transform, index) => ({
-      id: transform.id,
-      name: transform.name,
-      transform_class: transform.transform_class,
-      transform_method: transform.transform_method,
-      transform_position: index,
-      _destroy: transform._destroy
+    // Format features for nested attributes
+    const transformChanges = updatedDataset.features?.map((feature, index) => ({
+      id: feature.id,
+      name: feature.name,
+      feature_class: feature.feature_class,
+      feature_method: feature.feature_method,
+      feature_position: index,
+      _destroy: feature._destroy
     }));
 
     // Only make the API call if there are actual changes
     if (Object.keys(datasetChanges).length > 0 || 
         Object.keys(columnChanges).length > 0 || 
-        !isEqual(currentDataset.transforms, updatedDataset.transforms)) {
+        !isEqual(currentDataset.features, updatedDataset.features)) {
       router.patch(`${rootPath}/datasets/${dataset.id}`, {
         dataset: {
           ...datasetChanges,
           columns_attributes: columnChanges,
-          transforms_attributes: transformChanges
+          features_attributes: transformChanges
         }
       }, {
         preserveState: true,

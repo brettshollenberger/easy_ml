@@ -41,29 +41,29 @@ module EasyML
         x = validate_input(x)
 
         fit_values = case @strategy
-                     when :mean
-                       fit_mean(x)
-                     when :median
-                       fit_median(x)
-                     when :ffill
-                       fit_ffill(x, df)
-                     when :most_frequent
-                       fit_most_frequent(x)
-                     when :categorical
-                       fit_categorical(x)
-                     when :constant
-                       fit_constant(x)
-                     when :clip
-                       fit_no_op(x)
-                     when :today
-                       fit_no_op(x)
-                     when :one_hot
-                       fit_no_op(x)
-                     when :custom
-                       fit_custom(x)
-                     else
-                       raise ArgumentError, "Invalid strategy: #{@strategy}"
-                     end || {}
+        when :mean
+          fit_mean(x)
+        when :median
+          fit_median(x)
+        when :ffill
+          fit_ffill(x, df)
+        when :most_frequent
+          fit_most_frequent(x)
+        when :categorical
+          fit_categorical(x)
+        when :constant
+          fit_constant(x)
+        when :clip
+          fit_no_op(x)
+        when :today
+          fit_no_op(x)
+        when :one_hot
+          fit_no_op(x)
+        when :custom
+          fit_custom(x)
+        else
+          raise ArgumentError, "Invalid strategy: #{@strategy}"
+        end || {}
 
         @statistics[attribute] ||= {}
         @statistics[attribute][@strategy] = fit_values.merge!(original_dtype: x.dtype)
@@ -145,7 +145,7 @@ module EasyML
       end
 
       def transform_custom(x)
-        raise "Transform required" unless options.key?(:transform)
+        raise "transform required" unless options.key?(:transform)
 
         options[:transform].call(x)
       end
@@ -234,19 +234,19 @@ module EasyML
         return if %i[clip today custom].include?(strategy)
 
         pass_check = case strategy
-                     when :mean
-                       @statistics.dig(:mean).present?
-                     when :median
-                       @statistics.dig(:median).present?
-                     when :ffill
-                       @statistics.dig(:last_value).present?
-                     when :most_frequent
-                       @statistics.key?(:most_frequent_value)
-                     when :constant
-                       options.dig(:constant).present?
-                     when :categorical
-                       true
-                     end
+          when :mean
+            @statistics.dig(:mean).present?
+          when :median
+            @statistics.dig(:median).present?
+          when :ffill
+            @statistics.dig(:last_value).present?
+          when :most_frequent
+            @statistics.key?(:most_frequent_value)
+          when :constant
+            options.dig(:constant).present?
+          when :categorical
+            true
+          end
 
         raise "SimpleImputer has not been fitted yet for #{attribute}##{strategy}" unless pass_check
       end

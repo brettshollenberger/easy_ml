@@ -1,28 +1,28 @@
 import React from 'react';
 // import { useNavigate, useParams } from 'react-router-dom';
 import { Code2 } from 'lucide-react';
-import { mockDatasets, mockTransformationGroups } from '../mockData';
-import { TransformationForm } from '../components/transformations/TransformationForm';
+import { mockDatasets, mockFeatureGroups } from '../mockData';
+import { FeatureForm } from '../components/features/FeatureForm';
 
-export default function EditTransformationPage() {
+export default function EditFeaturePage() {
   const navigate = useNavigate();
   const { id } = useParams();
   
-  const transformation = mockTransformationGroups
-    .flatMap(g => g.transformations)
+  const feature = mockFeatureGroups
+    .flatMap(g => g.features)
     .find(t => t.id === Number(id));
 
-  if (!transformation) {
+  if (!feature) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900">Transformation not found</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Feature not found</h2>
       </div>
     );
   }
 
   const handleSubmit = (data: any) => {
-    console.log('Updating transformation:', data);
-    navigate('/transformations');
+    console.log('Updating feature:', data);
+    navigate('/features');
   };
 
   return (
@@ -31,24 +31,24 @@ export default function EditTransformationPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Code2 className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Edit Transformation</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Edit Feature</h2>
           </div>
         </div>
 
-        <TransformationForm
+        <FeatureForm
           datasets={mockDatasets}
-          groups={mockTransformationGroups}
+          groups={mockFeatureGroups}
           initialData={{
-            name: transformation.name,
-            description: transformation.description,
-            groupId: transformation.groupId,
-            testDatasetId: transformation.testDatasetId,
-            inputColumns: transformation.inputColumns,
-            outputColumns: transformation.outputColumns,
-            code: transformation.code
+            name: feature.name,
+            description: feature.description,
+            groupId: feature.groupId,
+            testDatasetId: feature.testDatasetId,
+            inputColumns: feature.inputColumns,
+            outputColumns: feature.outputColumns,
+            code: feature.code
           }}
           onSubmit={handleSubmit}
-          onCancel={() => navigate('/transformations')}
+          onCancel={() => navigate('/features')}
         />
       </div>
     </div>

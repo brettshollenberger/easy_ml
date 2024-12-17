@@ -6,6 +6,9 @@ module EasyML
 
         VALID_SEGMENTS = %w[train test valid all].freeze
 
+        def initialize(options = {})
+        end
+
         def load_data(segment, **kwargs)
           drop_cols = dataset.drop_columns(all_columns: kwargs[:all_columns] || false)
           kwargs.delete(:all_columns)

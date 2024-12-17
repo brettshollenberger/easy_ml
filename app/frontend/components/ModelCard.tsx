@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink, Play, 
+import { Activity, Calendar, Database, Settings, ExternalLink, Play, LineChart,
         Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Link, router } from "@inertiajs/react";
 import { cn } from '@/lib/utils';
@@ -78,7 +78,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     if (!lastRun) return 'Never trained';
     if (lastRun.status === 'failed') return 'Last run failed';
     if (lastRun.status === 'success') {
-      return lastRun.should_promote ? 'Last run succeeded' : 'Last run completed (below threshold)';
+      return lastRun.deployable ? 'Last run succeeded' : 'Last run completed (below threshold)';
     }
     return 'Unknown status';
   };
@@ -88,7 +88,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     if (!lastRun) return 'text-gray-500';
     if (lastRun.status === 'failed') return 'text-red-700';
     if (lastRun.status === 'success') {
-      return lastRun.should_promote ? 'text-green-700' : 'text-orange-700';
+      return lastRun.deployable ? 'text-green-700' : 'text-orange-700';
     }
     return 'text-gray-700';
   };
@@ -125,19 +125,32 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             >
               <Play className="w-5 h-5" />
             </button>
-            <Link
-              href={`${rootPath}/models/${model.id}/edit`}
-              className="text-gray-400 hover:text-gray-600"
-              title="Edit model"
-            >
-              <Settings className="w-5 h-5" />
-            </Link>
+            {
+              model.metrics_url && (
+                <a
+                  href={model.metrics_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-purple-600 transition-colors"
+                  title="View metrics"
+                >
+                  <LineChart className="w-5 h-5" />
+                </a>
+              )
+            }
             <Link
               href={`${rootPath}/models/${model.id}`}
               className="text-gray-400 hover:text-gray-600"
               title="View details"
             >
               <ExternalLink className="w-5 h-5" />
+            </Link>
+            <Link
+              href={`${rootPath}/models/${model.id}/edit`}
+              className="text-gray-400 hover:text-gray-600"
+              title="Edit model"
+            >
+              <Settings className="w-5 h-5" />
             </Link>
             <button
               onClick={() => handleDelete(model.id)}
@@ -176,7 +189,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-400" />
           <span className="text-sm text-gray-600">
-            {job ? `Retrains ${model.formatted_frequency}` : 'No schedule'}
+            {job?.active ? `Retrains ${model.formatted_frequency}` : 'Retrains manually'}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -195,14 +208,14 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
         </div>
       </div>
 
-      {lastRun?.status === 'success' && (
+      {lastRun?.metrics && (
         <div className="mt-4 pt-4 border-t border-gray-100">
           <div className="flex flex-wrap gap-2">
             {Object.entries(lastRun.metrics as Record<string, number>).map(([key, value]) => (
               <div
                 key={key}
                 className={`px-2 py-1 rounded-md text-xs font-medium ${
-                  lastRun.should_promote
+                  lastRun.deployable
                     ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
                 }`}

@@ -36,7 +36,7 @@ module EasyML
         test_df = Polars.concat(
           [
             df.filter(Polars.col(date_col) >= test_date_start),
-            df.filter(Polars.col(date_col).is_null)
+            df.filter(Polars.col(date_col).is_null),
           ]
         )
         remaining_df = df.filter(Polars.col(date_col) < test_date_start)

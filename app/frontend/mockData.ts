@@ -1,4 +1,4 @@
-import type { Model, RetrainingJob, RetrainingRun, Dataset, Prediction, Transformation, TransformationGroup } from './types';
+import type { Model, RetrainingJob, RetrainingRun, Dataset, Prediction, Feature, FeatureGroup } from './types';
 
 // Helper function to generate dates
 const daysAgo = (days: number) => {
@@ -95,7 +95,7 @@ export const mockModels: Model[] = [
     modelType: 'classification',
     status: 'completed',
     deploymentStatus: 'inference',
-    promoted: true,
+    deployed: true,
     datasetId: 1,
     configuration: {
       algorithm: 'xgboost',
@@ -151,7 +151,7 @@ export const mockRetrainingRuns: RetrainingRun[] = [
     metricValue: 0.89,
     threshold: 0.85,
     thresholdDirection: 'maximize',
-    shouldPromote: true,
+    shoulddeploy: true,
     startedAt: daysAgo(1),
     completedAt: daysAgo(1),
     errorMessage: null,
@@ -179,7 +179,7 @@ export const mockRetrainingRuns: RetrainingRun[] = [
     metricValue: 0.86,
     threshold: 0.85,
     thresholdDirection: 'maximize',
-    shouldPromote: true,
+    shoulddeploy: true,
     startedAt: daysAgo(2),
     completedAt: daysAgo(2),
     errorMessage: null,
@@ -207,7 +207,7 @@ export const mockRetrainingRuns: RetrainingRun[] = [
     metricValue: null,
     threshold: 0.85,
     thresholdDirection: 'maximize',
-    shouldPromote: false,
+    shoulddeploy: false,
     startedAt: daysAgo(3),
     completedAt: daysAgo(3),
     errorMessage: 'Training failed due to insufficient memory',
@@ -224,7 +224,7 @@ export const mockRetrainingRuns: RetrainingRun[] = [
     metricValue: 0.83,
     threshold: 0.85,
     thresholdDirection: 'maximize',
-    shouldPromote: false,
+    shoulddeploy: false,
     startedAt: daysAgo(4),
     completedAt: daysAgo(4),
     errorMessage: null,
@@ -245,7 +245,7 @@ export const mockRetrainingRuns: RetrainingRun[] = [
   }
 ];
 
-export const mockTransformations: Transformation[] = [
+export const mockFeatures: Feature[] = [
   {
     id: 1,
     name: 'Normalize state',
@@ -260,12 +260,12 @@ export const mockTransformations: Transformation[] = [
   }
 ];
 
-export const mockTransformationGroups: TransformationGroup[] = [
+export const mockFeatureGroups: FeatureGroup[] = [
   {
     id: 1,
     name: 'Customer Churn',
-    description: 'Transformations for customer churn dataset',
-    transformations: mockTransformations,
+    description: 'Features for customer churn dataset',
+    features: mockFeatures,
     createdAt: daysAgo(30),
     updatedAt: daysAgo(0)
   }

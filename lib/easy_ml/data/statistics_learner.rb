@@ -3,9 +3,11 @@ require_relative "polars_column"
 
 module EasyML::Data
   class StatisticsLearner
-    include GlueGun::DSL
+    attr_accessor :verbose
 
-    attribute :verbose
+    def initialize(options = {})
+      @verbose = options[:verbose]
+    end
 
     def self.learn(raw, processed)
       output = { raw: learn_split(raw) }

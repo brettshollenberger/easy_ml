@@ -11,7 +11,7 @@ module EasyML
       { value: "America/Denver", label: "Mountain Time" },
       { value: "America/Los_Angeles", label: "Pacific Time" },
     ]
-    KEYS = %i[storage s3_access_key_id s3_secret_access_key s3_bucket s3_region s3_prefix timezone]
+    KEYS = EasyML::Settings.configuration_attributes
     LABELER = {
       timezone: TIMEZONES,
     }

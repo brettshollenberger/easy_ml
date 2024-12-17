@@ -2,13 +2,16 @@ module EasyML
   module Models
     module Hyperparameters
       class Base
-        include GlueGun::DSL
+        attr_accessor :learning_rate, :max_iterations, :batch_size,
+                      :regularization, :early_stopping_rounds
 
-        attribute :learning_rate, :float, default: 0.01
-        attribute :max_iterations, :integer, default: 100
-        attribute :batch_size, :integer, default: 32
-        attribute :regularization, :float, default: 0.0001
-        attribute :early_stopping_rounds
+        def initialize(options = {})
+          @learning_rate = options[:learning_rate] || 0.01
+          @max_iterations = options[:max_iterations] || 100
+          @batch_size = options[:batch_size] || 32
+          @regularization = options[:regularization] || 0.0001
+          @early_stopping_rounds = options[:early_stopping_rounds]
+        end
 
         def self.common_tree_params
           {
@@ -16,20 +19,20 @@ module EasyML
               label: "Learning Rate",
               description: "Step size shrinkage used to prevent overfitting",
               min: 0.001,
-              max: 1,
+              max: 0.3,
               step: 0.001,
             },
             max_depth: {
               label: "Maximum Tree Depth",
               description: "Maximum depth of a tree",
-              min: 1,
-              max: 20,
+              min: 3,
+              max: 10,
               step: 1,
             },
             n_estimators: {
               label: "Number of Trees",
               description: "Number of boosting rounds",
-              min: 1,
+              min: 100,
               max: 1000,
               step: 1,
             },
@@ -37,7 +40,7 @@ module EasyML
               label: "Early Stopping Rounds",
               description: "Number of rounds to check for early stopping",
               min: 1,
-              max: 100,
+              max: 5,
               step: 1,
             },
           }
@@ -56,21 +59,23 @@ module EasyML
               label: "L1 Regularization",
               description: "L1 regularization term on weights",
               min: 0,
-              max: 10,
+              max: 1,
               step: 0.1,
             },
             early_stopping_rounds: {
               label: "Early Stopping Rounds",
               description: "Number of rounds to check for early stopping",
               min: 1,
-              max: 100,
+              max: 5,
               step: 1,
             },
           }
         end
 
         def to_h
-          attributes.with_indifferent_access
+          instance_variables.each_with_object({}) do |var, hash|
+            hash[var.to_s.delete("@").to_sym] = instance_variable_get(var)
+          end.with_indifferent_access
         end
 
         def merge(other)

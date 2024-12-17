@@ -5,13 +5,19 @@ module EasyML
     include JSONAPI::Serializer
 
     attributes :id,
-               :should_promote,
+               :deployable,
                :metrics,
                :metric_value,
                :threshold,
                :threshold_direction,
                :status,
-               :error_message
+               :error_message,
+               :is_deploying,
+               :deployed
+
+    attribute :metrics_url do |run|
+      run.wandb_url
+    end
 
     attribute :started_at do |run|
       run.started_at&.in_time_zone(EasyML::Configuration.timezone)
@@ -26,7 +32,7 @@ module EasyML
         nil
       else
         last_event = object.events.order(id: :desc).limit(1).last
-        last_event&.stacktrace if last_event&.status.to_s == "error"
+        last_event&.stacktrace if last_event&.status.to_s == "failed"
       end
     end
   end

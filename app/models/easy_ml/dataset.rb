@@ -46,8 +46,8 @@ module EasyML
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
-    has_many :transforms, dependent: :destroy, class_name: "EasyML::Transform"
-    accepts_nested_attributes_for :transforms, allow_destroy: true
+    has_many :features, dependent: :destroy, class_name: "EasyML::Feature"
+    accepts_nested_attributes_for :features, allow_destroy: true
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
@@ -68,6 +68,7 @@ module EasyML
     add_configuration_attributes :remote_files
 
     after_find :download_remote_files
+    after_create :refresh_async
     after_initialize do
       bump_version unless version.present?
       write_attribute(:workflow_status, :ready) if workflow_status.nil?
@@ -80,7 +81,7 @@ module EasyML
           { value: type.to_s, label: type.to_s.titleize }
         end,
         preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies],
-        transform_options: EasyML::Transforms::Registry.list_flat,
+        feature_options: EasyML::Features::Registry.list_flat,
       }
     end
 
@@ -116,7 +117,7 @@ module EasyML
 
     def refresh_async
       update(workflow_status: "analyzing")
-      EasyML::RefreshDatasetWorker.perform_async(id)
+      EasyML::RefreshDatasetJob.perform_later(id)
     end
 
     def raw
@@ -174,7 +175,7 @@ module EasyML
     def needs_refresh?
       return true if refreshed_at.nil?
       return true if columns.where("updated_at > ?", refreshed_at).exists?
-      return true if transforms.where("updated_at > ?", refreshed_at).exists?
+      return true if features.where("updated_at > ?", refreshed_at).exists?
       return true if datasource&.needs_refresh?
 
       false
@@ -320,11 +321,31 @@ module EasyML
       # alert_nulls
     end
 
+    def needs_learn?(df)
+      never_learned = columns.none?
+      new_features = features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
+      new_cols = (df.columns - columns.map(&:name))
+
+      one_hot_cols = new_cols.group_by { |col| col.split("_").first }.each do |prefix, cols|
+        next if cols.count { |col| col.start_with?("#{prefix}_") } >= 2
+        true
+      end.select do |prefix, cols|
+        columns.any? { |col| col.name.start_with?(prefix) }
+      end.flat_map(&:last)
+
+      new_cols = (new_cols - one_hot_cols).any?
+
+      return never_learned || new_features || new_cols
+    end
+
     def normalize(df = nil, split_ys: false, inference: false)
       df = drop_nulls(df)
-      df = apply_transforms(df)
+      df = apply_features(df)
       df = preprocessor.postprocess(df, inference: inference)
-      learn if columns.none?
+
+      # Learn will update columns, so if any features have been added
+      # since the last time columns were learned, we should re-learn the schema
+      learn if needs_learn?(df)
       df = apply_column_mask(df)
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
@@ -564,9 +585,9 @@ module EasyML
       return unless force || should_split?
 
       cleanup
-      transforms = self.transforms.ordered.load
+      features = self.features.ordered.load
       datasource.in_batches do |df|
-        df = apply_transforms(df, transforms) if transforms.any?
+        df = apply_features(df, features) if features.any?
         train_df, valid_df, test_df = splitter.split(df)
         raw.save(:train, train_df)
         raw.save(:valid, valid_df)
@@ -578,18 +599,18 @@ module EasyML
 
     def should_split?
       split_timestamp = raw.split_at
-      processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at
+      processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at || needs_refresh?
     end
 
-    def apply_transforms(df, transforms = self.transforms)
-      if transforms.nil? || transforms.empty?
+    def apply_features(df, features = self.features)
+      if features.nil? || features.empty?
         df
       else
-        transforms.ordered.reduce(df) do |acc_df, transform|
-          result = transform.apply!(acc_df)
+        features.ordered.reduce(df) do |acc_df, feature|
+          result = feature.apply!(acc_df)
 
           unless result.is_a?(Polars::DataFrame)
-            raise "Transform '#{transform.transform_method}' must return a Polars::DataFrame, got #{result.class}"
+            raise "Feature '#{feature.feature_method}' must return a Polars::DataFrame, got #{result.class}"
           end
 
           result

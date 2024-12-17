@@ -18,7 +18,7 @@ module EasyML
     def index
       @settings = Settings.first_or_create
       render inertia: "pages/SettingsPage", props: {
-        settings: { settings: @settings.as_json }
+        settings: { settings: settings_to_json(@settings) },
       }
     end
 
@@ -37,7 +37,7 @@ module EasyML
       end
       flash.now[:notice] = "Settings saved."
       render inertia: "pages/SettingsPage", props: {
-        settings: @settings.as_json
+        settings: @settings.as_json,
       }
     end
 
@@ -51,7 +51,8 @@ module EasyML
         :s3_secret_access_key,
         :s3_bucket,
         :s3_region,
-        :s3_prefix
+        :s3_prefix,
+        :wandb_api_key
       )
     end
   end

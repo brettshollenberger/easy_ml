@@ -36,7 +36,7 @@ PATH
 PATH
   remote: /Users/brettshollenberger/programming/wandb
   specs:
-    wandb (0.1.10)
+    wandb (0.1.12)
       pycall
 
 GEM

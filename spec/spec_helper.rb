@@ -4,8 +4,6 @@ require "bundler/setup"
 require "timecop"
 require "benchmark"
 require "resque"
-require "resque_spec"
-require "resque_spec/scheduler"
 require "active_job"
 require "pry"
 Bundler.require :default, :development
@@ -41,6 +39,11 @@ end
 
 RSpec.configure do |config|
   include ActiveJob::TestHelper
+
+  config.before(:each) do
+    clear_enqueued_jobs
+    EasyML::Cleaner.clean
+  end
 
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
@@ -79,10 +82,6 @@ RSpec.configure do |config|
     end
   end
 
-  config.before(:each) do |_example|
-    ResqueSpec.reset!
-  end
-
   if ENV["RAILS_SPECS"] || RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
     config.before(:suite) do
       DatabaseCleaner.strategy = :truncation
@@ -97,8 +96,5 @@ RSpec.configure do |config|
   end
 end
 
-# Configure Resque for testing
-ResqueSpec.disable_ext = false
-Resque.redis = Redis.new(url: ENV["REDIS_URL"] || "redis://localhost:6379")
 EST = EasyML::Support::EST
 UTC = EasyML::Support::UTC

@@ -118,7 +118,6 @@ module EasyML
           }.compact
 
           if batch_size.present?
-            Thread.current[:batching] = true
             base_enumerator = EasyML::Data::PolarsReader.query(files, **query_params)
 
             if block_given?

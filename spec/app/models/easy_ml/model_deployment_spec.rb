@@ -371,7 +371,6 @@ RSpec.describe EasyML::Models do
 
       randomize_hypers(model)
       model.fit
-      Thread.current[:save]
       model.save
       model_v2 = model
       model_v1.reload

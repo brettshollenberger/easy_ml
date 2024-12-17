@@ -15,7 +15,9 @@ RSpec.describe EasyML::Core::Tuner do
   let(:model) do
     model_config[:name] = "My Model"
     model_config[:task] = "regression"
-    EasyML::Model.create(**model_config)
+    EasyML::Model.create(**model_config).tap do |model|
+      model.pending_run
+    end
   end
 
   let(:n_trials) do
@@ -109,19 +111,23 @@ RSpec.describe EasyML::Core::Tuner do
     end
 
     it "returns best params" do
+      Thread.current[:stop] = true
       best_params = EasyML::Core::Tuner.new(tuner_params).tune
 
       expect(best_params["learning_rate"]).to be_between(0.01, 0.1)
       expect(best_params["n_estimators"]).to be_between(0, 2)
       expect(best_params["max_depth"]).to be_between(1, 5)
+      Thread.current[:stop] = false
     end
 
     it "configures custom params for callbacks" do
-      expect_any_instance_of(Wandb::XGBoostCallback).to receive(:before_training).exactly(5).times.and_call_original
-
       tuner = EasyML::Core::Tuner.new(tuner_params)
+      wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
+
+      expect(wandb_callback).to receive(:before_training).exactly(5).times.and_call_original
+
       tuner.tune
-      expect(tuner.model.callbacks.first.project_name).to match(/My Model/)
+      expect(tuner.model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }.project_name).to match(/My Model/)
     end
 
     it "accepts custom evaluator" do
@@ -134,7 +140,7 @@ RSpec.describe EasyML::Core::Tuner do
       EasyML::Core::ModelEvaluator.register(:custom, CustomEvaluator, :regression)
       model.update(evaluator: { metric: :custom, max: 10 })
       model.save
-      tuner = EasyML::Core::Tuner.new(tuner_params)
+      tuner = EasyML::Core::Tuner.new(tuner_params.merge!(model: model))
       tuner.tune
 
       expect(tuner.results).to eq([1, 1, 1, 1, 1])

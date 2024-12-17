@@ -5,7 +5,9 @@ module EasyML
     INACTIVITY_TIMEOUT = 15 # seconds
 
     def perform(model_id)
-      @model = EasyML::Model.find(model_id)
+      @model = EasyML::Model.find_by(id: model_id)
+      return if @model.nil?
+
       @last_activity = Time.current
       setup_signal_traps
       # @monitor_thread = start_monitor_thread

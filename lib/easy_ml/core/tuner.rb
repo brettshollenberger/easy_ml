@@ -71,7 +71,7 @@ module EasyML
         model.evaluator = evaluator if evaluator.present?
         model.task = task
 
-        # model.dataset.refresh
+        model.dataset.refresh
         x_true, y_true = model.dataset.test(split_ys: true)
         self.x_true = x_true
         self.y_true = y_true
@@ -82,13 +82,15 @@ module EasyML
         model.prepare_data unless model.batch_mode
         model.prepare_callbacks(self)
 
-        @study.optimize(n_trials: n_trials, callbacks: [method(:loggers)]) do |trial|
+        n_trials.times do |run_number|
+          trial = @study.ask
           puts "Running trial #{trial.number}"
-          tuner_run = tuner_job.tuner_runs.new(
+          @tuner_run = tuner_job.tuner_runs.new(
             trial_number: trial.number,
             status: :running,
           )
-          @current_run = tuner_run
+
+          self.current_run = @tuner_run
 
           begin
             run_metrics = tune_once(trial, x_true, y_true, adapter, &progress_block)
@@ -101,11 +103,10 @@ module EasyML
               status: :success,
             }.compact
 
-            tuner_run.update!(params)
-
-            result
+            @tuner_run.update!(params)
+            @study.tell(trial, result)
           rescue StandardError => e
-            tuner_run.update!(status: :failed)
+            @tuner_run.update!(status: :failed, hyperparameters: {})
             puts "Optuna failed with: #{e.message}"
             raise e
           end
@@ -117,12 +118,12 @@ module EasyML
         best_run = tuner_job.best_run
         tuner_job.update!(
           metadata: adapter.metadata,
-          best_tuner_run_id: best_run.id,
+          best_tuner_run_id: best_run&.id,
           status: :success,
           completed_at: Time.current,
         )
 
-        best_run.hyperparameters
+        best_run&.hyperparameters
       rescue StandardError => e
         tuner_job&.update!(status: :failed, completed_at: Time.current)
         raise e

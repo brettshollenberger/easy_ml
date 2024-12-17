@@ -1,10 +1,10 @@
 module EasyML
   class ScheduleRetrainingJob < ApplicationJob
-    def perform
-      RetrainingJob.current.each do |job|
-        next unless job.should_run?
+    @queue = :easy_ml
 
-        model.train
+    def perform
+      RetrainingJob.active.each do |job|
+        job.model.train
       end
     end
   end

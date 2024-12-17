@@ -4,17 +4,12 @@ require "support/model_spec_helper"
 RSpec.describe EasyML::RetrainingRun do
   include ModelSpecHelper
 
-  before(:all) do
-    EasyML::Cleaner.clean
-  end
-  after(:all) do
-    EasyML::Cleaner.clean
-  end
   let(:model_name) do
     "My Model"
   end
   let(:model) do
     EasyML::Model.create(**loans_model_config).tap do |model|
+      model.dataset.refresh
       model.update(name: model_name)
       model.fit
       model.deploy

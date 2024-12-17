@@ -68,7 +68,7 @@ module EasyML
     validate :validate_at_format
     after_initialize :set_direction, unless: :persisted?
 
-    scope :active, -> { where(active: true) }
+    scope :active, -> { joins(:model).where(active: true) }
 
     def self.current
       active.select do |job|

@@ -66,7 +66,7 @@ module EasyML
         def after_training(booster)
           return booster unless wandb_enabled?
 
-          unless model.last_run.wandb_url.present?
+          if model.last_run&.wandb_url.nil?
             if tuner.present? && !tuner.current_run.wandb_url.present?
               tuner.current_run.wandb_url = Wandb.current_run.url
             end

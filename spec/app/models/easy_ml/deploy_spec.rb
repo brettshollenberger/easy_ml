@@ -344,11 +344,14 @@ RSpec.describe EasyML::Deploy do
       model.deploy(async: false)
       model_v1 = model.current_version
 
-      expect(model.dataset.raw.dir).to match(/20240202050000/)
-      expect(model_v1.dataset.raw.dir).to match(/20240101050000/)
+      def extract_timestamp(dir)
+        EasyML::Support::UTC.parse(dir.gsub(/\D/, "")).in_time_zone(EST)
+      end
 
-      expect(model.dataset.processed.dir).to match(/20240202050000/)
-      expect(model_v1.dataset.processed.dir).to match(/20240101050000/)
+      expect(extract_timestamp(model_v1.dataset.raw.dir)).to eq(EasyML::Support::EST.parse("2024-01-01"))
+      # Creates a new folder for the next dataset version
+      expect(extract_timestamp(model_v1.dataset.raw.dir)).to be < extract_timestamp(model.dataset.raw.dir)
+      expect(extract_timestamp(model_v1.dataset.processed.dir)).to be < extract_timestamp(model.dataset.processed.dir)
 
       Timecop.freeze(@time + 2.hours)
 

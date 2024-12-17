@@ -211,7 +211,7 @@ RSpec.describe EasyML::Datasource do
       EasyML::Features::Registry.register(DaysInBusiness)
     end
 
-    it "creates computed columns in the correct order", :focus do
+    it "creates computed columns in the correct order" do
       # Create business_inception first since days_in_business depends on it
       expect(dataset).to be_needs_refresh
       dataset.refresh!

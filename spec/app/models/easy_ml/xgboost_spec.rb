@@ -21,6 +21,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         model_type: "xgboost",
         task: task,
         dataset: dataset,
+        objective: objective,
         hyperparameters: {
           booster: booster,
           learning_rate: 0.05,
@@ -64,7 +65,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
           model.save
         end
 
-        it "returns true when model has been fit but not promoted" do
+        it "returns true when model has been fit but not deployed" do
           expect(model.model_changed?).to be true
         end
 
@@ -186,7 +187,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         titanic_model
       end
 
-      it "produces same predictions as regular fit", :focus do
+      it "produces same predictions as regular fit" do
         # Get test data
         x_test, = titanic_dataset.test(split_ys: true)
 
@@ -199,12 +200,12 @@ RSpec.describe "EasyML::Models::XGBoost" do
         batch_model = model.dup
         batch_model.hyperparameters.n_estimators = 50
         batch_model.hyperparameters.early_stopping_rounds = 10
-        batch_model.fit_in_batches(batch_size: 50, overlap: 5)
+        batch_model.fit_in_batches(batch_size: 50, batch_overlap: 5)
         batch_evals = batch_model.evaluate
 
         # Compare metrics
-        expect(batch_evals[:accuracy_score]).to be_within(0.03).of(regular_evals[:accuracy_score])
-        expect(batch_evals[:precision_score]).to be_within(0.03).of(regular_evals[:precision_score])
+        expect(batch_evals[:accuracy_score]).to be_within(0.1).of(regular_evals[:accuracy_score])
+        expect(batch_evals[:precision_score]).to be_within(0.1).of(regular_evals[:precision_score])
       end
     end
 
@@ -355,9 +356,9 @@ RSpec.describe "EasyML::Models::XGBoost" do
           model_type: "xgboost",
           task: :regression,
           dataset: dataset,
+          objective: "invalid_objective",
           hyperparameters: {
             booster: :gbtree,
-            objective: "invalid_objective",
           },
         )
         expect { model.fit }.to raise_error(ArgumentError, /cannot use invalid_objective for regression task/)

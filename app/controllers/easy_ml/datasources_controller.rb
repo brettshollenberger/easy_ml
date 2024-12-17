@@ -15,7 +15,7 @@ module EasyML
     def index
       @datasources = Datasource.all.order(id: :asc)
       render inertia: "pages/DatasourcesPage", props: {
-        datasources: @datasources.map { |datasource| datasource_to_json(datasource) }
+        datasources: @datasources.map { |datasource| datasource_to_json(datasource) },
       }
     end
 
@@ -29,21 +29,19 @@ module EasyML
 
       render inertia: "pages/DatasourceFormPage", props: {
         datasource: datasource_to_json(datasource),
-        constants: EasyML::Datasource.constants
+        constants: EasyML::Datasource.constants,
       }
     end
 
     def new
       render inertia: "pages/DatasourceFormPage", props: {
-        constants: EasyML::Datasource.constants
+        constants: EasyML::Datasource.constants,
       }
     end
 
     def create
       EasyML::Datasource.transaction do
         datasource = EasyML::Datasource.create!(datasource_params)
-        datasource.update(is_syncing: true)
-        datasource.refresh_async
       end
 
       redirect_to easy_ml_datasources_path, notice: "Datasource was successfully created."
@@ -83,7 +81,7 @@ module EasyML
 
     def datasource_params
       params.require(:datasource).permit(:name, :s3_bucket, :s3_prefix, :s3_region, :datasource_type).merge!(
-        datasource_type: "s3"
+        datasource_type: "s3",
       )
     end
   end

@@ -44,11 +44,11 @@ module EasyML
       object.is_syncing
     end
 
-    attribute :sync_error do |object|
+    attribute :sync_failed do |object|
       if object.is_syncing
         nil
       else
-        object.events.order(id: :desc).limit(1)&.last&.status == "error"
+        object.events.order(id: :desc).limit(1)&.last&.status == "failed"
       end
     end
 
@@ -57,7 +57,7 @@ module EasyML
         nil
       else
         last_event = object.events.order(id: :desc).limit(1).last
-        last_event&.stacktrace if last_event&.status == "error"
+        last_event&.stacktrace if last_event&.status == "failed"
       end
     end
   end

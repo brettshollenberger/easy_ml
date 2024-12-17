@@ -1,13 +1,21 @@
 module EasyML
   module Data
     class PolarsReader
-      include GlueGun::DSL
+      attr_accessor :root_dir, :polars_args, :refresh, :num_rows
+      attr_reader :schema
 
-      attribute :root_dir
-      attribute :polars_args, :hash, default: {}
-      attribute :refresh, :boolean, default: false
-      attribute :num_rows, :integer
-      attribute :schema
+      def initialize(options = {})
+        @root_dir = options[:root_dir]
+        @polars_args = options[:polars_args] || {}
+        @refresh = options[:refresh] || false
+        @num_rows = options[:num_rows]
+        @schema = options[:schema]
+      end
+
+      def schema=(value)
+        @schema = value
+        polars_args[:dtypes] = value
+      end
 
       def normalize
         learn_dataset
@@ -37,10 +45,6 @@ module EasyML
         else
           csv_files
         end
-      end
-
-      def schema
-        polars_args[:dtypes]
       end
 
       def data
@@ -110,12 +114,12 @@ module EasyML
         combined_lazy_df = combined_lazy_df.select(select) if select.present?
         combined_lazy_df = combined_lazy_df.unique if unique
 
+        # Apply sorting if provided
+        combined_lazy_df = combined_lazy_df.sort(sort, reverse: descending) if sort
+
         # Apply drop columns
         drop_cols &= combined_lazy_df.columns
         combined_lazy_df = combined_lazy_df.drop(drop_cols) unless drop_cols.empty?
-
-        # Apply sorting if provided
-        combined_lazy_df = combined_lazy_df.sort(sort, reverse: descending) if sort
 
         # Collect the DataFrame (execute the lazy operations)
         combined_lazy_df = combined_lazy_df.limit(limit) if limit
@@ -158,7 +162,14 @@ module EasyML
       end
 
       def self.to_lazy_frames(files)
-        files.map { |file| Polars.scan_parquet(file) }
+        files.map do |file|
+          case Pathname.new(file).extname.gsub(/\./, "")
+          when "csv"
+            Polars.scan_csv(file)
+          when "parquet"
+            Polars.scan_parquet(file)
+          end
+        end
       end
 
       def read_file(file)

@@ -4,18 +4,26 @@
 #
 #  id                  :bigint           not null, primary key
 #  model_id            :bigint
+#  model_history_id    :bigint
 #  retraining_job_id   :bigint           not null
 #  tuner_job_id        :bigint
 #  status              :string           default("pending")
 #  metric_value        :float
 #  threshold           :float
+#  trigger             :string           default("manual")
 #  threshold_direction :string
-#  should_promote      :boolean
 #  started_at          :datetime
 #  completed_at        :datetime
 #  error_message       :text
 #  metadata            :jsonb
 #  metrics             :jsonb
+#  best_params         :jsonb
+#  wandb_url           :string
+#  snapshot_id         :string
+#  deployable          :boolean
+#  is_deploying        :boolean
+#  deployed            :boolean
+#  deploy_id           :bigint
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #
@@ -27,52 +35,64 @@ module EasyML
     belongs_to :model, class_name: "EasyML::Model"
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
-    validates :status, presence: true, inclusion: { in: %w[pending running success failed] }
+    validates :status, presence: true, inclusion: { in: %w[pending running success failed deployed] }
 
     scope :running, -> { where(status: "running") }
 
-    def perform_retraining!
+    def wrap_training(&block)
       return false unless pending?
 
       begin
         EasyML::Event.create_event(self, "started")
         update!(status: "running", started_at: Time.current)
 
-        # Only use tuner if tuning frequency has been met
-        if should_tune?
-          training_model = Orchestrator.train(retraining_job.model.name, tuner: retraining_job.tuner_config,
-                                                                         evaluator: retraining_job.evaluator)
-          retraining_job.update!(last_tuning_at: Time.current)
+        training_model, best_params = yield
 
-          # Get metadata from the latest tuner job if it exists
-          tuner_metadata = EasyML::TunerJob.where(model: training_model)
-                                           .order(created_at: :desc)
-                                           .first&.metadata || {}
-        else
-          training_model = Orchestrator.train(retraining_job.model.name, evaluator: retraining_job.evaluator)
-          tuner_metadata = {}
+        if best_params.present?
+          tuner = EasyML::TunerJob.where(model: training_model)
+            .order(id: :desc)
+            .first
         end
 
         results = metric_results(training_model)
-        model_was_promoted = results[:should_promote] && training_model.promotable? && training_model.promote
-        failed_reasons = training_model.cannot_promote_reasons - ["Model has not changed"]
-        status = failed_reasons.any? ? "failed" : "success"
+        failed_reasons = training_model.cannot_deploy_reasons - ["Model has not changed"]
+        if results[:deployable] == false
+          status = "success"
+        else
+          status = failed_reasons.any? ? "failed" : "success"
+        end
 
         update!(
           results.merge!(
             status: status,
             completed_at: failed_reasons.none? ? Time.current : nil,
-            error_message: failed_reasons.any? ? nil : failed_reasons&.first || "Did not pass evaluation",
+            error_message: failed_reasons.any? ? failed_reasons&.first : nil,
             model: training_model,
-            metadata: tuner_metadata,
             metrics: training_model.evaluate,
+            best_params: best_params,
+            tuner_job_id: tuner&.id,
+            metadata: tuner&.metadata,
+            wandb_url: tuner&.wandb_url,
           )
         )
 
-        EasyML::Event.create_event(self, status)
-        retraining_job.update!(last_run_at: Time.current)
+        if failed_reasons.any?
+          EasyML::Event.handle_error(self, failed_reasons.first)
+        else
+          EasyML::Event.create_event(self, status)
+        end
+        params = { last_run_at: Time.current, last_tuning_at: best_params.present? ? Time.current : nil }.compact
+        retraining_job.update!(params)
+
+        reload
+        if deployable? && retraining_job.auto_deploy
+          training_model.save_model_file
+          training_model.reload
+          deploy = EasyML::Deploy.create!(retraining_run: self, model: training_model, model_file: training_model.model_file, trigger: trigger)
+          deploy.deploy
+        end
         true
-      rescue StandardError => e
+      rescue => e
         EasyML::Event.handle_error(self, e)
         update!(
           status: "failed",
@@ -87,8 +107,12 @@ module EasyML
       status == "pending"
     end
 
-    def completed?
-      status == "completed"
+    def deployed?
+      status == "deployed"
+    end
+
+    def success?
+      status == "success"
     end
 
     def failed?
@@ -99,14 +123,14 @@ module EasyML
       status == "running"
     end
 
-    private
-
     def should_tune?
       retraining_job.tuner_config.present? && retraining_job.should_tune?
     end
 
+    private
+
     def metric_results(training_model)
-      return training_model.promotable? unless retraining_job.evaluator.present?
+      return training_model.deployable? unless retraining_job.evaluator.present?
 
       training_model.dataset.refresh
       evaluator = retraining_job.evaluator.symbolize_keys
@@ -126,18 +150,18 @@ module EasyML
       if evaluator[:min].present?
         threshold = evaluator[:min]
         threshold_direction = "minimize"
-        should_promote = metric_value < threshold
+        deployable = metric_value < threshold
       else
         threshold = evaluator[:max]
         threshold_direction = "maximize"
-        should_promote = metric_value > threshold
+        deployable = metric_value > threshold
       end
 
       {
         metric_value: metric_value,
         threshold: threshold,
         threshold_direction: threshold_direction,
-        should_promote: should_promote,
+        deployable: deployable,
       }
     end
   end

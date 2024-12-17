@@ -27,6 +27,7 @@ interface ModelFormProps {
       batch_mode?: string;
       batch_size?: number;
       batch_overlap?: number;
+      batch_key?: string;
       tuning_frequency?: string;
       active: boolean;
       metric?: string;
@@ -36,6 +37,7 @@ interface ModelFormProps {
         objective: string;
         config: Record<string, any>;
       };
+      tuning_enabled?: boolean;
     };
   };
   datasets: Array<Dataset>;
@@ -81,6 +83,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
         batch_mode: initialData.retraining_job.batch_mode,
         batch_size: initialData.retraining_job.batch_size,
         batch_overlap: initialData.retraining_job.batch_overlap,
+        batch_key: initialData.retraining_job.batch_key,
         at: {
           hour: initialData.retraining_job.at?.hour ?? 2,
           day_of_week: initialData.retraining_job.at?.day_of_week ?? 1,
@@ -89,7 +92,8 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
         active: initialData.retraining_job.active,
         metric: initialData.retraining_job.metric,
         threshold: initialData.retraining_job.threshold,
-        tuner_config: initialData.retraining_job.tuner_config
+        tuner_config: initialData.retraining_job.tuner_config,
+        tuning_enabled: initialData.retraining_job.tuning_enabled || false,
       } : undefined
     }
   });
@@ -318,6 +322,32 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
         </div>
       </div>
 
+      {data.model.retraining_job_attributes && data.model.retraining_job_attributes.batch_mode && (
+        <>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700">
+              Batch Key
+            </label>
+            <SearchableSelect
+              value={data.model.retraining_job_attributes.batch_key || ''}
+              onChange={(value) => setData('model', {
+                ...data.model,
+                retraining_job_attributes: {
+                  ...data.model.retraining_job_attributes,
+                  batch_key: value
+                }
+              })}
+              options={selectedDataset?.columns?.map(column => ({
+                value: column.name,
+                label: column.name
+              })) || []}
+              placeholder="Select a column for batch key"
+            />
+            <ErrorDisplay error={errors['model.retraining_job_attributes.batch_key']} />
+          </div>
+        </>
+      )}
+
       <div className="flex justify-end gap-3 pt-4 border-t">
         <button
           type="button"
@@ -342,6 +372,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
           task: data.model.task,
           metrics: data.model.metrics,
           modelType: data.model.model_type,
+          dataset: selectedDataset,
           retraining_job: data.model.retraining_job_attributes
         }}
         tunerJobConstants={filteredTunerJobConstants}

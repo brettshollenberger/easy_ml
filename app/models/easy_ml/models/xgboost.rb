@@ -13,7 +13,6 @@
 #  file          :json
 #  created_at    :datetime         not null
 #  updated_at    :datetime         not null
-#
 module EasyML
   module Models
     class XGBoost < BaseModel
@@ -72,8 +71,40 @@ module EasyML
         klass.new(params)
       end
 
+      def add_auto_configurable_callbacks(params)
+        if EasyML::Configuration.wandb_api_key.present?
+          params.map!(&:deep_symbolize_keys)
+          unless params.any? { |c| c[:callback_type]&.to_sym == :wandb }
+            params << {
+              callback_type: :wandb,
+              project_name: model.name,
+              log_feature_importance: false,
+              define_metric: false,
+            }
+          end
+
+          unless params.any? { |c| c[:callback_type]&.to_sym == :evals_callback }
+            params << {
+              callback_type: :evals_callback,
+            }
+          end
+
+          unless params.any? { |c| c[:callback_type]&.to_sym == :progress_callback }
+            params << {
+              callback_type: :progress_callback,
+            }
+          end
+
+          params.sort_by! { |c| c[:callback_type] == :evals_callback ? 0 : 1 }
+        end
+      end
+
       def build_callbacks(params)
         return [] unless params.is_a?(Array)
+
+        add_auto_configurable_callbacks(params)
+
+        params.uniq! { |c| c[:callback_type] }
 
         params.map do |conf|
           conf.symbolize_keys!
@@ -86,41 +117,97 @@ module EasyML
 
           klass = case callback_type.to_sym
             when :wandb then Wandb::XGBoostCallback
+            when :evals_callback then EasyML::Models::XGBoost::EvalsCallback
+            when :progress_callback then EasyML::Models::XGBoost::ProgressCallback
             end
           raise "Unknown callback type #{callback_type}" unless klass.present?
 
           klass.new(conf).tap do |instance|
             instance.instance_variable_set(:@callback_type, callback_type)
+            instance.send(:model=, model) if instance.respond_to?(:model=)
           end
         end
+      end
+
+      def after_tuning
+        model.callbacks.each do |callback|
+          callback.after_tuning if callback.respond_to?(:after_tuning)
+        end
+      end
+
+      def prepare_callbacks(tuner)
+        model.callbacks.each do |callback|
+          callback.prepare_callback(tuner) if callback.respond_to?(:prepare_callback)
+        end
+
+        set_wandb_project(tuner.project_name)
+      end
+
+      def set_wandb_project(project_name)
+        wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
+        return unless wandb_callback.present?
+        wandb_callback.project_name = project_name
+      end
+
+      def get_wandb_project
+        wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
+        return nil unless wandb_callback.present?
+        wandb_callback.project_name
+      end
+
+      def delete_wandb_project
+        wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
+        return nil unless wandb_callback.present?
+        wandb_callback.project_name = nil
       end
 
       def is_fit?
         @booster.present? && @booster.feature_names.any?
       end
 
-      def fit(x_train: nil, y_train: nil, x_valid: nil, y_valid: nil)
+      attr_accessor :progress_callback
+
+      def fit(tuning: false, x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
         validate_objective
 
         d_train, d_valid, = prepare_data if x_train.nil?
+
         evals = [[d_train, "train"], [d_valid, "eval"]]
-        @booster = base_model.train(hyperparameters.to_h, d_train,
-                                    evals: evals,
-                                    num_boost_round: hyperparameters["n_estimators"],
-                                    callbacks: model.callbacks || [],
-                                    early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
+        self.progress_callback = progress_block
+        set_default_wandb_project_name unless tuning
+        begin
+          @booster = base_model.train(hyperparameters.to_h,
+                                      d_train,
+                                      evals: evals,
+                                      num_boost_round: hyperparameters["n_estimators"],
+                                      callbacks: model.callbacks,
+                                      early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
+        rescue => e
+          binding.pry
+        end
+        delete_wandb_project unless tuning
+        return @booster
       end
 
-      def fit_in_batches(batch_size: 1024, batch_key: nil, batch_start: nil, overlap: 1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
+      def set_default_wandb_project_name
+        return if get_wandb_project.present?
+
+        started_at = EasyML::Support::UTC.now
+        project_name = "#{model.name}_#{started_at.strftime("%Y_%m_%d_%H_%M_%S")}"
+        set_wandb_project(project_name)
+      end
+
+      def fit_in_batches(tuning: false, batch_size: 1024, batch_key: nil, batch_start: nil, batch_overlap: 1, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"))
         validate_objective
         ensure_directory_exists(checkpoint_dir)
+        set_default_wandb_project_name unless tuning
 
         # Prepare validation data
         x_valid, y_valid = dataset.valid(split_ys: true)
         d_valid = preprocess(x_valid, y_valid)
 
-        num_iterations = hyperparameters.to_h["n_estimators"]
-        early_stopping_rounds = hyperparameters.to_h["early_stopping_rounds"]
+        num_iterations = hyperparameters.to_h[:n_estimators]
+        early_stopping_rounds = hyperparameters.to_h[:early_stopping_rounds]
 
         num_batches = dataset.train(batch_size: batch_size, batch_start: batch_start, batch_key: batch_key).count
         iterations_per_batch = num_iterations / num_batches
@@ -132,7 +219,6 @@ module EasyML
 
         callbacks = model.callbacks.nil? ? [] : model.callbacks.dup
         callbacks << ::XGBoost::EvaluationMonitor.new(period: 1)
-        early_stopping_rounds = hyperparameters.to_h.dig("early_stopping_rounds")
 
         # Generate batches without loading full dataset
         batches = dataset.train(split_ys: true, batch_size: batch_size, batch_start: batch_start, batch_key: batch_key)
@@ -143,17 +229,17 @@ module EasyML
           # Load the next batch
           x_train, y_train = batches.next
 
-          # Add overlap from previous batch if applicable
+          # Add batch_overlap from previous batch if applicable
           merged_x, merged_y = nil, nil
           if prev_xs.any?
             merged_x = Polars.concat([x_train] + prev_xs.flatten)
             merged_y = Polars.concat([y_train] + prev_ys.flatten)
           end
 
-          if overlap > 0
+          if batch_overlap > 0
             prev_xs << [x_train]
             prev_ys << [y_train]
-            if prev_xs.size > overlap
+            if prev_xs.size > batch_overlap
               prev_xs = prev_xs[1..]
               prev_ys = prev_ys[1..]
             end
@@ -195,6 +281,13 @@ module EasyML
         end
 
         @booster = cb_container.after_training(@booster)
+        delete_wandb_project unless tuning
+        return @booster
+      end
+
+      def weights
+        @booster.save_model("tmp/xgboost_model.json")
+        @booster.get_dump
       end
 
       def predict(xs)
@@ -252,11 +345,19 @@ module EasyML
 
         initialize_model do
           attrs = {
-            params: hyperparameters.to_h.symbolize_keys,
+            params: hyperparameters.to_h.symbolize_keys.compact,
             model_file: path,
-          }.deep_compact
+          }.compact
           booster_class.new(**attrs)
         end
+      end
+
+      def external_model
+        @booster
+      end
+
+      def external_model=(booster)
+        @booster = booster
       end
 
       def model_changed?(prev_hash)
@@ -300,7 +401,6 @@ module EasyML
 
       def prepare_data
         if @d_train.nil?
-          puts "Preparing data, this may take a minute..."
           x_sample, y_sample = dataset.train(split_ys: true, limit: 5)
           preprocess(x_sample, y_sample) # Ensure we fail fast if the dataset is misconfigured
           x_train, y_train = dataset.train(split_ys: true)
@@ -309,13 +409,14 @@ module EasyML
           @d_train = preprocess(x_train, y_train)
           @d_valid = preprocess(x_valid, y_valid)
           @d_test = preprocess(x_test, y_test)
-          puts "Done!"
         end
 
         [@d_train, @d_valid, @d_test]
       end
 
       def preprocess(xs, ys = nil)
+        return xs if xs.is_a?(::XGBoost::DMatrix)
+
         orig_xs = xs.dup
         column_names = xs.columns
         xs = _preprocess(xs)

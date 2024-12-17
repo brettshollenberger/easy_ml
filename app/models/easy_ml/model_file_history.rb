@@ -8,6 +8,7 @@
 #  path               :string           not null
 #  configuration      :json
 #  model_type         :string
+#  model_id           :integer
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  history_started_at :datetime         not null

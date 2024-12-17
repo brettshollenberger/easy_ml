@@ -51,9 +51,9 @@ module EasyML
       dataset.datasource&.last_updated_at
     end
 
-    attribute :transforms do |dataset|
-      dataset.transforms.ordered.map do |transform|
-        TransformSerializer.new(transform).serializable_hash.dig(:data, :attributes)
+    attribute :features do |dataset|
+      dataset.features.ordered.map do |feature|
+        FeatureSerializer.new(feature).serializable_hash.dig(:data, :attributes)
       end
     end
 
@@ -66,7 +66,7 @@ module EasyML
         nil
       else
         last_event = object.events.order(id: :desc).limit(1).last
-        last_event&.stacktrace if last_event&.status == "error"
+        last_event&.stacktrace if last_event&.status == "failed"
       end
     end
   end

@@ -27,14 +27,14 @@ module EasyML
 
       render inertia: "pages/DatasetsPage", props: {
         datasets: datasets.map { |dataset| dataset_to_json(dataset) },
-        constants: Dataset.constants
+        constants: Dataset.constants,
       }
     end
 
     def new
       render inertia: "pages/NewDatasetPage", props: {
         constants: Dataset.constants,
-        datasources: Datasource.all.map { |datasource| datasource_to_json(datasource) }
+        datasources: Datasource.all.map { |datasource| datasource_to_json(datasource) },
       }
     end
 
@@ -65,7 +65,7 @@ module EasyML
 
       render inertia: "pages/DatasetDetailsPage", props: {
         dataset: dataset_to_json(dataset),
-        constants: Dataset.constants
+        constants: Dataset.constants,
       }
     end
 
@@ -81,13 +81,13 @@ module EasyML
         flash.now[:notice] = "Dataset configuration was successfully updated."
         render inertia: "pages/DatasetDetailsPage", props: {
           dataset: dataset_to_json(dataset),
-          constants: Dataset.constants
+          constants: Dataset.constants,
         }
       else
         flash.now[:error] = dataset.errors.full_messages.join(", ")
         render inertia: "pages/DatasetDetailsPage", props: {
           dataset: dataset_to_json(dataset),
-          constants: Dataset.constants
+          constants: Dataset.constants,
         }
       end
     end
@@ -102,8 +102,7 @@ module EasyML
     private
 
     def preprocessing_params
-      [:method, { params:
-        [:constant, :categorical_min, :one_hot, :ordinal_encoding, { clip: %i[min max] }] }]
+      [:method, { params: [:constant, :categorical_min, :one_hot, :ordinal_encoding, { clip: %i[min max] }] }]
     end
 
     def dataset_params
@@ -134,19 +133,19 @@ module EasyML
           {
             preprocessing_steps: {
               training: preprocessing_params,
-              inference: preprocessing_params
+              inference: preprocessing_params,
             },
-            statistics: %i[mean median min max null_count]
-          }
+            statistics: %i[mean median min max null_count],
+          },
         ],
-        transforms_attributes: %i[
+        features_attributes: %i[
           id
           name
-          transform_class
-          transform_method
-          transform_position
+          feature_class
+          feature_method
+          feature_position
           _destroy
-        ]
+        ],
       )
     end
   end

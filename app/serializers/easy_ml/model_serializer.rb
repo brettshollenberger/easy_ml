@@ -44,6 +44,10 @@ module EasyML
       RetrainingRunSerializer.new(object.last_run).serializable_hash.dig(:data, :attributes)
     end
 
+    attribute :metrics_url do |object|
+      object.last_run&.wandb_url
+    end
+
     attribute :retraining_runs do |object, params|
       limit = params[:limit] || 20
       offset = params[:offset] || 0

@@ -15,15 +15,15 @@ module EasyML
         "%d-%b-%Y",               # e.g., "01-Jan-2021"
         "%b %d, %Y",              # e.g., "Jan 01, 2021"
         "%Y/%m/%d %H:%M:%S",      # e.g., "2021/01/01 00:01:36"
-        "%Y/%m/%d"                # e.g., "2021/01/01"
+        "%Y/%m/%d",                # e.g., "2021/01/01"
       ].freeze
 
       FORMAT_MAPPINGS = {
         ruby_to_polars: {
           "%L" => "%3f",  # milliseconds
           "%6N" => "%6f", # microseconds
-          "%N" => "%9f" # nanoseconds
-        }
+          "%N" => "%9f", # nanoseconds
+        },
       }.freeze
 
       class << self

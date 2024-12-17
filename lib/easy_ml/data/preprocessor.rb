@@ -6,8 +6,6 @@ require_relative "simple_imputer"
 
 module EasyML::Data
   class Preprocessor
-    include GlueGun::DSL
-
     CATEGORICAL_COMMON_MIN = 50
 
     ALLOWED_PARAMS = {
@@ -53,12 +51,16 @@ module EasyML::Data
       ],
     }.freeze
 
-    attribute :directory
-    attribute :verbose
-    attribute :imputers
-    attribute :preprocessing_steps
-
+    attr_accessor :directory, :verbose, :imputers, :preprocessing_steps
     attr_reader :statistics
+
+    def initialize(options = {})
+      @directory = options[:directory]
+      @verbose = options[:verbose]
+      @imputers = options[:imputers]
+      @preprocessing_steps = options[:preprocessing_steps]
+      @statistics = {}
+    end
 
     def statistics=(stats)
       @statistics = (stats || {}).deep_symbolize_keys
@@ -87,9 +89,13 @@ module EasyML::Data
 
       allowed_categories = {}
       (preprocessing_steps[:training] || {}).each_key do |col|
-        next unless preprocessing_steps.dig(:training, col, :method).to_s == "categorical"
+        next unless [
+          preprocessing_steps.dig(:training, col, :params, :ordinal_encoding),
+          preprocessing_steps.dig(:training, col, :params, :one_hot),
+          preprocessing_steps.dig(:training, col, :method).to_sym == :categorical,
+        ].any?
 
-        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min) || 0
+        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min) || 1
         val_counts = df[col].value_counts
         allowed_categories[col] = val_counts[val_counts["count"] >= cat_min][col].to_a.compact
       end
@@ -154,9 +160,13 @@ module EasyML::Data
     end
 
     def serialize
-      attributes.merge!(
+      {
+        directory: directory,
+        verbose: verbose,
+        imputers: imputers,
+        preprocessing_steps: preprocessing_steps,
         statistics: serialize_statistics(statistics || {}),
-      )
+      }
     end
 
     private

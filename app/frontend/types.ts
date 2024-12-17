@@ -2,11 +2,11 @@ import { Dataset } from './dataset';
 
 export type ModelStatus = 'success' | 'failed';
 export type DeploymentStatus = 'training' | 'inference' | 'retired';
-export type JobStatus = 'running' | 'success' | 'failed';
+export type JobStatus = 'running' | 'success' | 'failed' | 'deployed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
 
-export interface Transformation {
+export interface Feature {
   id: number;
   name: string;
   description: string;
@@ -19,11 +19,11 @@ export interface Transformation {
   updatedAt: string;
 }
 
-export interface TransformationGroup {
+export interface FeatureGroup {
   id: number;
   name: string;
   description: string;
-  transformations: Transformation[];
+  features: Feature[];
   createdAt: string;
   updatedAt: string;
 }
@@ -60,6 +60,7 @@ export interface Model {
   retraining_job: RetrainingJob | null;
   formatted_frequency: string | null;
   is_training: boolean;
+  metrics_url: string | null;
 }
 
 export interface Prediction {
@@ -99,8 +100,9 @@ export interface RetrainingRun {
   metric_value: number | null;
   threshold: number | null;
   threshold_direction: ThresholdDirection;
-  should_promote: boolean;
+  deployable: boolean;
   started_at: string | null;
+  is_deploying: boolean;
   completed_at: string | null;
   error_message: string | null;
   metadata: Record<string, unknown>;
@@ -108,4 +110,5 @@ export interface RetrainingRun {
   updated_at: string;
   stacktrace: string | null;
   metrics: Record<string, number>;
+  metrics_url: string | null;
 }

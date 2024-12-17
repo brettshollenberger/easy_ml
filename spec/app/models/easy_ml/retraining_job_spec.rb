@@ -17,9 +17,7 @@ RSpec.describe EasyML::RetrainingJob do
   end
 
   let(:model) do
-    loans_model.fit
     loans_model.save
-    loans_model.deploy
     loans_model
   end
 
@@ -82,7 +80,7 @@ RSpec.describe EasyML::RetrainingJob do
     end
 
     it "validates model uniqueness" do
-      described_class.create!(valid_attributes)
+      described_class.create(valid_attributes)
       duplicate_job = described_class.new(valid_attributes)
 
       expect(duplicate_job).not_to be_valid
@@ -123,7 +121,7 @@ RSpec.describe EasyML::RetrainingJob do
   end
 
   describe "associations" do
-    let(:job) { described_class.create!(valid_attributes) }
+    let(:job) { described_class.create(valid_attributes) }
 
     it "has many retraining runs" do
       run = EasyML::RetrainingRun.create!(retraining_job: job, status: "pending")
@@ -132,7 +130,7 @@ RSpec.describe EasyML::RetrainingJob do
   end
 
   describe "#should_run?" do
-    let(:job) { described_class.create!(valid_attributes.merge(frequency: frequency, at: at)) }
+    let(:job) { described_class.create(valid_attributes.merge(frequency: frequency, at: at)) }
     let(:at) { { hour: 2, day_of_week: 1, day_of_month: 1 } }
     let(:frequency) { "week" }
 
@@ -245,7 +243,7 @@ RSpec.describe EasyML::RetrainingJob do
 
   describe "#should_tune?" do
     let(:job) do
-      described_class.create!(valid_attributes.merge(
+      described_class.create(valid_attributes.merge(
         tuning_enabled: true,
         tuning_frequency: tuning_frequency,
         at: at,

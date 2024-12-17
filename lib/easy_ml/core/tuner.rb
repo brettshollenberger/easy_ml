@@ -21,7 +21,7 @@ module EasyML
         @direction = EasyML::Core::ModelEvaluator.get(objective).new.direction
         @evaluator = options[:evaluator]
         @tune_started_at = EasyML::Support::UTC.now
-        @project_name = "#{model.name}_#{tune_started_at.strftime("%Y_%m_%d_%H_%M_%S")}"
+        @project_name = "#{@model.name}_#{tune_started_at.strftime("%Y_%m_%d_%H_%M_%S")}"
       end
 
       def initialize_adapter

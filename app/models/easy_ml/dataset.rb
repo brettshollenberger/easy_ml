@@ -227,37 +227,19 @@ module EasyML
     end
 
     def syncable_cols
-      col_names = schema.keys
-
-      return col_names unless preprocessing_steps.present?
-
-      col_names - one_hot_cols
+      raw.data.schema.keys
     end
 
-    def one_hot_cols
+    def one_hot_cols(cols = nil)
+      return [] unless preprocessing_steps && preprocessing_steps.key?(:training)
+
       one_hot_base_cols = preprocessing_steps[:training].select { |_k, v| v.dig(:params, :one_hot) }.keys.map(&:to_s)
+
+      return one_hot_base_cols if cols.nil?
       return [] unless one_hot_base_cols
 
-      col_names = schema.keys
-
-      allowed_values = one_hot_base_cols.inject({}) do |h, col|
-        col = col.to_s
-        h.tap do
-          h[col] = raw.read(:train, select: col)[col].unique.to_a + ["other"]
-        end
-      end
-      col_names.select do |col|
-        col = col.to_s
-        one_hot_base_cols.any? do |base|
-          if !col.start_with?("#{base}_")
-            false
-          else
-            allowed_vals = allowed_values[base].compact
-            allowed_vals.any? do |val|
-              col.end_with?(val)
-            end
-          end
-        end
+      cols.select do |col|
+        one_hot_base_cols.any? { |base_col| col.start_with?(base_col) }
       end
     end
 
@@ -305,15 +287,25 @@ module EasyML
               schema_type
             end
 
+          if one_hot_cols.include?(column.name)
+            base = self.raw
+            processed = stats.dig("raw", column.name)
+            actual_schema_type = "categorical"
+            actual_type = "categorical"
+          else
+            base = self
+            processed = stats.dig("processed", column.name)
+          end
+          sample_values = base.send(:data, unique: true, limit: 5, select: column.name, all_columns: true)[column.name].to_a.uniq[0...5]
+
           column.assign_attributes(
             statistics: {
               raw: stats.dig("raw", column.name),
-              processed: stats.dig("processed", column.name),
+              processed: processed,
             },
             datatype: actual_schema_type,
             polars_datatype: actual_type,
-            sample_values: data(unique: true, limit: 5, select: column.name,
-                                all_columns: true)[column.name].to_a.uniq[0...5],
+            sample_values: sample_values,
           )
         end
 
@@ -335,14 +327,7 @@ module EasyML
       new_features = features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
       new_cols = (df.columns - columns.map(&:name))
 
-      one_hot_cols = new_cols.group_by { |col| col.split("_").first }.each do |prefix, cols|
-        next if cols.count { |col| col.start_with?("#{prefix}_") } >= 2
-        true
-      end.select do |prefix, cols|
-        columns.any? { |col| col.name.start_with?(prefix) }
-      end.flat_map(&:last)
-
-      new_cols = (new_cols - one_hot_cols).any?
+      new_cols = (new_cols - one_hot_cols(new_cols)).any?
 
       return never_learned || new_features || new_cols
     end

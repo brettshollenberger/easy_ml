@@ -11,8 +11,6 @@ RSpec.describe EasyML::RetrainingRun do
     EasyML::Model.create(**loans_model_config).tap do |model|
       model.dataset.refresh
       model.update(name: model_name)
-      model.fit
-      model.deploy
     end
   end
   let(:mock_run) { instance_double(Wandb::Run) }
@@ -138,8 +136,9 @@ RSpec.describe EasyML::RetrainingRun do
       def setup_evaluation(training_model, y_pred, y_true, call_original = false)
         # Set up our test expectations on the forked model
         allow_any_instance_of(EasyML::Dataset).to receive(:refresh!).and_return(true)
-        allow_any_instance_of(EasyML::Dataset).to receive_message_chain(:target, :present?).and_return(true)
-        allow_any_instance_of(EasyML::Dataset).to receive(:test).and_return([[1, 2, 3], y_true])
+        allow_any_instance_of(EasyML::Dataset).to receive(:test).with(any_args).and_return([
+          Polars::DataFrame.new({ nums: [1, 2, 3] }), y_true,
+        ])
         allow(training_model).to receive(:predict).and_return(y_pred)
         allow(training_model).to receive(:deployable?).and_return(true)
         allow(training_model).to receive(:cannot_deploy_reasons).and_return([])
@@ -178,12 +177,14 @@ RSpec.describe EasyML::RetrainingRun do
           retraining_job.update!(
             threshold: 100,
           )
+          model.train(async: false)
+          model.deploy(async: false)
         end
 
         it "DOES NOT deploy model when RMSE is below threshold IF auto_deploy is disabled" do
           retraining_job.update(auto_deploy: false)
 
-          original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
+          original_model = EasyML::Model.find_by(name: model.name).latest_version
           setup_evaluation(model, [1, 2, 3], [1, 2, 3])
 
           expect { model.train(async: false) }.to_not have_enqueued_job(EasyML::DeployJob)
@@ -192,7 +193,7 @@ RSpec.describe EasyML::RetrainingRun do
           original_model.reload
           expect(original_model).to be_inference
 
-          expect(EasyML::Deploy.count).to eq 0
+          expect(EasyML::Deploy.count).to eq 1
           expect(EasyML::ModelHistory.count).to eq 1
         end
 
@@ -200,7 +201,7 @@ RSpec.describe EasyML::RetrainingRun do
           retraining_job.update(auto_deploy: true)
 
           setup_evaluation(model, [1, 2, 3], [1, 2, 3])
-          original_model = model.latest_snapshot
+          original_model = model.latest_version
 
           expect { model.train(async: false) }.to have_enqueued_job(EasyML::DeployJob)
           perform_enqueued_jobs
@@ -208,7 +209,7 @@ RSpec.describe EasyML::RetrainingRun do
           original_model.reload
           expect(original_model).to be_retired
 
-          trained_model = EasyML::Model.find_by(name: model.name).latest_snapshot
+          trained_model = EasyML::Model.find_by(name: model.name).latest_version
           retraining_run = model.last_run
           expect(trained_model).to be_present
           expect(trained_model.id).to_not eq original_model.id
@@ -226,7 +227,7 @@ RSpec.describe EasyML::RetrainingRun do
           retraining_job.update(auto_deploy: true)
 
           setup_evaluation(model, [1, 2, 3], [100, 200, 300])
-          original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
+          original_model = EasyML::Model.find_by(name: model.name).latest_version
 
           expect { model.train(async: false) }.to_not have_enqueued_job(EasyML::DeployJob)
 
@@ -243,7 +244,7 @@ RSpec.describe EasyML::RetrainingRun do
           retraining_job.update(auto_deploy: true)
 
           setup_evaluation(model, [1, 2, 3], [1, 2, 3])
-          original_model = EasyML::Model.find_by(name: model.name).latest_snapshot
+          original_model = EasyML::Model.find_by(name: model.name).latest_version
 
           expect { model.train(async: false) }.to have_enqueued_job(EasyML::DeployJob)
           perform_enqueued_jobs
@@ -251,7 +252,7 @@ RSpec.describe EasyML::RetrainingRun do
           original_model.reload
           expect(original_model).to be_retired
 
-          trained_model = EasyML::Model.find_by(name: model.name).latest_snapshot
+          trained_model = EasyML::Model.find_by(name: model.name).latest_version
           expect(trained_model.root_mean_squared_error).to eq 0.0
           expect(trained_model.evals).to match(hash_including({
                                                                 "r2_score" => 1.0,
@@ -268,13 +269,15 @@ RSpec.describe EasyML::RetrainingRun do
             metric: :custom,
             threshold: 1000,
           )
+          model.train(async: false)
+          model.deploy(async: false)
         end
 
         it "uses custom evaluator for promotion decision" do
           retraining_job.update(auto_deploy: true)
           model.update(metrics: model.metrics + [:custom])
 
-          original_model = model.latest_snapshot
+          original_model = model.latest_version
 
           setup_evaluation(model, [1, 2, 3], [2000, 3000, 4000])
 
@@ -289,9 +292,9 @@ RSpec.describe EasyML::RetrainingRun do
           expect(retraining_run).to be_deployed
           expect(original_model.reload).to be_retired
 
-          trained_model = EasyML::Model.find_by(name: model.name).latest_snapshot
+          trained_model = EasyML::Model.find_by(name: model.name).latest_version
           expect(trained_model.id).to_not eq original_model.id
-          expect(trained_model.retraining_runs.first).to eq retraining_run
+          expect(trained_model.last_run).to eq retraining_run
 
           expect(trained_model.custom).to eq 8994.0
           expect(trained_model.evals).to match(hash_including({
@@ -307,10 +310,10 @@ RSpec.describe EasyML::RetrainingRun do
           end
 
           allow_any_instance_of(EasyML::RetrainingRun).to receive(:should_tune?).and_return(true)
+          retraining_job
           setup_evaluation(model, [1, 2, 3], [1, 2, 3], true)
-          m = EasyML::Model.find_by(name: model.name).latest_snapshot
-          m.callbacks = []
-          retraining_run.model.train(async: false)
+          m = EasyML::Model.find_by(name: model.name)
+          m.train(async: false)
 
           run = m.last_run
           expect(run.wandb_url).to match(/https:\/\/wandb.ai/)

@@ -41,7 +41,7 @@ module EasyML
     end
 
     def is_deployed?
-      EasyML::Deploy.latest.where(model_id: model_id).model_version&.id == id
+      EasyML::Deploy.latest.where(model_id: model_id)&.first&.model_version&.id == id
     end
 
     def fit

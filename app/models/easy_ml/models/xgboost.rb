@@ -136,11 +136,11 @@ module EasyML
       end
 
       def prepare_callbacks(tuner)
+        set_wandb_project(tuner.project_name)
+
         model.callbacks.each do |callback|
           callback.prepare_callback(tuner) if callback.respond_to?(:prepare_callback)
         end
-
-        set_wandb_project(tuner.project_name)
       end
 
       def set_wandb_project(project_name)

@@ -19,6 +19,7 @@ RSpec.describe EasyML::Orchestrator do
     it "loads model and makes predictions" do
       mock_s3_upload
 
+      model.save
       model.train(async: false)
       model.deploy(async: false)
 
@@ -33,6 +34,7 @@ RSpec.describe EasyML::Orchestrator do
     it "doesn't reload the model when model already loaded" do
       mock_s3_upload
 
+      model.save
       model.train(async: false)
       model.deploy(async: false)
 

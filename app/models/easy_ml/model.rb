@@ -187,15 +187,13 @@ module EasyML
 
     def hyperparameter_search(&progress_block)
       tuner = retraining_job.tuner_config.symbolize_keys
-      tuner.merge!(evaluator: evaluator) if evaluator.present?
+      extra_params = {
+        evaluator: evaluator,
+        model: self,
+        dataset: dataset,
+      }.compact
+      tuner.merge!(extra_params)
       tuner_instance = EasyML::Core::Tuner.new(tuner)
-      tuner_instance.model = self
-      adapter = case model_type.to_sym
-        when :xgboost
-          EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
-        end
-      tuner_instance.adapter = adapter
-      tuner_instance.dataset = dataset
       tuner_instance.tune(&progress_block).tap do |best_params|
         best_params.each do |key, value|
           self.hyperparameters.send("#{key}=", value)
@@ -565,11 +563,7 @@ module EasyML
     def load_model_file
       return unless model_file&.full_path && File.exist?(model_file.full_path)
 
-      begin
-        adapter.load_model_file(model_file.full_path)
-      rescue StandardError => e
-        binding.pry
-      end
+      adapter.load_model_file(model_file.full_path)
     end
 
     def download_model_file(force: false)

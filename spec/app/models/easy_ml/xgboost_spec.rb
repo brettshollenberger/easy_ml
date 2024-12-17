@@ -189,6 +189,11 @@ RSpec.describe "EasyML::Models::XGBoost" do
 
       it "produces same predictions as regular fit" do
         # Get test data
+        titanic_dataset.refresh
+        model.reload
+        model.hyperparameters.n_estimators = 50
+        model.hyperparameters.early_stopping_rounds = 10
+        model.save
         x_test, = titanic_dataset.test(split_ys: true)
 
         # Train model normally

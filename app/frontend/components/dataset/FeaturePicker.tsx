@@ -14,7 +14,7 @@ import { Feature } from "../../types/dataset";
 interface FeaturePickerProps {
   options: Feature[];
   initialFeatures?: Feature[];
-  onFeaturesChange: (transforms: Feature[]) => void;
+  onFeaturesChange: (features: Feature[]) => void;
 }
 
 export function FeaturePicker({
@@ -32,13 +32,13 @@ export function FeaturePicker({
   );
 
   const updateFeatures = (newFeatures: Feature[]) => {
-    const transformsWithPosition = newFeatures.map((feature, index) => ({
+    const featuresWithPosition = newFeatures.map((feature, index) => ({
       ...feature,
       feature_position: index,
     }));
 
-    setSelectedFeatures(transformsWithPosition);
-    onFeaturesChange(transformsWithPosition);
+    setSelectedFeatures(featuresWithPosition);
+    onFeaturesChange(featuresWithPosition);
   };
 
   const handleAddFeature = (transformName: string) => {
@@ -195,7 +195,7 @@ export function FeaturePicker({
           <div className="text-center py-8 bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg">
             <Plus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
             <p className="text-sm text-gray-500">
-              Add transforms to enrich your dataset
+              Add features to enrich your dataset
             </p>
           </div>
         )}

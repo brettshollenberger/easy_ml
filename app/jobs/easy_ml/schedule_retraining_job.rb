@@ -1,6 +1,6 @@
 module EasyML
   class ScheduleRetrainingJob < ApplicationJob
-    @queue = :easy_ml
+    queue_as :easy_ml
 
     def perform
       RetrainingJob.active.each do |job|

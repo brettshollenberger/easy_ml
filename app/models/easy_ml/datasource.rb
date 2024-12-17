@@ -83,6 +83,7 @@ module EasyML
     end
 
     def refresh_async
+      update(is_syncing: true)
       EasyML::SyncDatasourceJob.perform_later(id)
     end
 

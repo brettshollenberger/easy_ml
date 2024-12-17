@@ -1,6 +1,6 @@
 # == Schema Information
 #
-# Table name: easy_ml_transforms
+# Table name: easy_ml_
 #
 #  id                 :bigint           not null, primary key
 #  dataset_id         :bigint           not null

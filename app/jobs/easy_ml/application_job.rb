@@ -1,6 +1,6 @@
 module EasyML
   class ApplicationJob < ActiveJob::Base
-    @queue = :easy_ml
+    queue_as :easy_ml
 
     def create_event(model, status, error = nil)
       EasyML::Event.create_event(model, status, error)

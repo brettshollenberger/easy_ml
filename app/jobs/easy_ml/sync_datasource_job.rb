@@ -1,8 +1,8 @@
 module EasyML
   class SyncDatasourceJob < ApplicationJob
-    @queue = :easy_ml
+    queue_as :easy_ml
 
-    def perform(id, force = false)
+    def perform(id)
       datasource = EasyML::Datasource.find(id)
       create_event(datasource, "started")
 

@@ -76,7 +76,7 @@ module EasyML
 
           track_feature_importance(booster)
           if tuner.nil?
-            track_cumulative_feature_importance
+            track_cumulative_feature_importance(false)
           end
 
           booster
@@ -101,7 +101,7 @@ module EasyML
           model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
         end
 
-        def track_cumulative_feature_importance
+        def track_cumulative_feature_importance(finish = true)
           return unless @feature_importances
 
           project_name = model.adapter.get_wandb_project
@@ -109,7 +109,6 @@ module EasyML
           Wandb.init(project: project_name)
 
           # Calculate running averages
-
           avg_importances = @feature_importances.transform_values do |stats|
             stats[:sum] / stats[:count]
           end
@@ -125,12 +124,13 @@ module EasyML
           log_data = {
             "feature_importance" => bar_plot.__pyptr__,
           }
-          model.adapter.delete_wandb_project
           Wandb.log(log_data)
-          Wandb.finish
+          model.adapter.delete_wandb_project if finish
+          Wandb.finish if finish
         end
 
         def after_tuning
+          track_cumulative_feature_importance
         end
       end
     end

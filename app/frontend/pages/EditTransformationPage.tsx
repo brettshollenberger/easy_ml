@@ -1,21 +1,21 @@
 import React from 'react';
 // import { useNavigate, useParams } from 'react-router-dom';
 import { Code2 } from 'lucide-react';
-import { mockDatasets, mockFeatureationGroups } from '../mockData';
-import { FeatureationForm } from '../components/features/FeatureationForm';
+import { mockDatasets, mockFeatureGroups } from '../mockData';
+import { FeatureForm } from '../components/features/FeatureForm';
 
-export default function EditFeatureationPage() {
+export default function EditFeaturePage() {
   const navigate = useNavigate();
   const { id } = useParams();
   
-  const feature = mockFeatureationGroups
+  const feature = mockFeatureGroups
     .flatMap(g => g.features)
     .find(t => t.id === Number(id));
 
   if (!feature) {
     return (
       <div className="text-center py-12">
-        <h2 className="text-xl font-semibold text-gray-900">Featureation not found</h2>
+        <h2 className="text-xl font-semibold text-gray-900">Feature not found</h2>
       </div>
     );
   }
@@ -31,13 +31,13 @@ export default function EditFeatureationPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Code2 className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Edit Featureation</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Edit Feature</h2>
           </div>
         </div>
 
-        <FeatureationForm
+        <FeatureForm
           datasets={mockDatasets}
-          groups={mockFeatureationGroups}
+          groups={mockFeatureGroups}
           initialData={{
             name: feature.name,
             description: feature.description,

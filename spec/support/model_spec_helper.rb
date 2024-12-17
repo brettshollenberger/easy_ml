@@ -68,6 +68,10 @@ module ModelSpecHelper
       EasyML::Datasource.create(name: "Loans", datasource_type: "file")
     end
 
+    base.let(:single_file_datasource) do
+      EasyML::Datasource.create(name: "Single File", datasource_type: "file")
+    end
+
     base.let(:drop_if_null) do
       %w[loan_purpose]
     end

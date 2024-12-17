@@ -1,13 +1,13 @@
 import React from 'react';
 // import { Link } from 'react-router-dom';
 import { FolderOpen, Settings, Trash2 } from 'lucide-react';
-import type { FeatureationGroup } from '../../types';
+import type { FeatureGroup } from '../../types';
 
-interface FeatureationGroupCardProps {
-  group: FeatureationGroup;
+interface FeatureGroupCardProps {
+  group: FeatureGroup;
 }
 
-export function FeatureationGroupCard({ group }: FeatureationGroupCardProps) {
+export function FeatureGroupCard({ group }: FeatureGroupCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex justify-between items-start mb-4">

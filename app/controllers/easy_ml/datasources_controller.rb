@@ -42,8 +42,6 @@ module EasyML
     def create
       EasyML::Datasource.transaction do
         datasource = EasyML::Datasource.create!(datasource_params)
-        datasource.update(is_syncing: true)
-        datasource.refresh_async
       end
 
       redirect_to easy_ml_datasources_path, notice: "Datasource was successfully created."

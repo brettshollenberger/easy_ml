@@ -51,8 +51,8 @@ module EasyML
       dataset.datasource&.last_updated_at
     end
 
-    attribute :transforms do |dataset|
-      dataset.transforms.ordered.map do |feature|
+    attribute :features do |dataset|
+      dataset.features.ordered.map do |feature|
         FeatureSerializer.new(feature).serializable_hash.dig(:data, :attributes)
       end
     end

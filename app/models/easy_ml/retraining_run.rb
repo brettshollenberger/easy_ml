@@ -74,7 +74,7 @@ module EasyML
         end
 
         if status == "success"
-          model.save_model_file
+          training_model.save_model_file
         end
 
         update!(

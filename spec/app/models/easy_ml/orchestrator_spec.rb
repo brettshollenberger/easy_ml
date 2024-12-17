@@ -3,31 +3,25 @@ require "support/model_spec_helper"
 
 RSpec.describe EasyML::Orchestrator do
   include ModelSpecHelper
-  let(:datasource) do
-    EasyML::Datasource.create(
-      name: "Polars Datasource",
-      datasource_type: "polars",
-      df: df,
-    )
-  end
-
   before(:each) do
-    EasyML::Cleaner.clean
     EasyML::Orchestrator.reset
   end
 
   after(:each) do
-    EasyML::Cleaner.clean
     EasyML::Orchestrator.reset
   end
 
   let(:model) do
-    pretrain_loans_model
+    titanic_model
   end
 
   describe ".predict" do
     it "loads model and makes predictions" do
-      model.deploy
+      mock_s3_upload
+
+      model.save
+      model.train(async: false)
+      model.deploy(async: false)
 
       df, = model.dataset.test(split_ys: true)
       model_preds = model.predict(df)
@@ -38,7 +32,11 @@ RSpec.describe EasyML::Orchestrator do
     end
 
     it "doesn't reload the model when model already loaded" do
-      model.deploy
+      mock_s3_upload
+
+      model.save
+      model.train(async: false)
+      model.deploy(async: false)
 
       df, = model.dataset.test(split_ys: true)
       expect_any_instance_of(EasyML::Models::XGBoost).to receive(:initialize_model).once.and_call_original
@@ -49,7 +47,12 @@ RSpec.describe EasyML::Orchestrator do
     end
 
     it "does reload the model when inference model changes" do
-      model.deploy
+      mock_s3_upload
+
+      model.hyperparameters.n_estimators = 1
+      model.save
+      model.train(async: false)
+      model.deploy(async: false)
       df, = model.dataset.test(split_ys: true)
 
       # Orchestrator already ran model loading her
@@ -57,15 +60,19 @@ RSpec.describe EasyML::Orchestrator do
         described_class.predict(model.name, df)
       end
 
+      Timecop.freeze(2.hours.from_now)
+
       randomize_hypers(model)
-      model.fit
+      model.hyperparameters.n_estimators = 100
+      model.save
+      model.train(async: false)
       expect(model).to be_deployable
 
-      old_preds = model.latest_snapshot.predict(df)
+      old_preds = model.current_version.predict(df)
       new_preds = model.predict(df)
       expect(old_preds).to_not eq new_preds
 
-      model.deploy
+      model.deploy(async: false)
 
       # So if Orchestrator runs model loading again here, test passes
       expect_any_instance_of(EasyML::Models::XGBoost).to receive(:initialize_model).once.and_call_original

@@ -35,6 +35,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
     create_table :easy_ml_retraining_runs do |t|
       t.bigint :model_id
       t.bigint :model_history_id
+      t.bigint :model_file_id
       t.bigint :retraining_job_id, null: false
       t.bigint :tuner_job_id, null: true
       t.string :status, default: 'pending'

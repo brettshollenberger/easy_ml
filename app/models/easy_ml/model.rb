@@ -55,6 +55,13 @@ module EasyML
     has_one :retraining_job, class_name: "EasyML::RetrainingJob"
     accepts_nested_attributes_for :retraining_job
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
+    has_many :deploys, class_name: "EasyML::Deploy"
+
+    scope :deployed, -> { EasyML::ModelHistory.deployed }
+
+    def latest_deploy
+      deploys.order(id: :desc).limit(1).last
+    end
 
     after_initialize :bump_version, if: -> { new_record? }
     after_initialize :set_defaults, if: -> { new_record? }
@@ -138,36 +145,55 @@ module EasyML
     end
 
     def actually_train(&progress_block)
-      key = "training:#{self.name}:#{self.id}"
-      EasyML::Support::Lockable.with_lock_client(key, stale_timeout: 60, resources: 1) do |client|
-        client.lock do
-          run = pending_run
-          run.wrap_training do
-            best_params = nil
-            if run.should_tune?
-              best_params = hyperparameter_search(&progress_block)
-            end
-            fit(&progress_block)
-            save
-            [self, best_params]
+      lock_model do
+        run = pending_run
+        run.wrap_training do
+          best_params = nil
+          if run.should_tune?
+            best_params = hyperparameter_search(&progress_block)
           end
-          update(is_training: false)
-          run.reload
+          fit(&progress_block)
+          save
+          [self, best_params]
+        end
+        update(is_training: false)
+        run.reload
+      end
+    end
+
+    def unlock_model
+      with_lock_client do |client|
+        client.client.del(lock_key)
+      end
+    end
+
+    def lock_model
+      with_lock_client do |client|
+        client.lock do
+          yield
         end
       end
     end
 
+    def with_lock_client
+      EasyML::Support::Lockable.with_lock_client(lock_key, stale_timeout: 60, resources: 1) do |client|
+        yield client
+      end
+    end
+
+    def lock_key
+      "training:#{self.name}:#{self.id}"
+    end
+
     def hyperparameter_search(&progress_block)
       tuner = retraining_job.tuner_config.symbolize_keys
-      tuner.merge!(evaluator: evaluator) if evaluator.present?
+      extra_params = {
+        evaluator: evaluator,
+        model: self,
+        dataset: dataset,
+      }.compact
+      tuner.merge!(extra_params)
       tuner_instance = EasyML::Core::Tuner.new(tuner)
-      tuner_instance.model = self
-      adapter = case model_type.to_sym
-        when :xgboost
-          EasyML::Core::Tuner::Adapters::XGBoostAdapter.new
-        end
-      tuner_instance.adapter = adapter
-      tuner_instance.dataset = dataset
       tuner_instance.tune(&progress_block).tap do |best_params|
         best_params.each do |key, value|
           self.hyperparameters.send("#{key}=", value)
@@ -197,9 +223,12 @@ module EasyML
     end
 
     def inference_version
-      snap = latest_snapshot # returns EasyML::Model.none (empty array) if none, return nil instead
-      snap.present? ? snap : nil
+      latest_deploy&.model_version
     end
+
+    alias_method :current_version, :inference_version
+    alias_method :latest_version, :inference_version
+    alias_method :deployed, :inference_version
 
     def hyperparameters
       @hypers ||= adapter.build_hyperparameters(@hyperparameters)
@@ -258,6 +287,7 @@ module EasyML
 
     def model_changed?
       return false unless is_fit?
+      return true if inference_version.nil?
       return true if model_file.present? && !model_file.persisted?
       return true if model_file.present? && model_file.fit? && inference_version.nil?
 
@@ -275,9 +305,7 @@ module EasyML
     def fit(tuning: false, x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
       return fit_in_batches(**batch_args.merge!(tuning: tuning), &progress_block) if fit_in_batches?
 
-      if x_train.nil?
-        dataset.refresh
-      end
+      dataset.refresh
       adapter.fit(tuning: tuning, x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
       @is_fit = true
     end
@@ -421,7 +449,11 @@ module EasyML
     class CannotdeployError < StandardError
     end
 
-    def deploy
+    def deploy(async: true)
+      last_run.deploy(async: async)
+    end
+
+    def actually_deploy
       raise CannotdeployError, cannot_deploy_reasons.first if cannot_deploy_reasons.any?
 
       # Prepare the inference model by freezing + saving the model, dataset, and datasource
@@ -429,7 +461,7 @@ module EasyML
       save_model_file
       self.sha = model_file.sha
       save
-      dataset.lock
+      dataset.upload_remote_files
       snapshot.tap do
         # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
         bump_version(force: true)
@@ -438,8 +470,6 @@ module EasyML
         save
       end
     end
-
-    def inference_pipeline(df); end
 
     def cannot_deploy_reasons
       [
@@ -533,11 +563,7 @@ module EasyML
     def load_model_file
       return unless model_file&.full_path && File.exist?(model_file.full_path)
 
-      begin
-        adapter.load_model_file(model_file.full_path)
-      rescue StandardError => e
-        binding.pry
-      end
+      adapter.load_model_file(model_file.full_path)
     end
 
     def download_model_file(force: false)
@@ -548,7 +574,7 @@ module EasyML
     end
 
     def files_to_keep
-      inference_models = EasyML::ModelHistory.latest_snapshots
+      inference_models = EasyML::ModelHistory.deployed
       training_models = EasyML::Model.all
 
       ([self] + training_models + inference_models).compact.map(&:model_file).compact.map(&:full_path).uniq

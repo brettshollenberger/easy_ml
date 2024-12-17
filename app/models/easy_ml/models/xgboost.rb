@@ -136,11 +136,11 @@ module EasyML
       end
 
       def prepare_callbacks(tuner)
+        set_wandb_project(tuner.project_name)
+
         model.callbacks.each do |callback|
           callback.prepare_callback(tuner) if callback.respond_to?(:prepare_callback)
         end
-
-        set_wandb_project(tuner.project_name)
       end
 
       def set_wandb_project(project_name)
@@ -175,16 +175,12 @@ module EasyML
         evals = [[d_train, "train"], [d_valid, "eval"]]
         self.progress_callback = progress_block
         set_default_wandb_project_name unless tuning
-        begin
-          @booster = base_model.train(hyperparameters.to_h,
-                                      d_train,
-                                      evals: evals,
-                                      num_boost_round: hyperparameters["n_estimators"],
-                                      callbacks: model.callbacks,
-                                      early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
-        rescue => e
-          binding.pry
-        end
+        @booster = base_model.train(hyperparameters.to_h,
+                                    d_train,
+                                    evals: evals,
+                                    num_boost_round: hyperparameters["n_estimators"],
+                                    callbacks: model.callbacks,
+                                    early_stopping_rounds: hyperparameters.to_h.dig("early_stopping_rounds"))
         delete_wandb_project unless tuning
         return @booster
       end
@@ -482,6 +478,8 @@ module EasyML
       end
 
       def _preprocess(df)
+        return df if df.is_a?(Array)
+
         df.to_a.map do |row|
           row.values.map do |value|
             case value

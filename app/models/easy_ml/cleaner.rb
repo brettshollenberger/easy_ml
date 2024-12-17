@@ -5,12 +5,12 @@ module EasyML
     def initialize(force: false, verbose: false)
       @verbose = verbose
       @files_to_keep = if force
-                         []
-                       else
-                         model_files_to_keep +
-                           dataset_files_to_keep +
-                           datasource_files_to_keep
-                       end
+          []
+        else
+          model_files_to_keep +
+            dataset_files_to_keep +
+            datasource_files_to_keep
+        end
     end
 
     def self.clean(verbose: false)
@@ -49,10 +49,10 @@ module EasyML
 
     def active_models
       @active_models ||= begin
-        inference_models = EasyML::ModelHistory.latest_snapshots
-        training_models = EasyML::Model.all
-        (training_models + inference_models).compact
-      end
+          inference_models = EasyML::Model.deployed
+          training_models = EasyML::Model.all
+          (training_models + inference_models).compact
+        end
     end
 
     def model_files_to_keep

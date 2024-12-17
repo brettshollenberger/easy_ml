@@ -68,6 +68,7 @@ module EasyML
     add_configuration_attributes :remote_files
 
     after_find :download_remote_files
+    after_create :refresh_async
     after_initialize do
       bump_version unless version.present?
       write_attribute(:workflow_status, :ready) if workflow_status.nil?
@@ -327,12 +328,12 @@ module EasyML
 
       one_hot_cols = new_cols.group_by { |col| col.split("_").first }.each do |prefix, cols|
         next if cols.count { |col| col.start_with?("#{prefix}_") } >= 2
-        return true
+        true
       end.select do |prefix, cols|
         columns.any? { |col| col.name.start_with?(prefix) }
       end.flat_map(&:last)
 
-      new_cols = new_cols - one_hot_cols
+      new_cols = (new_cols - one_hot_cols).any?
 
       return never_learned || new_features || new_cols
     end
@@ -341,7 +342,9 @@ module EasyML
       df = drop_nulls(df)
       df = apply_features(df)
       df = preprocessor.postprocess(df, inference: inference)
-      # Learn will update columns, so if any features have been added since the last time columns were learned, we should re-learn the schema
+
+      # Learn will update columns, so if any features have been added
+      # since the last time columns were learned, we should re-learn the schema
       learn if needs_learn?(df)
       df = apply_column_mask(df)
       df, = processed.split_features_targets(df, true, target) if split_ys
@@ -596,7 +599,7 @@ module EasyML
 
     def should_split?
       split_timestamp = raw.split_at
-      processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at
+      processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at || needs_refresh?
     end
 
     def apply_features(df, features = self.features)

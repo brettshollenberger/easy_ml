@@ -1,4 +1,4 @@
-import type { Model, RetrainingJob, RetrainingRun, Dataset, Prediction, Featureation, FeatureationGroup } from './types';
+import type { Model, RetrainingJob, RetrainingRun, Dataset, Prediction, Feature, FeatureGroup } from './types';
 
 // Helper function to generate dates
 const daysAgo = (days: number) => {
@@ -245,7 +245,7 @@ export const mockRetrainingRuns: RetrainingRun[] = [
   }
 ];
 
-export const mockFeatureations: Featureation[] = [
+export const mockFeatures: Feature[] = [
   {
     id: 1,
     name: 'Normalize state',
@@ -260,12 +260,12 @@ export const mockFeatureations: Featureation[] = [
   }
 ];
 
-export const mockFeatureationGroups: FeatureationGroup[] = [
+export const mockFeatureGroups: FeatureGroup[] = [
   {
     id: 1,
     name: 'Customer Churn',
-    description: 'Featureations for customer churn dataset',
-    features: mockFeatureations,
+    description: 'Features for customer churn dataset',
+    features: mockFeatures,
     createdAt: daysAgo(30),
     updatedAt: daysAgo(0)
   }

@@ -6,7 +6,7 @@ export type JobStatus = 'running' | 'success' | 'failed' | 'deployed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
 
-export interface Featureation {
+export interface Feature {
   id: number;
   name: string;
   description: string;
@@ -19,11 +19,11 @@ export interface Featureation {
   updatedAt: string;
 }
 
-export interface FeatureationGroup {
+export interface FeatureGroup {
   id: number;
   name: string;
   description: string;
-  features: Featureation[];
+  features: Feature[];
   createdAt: string;
   updatedAt: string;
 }

@@ -99,7 +99,7 @@ export interface Dataset {
   datasource_id: number;
   columns: Array<Column>;
   sample_data: Record<string, any>[];
-  transforms?: Array<Feature>;
+  features?: Array<Feature>;
   preprocessing_steps: {
     training: Record<string, any>;
   };

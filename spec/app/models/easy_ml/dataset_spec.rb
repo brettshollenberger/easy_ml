@@ -132,7 +132,7 @@ RSpec.describe EasyML::Datasource do
   end
 
   describe "Features" do
-    let(:datasource) { polars_datasource }
+    let(:datasource) { single_file_datasource }
 
     class DidConvert
       include EasyML::Features
@@ -211,7 +211,7 @@ RSpec.describe EasyML::Datasource do
       EasyML::Features::Registry.register(DaysInBusiness)
     end
 
-    it "creates computed columns in the correct order" do
+    it "creates computed columns in the correct order", :focus do
       # Create business_inception first since days_in_business depends on it
       expect(dataset).to be_needs_refresh
       dataset.refresh!

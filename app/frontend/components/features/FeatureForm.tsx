@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { AlertCircle } from 'lucide-react';
-import type { Dataset, FeatureationGroup } from '../../types';
+import type { Dataset, FeatureGroup } from '../../types';
 import { CodeEditor } from './CodeEditor';
 import { DataPreview } from './DataPreview';
 
-interface FeatureationFormProps {
+interface FeatureFormProps {
   datasets: Dataset[];
-  groups: FeatureationGroup[];
+  groups: FeatureGroup[];
   initialData?: {
     name: string;
     description: string;
@@ -20,13 +20,13 @@ interface FeatureationFormProps {
   onCancel: () => void;
 }
 
-export function FeatureationForm({
+export function FeatureForm({
   datasets,
   groups,
   initialData,
   onSubmit,
   onCancel
-}: FeatureationFormProps) {
+}: FeatureFormProps) {
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     description: initialData?.description || '',
@@ -192,7 +192,7 @@ export function FeatureationForm({
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Featureation Code
+          Feature Code
         </label>
         <div className="bg-gray-50 rounded-lg p-4">
           <CodeEditor
@@ -227,7 +227,7 @@ export function FeatureationForm({
           type="submit"
           className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
-          {initialData ? 'Save Changes' : 'Create Featureation'}
+          {initialData ? 'Save Changes' : 'Create Feature'}
         </button>
       </div>
     </form>

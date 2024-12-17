@@ -14,7 +14,7 @@ export function DataPreview({ dataset, code, inputColumns, outputColumns }: Data
   const [error, setError] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<Record<string, any>[] | null>(null);
 
-  const runFeatureation = () => {
+  const runFeature = () => {
     setIsRunning(true);
     setError(null);
 
@@ -37,7 +37,7 @@ export function DataPreview({ dataset, code, inputColumns, outputColumns }: Data
       <div className="flex justify-between items-center">
         <h4 className="text-sm font-medium text-gray-900">Data Preview</h4>
         <button
-          onClick={runFeatureation}
+          onClick={runFeature}
           disabled={isRunning}
           className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
@@ -52,7 +52,7 @@ export function DataPreview({ dataset, code, inputColumns, outputColumns }: Data
             <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5" />
             <div>
               <h4 className="text-sm font-medium text-red-800">
-                Featureation Error
+                Feature Error
               </h4>
               <pre className="mt-1 text-sm text-red-700 whitespace-pre-wrap font-mono">
                 {error}

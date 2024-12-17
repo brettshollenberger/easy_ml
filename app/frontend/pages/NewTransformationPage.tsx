@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 // import { useNavigate } from 'react-router-dom';
 import { Code2 } from 'lucide-react';
-import { mockDatasets, mockFeatureationGroups } from '../mockData';
-import { FeatureationForm } from '../components/features/FeatureationForm';
+import { mockDatasets, mockFeatureGroups } from '../mockData';
+import { FeatureForm } from '../components/features/FeatureForm';
 
-export default function NewFeatureationPage() {
+export default function NewFeaturePage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: '',
@@ -27,13 +27,13 @@ export default function NewFeatureationPage() {
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Code2 className="w-6 h-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">New Featureation</h2>
+            <h2 className="text-xl font-semibold text-gray-900">New Feature</h2>
           </div>
         </div>
 
-        <FeatureationForm
+        <FeatureForm
           datasets={mockDatasets}
-          groups={mockFeatureationGroups}
+          groups={mockFeatureGroups}
           onSubmit={handleSubmit}
           onCancel={() => navigate('/features')}
         />

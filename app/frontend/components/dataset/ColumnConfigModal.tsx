@@ -42,7 +42,7 @@ export function ColumnConfigModal({
   constants,
 }: ColumnConfigModalProps) {
   const [dataset, setDataset] = useState<Dataset>(initialDataset);
-  const [activeTab, setActiveTab] = useState<"columns" | "transforms">(
+  const [activeTab, setActiveTab] = useState<"columns" | "features">(
     "columns"
   );
   const [isApplying, setIsApplying] = useState(false);
@@ -201,7 +201,7 @@ export function ColumnConfigModal({
   };
 
   const handleFeaturesChange = (newFeatures: Feature[]) => {
-    const existingFeatures = dataset.transforms || [];
+    const existingFeatures = dataset.features || [];
 
     const removedFeatures = existingFeatures
       .filter(
@@ -209,7 +209,7 @@ export function ColumnConfigModal({
       )
       .map((feature) => ({ ...feature, _destroy: true }));
 
-    const transformsWithDatasetId = [
+    const featuresWithDatasetId = [
       ...newFeatures,
       ...removedFeatures,
     ].map((feature, index) => ({
@@ -220,7 +220,7 @@ export function ColumnConfigModal({
 
     setDataset((prevDataset) => ({
       ...prevDataset,
-      transforms: transformsWithDatasetId,
+      features: featuresWithDatasetId,
     }));
     setNeedsRefresh(true);
   };
@@ -297,9 +297,9 @@ export function ColumnConfigModal({
             </div>
           </button>
           <button
-            onClick={() => setActiveTab("transforms")}
+            onClick={() => setActiveTab("features")}
             className={`px-4 py-2 text-sm font-medium border-b-2 ${
-              activeTab === "transforms"
+              activeTab === "features"
                 ? "border-blue-500 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
@@ -420,7 +420,7 @@ export function ColumnConfigModal({
           <div className="p-6 h-[calc(90vh-8rem)] overflow-y-auto">
             <FeaturePicker
               options={constants.feature_options}
-              initialFeatures={dataset.transforms}
+              initialFeatures={dataset.features}
               onFeaturesChange={handleFeaturesChange}
             />
           </div>

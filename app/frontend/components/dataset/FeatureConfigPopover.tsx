@@ -9,7 +9,7 @@ export function FeatureConfigPopover() {
         <button
           type="button"
           className="p-2 text-gray-400 hover:text-gray-600"
-          title="Configure transforms"
+          title="Configure features"
         >
           <Settings2 className="w-5 h-5" />
         </button>
@@ -24,7 +24,7 @@ export function FeatureConfigPopover() {
 
         <div className="bg-gray-50 p-3 rounded-md">
           <code className="text-sm text-gray-800">
-            config/initializers/transforms.rb
+            config/initializers/features.rb
           </code>
         </div>
 
@@ -32,7 +32,7 @@ export function FeatureConfigPopover() {
 
         <pre className="bg-gray-50 p-3 rounded-md overflow-x-auto">
           <code className="text-xs text-gray-800">
-            {`# lib/transforms/did_convert.rb
+            {`# lib/features/did_convert.rb
 module Features
   class DidConvert
     include EasyML::Features

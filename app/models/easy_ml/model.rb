@@ -145,23 +145,44 @@ module EasyML
     end
 
     def actually_train(&progress_block)
-      key = "training:#{self.name}:#{self.id}"
-      EasyML::Support::Lockable.with_lock_client(key, stale_timeout: 60, resources: 1) do |client|
-        client.lock do
-          run = pending_run
-          run.wrap_training do
-            best_params = nil
-            if run.should_tune?
-              best_params = hyperparameter_search(&progress_block)
-            end
-            fit(&progress_block)
-            save
-            [self, best_params]
+      lock_model do
+        run = pending_run
+        run.wrap_training do
+          best_params = nil
+          if run.should_tune?
+            best_params = hyperparameter_search(&progress_block)
           end
-          update(is_training: false)
-          run.reload
+          fit(&progress_block)
+          save
+          [self, best_params]
+        end
+        update(is_training: false)
+        run.reload
+      end
+    end
+
+    def unlock_model
+      with_lock_client do |client|
+        client.client.del(lock_key)
+      end
+    end
+
+    def lock_model
+      with_lock_client do |client|
+        client.lock do
+          yield
         end
       end
+    end
+
+    def with_lock_client
+      EasyML::Support::Lockable.with_lock_client(lock_key, stale_timeout: 60, resources: 1) do |client|
+        yield client
+      end
+    end
+
+    def lock_key
+      "training:#{self.name}:#{self.id}"
     end
 
     def hyperparameter_search(&progress_block)
@@ -441,7 +462,7 @@ module EasyML
       save_model_file
       self.sha = model_file.sha
       save
-      dataset.lock
+      dataset.upload_remote_files
       snapshot.tap do
         # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
         bump_version(force: true)

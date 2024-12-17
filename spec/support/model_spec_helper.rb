@@ -229,6 +229,7 @@ module ModelSpecHelper
         dataset: titanic_dataset,
         task: :classification,
         objective: "binary:logistic",
+        hyperparameters: { n_estimators: 1 },
       )
     end
 

@@ -285,9 +285,7 @@ module EasyML
     def fit(tuning: false, x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
       return fit_in_batches(**batch_args.merge!(tuning: tuning), &progress_block) if fit_in_batches?
 
-      if x_train.nil?
-        dataset.refresh
-      end
+      dataset.refresh
       adapter.fit(tuning: tuning, x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
       @is_fit = true
     end

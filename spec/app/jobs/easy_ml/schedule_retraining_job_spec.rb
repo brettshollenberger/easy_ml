@@ -8,9 +8,7 @@ RSpec.describe EasyML::ScheduleRetrainingJob do
     "My Model"
   end
   let(:model) do
-    pretrain_loans_model.tap do |model|
-      model.deploy
-    end
+    pretrain_loans_model
   end
   before(:all) do
     EasyML::Cleaner.clean
@@ -66,6 +64,8 @@ RSpec.describe EasyML::ScheduleRetrainingJob do
     end
 
     it "creates runs and enqueues worker jobs for current jobs" do
+      model.train(async: false)
+
       expect do
         subject.perform
       end.to change(EasyML::RetrainingRun, :count).by(2)

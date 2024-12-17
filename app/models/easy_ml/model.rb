@@ -289,6 +289,7 @@ module EasyML
 
     def model_changed?
       return false unless is_fit?
+      return true if inference_version.nil?
       return true if model_file.present? && !model_file.persisted?
       return true if model_file.present? && model_file.fit? && inference_version.nil?
 

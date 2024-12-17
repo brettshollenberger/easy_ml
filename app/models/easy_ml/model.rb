@@ -55,6 +55,13 @@ module EasyML
     has_one :retraining_job, class_name: "EasyML::RetrainingJob"
     accepts_nested_attributes_for :retraining_job
     has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
+    has_many :deploys, class_name: "EasyML::Deploy"
+
+    scope :deployed, -> { EasyML::ModelHistory.deployed }
+
+    def latest_deploy
+      deploys.order(id: :desc).limit(1).last
+    end
 
     after_initialize :bump_version, if: -> { new_record? }
     after_initialize :set_defaults, if: -> { new_record? }
@@ -197,9 +204,12 @@ module EasyML
     end
 
     def inference_version
-      snap = latest_snapshot # returns EasyML::Model.none (empty array) if none, return nil instead
-      snap.present? ? snap : nil
+      latest_deploy&.model_version
     end
+
+    alias_method :current_version, :inference_version
+    alias_method :latest_version, :inference_version
+    alias_method :deployed, :inference_version
 
     def hyperparameters
       @hypers ||= adapter.build_hyperparameters(@hyperparameters)
@@ -421,7 +431,11 @@ module EasyML
     class CannotdeployError < StandardError
     end
 
-    def deploy
+    def deploy(async: true)
+      last_run.deploy(async: async)
+    end
+
+    def actually_deploy
       raise CannotdeployError, cannot_deploy_reasons.first if cannot_deploy_reasons.any?
 
       # Prepare the inference model by freezing + saving the model, dataset, and datasource
@@ -438,8 +452,6 @@ module EasyML
         save
       end
     end
-
-    def inference_pipeline(df); end
 
     def cannot_deploy_reasons
       [
@@ -548,7 +560,7 @@ module EasyML
     end
 
     def files_to_keep
-      inference_models = EasyML::ModelHistory.latest_snapshots
+      inference_models = EasyML::ModelHistory.deployed
       training_models = EasyML::Model.all
 
       ([self] + training_models + inference_models).compact.map(&:model_file).compact.map(&:full_path).uniq

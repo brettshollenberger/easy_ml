@@ -1,7 +1,7 @@
 require "spec_helper"
 require "support/model_spec_helper"
 
-RSpec.describe EasyML::Models do
+RSpec.describe EasyML::Deploy do
   include ModelSpecHelper
 
   let(:day_1_dir) do
@@ -198,23 +198,23 @@ RSpec.describe EasyML::Models do
   end
 
   describe "#deploy" do
-    it "uses snapshot model for prediction" do
+    it "uses deployed version for prediction" do
       mock_s3_upload
 
       @time = EasyML::Support::EST.now
       Timecop.freeze(@time)
 
-      model.fit
       model.save
-      model.deploy
-      model_v1 = model.latest_snapshot
+      model.train(async: false)
+      model.deploy(async: false)
+      model_v1 = model.current_version
 
       Timecop.freeze(@time + 2.hours)
       x_test, y_true = model.dataset.processed.test(split_ys: true)
       y_true["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
-      live_predictions = model.latest_snapshot.predict(x_test)
+      live_predictions = model.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
 
       # Change dataset configuration
@@ -228,7 +228,7 @@ RSpec.describe EasyML::Models do
         neg_cases = y_true[y_true == 0].count
         [pos_cases, neg_cases]
       end
-      model.fit
+      model.train(async: false)
       model.save
       model_v2 = model
       model_v1.reload
@@ -243,12 +243,12 @@ RSpec.describe EasyML::Models do
       expect(model_v2.dataset.train.columns).to_not include("Age")
       expect(model_v1.dataset.train.columns).to include("Age")
 
-      expect(model_v2.latest_snapshot.model_file.filename).to eq(model_v1.model_file.filename)
-      live_predictions = model_v2.latest_snapshot.predict(x_test)
+      expect(model_v2.current_version.model_file.filename).to eq(model_v1.model_file.filename)
+      live_predictions = model_v2.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum) # Even though we use "v2" model to load the snapshot, the latest LIVE snapshot is v1
 
-      model.snapshot # Now the latest snapshot becomes v2
-      live_predictions = model.reload.latest_snapshot.predict(x_test)
+      model.deploy(async: false)
+      live_predictions = model.reload.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
     end
 
@@ -258,8 +258,8 @@ RSpec.describe EasyML::Models do
       @time = EasyML::Support::EST.now
       Timecop.freeze(@time)
 
-      model.fit
       model.save
+      model.train(async: false)
 
       # When model1 gets deployed, we want to have a copy of its file!
       # We're mocking the download from s3...
@@ -268,8 +268,8 @@ RSpec.describe EasyML::Models do
       FileUtils.rm(@mock_s3_location) if File.exist?(@mock_s3_location)
       FileUtils.cp(model.model_file.full_path, @mock_s3_location)
 
-      model.deploy
-      model_v1 = model.latest_snapshot
+      model.deploy(async: false)
+      model_v1 = model.current_version
 
       Timecop.freeze(@time + 2.hours)
 
@@ -277,7 +277,7 @@ RSpec.describe EasyML::Models do
       y_true["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
-      live_predictions = model.latest_snapshot.predict(x_test)
+      live_predictions = model.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
 
       # By default, we read from the directory with the name provided,
@@ -296,7 +296,7 @@ RSpec.describe EasyML::Models do
         neg_cases = y_true[y_true == 0].count
         [pos_cases, neg_cases]
       end
-      model.fit
+      model.train(async: false)
       model.save
       model_v2 = model
       model_v1.reload
@@ -318,14 +318,14 @@ RSpec.describe EasyML::Models do
       expect(model_v2.dataset.train.columns).to_not include("Age")
       expect(model_v1.dataset.train.columns).to include("Age")
 
-      expect(model_v2.latest_snapshot.model_file.filename).to eq(model_v1.model_file.filename)
-      live_predictions = model_v2.latest_snapshot.predict(x_test)
+      expect(model_v2.current_version.model_file.filename).to eq(model_v1.model_file.filename)
+      live_predictions = model_v2.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum) # Even though we use "v2" model to load the snapshot, the latest LIVE snapshot is v1
 
-      model.deploy # Now the latest snapshot becomes v2
-      live_predictions = model.reload.latest_snapshot.predict(x_test)
+      model.deploy(async: false) # Now the latest snapshot becomes v2
+      live_predictions = model.reload.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
-      expect(model.latest_snapshot.dataset.data.count).to eq 891
+      expect(model.current_version.dataset.data.count).to eq 891
     end
 
     it "downloads the old splits from S3 if they aren't present locally" do
@@ -336,19 +336,22 @@ RSpec.describe EasyML::Models do
       @time = EasyML::Support::EST.parse("2024-01-01")
       Timecop.freeze(@time)
 
-      model.fit
       model.save
+      model.train(async: false)
 
       Timecop.freeze(EasyML::Support::EST.parse("2024-02-02"))
 
-      model.deploy
-      model_v1 = model.latest_snapshot
+      model.deploy(async: false)
+      model_v1 = model.current_version
 
-      expect(model.dataset.raw.dir).to match(/20240202050000/)
-      expect(model_v1.dataset.raw.dir).to match(/20240101050000/)
+      def extract_timestamp(dir)
+        EasyML::Support::UTC.parse(dir.gsub(/\D/, "")).in_time_zone(EST)
+      end
 
-      expect(model.dataset.processed.dir).to match(/20240202050000/)
-      expect(model_v1.dataset.processed.dir).to match(/20240101050000/)
+      expect(extract_timestamp(model_v1.dataset.raw.dir)).to eq(EasyML::Support::EST.parse("2024-01-01"))
+      # Creates a new folder for the next dataset version
+      expect(extract_timestamp(model_v1.dataset.raw.dir)).to be < extract_timestamp(model.dataset.raw.dir)
+      expect(extract_timestamp(model_v1.dataset.processed.dir)).to be < extract_timestamp(model.dataset.processed.dir)
 
       Timecop.freeze(@time + 2.hours)
 
@@ -356,7 +359,7 @@ RSpec.describe EasyML::Models do
       y_true["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
-      live_predictions = model.latest_snapshot.predict(x_test)
+      live_predictions = model.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
 
       # By default, we read from the directory with the name provided,
@@ -370,8 +373,8 @@ RSpec.describe EasyML::Models do
       model.dataset.refresh! # Requires a full refresh! because we changed our source
 
       randomize_hypers(model)
-      model.fit
       model.save
+      model.train(async: false)
       model_v2 = model
       model_v1.reload
 
@@ -392,8 +395,8 @@ RSpec.describe EasyML::Models do
       expect(model_v2.dataset.train.columns).to_not include("Age")
       expect(model_v1.dataset.train.columns).to include("Age")
 
-      expect(model_v2.latest_snapshot.model_file.filename).to eq(model_v1.model_file.filename)
-      live_predictions = model_v2.latest_snapshot.predict(x_test)
+      expect(model_v2.current_version.model_file.filename).to eq(model_v1.model_file.filename)
+      live_predictions = model_v2.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum) # Even though we use "v2" model to load the snapshot, the latest LIVE snapshot is v1
 
       FileUtils.mkdir_p(SPEC_ROOT.join("backups/datasets"))
@@ -403,7 +406,7 @@ RSpec.describe EasyML::Models do
       # Since the v1 model is no longer live, we've deleted the model file... we need to expect it'll be requested from s3 too
       FileUtils.mv(model_v1.model_file.full_path, SPEC_ROOT.join("backups/models"))
 
-      model.deploy # Now the latest snapshot becomes v2
+      model.deploy(async: false) # Now the latest snapshot becomes v2
 
       expect(model_v1.model_file).to receive(:download) do
         FileUtils.mv(
@@ -412,7 +415,7 @@ RSpec.describe EasyML::Models do
         )
       end
 
-      model_v2 = model.latest_snapshot
+      model_v2 = model.current_version
       preds_v2 = model_v2.predict(x_test)
 
       expect(model_v1.dataset.processed).to receive(:download) do
@@ -427,6 +430,106 @@ RSpec.describe EasyML::Models do
       expect(model_v2.predict(x_test).sum.round(2)).to eq preds_v2.sum.round(2)
 
       FileUtils.rm_rf(SPEC_ROOT.join("backups"))
+    end
+
+    it "re-uses existing deploy when deploy has been previously run" do
+      FileUtils.rm_rf(SPEC_ROOT.join("backups/models"))
+
+      mock_s3_upload
+
+      @time = EasyML::Support::EST.now
+      Timecop.freeze(@time)
+
+      model.save
+      model.train(async: false)
+      run = model.last_run
+
+      deploy = EasyML::Deploy.create!(
+        model: model,
+        retraining_run: run,
+      )
+      deploy.deploy(async: false)
+      model_v1 = model.current_version
+      expect(deploy.model_version).to eq model_v1
+      expect(deploy.retraining_run).to eq run
+      expect(deploy.model_file).to eq run.model_file
+
+      Timecop.freeze(@time + 2.hours)
+      x_test, y_true = model.dataset.processed.test(split_ys: true)
+      y_true["Survived"]
+      expected_preds_v1 = Polars::Series.new(model.predict(x_test))
+
+      preds_v1 = model.current_version.predict(x_test)
+      expect(preds_v1.sum).to be_within(0.01).of(expected_preds_v1.sum)
+
+      # Change dataset configuration
+      model.dataset.columns.where(name: "Age").update_all(hidden: true)
+      model.dataset.refresh
+
+      # Re-train
+      y_true = y_true["Survived"]
+      randomize_hypers(model) do
+        pos_cases = y_true[y_true == 1].count
+        neg_cases = y_true[y_true == 0].count
+        [pos_cases, neg_cases]
+      end
+      model.train(async: false)
+      model.save
+      run2 = model.last_run
+      model_v2 = model
+      model_v1.reload
+
+      # retrained model_file is distinct from v1 model_file
+      expect(model_v2.model_file.filename).to_not eq(model_v1.model_file.filename)
+
+      retrain_preds = Polars::Series.new(model_v2.predict(x_test))
+      expect(retrain_preds.sum).to_not eq(preds_v1.sum)
+
+      # The v1 model dataset configuration is NOT the same as the current model dataset
+      expect(model_v2.dataset.train.columns).to_not include("Age")
+      expect(model_v1.dataset.train.columns).to include("Age")
+
+      expect(model_v2.current_version.model_file.filename).to eq(model_v1.model_file.filename)
+      preds_v2 = model_v2.inference_version.predict(x_test)
+      expect(preds_v2.sum).to be_within(0.01).of(preds_v1.sum) # Even though we use "v2" model to load the snapshot, the latest LIVE snapshot is v1
+
+      FileUtils.mkdir_p(SPEC_ROOT.join("backups/models"))
+      FileUtils.cp(model_v1.model_file.full_path, SPEC_ROOT.join("backups/models"))
+      deploy = EasyML::Deploy.create!(
+        model: model,
+        retraining_run: run2,
+      )
+      deploy.deploy(async: false)
+      model_v2 = model.current_version
+      expect(deploy.model_file.id).to eq run2.model_file.id
+      expect(model_v2.model_file.id).to eq run2.model_file.id
+
+      preds_v2 = model.reload.inference_version.predict(x_test)
+      expect(preds_v2.sum).to be_within(0.01).of(retrain_preds.sum)
+
+      # Re-deploy previous model (from previous run)
+      # Does not create a new model_file, version, etc
+      deploy = EasyML::Deploy.create!(
+        model: model,
+        retraining_run: run,
+      )
+      deploy.deploy(async: false)
+      model_v3 = model.current_version
+
+      expect(model_v3.model_file.id).to eq model_v1.model_file.id
+      expect(deploy.model_version).to eq model_v1
+      expect(model_v3).to eq model_v1
+
+      # Re-deployed model will download the file from s3, mock this
+      expect_any_instance_of(EasyML::Support::SyncedFile).to receive(:download) do |synced_file|
+        FileUtils.mv(Dir.glob(SPEC_ROOT.join("backups/models/*.json")).first, model_v1.model_file.full_path)
+      end
+      preds_v3 = model.reload.inference_version.predict(x_test)
+      expect(preds_v3.sum).to be_within(0.01).of(expected_preds_v1.sum)
+
+      FileUtils.rm_rf(SPEC_ROOT.join("backups/models"))
+    ensure
+      deploy.unlock_deploy if deploy
     end
   end
 end

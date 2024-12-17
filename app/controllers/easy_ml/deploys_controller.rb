@@ -8,7 +8,6 @@ module EasyML
         retraining_run_id: params[:retraining_run_id],
         trigger: "manual",
       )
-
       @deploy.deploy
 
       flash[:notice] = "Model deployment has started"

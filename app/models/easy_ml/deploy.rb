@@ -21,11 +21,14 @@ module EasyML
     belongs_to :model, class_name: "EasyML::Model"
     belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
     belongs_to :retraining_run, class_name: "EasyML::RetrainingRun"
-    belongs_to :deployed_model, class_name: "EasyML::ModelHistory", optional: true, foreign_key: :model_history_id
+    belongs_to :model_version, class_name: "EasyML::ModelHistory", optional: true, foreign_key: :model_history_id
 
     validates :status, presence: true
-    after_initialize :set_default_status, if: :new_record?
+    after_initialize :set_defaults, if: :new_record?
+    before_save :set_model_file, if: :new_record?
     validates :status, presence: true, inclusion: { in: %w[pending running success failed] }
+
+    scope :latest, -> { select("DISTINCT ON (model_id) *").order("model_id, id DESC") }
 
     def unlocked?
       EasyML::Deploy.where(model_id: model_id).where.not(locked_at: nil).where(status: ["pending", "running"]).empty?
@@ -44,37 +47,72 @@ module EasyML
     end
 
     def actually_deploy
-      key = "deploy:#{self.model.name}:#{self.model.id}"
-      EasyML::Support::Lockable.with_lock_client(key, stale_timeout: 60, resources: 1) do |client|
-        client.lock do
-          update(status: "running")
-          EasyML::Event.create_event(self, "started")
+      lock_deploy do
+        update(status: "running")
+        EasyML::Event.create_event(self, "started")
 
+        if identical_deploy.present?
+          self.model_file = identical_deploy.model_file
+          self.model_version = identical_deploy.model_version
+        else
           if model_file.present?
             model.model_file = model_file
           end
           model.load_model
-          deployed_model = model.deploy
+          self.model_version = model.actually_deploy
+        end
 
-          EasyML::Deploy.transaction do
-            update(model_history_id: deployed_model.id, snapshot_id: deployed_model.snapshot_id, status: :success)
-            model.retraining_runs.where(status: :deployed).update_all(status: :success)
-            retraining_run.update(model_history_id: deployed_model.id, snapshot_id: deployed_model.snapshot_id, deploy_id: id, status: :deployed, is_deploying: false)
-          end
+        EasyML::Deploy.transaction do
+          update(model_history_id: self.model_version.id, snapshot_id: self.model_version.snapshot_id, status: :success)
+          model.retraining_runs.where(status: :deployed).update_all(status: :success)
+          retraining_run.update(model_history_id: self.model_version.id, snapshot_id: self.model_version.snapshot_id, deploy_id: id, status: :deployed, is_deploying: false)
+        end
 
-          deployed_model.tap do
-            EasyML::Event.create_event(self, "success")
-          end
+        model_version.tap do
+          EasyML::Event.create_event(self, "success")
         end
       end
     end
 
     alias_method :rollback, :deploy
 
+    def unlock_deploy
+      with_lock_client do |client|
+        client.client.del(lock_key)
+      end
+    end
+
+    def lock_deploy
+      with_lock_client do |client|
+        client.lock do
+          yield
+        end
+      end
+    end
+
+    def identical_deploy
+      EasyML::Deploy.where(retraining_run_id: retraining_run_id).
+        where.not(id: id).where(status: :success).limit(1).first
+    end
+
     private
 
-    def set_default_status
+    def with_lock_client
+      EasyML::Support::Lockable.with_lock_client(lock_key, stale_timeout: 60, resources: 1) do |client|
+        yield client
+      end
+    end
+
+    def lock_key
+      "deploy:#{self.model.name}:#{self.model.id}"
+    end
+
+    def set_defaults
       self.status ||= :pending
+    end
+
+    def set_model_file
+      self.model_file ||= retraining_run.model_file
     end
   end
 end

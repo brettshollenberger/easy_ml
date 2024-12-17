@@ -32,7 +32,6 @@ module EasyML
       analyzing: "analyzing",
       ready: "ready",
       failed: "failed",
-      locked: "locked",
     }
 
     SPLIT_ORDER = %i[train valid test]
@@ -132,29 +131,13 @@ module EasyML
       @processed = initialize_split("processed")
     end
 
-    def lock
-      upload_remote_files
-      save
-    end
-
     def bump_versions(version)
       self.version = version
 
       @raw = raw.cp(version)
       @processed = processed.cp(version)
-      @locked = nil
 
       save
-    end
-
-    def locked?
-      false
-    end
-
-    def locked
-      return @locked if @locked
-
-      @locked = initialize_split("locked")
     end
 
     def refresh!
@@ -188,18 +171,44 @@ module EasyML
     end
 
     def refreshing
-      return false if locked?
+      return false if is_history_class?
 
-      update(workflow_status: "analyzing")
-      fully_reload
-      yield
-      learn
-      now = UTC.now
-      update(workflow_status: "ready", refreshed_at: now, updated_at: now)
-      fully_reload
+      lock_dataset do
+        update(workflow_status: "analyzing")
+        fully_reload
+        yield
+        learn
+        now = UTC.now
+        update(workflow_status: "ready", refreshed_at: now, updated_at: now)
+        fully_reload
+      end
     rescue StandardError => e
       update(workflow_status: "failed")
       raise e
+    end
+
+    def unlock_dataset
+      with_lock_client do |client|
+        client.client.del(lock_key)
+      end
+    end
+
+    def lock_dataset
+      with_lock_client do |client|
+        client.lock do
+          yield
+        end
+      end
+    end
+
+    def with_lock_client
+      EasyML::Support::Lockable.with_lock_client(lock_key, stale_timeout: 60, resources: 1) do |client|
+        yield client
+      end
+    end
+
+    def lock_key
+      "dataset:#{id}"
     end
 
     def learn_schema
@@ -477,11 +486,19 @@ module EasyML
     end
 
     def files
-      [raw, processed, locked].flat_map(&:files)
+      [raw, processed].flat_map(&:files)
     end
 
     def load_dataset
       download_remote_files
+    end
+
+    def upload_remote_files
+      return unless processed?
+
+      processed.upload.tap do
+        save
+      end
     end
 
     private
@@ -491,12 +508,6 @@ module EasyML
       return if processed.present? && processed.data
 
       processed.download
-    end
-
-    def upload_remote_files
-      return unless processed?
-
-      processed.upload
     end
 
     def initialize_splits

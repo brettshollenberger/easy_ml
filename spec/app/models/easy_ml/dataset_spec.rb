@@ -88,7 +88,13 @@ RSpec.describe EasyML::Datasource do
       mock_s3_upload
 
       dataset.refresh!
+      expect(dataset).to be_processed
+
+      # When updating column, dataset is marked again as needing processing
       dataset.columns.find_by(name: "rev").update(is_target: true)
+      expect(dataset).to_not be_processed
+      dataset.refresh
+      expect(dataset).to be_processed
 
       reloaded = EasyML::Dataset.find(dataset.id)
       expect(reloaded.datasource).to eq datasource
@@ -101,7 +107,6 @@ RSpec.describe EasyML::Datasource do
       expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
       expect(reloaded.splitter.send(:adapter)).to be_a(EasyML::Splitters::DateSplitter)
 
-      expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
     end
   end
@@ -295,7 +300,7 @@ RSpec.describe EasyML::Datasource do
         mock_s3_download(multi_file_dir)
         mock_s3_upload
 
-        expect { dataset.refresh_async }.to have_enqueued_job(EasyML::RefreshDatasetJob)
+        expect { dataset }.to have_enqueued_job(EasyML::RefreshDatasetJob)
         perform_enqueued_jobs
         expect(dataset.data.count).to eq 16
       end

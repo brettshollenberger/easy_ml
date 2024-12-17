@@ -5,6 +5,7 @@
 #  id                  :bigint           not null, primary key
 #  model_id            :bigint
 #  model_history_id    :bigint
+#  model_file_id       :bigint
 #  retraining_job_id   :bigint           not null
 #  tuner_job_id        :bigint
 #  status              :string           default("pending")
@@ -33,11 +34,21 @@ module EasyML
 
     belongs_to :retraining_job
     belongs_to :model, class_name: "EasyML::Model"
+    belongs_to :model_file, class_name: "EasyML::ModelFile"
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
     validates :status, presence: true, inclusion: { in: %w[pending running success failed deployed] }
 
     scope :running, -> { where(status: "running") }
+
+    def deploy(async: true)
+      deploy = EasyML::Deploy.create!(
+        model: model,
+        retraining_run: self,
+      )
+
+      deploy.deploy(async: async)
+    end
 
     def wrap_training(&block)
       return false unless pending?
@@ -62,6 +73,10 @@ module EasyML
           status = failed_reasons.any? ? "failed" : "success"
         end
 
+        if status == "success"
+          model.save_model_file
+        end
+
         update!(
           results.merge!(
             status: status,
@@ -73,6 +88,7 @@ module EasyML
             tuner_job_id: tuner&.id,
             metadata: tuner&.metadata,
             wandb_url: tuner&.wandb_url,
+            model_file_id: status == "success" ? training_model.model_file_id : nil,
           )
         )
 

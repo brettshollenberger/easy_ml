@@ -111,7 +111,6 @@ RSpec.describe EasyML::Core::Tuner do
     end
 
     it "returns best params" do
-      Thread.current[:stop] = true
       best_params = EasyML::Core::Tuner.new(tuner_params).tune
 
       expect(best_params["learning_rate"]).to be_between(0.01, 0.1)
@@ -121,13 +120,18 @@ RSpec.describe EasyML::Core::Tuner do
     end
 
     it "configures custom params for callbacks" do
+      EasyML::Configuration.configure do |config|
+        config.wandb_api_key = "my-api-key"
+      end
+
       tuner = EasyML::Core::Tuner.new(tuner_params)
       wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
 
       expect(wandb_callback).to receive(:before_training).exactly(5).times.and_call_original
+      puts tuner.project_name
+      expect(Wandb).to receive(:init).with(project: tuner.project_name).at_least(:once).and_return(false)
 
       tuner.tune
-      expect(tuner.model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }.project_name).to match(/My Model/)
     end
 
     it "accepts custom evaluator" do

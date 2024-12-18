@@ -37,19 +37,14 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
     const deployingRun = runs.find(run => run.is_deploying);
     if (deployingRun) {
       pollInterval = window.setInterval(async () => {
-        const response = await fetch(`${rootPath}/retraining_runs/${deployingRun.id}`, {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-        const data = await response.json();
-        
-        if (!data.is_deploying) {
-          window.location.href = window.location.href; // Full page reload when done
-        }
+        router.get(window.location.href, {
+          preserveScroll: true,
+          preserveState: true,
+          only: ['runs']
+        })
       }, 2000);
     }
-
+        
     return () => {
       if (pollInterval) {
         window.clearInterval(pollInterval);

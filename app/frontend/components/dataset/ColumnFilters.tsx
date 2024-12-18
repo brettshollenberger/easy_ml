@@ -48,7 +48,6 @@ export function ColumnFilters({
     }
   };
 
-
   const calculateNullPercentage = (column: Column) => {
     if (!column.statistics?.processed?.null_count || !column.statistics?.processed?.num_rows) return 0;
     return (column.statistics.processed.null_count / column.statistics.processed.num_rows) * 100;

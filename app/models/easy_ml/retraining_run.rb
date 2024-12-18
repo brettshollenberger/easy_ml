@@ -34,7 +34,7 @@ module EasyML
 
     belongs_to :retraining_job
     belongs_to :model, class_name: "EasyML::Model"
-    belongs_to :model_file, class_name: "EasyML::ModelFile"
+    belongs_to :model_file, class_name: "EasyML::ModelFile", optional: true
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
 
     validates :status, presence: true, inclusion: { in: %w[pending running success failed deployed] }

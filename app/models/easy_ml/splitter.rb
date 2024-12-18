@@ -20,6 +20,7 @@ module EasyML
     SPLITTER_OPTIONS = {
       "date" => "EasyML::Splitters::DateSplitter",
       "random" => "EasyML::Splitters::RandomSplitter",
+      "predefined" => "EasyML::Splitters::PredefinedSplitter",
     }
     SPLITTER_TYPES = [
       {
@@ -31,6 +32,11 @@ module EasyML
         value: "random",
         label: "Random Splitter",
         description: "Randomly split dataset into training, validation, and testing sets with configurable ratios",
+      },
+      {
+        value: "predefined",
+        label: "Predefined Splitter",
+        description: "Split dataset using predefined file assignments for training, validation, and testing sets",
       },
     ].freeze
 
@@ -52,8 +58,8 @@ module EasyML
       }
     end
 
-    def split(df)
-      adapter.split(df)
+    def split(df, &block)
+      adapter.split(df, &block)
     end
 
     def splits

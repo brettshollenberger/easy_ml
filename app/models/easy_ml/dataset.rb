@@ -583,12 +583,11 @@ module EasyML
 
       cleanup
       features = self.features.ordered.load
-      datasource.in_batches do |df|
-        df = apply_features(df, features) if features.any?
-        train_df, valid_df, test_df = splitter.split(df)
-        raw.save(:train, train_df)
-        raw.save(:valid, valid_df)
-        raw.save(:test, test_df)
+      splitter.split(datasource) do |train_df, valid_df, test_df|
+        [:train, :valid, :test].zip([train_df, valid_df, test_df]).each do |segment, df|
+          df = apply_features(df, features) if features.any?
+          raw.save(segment, df)
+        end
       end
     end
 

@@ -252,11 +252,11 @@ export function PreprocessingConfig({
 
   let nullCount = (column.statistics?.processed.null_count || column.statistics?.raw.null_count) || 0;
   const nullPercentage = nullCount && column.statistics?.raw.num_rows
-    ? Math.round((nullCount / column.statistics.raw.num_rows) * 100)
+    ? ((nullCount / column.statistics.raw.num_rows) * 100)
     : 0;
 
   const nullPercentageProcessed = column.statistics?.processed?.null_count && column.statistics?.raw.num_rows
-    ? Math.round((column.statistics.processed.null_count / column.statistics.raw.num_rows) * 100)
+    ? ((column.statistics.processed.null_count / column.statistics.raw.num_rows) * 100)
     : 0;
 
   const totalRows = column.statistics?.raw.num_rows ?? 0;

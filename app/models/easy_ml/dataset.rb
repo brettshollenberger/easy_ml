@@ -289,7 +289,8 @@ module EasyML
 
           if one_hot_cols.include?(column.name)
             base = self.raw
-            processed = stats.dig("raw", column.name)
+            processed = stats.dig("raw", column.name).dup
+            processed["null_count"] = 0
             actual_schema_type = "categorical"
             actual_type = "categorical"
           else

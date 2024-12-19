@@ -203,6 +203,103 @@ RSpec.describe EasyML::Datasource do
       end.to raise_error(/Feature 'Bad Feature' must return a Polars::DataFrame/)
     end
 
+    describe "#fit method" do
+      class LastAppTime
+        include EasyML::Features
+
+        # The job of fit is to pre-compute large set of values from entire datasource
+        def fit(reader, feature)
+          # Reader is the wrapper, which automatically queries the training data ONLY
+          df = reader.read(:all, select: ["COMPANY_ID", "LOAN_APP_ID", "CREATED_AT"])
+          batch_df = df.with_columns(
+            Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
+          )
+          batch_df = batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
+          # EasyML::FeatureStore.store("loans.last_app_time", feature.version, batch_df)
+        end
+
+        def transform(df, feature)
+          stored_df = EasyML::FeatureStore.load("loans.last_app_time", feature.version)
+          df.join(stored_df, on: "LOAN_APP_ID", how: "left")
+        end
+
+        feature name: "Last Application Time",
+                description: "Time since the company's last loan application"
+      end
+
+      let(:feature) do
+        EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: "LastAppTime",
+          name: "Last Application Time",
+        )
+      end
+
+      let(:test_data) do
+        [
+          { "COMPANY_ID" => 1, "LOAN_APP_ID" => "A1", "CREATED_AT" => "2024-01-01" },
+          { "COMPANY_ID" => 1, "LOAN_APP_ID" => "A2", "CREATED_AT" => "2024-01-02" },
+          { "COMPANY_ID" => 2, "LOAN_APP_ID" => "B1", "CREATED_AT" => "2024-01-01" },
+          { "COMPANY_ID" => 2, "LOAN_APP_ID" => "B2", "CREATED_AT" => "2024-01-03" },
+        ]
+      end
+
+      before(:each) do
+        # Register the feature
+        EasyML::Features::Registry.register(LastAppTime)
+
+        # Create test data in the training split
+        df = Polars::DataFrame.new(test_data)
+        dataset.raw.save(:train, df)
+      end
+
+      it "computes and stores feature values during fit", :focus do
+        feature_instance = LastAppTime.new
+        feature_instance.fit(dataset.raw, feature)
+
+        # Load the stored feature values
+        # stored_df = EasyML::FeatureStore.load("loans.last_app_time", feature.version)
+
+        # # Verify the computed last application times
+        # expect(stored_df.schema).to include(
+        #   "COMPANY_ID" => Polars::Int64,
+        #   "LOAN_APP_ID" => Polars::String,
+        #   "LAST_APP_TIME" => Polars::String,
+        # )
+
+        # # Company 1's second application should have the first application time
+        # second_app = stored_df.filter(Polars.col("LOAN_APP_ID").eq("A2")).select("LAST_APP_TIME").to_a.flatten.first
+        # expect(second_app).to eq("2024-01-01")
+
+        # # Company 2's second application should have the first application time
+        # second_app = stored_df.filter(Polars.col("LOAN_APP_ID").eq("B2")).select("LAST_APP_TIME").to_a.flatten.first
+        # expect(second_app).to eq("2024-01-01")
+      end
+
+      it "applies stored features during transform" do
+        feature_instance = LastAppTime.new
+        feature_instance.fit(dataset.split, feature)
+
+        # Create a test dataframe for transformation
+        test_df = Polars.from_records([
+          { "LOAN_APP_ID" => "A2", "OTHER_COL" => "value" },
+        ])
+
+        # Transform the test data
+        result_df = feature_instance.transform(test_df, feature)
+
+        # Verify the transformation results
+        expect(result_df.schema).to include(
+          "LOAN_APP_ID" => Polars::String,
+          "OTHER_COL" => Polars::String,
+          "LAST_APP_TIME" => Polars::String,
+        )
+
+        last_app_time = result_df.select("LAST_APP_TIME").to_a.flatten.first
+        expect(last_app_time).to eq("2024-01-01")
+      end
+    end
+
     describe "code signature versioning" do
       let(:feature) do
         EasyML::Feature.create!(

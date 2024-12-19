@@ -6,6 +6,7 @@
 #  feature_id         :integer          not null
 #  dataset_id         :integer          not null
 #  name               :string
+#  version            :integer
 #  feature_class      :string           not null
 #  feature_method     :string           not null
 #  feature_position   :integer

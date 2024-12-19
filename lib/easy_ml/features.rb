@@ -1,4 +1,13 @@
 module EasyML::Features
+  def fit(reader, feature)
+  end
+
+  def batch(reader, feature)
+  end
+
+  def transform(df, feature)
+  end
+
   def self.included(base)
     base.extend(ClassMethods)
   end

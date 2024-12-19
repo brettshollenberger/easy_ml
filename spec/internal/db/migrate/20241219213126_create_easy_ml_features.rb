@@ -6,7 +6,10 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.bigint :version
       t.string :feature_class, null: false
       t.integer :feature_position
+      t.integer :batch_size
+      t.boolean :needs_recompute
       t.string :sha
+      t.string :primary_key, array: true
       t.datetime :applied_at
 
       t.timestamps
@@ -18,6 +21,8 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.index :name
       t.index :version
       t.index :sha
+      t.index :batch_size
+      t.index :needs_recompute
     end
   end
 end

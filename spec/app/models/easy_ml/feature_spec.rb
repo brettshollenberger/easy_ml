@@ -77,8 +77,7 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      feature :did_convert,
-              name: "did_convert",
+      feature name: "did_convert",
               description: "Boolean true/false, did the loan application fund?"
     end
 
@@ -126,17 +125,16 @@ RSpec.describe EasyML::Datasource do
     #           description: "Days since the business inception date"
     # end
 
-    # class BadFeature
-    #   include EasyML::Features
+    class BadFeature
+      include EasyML::Features
 
-    #   def bad_feature(_df)
-    #     "not a dataframe" # Intentionally return wrong type
-    #   end
+      def transform(df, feature)
+        "not a dataframe" # Intentionally return wrong type
+      end
 
-    #   feature :bad_feature,
-    #           name: "Bad Feature",
-    #           description: "A feature that doesn't return a DataFrame"
-    # end
+      feature name: "Bad Feature",
+              description: "A feature that doesn't return a DataFrame"
+    end
 
     before do
       EasyML::Features::Registry.register(DidConvert)
@@ -202,7 +200,104 @@ RSpec.describe EasyML::Datasource do
       # Attempt to refresh the dataset
       expect do
         dataset.refresh!
-      end.to raise_error(/Feature 'bad_feature' must return a Polars::DataFrame/)
+      end.to raise_error(/Feature 'Bad Feature' must return a Polars::DataFrame/)
+    end
+
+    describe "code signature versioning" do
+      let(:feature) do
+        EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: "FeatureV1",
+          name: "Test Feature V1",
+        )
+      end
+
+      before(:each) do
+        # Clear the registry and SHA cache before each test
+        EasyML::Features::Registry.instance_variable_set(:@registry, {})
+        EasyML::Feature.clear_sha_cache!
+
+        # Load V1 of the feature
+        load File.join(Rails.root, "fixtures/feature_v1.rb")
+        feature.save! # This will compute and store the SHA for V1
+      end
+
+      after(:each) do
+        # Clear the registry and SHA cache after each test
+        EasyML::Features::Registry.instance_variable_set(:@registry, {})
+        EasyML::Feature.clear_sha_cache!
+      end
+
+      describe "SHA caching" do
+        let(:feature_path) { File.join(Rails.root, "fixtures/feature_v1.rb") }
+
+        it "caches SHA computations" do
+          # First computation should cache the SHA
+          initial_sha = EasyML::Feature.compute_sha("FeatureV1")
+
+          # Subsequent computations should use the cache
+          expect(File).not_to receive(:read)
+          expect(EasyML::Feature.compute_sha("FeatureV1")).to eq(initial_sha)
+        end
+
+        it "invalidates cache when file changes" do
+          # Get initial SHA
+          initial_sha = EasyML::Feature.compute_sha("FeatureV1")
+
+          # Update file mtime
+          FileUtils.touch(feature_path)
+
+          # Should recompute SHA
+          expect(File).to receive(:read).and_call_original
+          EasyML::Feature.compute_sha("FeatureV1")
+        end
+      end
+
+      context "when feature code hasn't changed" do
+        it "is not returned in has_changes scope" do
+          expect(EasyML::Feature.has_changes).not_to include(feature)
+        end
+      end
+
+      context "when feature code has changed" do
+        before do
+          # Load V2 of the feature
+          load File.join(Rails.root, "fixtures/feature_v2.rb")
+        end
+
+        it "is returned in has_changes scope" do
+          expect(EasyML::Feature.has_changes).to include(feature)
+        end
+      end
+
+      context "when feature has never been applied" do
+        let(:unapplied_feature) do
+          EasyML::Feature.create!(
+            dataset: dataset,
+            feature_class: "FeatureV1",
+            name: "Unapplied Feature",
+          )
+        end
+
+        it "is returned in needs_recompute scope" do
+          expect(EasyML::Feature.needs_recompute).to include(unapplied_feature)
+        end
+      end
+
+      context "when feature has been applied" do
+        before do
+          feature.update!(applied_at: Time.current)
+        end
+
+        it "is not returned in needs_recompute scope if code hasn't changed" do
+          expect(EasyML::Feature.needs_recompute).not_to include(feature)
+        end
+
+        it "is returned in needs_recompute scope if code has changed" do
+          load File.join(Rails.root, "fixtures/feature_v2.rb")
+          expect(EasyML::Feature.needs_recompute).to include(feature)
+        end
+      end
     end
   end
 end

@@ -11,12 +11,37 @@
 #  applied_at       :datetime
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
+#  sha              :string
 #
 module EasyML
   class Feature < ActiveRecord::Base
     self.table_name = "easy_ml_features"
     include Historiographer::Silent
     historiographer_mode :snapshot_only
+
+    class << self
+      def compute_sha(feature_class)
+        require "digest"
+        path = feature_class.constantize.instance_method(:transform).source_location.first
+        current_mtime = File.mtime(path)
+        cache_key = "feature_sha/#{path}"
+
+        cached = Rails.cache.read(cache_key)
+
+        if cached && cached[:mtime] == current_mtime
+          cached[:sha]
+        else
+          # Compute new SHA and cache it with the current mtime
+          sha = Digest::SHA256.hexdigest(File.read(path))
+          Rails.cache.write(cache_key, { sha: sha, mtime: current_mtime })
+          sha
+        end
+      end
+
+      def clear_sha_cache!
+        Rails.cache.delete_matched("feature_sha/*")
+      end
+    end
 
     # Associations
     belongs_to :dataset, class_name: "EasyML::Dataset"
@@ -29,8 +54,24 @@ module EasyML
 
     # Scopes
     scope :ordered, -> { order(feature_position: :asc) }
+    scope :has_changes, -> {
+            # Get all unique feature classes
+            feature_classes = pluck(:feature_class).uniq
+
+            # Build conditions for each feature class
+            conditions = feature_classes.map do |klass|
+              current_sha = compute_sha(klass)
+              sanitize_sql_array(["(feature_class = ? AND (sha IS NULL OR sha != ?))", klass, current_sha])
+            end
+
+            # Combine all conditions with OR
+            where(conditions.join(" OR "))
+          }
+    scope :never_applied, -> { where(applied_at: nil) }
+    scope :needs_recompute, -> { has_changes.or(never_applied) }
 
     before_save :apply_defaults, if: :new_record?
+    before_save :update_sha
 
     # Instance methods
     def feature_class_constant
@@ -40,7 +81,17 @@ module EasyML
     end
 
     def apply!(df)
-      feature_class_constant.new.transform(df, self)
+      result = feature_class_constant.new.transform(df, self)
+      update!(applied_at: Time.current)
+      result
+    end
+
+    def code_changed?
+      sha != compute_sha
+    end
+
+    def compute_sha
+      self.class.compute_sha(feature_class)
     end
 
     # Position manipulation methods
@@ -114,6 +165,10 @@ module EasyML
 
       max_feature_position = dataset&.features&.maximum(:feature_position) || -1
       self.feature_position = max_feature_position + 1
+    end
+
+    def update_sha
+      self.sha = compute_sha
     end
   end
 

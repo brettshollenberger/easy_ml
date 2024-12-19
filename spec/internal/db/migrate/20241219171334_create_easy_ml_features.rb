@@ -6,6 +6,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.bigint :version
       t.string :feature_class, null: false
       t.integer :feature_position
+      t.string :sha
       t.datetime :applied_at
 
       t.timestamps
@@ -16,6 +17,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.index :applied_at
       t.index :name
       t.index :version
+      t.index :sha
     end
   end
 end

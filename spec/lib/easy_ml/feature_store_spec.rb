@@ -18,11 +18,11 @@ RSpec.describe EasyML::FeatureStore do
         Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
       )
       batch_df = batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
-      EasyML::FeatureStore.store("loans.last_app_time", feature, batch_df, primary_key: "LOAN_APP_ID")
+      EasyML::FeatureStore.store(feature, batch_df, primary_key: "LOAN_APP_ID")
     end
 
     def transform(df, feature)
-      stored_df = EasyML::FeatureStore.query("loans.last_app_time", feature.version)
+      stored_df = EasyML::FeatureStore.query(feature)
       df.join(stored_df, on: "LOAN_APP_ID", how: "left")
     end
 
@@ -93,7 +93,7 @@ RSpec.describe EasyML::FeatureStore do
     end
 
     it "writes dataframe to the correct path" do
-      EasyML::FeatureStore.store(feature_key, feature, df)
+      EasyML::FeatureStore.store(feature, df)
       expect(File.exist?(expected_path)).to be true
     end
 
@@ -108,11 +108,11 @@ RSpec.describe EasyML::FeatureStore do
       before do
         # Store existing data first
         existing_df = Polars::DataFrame.new(existing_data)
-        EasyML::FeatureStore.store(feature_key, feature, existing_df)
+        EasyML::FeatureStore.store(feature, existing_df)
       end
 
       it "upserts data based on primary key" do
-        EasyML::FeatureStore.store(feature_key, feature, df, primary_key: "LOAN_APP_ID")
+        EasyML::FeatureStore.store(feature, df, primary_key: "LOAN_APP_ID")
 
         # Read the stored data
         stored_df = Polars.read_parquet(expected_path)
@@ -134,17 +134,16 @@ RSpec.describe EasyML::FeatureStore do
   describe ".query" do
     before do
       # Store test data
-      EasyML::FeatureStore.store(feature_key, feature, df)
+      EasyML::FeatureStore.store(feature, df)
     end
 
     it "returns all data when no filter is provided" do
-      result = EasyML::FeatureStore.query(feature_key, feature)
+      result = EasyML::FeatureStore.query(feature)
       expect(result.to_hashes).to match_array(test_data)
     end
 
     it "applies filter when provided" do
       result = EasyML::FeatureStore.query(
-        feature_key,
         feature,
         filter: Polars.col("LOAN_APP_ID").eq("A1"),
       )

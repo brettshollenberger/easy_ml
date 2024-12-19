@@ -1,16 +1,25 @@
+export type ColumnType =
+  | "float"
+  | "integer"
+  | "boolean"
+  | "categorical"
+  | "datetime"
+  | "text"
+  | "string";
+
+export interface Schema {
+  [key: string]: ColumnType;
+}
+
 export interface Datasource {
   id: number;
   name: string;
   datasource_type: string;
-  s3_bucket: string;
-  s3_prefix: string;
-  s3_region: string;
-  last_synced_at: string;
   is_syncing: boolean;
-  sync_error: boolean;
-  stacktrace?: string;
-  schema: object;
+  last_synced_at: string | null;
   columns: string[];
+  schema: Schema;
+  error?: string;
 }
 
 export interface DatasourceFormProps {
@@ -21,4 +30,4 @@ export interface DatasourceFormProps {
       S3_REGIONS: Array<{ value: string; label: string }>;
     };
   };
-} 
+}

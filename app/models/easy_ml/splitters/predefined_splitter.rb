@@ -7,6 +7,14 @@ module EasyML
 
       add_configuration_attributes :train_files, :test_files, :valid_files
 
+      def self.default_config
+        {
+          train_files: ["train.csv"],
+          test_files: ["test.csv"],
+          valid_files: ["valid.csv"],
+        }
+      end
+
       def split(datasource, &block)
         validate!
 

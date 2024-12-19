@@ -1,4 +1,5 @@
 import type { Datasource } from "./datasource";
+import type { SplitterConfig } from '../components/dataset/splitters/types';
 
 export type DatasetWorkflowStatus = "analyzing" | "ready" | "failed" | "locked";
 export type DatasetStatus = "training" | "inference" | "retired";
@@ -114,23 +115,28 @@ export interface Dataset {
 
 export interface NewDatasetForm {
   dataset: {
-    name?: string;
-    description?: string;
-    datasource_id?: number;
-    splitter_attributes: {
-      splitter_type: string;
-      date_col: string;
-      months_test: number;
-      months_valid: number;
-    };
+    name: string;
+    datasource_id: string;
+    splitter_attributes: SplitterConfig;  
   };
 }
 
 export interface NewDatasetFormProps {
   constants: {
-    COLUMN_TYPES: Array<{ value: string; label: string }>;
+    splitter_constants: {
+      SPLITTER_TYPES: Array<{
+        value: string;
+        label: string;
+        description: string;
+      }>;
+      DEFAULT_CONFIGS: Record<string, any>;
+    };
   };
-  datasources: Datasource[];
+  datasources: Array<{
+    id: number;
+    name: string;
+    columns: string[];
+  }>;
 }
 
 export interface PreprocessingConstants {

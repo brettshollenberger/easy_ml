@@ -55,6 +55,11 @@ module EasyML
     def self.constants
       {
         SPLITTER_TYPES: SPLITTER_TYPES,
+        DEFAULT_CONFIGS: SPLITTER_OPTIONS.reduce({}) do |h, (type, klass)|
+          h.tap do
+            h[type] = klass.constantize.default_config
+          end
+        end,
       }
     end
 

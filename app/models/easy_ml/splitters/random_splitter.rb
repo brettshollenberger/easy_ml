@@ -23,7 +23,11 @@ module EasyML
 
       add_configuration_attributes :train_ratio, :valid_ratio, :test_ratio, :seed
 
-      def split(df)
+      def self.default_config
+        {}
+      end
+
+      def split_df(df)
         set_defaults
 
         # Set random seed if provided for reproducibility

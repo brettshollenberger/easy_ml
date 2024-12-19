@@ -5,7 +5,6 @@ export type DeploymentStatus = 'training' | 'inference' | 'retired';
 export type JobStatus = 'running' | 'success' | 'failed' | 'deployed';
 export type Frequency = 'hourly' | 'daily' | 'weekly' | 'monthly';
 export type ThresholdDirection = 'minimize' | 'maximize';
-
 export interface Feature {
   id: number;
   name: string;

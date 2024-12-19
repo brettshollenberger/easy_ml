@@ -71,6 +71,10 @@ module EasyML
       }
     end
 
+    def available_files
+      all_files.select { |f| File.exist?(f) && Pathname.new(f).extname == ".csv" }.map { |f| f.gsub(Regexp.new(Rails.root.to_s), "") }
+    end
+
     def in_memory?
       datasource_type == "polars"
     end

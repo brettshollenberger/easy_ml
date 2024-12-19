@@ -48,10 +48,30 @@ RSpec.describe EasyML::Datasource do
   end
 
   describe "Features" do
+    class BaseFeature
+      include EasyML::Features
+    end
+
+    describe "base methods" do
+      let(:feature) { BaseFeature.new }
+
+      it "raises NotImplementedError for fit if not overridden" do
+        expect { feature.fit(nil, nil) }.to raise_error(NotImplementedError)
+      end
+
+      it "raises NotImplementedError for batch if not overridden" do
+        expect { feature.batch(nil, nil) }.to raise_error(NotImplementedError)
+      end
+
+      it "raises NotImplementedError for transform if not overridden" do
+        expect { feature.transform(nil, nil) }.to raise_error(NotImplementedError)
+      end
+    end
+
     class DidConvert
       include EasyML::Features
 
-      def did_convert(df)
+      def transform(df, feature)
         df.with_column(
           (Polars.col("rev") > 0).alias("did_convert")
         )
@@ -125,7 +145,7 @@ RSpec.describe EasyML::Datasource do
       # EasyML::Features::Registry.register(DaysInBusiness)
     end
 
-    it "versions features", :focus do
+    it "versions features" do
       # Create business_inception first since days_in_business depends on it
       expect(dataset).to be_needs_refresh
       dataset.refresh!
@@ -154,7 +174,6 @@ RSpec.describe EasyML::Datasource do
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: DidConvert,
-        feature_method: :did_convert,
       ).prepend
 
       expect(dataset).to be_needs_refresh
@@ -177,7 +196,6 @@ RSpec.describe EasyML::Datasource do
       feature = EasyML::Feature.new(
         dataset: dataset,
         feature_class: BadFeature,
-        feature_method: :bad_feature,
       )
       feature.insert
 

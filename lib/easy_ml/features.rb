@@ -1,11 +1,14 @@
 module EasyML::Features
   def fit(reader, feature)
+    raise NotImplementedError
   end
 
   def batch(reader, feature)
+    raise NotImplementedError
   end
 
   def transform(df, feature)
+    raise NotImplementedError
   end
 
   def self.included(base)
@@ -17,27 +20,16 @@ module EasyML::Features
       @features ||= []
     end
 
-    def feature(method_name, name: nil, description: nil)
+    def feature(name: nil, description: nil)
       features << {
-        method: method_name,
-        name: name || method_name.to_s.humanize,
+        name: name,
         description: description,
       }
-    end
-
-    def apply_features(df)
-      new.apply_features(df)
     end
   end
 
   def missing_any?(list1, list2)
     (list1 - list2).any?
-  end
-
-  def apply_features(df)
-    self.class.features.reduce(df) do |df, feature|
-      send(feature[:method], df)
-    end
   end
 
   class Registry
@@ -51,7 +43,6 @@ module EasyML::Features
           registry[namespace][feature[:name]] = {
             feature_class: feature_class,
             name: feature[:name],
-            feature_method: feature[:method],
             description: feature[:description],
           }
         end

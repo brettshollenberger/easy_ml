@@ -7,7 +7,6 @@
 #  name             :string
 #  version          :bigint
 #  feature_class    :string           not null
-#  feature_method   :string           not null
 #  feature_position :integer
 #  applied_at       :datetime
 #  created_at       :datetime         not null
@@ -24,7 +23,6 @@ module EasyML
 
     # Validations
     validates :feature_class, presence: true
-    validates :feature_method, presence: true
     validates :feature_position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
 
     before_validation :set_feature_position, on: :create
@@ -42,7 +40,7 @@ module EasyML
     end
 
     def apply!(df)
-      feature_class_constant.new.public_send(feature_method, df)
+      feature_class_constant.new.transform(df, self)
     end
 
     # Position manipulation methods
@@ -51,10 +49,9 @@ module EasyML
       self
     end
 
-    def insert_where(feature_method)
+    def insert_where
       features = dataset.features.reload
-      target = features.detect { |t| t.feature_method.to_sym == feature_method }
-      target_position = target&.feature_position
+      target_position = features.map(&:feature_position).max
       yield target_position
       features.select { |t| target_position.nil? || t.feature_position > target_position }.each { |t| t.feature_position += 1 }
       features += [self]
@@ -64,19 +61,19 @@ module EasyML
     end
 
     def prepend
-      insert_where(nil) do |_position|
+      insert_where do |_position|
         self.feature_position = 0
       end
     end
 
-    def insert_before(feature_method)
-      insert_where(feature_method) do |position|
+    def insert_before
+      insert_where do |position|
         self.feature_position = position - 1
       end
     end
 
-    def insert_after(feature_method)
-      insert_where(feature_method) do |position|
+    def insert_after
+      insert_where do |position|
         self.feature_position = position + 1
       end
     end
@@ -86,7 +83,7 @@ module EasyML
     end
 
     def apply_defaults
-      self.name ||= feature_method.to_s.titleize
+      self.name ||= self.feature_class.demodulize.titleize
       self.version ||= 1
     end
 

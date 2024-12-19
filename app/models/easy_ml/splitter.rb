@@ -19,19 +19,25 @@ module EasyML
 
     SPLITTER_OPTIONS = {
       "date" => "EasyML::Splitters::DateSplitter",
-      "random" => "EasyML::Splitters::RandomSplitter"
+      "random" => "EasyML::Splitters::RandomSplitter",
+      "predefined" => "EasyML::Splitters::PredefinedSplitter",
     }
     SPLITTER_TYPES = [
       {
         value: "date",
         label: "Date Splitter",
-        description: "Split dataset based on date ranges for training, validation, and testing"
+        description: "Split dataset based on date ranges for training, validation, and testing",
       },
       {
         value: "random",
         label: "Random Splitter",
-        description: "Randomly split dataset into training, validation, and testing sets with configurable ratios"
-      }
+        description: "Randomly split dataset into training, validation, and testing sets with configurable ratios",
+      },
+      {
+        value: "predefined",
+        label: "Predefined Splitter",
+        description: "Split dataset using predefined file assignments for training, validation, and testing sets",
+      },
     ].freeze
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
@@ -48,28 +54,37 @@ module EasyML
 
     def self.constants
       {
-        SPLITTER_TYPES: SPLITTER_TYPES
+        SPLITTER_TYPES: SPLITTER_TYPES,
+        DEFAULT_CONFIGS: SPLITTER_OPTIONS.reduce({}) do |h, (type, klass)|
+          h.tap do
+            h[type] = klass.constantize.default_config
+          end
+        end,
       }
     end
 
-    def split(df)
-      adapter.split(df)
+    def split(df, &block)
+      adapter.split(df, &block)
+    end
+
+    def splits
+      adapter.splits
     end
 
     private
 
     def adapter
       @adapter ||= begin
-        adapter_class = SPLITTER_OPTIONS[splitter_type]
-        raise "Don't know how to use splitter #{splitter_type}!" unless adapter_class.present?
+          adapter_class = SPLITTER_OPTIONS[splitter_type]
+          raise "Don't know how to use splitter #{splitter_type}!" unless adapter_class.present?
 
-        attrs = adapter_class.constantize.configuration_attributes
-        adapter_class.constantize.new(self).tap do |adapter|
-          attrs.each do |attr|
-            adapter.send("#{attr}=", send(attr))
+          attrs = adapter_class.constantize.configuration_attributes
+          adapter_class.constantize.new(self).tap do |adapter|
+            attrs.each do |attr|
+              adapter.send("#{attr}=", send(attr))
+            end
           end
         end
-      end
     end
   end
 end

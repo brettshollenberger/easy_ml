@@ -18,6 +18,10 @@ module ModelSpecHelper
       SPEC_ROOT.join("internal/easy_ml/datasources/titanic_extended")
     end
 
+    base.let(:predefined_splits_dir) do
+      SPEC_ROOT.join("internal/easy_ml/datasources/predefined_splits")
+    end
+
     base.let(:loans_dir) do
       SPEC_ROOT.join("internal/easy_ml/datasources/loans")
     end
@@ -182,14 +186,14 @@ module ModelSpecHelper
       loans_model
     end
 
-    base.let(:titanic_dataset) do
+    def make_titanic_dataset(datasource_location = nil, splitter_attributes)
       dataset = EasyML::Dataset.create(
         name: "Titanic",
         datasource: EasyML::Datasource.new(
-          name: "Titanic Extended",
+          name: datasource_location,
           datasource_type: "file",
         ),
-        splitter_attributes: { splitter_type: :random },
+        splitter_attributes: splitter_attributes,
       )
       dataset.refresh
       dataset.columns.find_by(name: "Survived").update(is_target: true)
@@ -221,6 +225,19 @@ module ModelSpecHelper
                                                        })
       dataset.refresh
       dataset
+    end
+
+    base.let(:predefined_dataset) do
+      make_titanic_dataset("Predefined Splits", {
+        splitter_type: "predefined",
+        train_files: ["train.csv"],
+        test_files: ["test.csv"],
+        valid_files: ["valid.csv"],
+      })
+    end
+
+    base.let(:titanic_dataset) do
+      make_titanic_dataset("Titanic Extended", { splitter_type: :random })
     end
 
     base.let(:titanic_model) do

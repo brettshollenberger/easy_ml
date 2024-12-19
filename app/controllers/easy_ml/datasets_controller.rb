@@ -117,6 +117,12 @@ module EasyML
           date_col
           months_test
           months_valid
+          train_ratio
+          test_ratio
+          valid_ratio
+          train_files
+          test_files
+          valid_files
         ],
         columns_attributes: [
           :id,

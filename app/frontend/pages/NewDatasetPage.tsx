@@ -3,26 +3,104 @@ import { Database, AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-r
 import { SearchableSelect } from '../components/SearchableSelect';
 import { useInertiaForm } from 'use-inertia-form';
 import { usePage, router } from '@inertiajs/react';
-import type { NewDatasetForm, NewDatasetFormProps } from '../types/dataset';
+import type { Datasource } from '../types/datasource';
+import type { 
+  NewDatasetForm, 
+  NewDatasetFormProps, 
+  SplitterType, 
+  SplitConfig,
+  DateSplitConfig,
+  RandomSplitConfig,
+  PredefinedSplitConfig,
+  StratifiedSplitConfig,
+  KFoldConfig,
+  LeavePOutConfig,
+  ColumnConfig
+} from '../components/dataset/splitters/types';
+import { SplitConfigurator } from '../components/dataset/SplitConfigurator';
+import { validateSplitterConfig } from '../components/dataset/splitters/types';
 
 export default function NewDatasetPage({ constants, datasources }: NewDatasetFormProps) {
   const [step, setStep] = useState(1);
   const [showError, setShowError] = useState<number | null>(null);
+  const [selectedSplitterType, setSelectedSplitterType] = useState<SplitterType>('random');
   const { rootPath } = usePage().props;
 
+  const getDefaultConfig = (type: SplitterType): SplitConfig => {
+    switch (type) {
+      case 'date':
+        const dateConfig: DateSplitConfig = {
+          date_column: '',
+          months_test: 2,
+          months_valid: 2
+        };
+        return dateConfig;
+      case 'random':
+        const randomConfig: RandomSplitConfig = {};
+        return randomConfig;
+      case 'predefined':
+        const predefinedConfig: PredefinedSplitConfig = {
+          train_files: [],
+          test_files: [],
+          valid_files: []
+        };
+        return predefinedConfig;
+      case 'stratified':
+        const stratifiedConfig: StratifiedSplitConfig = {
+          stratify_column: '',
+          train_ratio: 0.6,
+          test_ratio: 0.2,
+          valid_ratio: 0.2
+        };
+        return stratifiedConfig;
+      case 'stratified_kfold':
+      case 'group_kfold':
+        const kfoldConfig: KFoldConfig = {
+          target_column: '',
+          group_column: '',
+          n_splits: 5
+        };
+        return kfoldConfig;
+      case 'leave_p_out':
+        const lpoConfig: LeavePOutConfig = {
+          p: 1,
+          shuffle: true,
+          random_state: 42
+        };
+        return lpoConfig;
+      default:
+        const defaultConfig: RandomSplitConfig = {};
+        return defaultConfig;
+    }
+  };
+  
   const form = useInertiaForm<NewDatasetForm>({
     dataset: {
       name: '',
-      description: '',
-      datasource_id: undefined,
+      datasource_id: '',
       splitter_attributes: {
-        splitter_type: 'date',
-        date_col: '',
-        months_test: 2,
-        months_valid: 2
+        splitter_type: selectedSplitterType,
+        ...getDefaultConfig(selectedSplitterType)
       }
     }
   });
+
+  // Update form when splitter type changes
+  useEffect(() => {
+    form.setData('dataset.splitter_attributes', {
+      splitter_type: selectedSplitterType,
+      ...getDefaultConfig(selectedSplitterType)
+    });
+  }, [selectedSplitterType]);
+
+  const handleSplitterChange = (type: SplitterType, attributes: SplitConfig) => {
+    setSelectedSplitterType(type);
+    form.setData('dataset.splitter_attributes', {
+      splitter_type: type,
+      ...attributes
+    });
+  };
+  console.log(form.dataset?.splitter_attributes)
 
   const { data: formData, setData, post } = form;
 
@@ -30,7 +108,10 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
     ? datasources.find(d => d.id === Number(formData.dataset.datasource_id))
     : null;
 
-  const availableCols = selectedDatasource?.columns || [];
+  const availableCols: ColumnConfig[] = (selectedDatasource?.columns || []).map(col => ({
+    name: col,
+    type: (selectedDatasource?.schema || {})[col] || ''
+  }));
 
   const isDatasourceReady = selectedDatasource && 
     !selectedDatasource.is_syncing && 
@@ -54,6 +135,26 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
         console.error('Failed to create dataset:', errors);
       }
     });
+  };
+
+  const getValidationError = (): string | undefined => {
+    if (!formData.dataset.name) {
+      return "Please enter a dataset name";
+    }
+    if (!formData.dataset.datasource_id) {
+      return "Please select a datasource";
+    }
+    
+    const splitterValidation = validateSplitterConfig(
+      formData.dataset.splitter_attributes.splitter_type,
+      formData.dataset.splitter_attributes
+    );
+    
+    return splitterValidation.error;
+  };
+
+  const isFormValid = () => {
+    return !getValidationError();
   };
 
   return (
@@ -227,68 +328,19 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="dateColumn"
-                  className="block text-sm font-medium text-gray-700 mb-1"
-                >
-                  Date Column To Split On
-                </label>
-                <SearchableSelect
-                  value={formData?.dataset?.splitter_attributes?.date_col || null}
-                  onChange={(value) => setData('dataset.splitter_attributes.date_col', value)}
-                  options={availableCols.filter(col => {
-                    return selectedDatasource?.schema[col] === 'datetime'
-                  }).map(col => ({
-                    value: col,
-                    label: col
-                  }))}
-                  placeholder="Select a date column..."
-                />
-              </div>
+            <SplitConfigurator
+              type={selectedSplitterType}
+              splitter_attributes={form.data.dataset.splitter_attributes}
+              columns={availableCols}
+              available_files={selectedDatasource.available_files}
+              onChange={handleSplitterChange}
+            />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="monthsTest"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Test Set (months)
-                  </label>
-                  <input
-                    type="number"
-                    id="monthsTest"
-                    min="1"
-                    max="12"
-                    value={formData.dataset.splitter_attributes.months_test}
-                    onChange={(e) =>
-                      setData('dataset.splitter_attributes.months_test', parseInt(e.target.value) || 0)
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="monthsValid"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Validation Set (months)
-                  </label>
-                  <input
-                    type="number"
-                    id="monthsValid"
-                    min="1"
-                    max="12"
-                    value={formData.dataset.splitter_attributes.months_valid}
-                    onChange={(e) =>
-                      setData('dataset.splitter_attributes.months_valid', parseInt(e.target.value) || 0)
-                    }
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
+            {getValidationError() && (
+              <div className="mt-2 text-sm text-red-600">
+                {getValidationError()}
               </div>
-            </div>
+            )}
 
             <div className="flex justify-between">
               <button
@@ -300,7 +352,7 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
               </button>
               <button
                 type="submit"
-                disabled={!formData.dataset.splitter_attributes.date_col}
+                disabled={!isFormValid()}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Create Dataset

@@ -81,6 +81,7 @@ module EasyML
         end,
         preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies],
         feature_options: EasyML::Features::Registry.list_flat,
+        splitter_constants: EasyML::Splitter.constants,
       }
     end
 

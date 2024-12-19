@@ -22,6 +22,14 @@ module EasyML
 
       add_configuration_attributes :today, :date_col, :months_test, :months_valid
 
+      def self.default_config
+        {
+          date_col: "",
+          months_test: 2,
+          months_valid: 2,
+        }
+      end
+
       def split_df(df)
         raise "Split by date requires argument: date_col" unless date_col.present?
 

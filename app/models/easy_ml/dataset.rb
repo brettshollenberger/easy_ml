@@ -605,7 +605,7 @@ module EasyML
         df
       else
         features.ordered.reduce(df) do |acc_df, feature|
-          result = feature.apply!(acc_df)
+          result = feature.transform(acc_df)
 
           unless result.is_a?(Polars::DataFrame)
             raise "Feature '#{feature.name}' must return a Polars::DataFrame, got #{result.class}"

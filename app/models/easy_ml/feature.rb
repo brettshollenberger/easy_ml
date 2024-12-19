@@ -62,7 +62,7 @@ module EasyML
       end
 
       # Combine all conditions with OR
-      where(conditions.join(" OR ")).or.where(needs_recompute: true)
+      where(needs_recompute: true).or(where(conditions.join(" OR ")))
     }
     scope :never_applied, -> { where(applied_at: nil) }
     scope :needs_recompute, -> { has_changes.or(never_applied) }
@@ -71,14 +71,52 @@ module EasyML
     before_save :update_sha
     before_save :update_from_feature_class
 
-    def feature_class_constant
+    def feature_klass
       feature_class.constantize
     rescue NameError
       raise InvalidFeatureError, "Invalid feature class: #{feature_class}"
     end
 
-    def apply!(df)
-      result = feature_class_constant.new.transform(df, self)
+    def adapter
+      feature_klass.new
+    end
+
+    def needs_recompute?
+      Feature.has_changes.where(id: id).exists?
+    end
+
+    def batch
+      reset if needs_recompute?
+      adapter.batch(data, batch_size)
+    end
+
+    def reset
+      EasyML::FeatureStore.wipe(self)
+    end
+
+    def reset_on_fit?
+      needs_recompute? && !adapter.respond_to?(:batch)
+    end
+
+    def fit(reader)
+      reset if reset_on_fit?
+
+      batch_df = nil
+      if adapter.respond_to?(:fit)
+        batch_df = adapter.fit(reader, self)
+        raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
+        EasyML::FeatureStore.store(self, batch_df)
+      end
+      updates = {
+        applied_at: Time.current,
+        needs_recompute: reset_on_fit? ? false : nil,
+      }.compact
+      update!(updates)
+      batch_df
+    end
+
+    def transform(df)
+      result = adapter.transform(df, self)
       update!(applied_at: Time.current)
       result
     end
@@ -90,21 +128,6 @@ module EasyML
     def compute_sha
       self.class.compute_sha(feature_class)
     end
-
-    def feature_class_batch_size
-      self[:feature_class_batch_size] || batch_size
-    end
-
-    def batch_size_changed?
-      return false unless persisted?
-
-      previous_batch_size = previous_changes[:batch_size]&.first
-      current_batch_size = batch_size
-
-      previous_batch_size && previous_batch_size != current_batch_size
-    end
-
-    after_save :handle_batch_size_change, if: :batch_size_changed?
 
     # Position manipulation methods
     def insert

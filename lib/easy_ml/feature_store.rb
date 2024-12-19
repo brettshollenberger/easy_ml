@@ -1,7 +1,7 @@
 module EasyML
   class FeatureStore
     class << self
-      def store(feature_key, feature, df, primary_key: nil)
+      def store(feature, df, primary_key: nil)
         path = feature_path(feature)
         FileUtils.mkdir_p(File.dirname(path))
 
@@ -22,7 +22,7 @@ module EasyML
         df.write_parquet(path)
       end
 
-      def query(feature_key, feature, filter: nil)
+      def query(feature, filter: nil)
         reader = EasyML::Data::PolarsReader.new
         files = [feature_path(feature)]
 
@@ -36,31 +36,15 @@ module EasyML
       private
 
       def feature_path(feature)
-        feature_path_for_version(
-          feature_key_from_feature(feature),
-          feature
-        )
-      end
-
-      def feature_path_for_version(feature_key, feature)
-        parts = feature_key.split(".")
-        feature_name = parts.last
-
         File.join(
           Rails.root,
           "easy_ml/datasets",
           feature.dataset.name.parameterize,
           "features",
-          feature_name.parameterize,
+          feature.name.parameterize,
           feature.version.to_s,
           "feature.parquet"
         )
-      end
-
-      def feature_key_from_feature(feature)
-        # This assumes feature keys follow the pattern "domain.feature_name"
-        # You might want to make this more configurable
-        "#{feature.dataset.name.parameterize}.#{feature.name.parameterize}"
       end
     end
   end

@@ -300,6 +300,68 @@ RSpec.describe EasyML::Datasource do
       end
     end
 
+    describe "#batch_size" do
+      class TestFeature
+        include EasyML::Features
+        feature name: "Test Feature",
+               description: "A test feature",
+               batch_size: 5000
+      end
+
+      class DefaultBatchFeature
+        include EasyML::Features
+        feature name: "Default Batch Feature",
+               description: "A feature with default batch size"
+      end
+
+      before(:each) do
+        EasyML::Features::Registry.register(TestFeature)
+        EasyML::Features::Registry.register(DefaultBatchFeature)
+      end
+
+      after(:each) do
+        EasyML::Features::Registry.instance_variable_set(:@registry, {})
+      end
+
+      it "returns configured batch size from feature class" do
+        feature = EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: "TestFeature",
+          name: "Test Feature"
+        )
+        expect(feature.batch_size).to eq(5000)
+      end
+
+      it "returns default batch size when not configured" do
+        feature = EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: "DefaultBatchFeature",
+          name: "Default Batch Feature"
+        )
+        expect(feature.batch_size).to eq(10_000)
+      end
+    end
+
+    describe "#batch_size_changed?" do
+      let(:feature) do
+        EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: "TestFeature",
+          name: "Test Feature"
+        )
+      end
+
+      it "detects batch size changes" do
+        allow(feature).to receive(:previous_changes).and_return(batch_size: [5000, 10_000])
+        expect(feature.batch_size_changed?).to be true
+      end
+
+      it "ignores when batch size hasn't changed" do
+        allow(feature).to receive(:previous_changes).and_return({})
+        expect(feature.batch_size_changed?).to be false
+      end
+    end
+
     describe "code signature versioning" do
       let(:feature) do
         EasyML::Feature.create!(

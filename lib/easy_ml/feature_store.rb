@@ -1,50 +1,134 @@
 module EasyML
   class FeatureStore
     class << self
-      def store(feature, df, primary_key: nil)
-        path = feature_path(feature)
-        FileUtils.mkdir_p(File.dirname(path))
+      def store(feature, df)
+        primary_key = feature.primary_key&.first
+        return store_without_partitioning(feature, df) unless primary_key
 
-        if File.exist?(path) && primary_key
-          reader = EasyML::Data::PolarsReader.new(
-            root_dir: File.dirname(path),
+        min_key = df[primary_key].min
+        max_key = df[primary_key].max
+        batch_size = feature.batch_size || 10_000
+
+        partitions = compute_partition_boundaries(min_key, max_key, batch_size)
+        partitions.each do |partition_start|
+          partition_end = partition_start + batch_size - 1
+          partition_df = df.filter(
+            (Polars.col(primary_key) >= partition_start) &
+            (Polars.col(primary_key) <= partition_end)
           )
 
-          # Use lazy evaluation to efficiently find records to preserve
-          preserved_records = reader.query(
-            filter: Polars.col(primary_key).is_in(df[primary_key]).is_not,
-          )
+          next if partition_df.height == 0
 
-          # Combine preserved records with new data
-          df = Polars.concat([preserved_records, df], how: "vertical")
+          store_partition(feature, partition_df, primary_key, partition_start)
         end
-
-        df.write_parquet(path)
       end
 
       def query(feature, filter: nil)
-        reader = EasyML::Data::PolarsReader.new
-        files = [feature_path(feature)]
-
-        if filter
-          reader.query(files, filter: filter)
+        if filter&.is_primary_key_filter?(feature.primary_key)
+          query_partitions(feature, filter)
         else
-          reader.query(files)
+          query_all_partitions(feature, filter)
         end
+      end
+
+      def list_partitions(feature)
+        Dir.glob(File.join(feature_dir(feature), "feature*.parquet")).sort
+      end
+
+      def repartition(feature, primary_key)
+        # Read all existing data
+        reader = EasyML::Data::PolarsReader.new
+        old_pattern = File.join(
+          feature_dir(feature),
+          "feature*.parquet"
+        )
+        old_files = Dir.glob(old_pattern)
+
+        return if old_files.empty?
+
+        # Read and combine all existing data
+        df = reader.query(old_files)
+
+        # Delete old partition files
+        old_files.each { |f| File.delete(f) }
+
+        # Store with new batch size
+        store(feature, df, primary_key: primary_key)
       end
 
       private
 
-      def feature_path(feature)
+      def store_without_partitioning(feature, df)
+        path = feature_path(feature)
+        FileUtils.mkdir_p(File.dirname(path))
+        df.write_parquet(path)
+      end
+
+      def store_partition(feature, partition_df, primary_key, partition_start)
+        path = partition_path(feature, partition_start)
+        FileUtils.mkdir_p(File.dirname(path))
+
+        if File.exist?(path)
+          reader = EasyML::Data::PolarsReader.new
+          existing_df = reader.query([path])
+          preserved_records = existing_df.filter(
+            Polars.col(primary_key).is_in(partition_df[primary_key]).is_not
+          )
+          partition_df = Polars.concat([preserved_records, partition_df], how: "vertical")
+        end
+
+        partition_df.write_parquet(path)
+      end
+
+      def query_partitions(feature, filter)
+        primary_key_values = filter.extract_primary_key_values
+        batch_size = feature.batch_size || 10_000
+
+        partition_files = primary_key_values.map do |key|
+          partition_start = (key / batch_size.to_f).floor * batch_size
+          partition_path(feature, partition_start)
+        end.uniq.select { |path| File.exist?(path) }
+
+        return Polars::DataFrame.new if partition_files.empty?
+
+        reader = EasyML::Data::PolarsReader.new
+        reader.query(partition_files, filter: filter)
+      end
+
+      def query_all_partitions(feature, filter)
+        reader = EasyML::Data::PolarsReader.new
+        pattern = File.join(feature_dir(feature), "feature*.parquet")
+        files = Dir.glob(pattern)
+
+        return Polars::DataFrame.new if files.empty?
+
+        reader.query(files, filter: filter)
+      end
+
+      def compute_partition_boundaries(min_key, max_key, batch_size)
+        start_partition = (min_key / batch_size.to_f).floor * batch_size
+        end_partition = (max_key / batch_size.to_f).floor * batch_size
+
+        (start_partition..end_partition).step(batch_size).to_a
+      end
+
+      def feature_dir(feature)
         File.join(
           Rails.root,
           "easy_ml/datasets",
           feature.dataset.name.parameterize,
           "features",
           feature.name.parameterize,
-          feature.version.to_s,
-          "feature.parquet"
+          feature.version.to_s
         )
+      end
+
+      def feature_path(feature)
+        File.join(feature_dir(feature), "feature.parquet")
+      end
+
+      def partition_path(feature, partition_start)
+        File.join(feature_dir(feature), "feature#{partition_start}.parquet")
       end
     end
   end

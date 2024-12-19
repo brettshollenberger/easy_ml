@@ -20,10 +20,12 @@ module EasyML::Features
       @features ||= []
     end
 
-    def feature(name: nil, description: nil)
+    def feature(name: nil, description: nil, batch_size: 10_000, primary_key: nil)
       features << {
         name: name,
         description: description,
+        batch_size: batch_size,
+        primary_key: primary_key,
       }
     end
   end
@@ -40,11 +42,9 @@ module EasyML::Features
 
         feature_class.features.each do |feature|
           [namespace, feature[:name]].compact.join("/")
-          registry[namespace][feature[:name]] = {
+          registry[namespace][feature[:name]] = feature.merge!(
             feature_class: feature_class,
-            name: feature[:name],
-            description: feature[:description],
-          }
+          )
         end
       end
 

@@ -12,6 +12,7 @@
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #  sha              :string
+#  batch_size       :integer
 #
 module EasyML
   class Feature < ActiveRecord::Base
@@ -43,37 +44,33 @@ module EasyML
       end
     end
 
-    # Associations
     belongs_to :dataset, class_name: "EasyML::Dataset"
 
-    # Validations
     validates :feature_class, presence: true
     validates :feature_position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
-
     before_validation :set_feature_position, on: :create
 
-    # Scopes
     scope :ordered, -> { order(feature_position: :asc) }
-    scope :has_changes, -> {
-            # Get all unique feature classes
-            feature_classes = pluck(:feature_class).uniq
+    scope :has_changes, lambda {
+      # Get all unique feature classes
+      feature_classes = pluck(:feature_class).uniq
 
-            # Build conditions for each feature class
-            conditions = feature_classes.map do |klass|
-              current_sha = compute_sha(klass)
-              sanitize_sql_array(["(feature_class = ? AND (sha IS NULL OR sha != ?))", klass, current_sha])
-            end
+      # Build conditions for each feature class
+      conditions = feature_classes.map do |klass|
+        current_sha = compute_sha(klass)
+        sanitize_sql_array(["(feature_class = ? AND (sha IS NULL OR sha != ?))", klass, current_sha])
+      end
 
-            # Combine all conditions with OR
-            where(conditions.join(" OR "))
-          }
+      # Combine all conditions with OR
+      where(conditions.join(" OR ")).or.where(needs_recompute: true)
+    }
     scope :never_applied, -> { where(applied_at: nil) }
     scope :needs_recompute, -> { has_changes.or(never_applied) }
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha
+    before_save :update_from_feature_class
 
-    # Instance methods
     def feature_class_constant
       feature_class.constantize
     rescue NameError
@@ -93,6 +90,21 @@ module EasyML
     def compute_sha
       self.class.compute_sha(feature_class)
     end
+
+    def feature_class_batch_size
+      self[:feature_class_batch_size] || batch_size
+    end
+
+    def batch_size_changed?
+      return false unless persisted?
+
+      previous_batch_size = previous_changes[:batch_size]&.first
+      current_batch_size = batch_size
+
+      previous_batch_size && previous_batch_size != current_batch_size
+    end
+
+    after_save :handle_batch_size_change, if: :batch_size_changed?
 
     # Position manipulation methods
     def insert
@@ -169,6 +181,21 @@ module EasyML
 
     def update_sha
       self.sha = compute_sha
+    end
+
+    def update_from_feature_class
+      if self.batch_size != feature_class_config.dig(:batch_size)
+        self.batch_size = feature_class_config.dig(:batch_size)
+        self.needs_recompute = true
+      end
+
+      if self.primary_key != feature_class_config.dig(:primary_key)
+        self.primary_key = [feature_class_config.dig(:primary_key)].flatten
+      end
+    end
+
+    def feature_class_config
+      EasyML::Features::Registry.list_flat.detect { |f| f[:feature_class] == feature_class.constantize } || {}
     end
   end
 

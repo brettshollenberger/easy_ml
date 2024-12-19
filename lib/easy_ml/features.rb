@@ -1,4 +1,8 @@
 module EasyML::Features
+  def transform(df, feature)
+    raise NotImplementedError
+  end
+
   def self.included(base)
     base.extend(ClassMethods)
   end
@@ -8,27 +12,18 @@ module EasyML::Features
       @features ||= []
     end
 
-    def feature(method_name, name: nil, description: nil)
+    def feature(name: nil, description: nil, batch_size: 10_000, primary_key: nil)
       features << {
-        method: method_name,
-        name: name || method_name.to_s.humanize,
+        name: name,
         description: description,
+        batch_size: batch_size,
+        primary_key: primary_key,
       }
-    end
-
-    def apply_features(df)
-      new.apply_features(df)
     end
   end
 
   def missing_any?(list1, list2)
     (list1 - list2).any?
-  end
-
-  def apply_features(df)
-    self.class.features.reduce(df) do |df, feature|
-      send(feature[:method], df)
-    end
   end
 
   class Registry
@@ -39,12 +34,9 @@ module EasyML::Features
 
         feature_class.features.each do |feature|
           [namespace, feature[:name]].compact.join("/")
-          registry[namespace][feature[:name]] = {
+          registry[namespace][feature[:name]] = feature.merge!(
             feature_class: feature_class,
-            name: feature[:name],
-            feature_method: feature[:method],
-            description: feature[:description],
-          }
+          )
         end
       end
 

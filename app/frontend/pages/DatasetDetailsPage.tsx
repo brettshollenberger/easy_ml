@@ -53,7 +53,6 @@ export default function DatasetDetailsPage({ dataset, constants }: Props) {
       id: feature.id,
       name: feature.name,
       feature_class: feature.feature_class,
-      feature_method: feature.feature_method,
       feature_position: index,
       _destroy: feature._destroy
     }));

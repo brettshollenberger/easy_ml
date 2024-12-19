@@ -148,7 +148,6 @@ module EasyML
           id
           name
           feature_class
-          feature_method
           feature_position
           _destroy
         ],

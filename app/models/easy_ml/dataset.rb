@@ -137,6 +137,7 @@ module EasyML
 
       @raw = raw.cp(version)
       @processed = processed.cp(version)
+      features.each(&:bump_version)
 
       save
     end
@@ -604,10 +605,10 @@ module EasyML
         df
       else
         features.ordered.reduce(df) do |acc_df, feature|
-          result = feature.apply!(acc_df)
+          result = feature.transform(acc_df)
 
           unless result.is_a?(Polars::DataFrame)
-            raise "Feature '#{feature.feature_method}' must return a Polars::DataFrame, got #{result.class}"
+            raise "Feature '#{feature.name}' must return a Polars::DataFrame, got #{result.class}"
           end
 
           result

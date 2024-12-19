@@ -5,12 +5,14 @@
 #  id               :bigint           not null, primary key
 #  dataset_id       :bigint           not null
 #  name             :string
+#  version          :bigint
 #  feature_class    :string           not null
-#  feature_method   :string           not null
 #  feature_position :integer
 #  applied_at       :datetime
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
+#  sha              :string
+#  batch_size       :integer
 #
 module EasyML
   class Feature < ActiveRecord::Base
@@ -18,28 +20,113 @@ module EasyML
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
-    # Associations
+    class << self
+      def compute_sha(feature_class)
+        require "digest"
+        path = feature_class.constantize.instance_method(:transform).source_location.first
+        current_mtime = File.mtime(path)
+        cache_key = "feature_sha/#{path}"
+
+        cached = Rails.cache.read(cache_key)
+
+        if cached && cached[:mtime] == current_mtime
+          cached[:sha]
+        else
+          # Compute new SHA and cache it with the current mtime
+          sha = Digest::SHA256.hexdigest(File.read(path))
+          Rails.cache.write(cache_key, { sha: sha, mtime: current_mtime })
+          sha
+        end
+      end
+
+      def clear_sha_cache!
+        Rails.cache.delete_matched("feature_sha/*")
+      end
+    end
+
     belongs_to :dataset, class_name: "EasyML::Dataset"
 
-    # Validations
     validates :feature_class, presence: true
-    validates :feature_method, presence: true
     validates :feature_position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
-
     before_validation :set_feature_position, on: :create
 
-    # Scopes
     scope :ordered, -> { order(feature_position: :asc) }
+    scope :has_changes, lambda {
+      # Get all unique feature classes
+      feature_classes = pluck(:feature_class).uniq
 
-    # Instance methods
-    def feature_class_constant
+      # Build conditions for each feature class
+      conditions = feature_classes.map do |klass|
+        current_sha = compute_sha(klass)
+        sanitize_sql_array(["(feature_class = ? AND (sha IS NULL OR sha != ?))", klass, current_sha])
+      end
+
+      # Combine all conditions with OR
+      where(needs_recompute: true).or(where(conditions.join(" OR ")))
+    }
+    scope :never_applied, -> { where(applied_at: nil) }
+    scope :needs_recompute, -> { has_changes.or(never_applied) }
+
+    before_save :apply_defaults, if: :new_record?
+    before_save :update_sha
+    before_save :update_from_feature_class
+
+    def feature_klass
       feature_class.constantize
     rescue NameError
       raise InvalidFeatureError, "Invalid feature class: #{feature_class}"
     end
 
-    def apply!(df)
-      feature_class_constant.new.public_send(feature_method, df)
+    def adapter
+      feature_klass.new
+    end
+
+    def needs_recompute?
+      Feature.has_changes.where(id: id).exists?
+    end
+
+    def batch
+      reset if needs_recompute?
+      adapter.batch(data, batch_size)
+    end
+
+    def reset
+      EasyML::FeatureStore.wipe(self)
+    end
+
+    def reset_on_fit?
+      needs_recompute? && !adapter.respond_to?(:batch)
+    end
+
+    def fit(reader)
+      reset if reset_on_fit?
+
+      batch_df = nil
+      if adapter.respond_to?(:fit)
+        batch_df = adapter.fit(reader, self)
+        raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
+        EasyML::FeatureStore.store(self, batch_df)
+      end
+      updates = {
+        applied_at: Time.current,
+        needs_recompute: reset_on_fit? ? false : nil,
+      }.compact
+      update!(updates)
+      batch_df
+    end
+
+    def transform(df)
+      result = adapter.transform(df, self)
+      update!(applied_at: Time.current)
+      result
+    end
+
+    def code_changed?
+      sha != compute_sha
+    end
+
+    def compute_sha
+      self.class.compute_sha(feature_class)
     end
 
     # Position manipulation methods
@@ -48,10 +135,9 @@ module EasyML
       self
     end
 
-    def insert_where(feature_method)
+    def insert_where
       features = dataset.features.reload
-      target = features.detect { |t| t.feature_method.to_sym == feature_method }
-      target_position = target&.feature_position
+      target_position = features.map(&:feature_position).max
       yield target_position
       features.select { |t| target_position.nil? || t.feature_position > target_position }.each { |t| t.feature_position += 1 }
       features += [self]
@@ -61,21 +147,30 @@ module EasyML
     end
 
     def prepend
-      insert_where(nil) do |_position|
+      insert_where do |_position|
         self.feature_position = 0
       end
     end
 
-    def insert_before(feature_method)
-      insert_where(feature_method) do |position|
+    def insert_before
+      insert_where do |position|
         self.feature_position = position - 1
       end
     end
 
-    def insert_after(feature_method)
-      insert_where(feature_method) do |position|
+    def insert_after
+      insert_where do |position|
         self.feature_position = position + 1
       end
+    end
+
+    def bump_version
+      write_attribute(:version, version + 1)
+    end
+
+    def apply_defaults
+      self.name ||= self.feature_class.demodulize.titleize
+      self.version ||= 1
     end
 
     private
@@ -83,6 +178,7 @@ module EasyML
     def bulk_update_positions(features)
       # Use activerecord-import for bulk updates
       features = order_features(features)
+      features.each(&:apply_defaults)
       new_features = features.reject(&:persisted?)
       existing_features = features.select(&:persisted?)
       Feature.import(
@@ -104,6 +200,25 @@ module EasyML
 
       max_feature_position = dataset&.features&.maximum(:feature_position) || -1
       self.feature_position = max_feature_position + 1
+    end
+
+    def update_sha
+      self.sha = compute_sha
+    end
+
+    def update_from_feature_class
+      if self.batch_size != feature_class_config.dig(:batch_size)
+        self.batch_size = feature_class_config.dig(:batch_size)
+        self.needs_recompute = true
+      end
+
+      if self.primary_key != feature_class_config.dig(:primary_key)
+        self.primary_key = [feature_class_config.dig(:primary_key)].flatten
+      end
+    end
+
+    def feature_class_config
+      EasyML::Features::Registry.list_flat.detect { |f| f[:feature_class] == feature_class.constantize } || {}
     end
   end
 

@@ -225,27 +225,23 @@ RSpec.describe EasyML::Datasource do
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: BusinessInception,
-        feature_method: :business_inception,
       ).insert
 
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: DaysInBusiness,
-        feature_method: :days_in_business,
       ).insert
 
       # Insert age between business_inception and days_in_business
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: Age,
-        feature_method: :age,
       ).insert_after(:business_inception)
 
       # Prepend did_convert to be first
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: DidConvert,
-        feature_method: :did_convert,
       ).prepend
 
       expect(dataset).to be_needs_refresh
@@ -253,7 +249,7 @@ RSpec.describe EasyML::Datasource do
       expect(dataset).to_not be_needs_refresh
 
       features = dataset.features.ordered
-      expect(features.map(&:feature_method)).to eq(
+      expect(features.map(&:name)).to eq(
         %w[did_convert business_inception age days_in_business]
       )
 
@@ -273,7 +269,6 @@ RSpec.describe EasyML::Datasource do
       feature = EasyML::Feature.new(
         dataset: dataset,
         feature_class: BadFeature,
-        feature_method: :bad_feature,
       )
       feature.insert
 
@@ -333,7 +328,6 @@ RSpec.describe EasyML::Datasource do
             EasyML::Feature.create!(
               dataset: dataset,
               feature_class: Age,
-              feature_method: :age,
             )
           end
 

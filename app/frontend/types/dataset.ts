@@ -21,7 +21,6 @@ export type Feature = {
   id?: number;
   name: string;
   feature_class: string;
-  feature_method: string;
   feature_position: number;
   dataset_id?: number;
   description?: string;

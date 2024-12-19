@@ -137,6 +137,7 @@ module EasyML
 
       @raw = raw.cp(version)
       @processed = processed.cp(version)
+      features.each(&:bump_version)
 
       save
     end

@@ -5,6 +5,7 @@
 #  id               :bigint           not null, primary key
 #  dataset_id       :bigint           not null
 #  name             :string
+#  version          :bigint
 #  feature_class    :string           not null
 #  feature_method   :string           not null
 #  feature_position :integer
@@ -30,6 +31,8 @@ module EasyML
 
     # Scopes
     scope :ordered, -> { order(feature_position: :asc) }
+
+    before_save :apply_defaults, if: :new_record?
 
     # Instance methods
     def feature_class_constant
@@ -78,11 +81,21 @@ module EasyML
       end
     end
 
+    def bump_version
+      write_attribute(:version, version + 1)
+    end
+
+    def apply_defaults
+      self.name ||= feature_method.to_s.titleize
+      self.version ||= 1
+    end
+
     private
 
     def bulk_update_positions(features)
       # Use activerecord-import for bulk updates
       features = order_features(features)
+      features.each(&:apply_defaults)
       new_features = features.reject(&:persisted?)
       existing_features = features.select(&:persisted?)
       Feature.import(

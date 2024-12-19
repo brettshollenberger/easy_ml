@@ -23,12 +23,6 @@ SPEC_ROOT = PROJECT_ROOT.join("spec")
 RSpec.configure do |config|
   include ActiveJob::TestHelper
 
-  # Only load Rails/Combustion for specs that need it
-  any_rails_files = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
-  if any_rails_files
-    require_rails_files
-  end
-
   def require_rails_files
     require "combustion"
     # require "rails/generators"
@@ -42,6 +36,12 @@ RSpec.configure do |config|
 
     # Convert Rails.root to Pathname to ensure consistent path handling
     Dir[Pathname.new(Rails.root).join("spec/support/**/*.rb").to_s].each { |f| require f }
+  end
+
+  # Only load Rails/Combustion for specs that need it
+  any_rails_files = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
+  if any_rails_files
+    require_rails_files
   end
 
   config.before(:each) do

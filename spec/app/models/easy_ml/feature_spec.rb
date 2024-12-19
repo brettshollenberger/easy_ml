@@ -219,7 +219,7 @@ RSpec.describe EasyML::Datasource do
         end
 
         def transform(df, feature)
-          stored_df = EasyML::FeatureStore.load("loans.last_app_time", feature.version)
+          stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("LOAN_APP_ID").is_in(df["LOAN_APP_ID"]))
           df.join(stored_df, on: "LOAN_APP_ID", how: "left")
         end
 
@@ -253,40 +253,40 @@ RSpec.describe EasyML::Datasource do
         dataset.raw.save(:train, df)
       end
 
-      it "computes and stores feature values during fit", :focus do
-        feature_instance = LastAppTime.new
-        feature_instance.fit(dataset.raw, feature)
+      it "computes and stores feature values during fit" do
+        fit_df = feature.fit(dataset.raw)
 
         # Load the stored feature values
-        # stored_df = EasyML::FeatureStore.load("loans.last_app_time", feature.version)
+        stored_df = EasyML::FeatureStore.query(feature)
+
+        expect(stored_df).to eq(fit_df)
 
         # # Verify the computed last application times
-        # expect(stored_df.schema).to include(
-        #   "COMPANY_ID" => Polars::Int64,
-        #   "LOAN_APP_ID" => Polars::String,
-        #   "LAST_APP_TIME" => Polars::String,
-        # )
+        expect(stored_df.schema).to include(
+          "COMPANY_ID" => Polars::Int64,
+          "LOAN_APP_ID" => Polars::String,
+          "LAST_APP_TIME" => Polars::String,
+        )
 
         # # Company 1's second application should have the first application time
-        # second_app = stored_df.filter(Polars.col("LOAN_APP_ID").eq("A2")).select("LAST_APP_TIME").to_a.flatten.first
-        # expect(second_app).to eq("2024-01-01")
+        second_app = stored_df.filter(Polars.col("LOAN_APP_ID").eq("A2")).select("LAST_APP_TIME").to_a.flatten.first["LAST_APP_TIME"]
+        expect(second_app).to eq("2024-01-01")
 
         # # Company 2's second application should have the first application time
-        # second_app = stored_df.filter(Polars.col("LOAN_APP_ID").eq("B2")).select("LAST_APP_TIME").to_a.flatten.first
-        # expect(second_app).to eq("2024-01-01")
+        second_app = stored_df.filter(Polars.col("LOAN_APP_ID").eq("B2")).select("LAST_APP_TIME").to_a.flatten.first["LAST_APP_TIME"]
+        expect(second_app).to eq("2024-01-01")
       end
 
       it "applies stored features during transform" do
-        feature_instance = LastAppTime.new
-        feature_instance.fit(dataset.split, feature)
+        feature.fit(dataset.raw)
 
         # Create a test dataframe for transformation
-        test_df = Polars.from_records([
+        test_df = Polars::DataFrame.new([
           { "LOAN_APP_ID" => "A2", "OTHER_COL" => "value" },
         ])
 
         # Transform the test data
-        result_df = feature_instance.transform(test_df, feature)
+        result_df = feature.transform(test_df)
 
         # Verify the transformation results
         expect(result_df.schema).to include(
@@ -295,8 +295,46 @@ RSpec.describe EasyML::Datasource do
           "LAST_APP_TIME" => Polars::String,
         )
 
-        last_app_time = result_df.select("LAST_APP_TIME").to_a.flatten.first
+        last_app_time = result_df.select("LAST_APP_TIME").to_a.flatten.first["LAST_APP_TIME"]
         expect(last_app_time).to eq("2024-01-01")
+      end
+
+      describe "#fit" do
+        let(:test_data) do
+          [
+            { "COMPANY_ID" => 1, "CREATED_AT" => "2024-01-01" },
+            { "COMPANY_ID" => 2, "CREATED_AT" => "2024-01-02" },
+          ]
+        end
+
+        let(:reader) { instance_double("EasyML::Data::Reader") }
+        let(:feature_instance) { instance_double("LastAppTime") }
+        let(:batch_df) { Polars::DataFrame.new(test_data) }
+
+        before do
+          allow(LastAppTime).to receive(:new).and_return(feature_instance)
+          allow(feature_instance).to receive(:fit).and_return(batch_df)
+          allow(reader).to receive(:read).and_return(batch_df)
+          allow(EasyML::FeatureStore).to receive(:store)
+        end
+
+        it "computes features using the feature class" do
+          feature.fit(reader)
+          expect(feature_instance).to have_received(:fit).with(reader, feature)
+        end
+
+        it "stores the computed features" do
+          feature.fit(reader)
+          expect(EasyML::FeatureStore).to have_received(:store).with(feature, batch_df)
+        end
+
+        it "updates applied_at timestamp" do
+          expect { feature.fit(reader) }.to change { feature.applied_at }.from(nil)
+        end
+
+        it "returns the computed batch dataframe" do
+          expect(feature.fit(reader)).to eq(batch_df)
+        end
       end
     end
 
@@ -304,14 +342,14 @@ RSpec.describe EasyML::Datasource do
       class TestFeature
         include EasyML::Features
         feature name: "Test Feature",
-               description: "A test feature",
-               batch_size: 5000
+                description: "A test feature",
+                batch_size: 5000
       end
 
       class DefaultBatchFeature
         include EasyML::Features
         feature name: "Default Batch Feature",
-               description: "A feature with default batch size"
+                description: "A feature with default batch size"
       end
 
       before(:each) do
@@ -327,7 +365,7 @@ RSpec.describe EasyML::Datasource do
         feature = EasyML::Feature.create!(
           dataset: dataset,
           feature_class: "TestFeature",
-          name: "Test Feature"
+          name: "Test Feature",
         )
         expect(feature.batch_size).to eq(5000)
       end
@@ -336,29 +374,9 @@ RSpec.describe EasyML::Datasource do
         feature = EasyML::Feature.create!(
           dataset: dataset,
           feature_class: "DefaultBatchFeature",
-          name: "Default Batch Feature"
+          name: "Default Batch Feature",
         )
         expect(feature.batch_size).to eq(10_000)
-      end
-    end
-
-    describe "#batch_size_changed?" do
-      let(:feature) do
-        EasyML::Feature.create!(
-          dataset: dataset,
-          feature_class: "TestFeature",
-          name: "Test Feature"
-        )
-      end
-
-      it "detects batch size changes" do
-        allow(feature).to receive(:previous_changes).and_return(batch_size: [5000, 10_000])
-        expect(feature.batch_size_changed?).to be true
-      end
-
-      it "ignores when batch size hasn't changed" do
-        allow(feature).to receive(:previous_changes).and_return({})
-        expect(feature.batch_size_changed?).to be false
       end
     end
 
@@ -368,6 +386,7 @@ RSpec.describe EasyML::Datasource do
           dataset: dataset,
           feature_class: "FeatureV1",
           name: "Test Feature V1",
+          batch_size: 10,
         )
       end
 
@@ -385,6 +404,21 @@ RSpec.describe EasyML::Datasource do
         # Clear the registry and SHA cache after each test
         EasyML::Features::Registry.instance_variable_set(:@registry, {})
         EasyML::Feature.clear_sha_cache!
+      end
+
+      context "when feature has different batch_size than its code" do
+        it "is returned in needs_recompute scope" do
+          feature.update(batch_size: 100)
+          expect(EasyML::Feature.needs_recompute).to include(feature)
+        end
+
+        it "resets after running fit" do
+          feature.update(batch_size: 100)
+          expect(EasyML::Feature.needs_recompute).to include(feature)
+
+          feature.fit(dataset.raw)
+          expect(EasyML::Feature.needs_recompute).to_not include(feature)
+        end
       end
 
       describe "SHA caching" do
@@ -442,7 +476,6 @@ RSpec.describe EasyML::Datasource do
           expect(EasyML::Feature.needs_recompute).to include(unapplied_feature)
         end
       end
-
       context "when feature has been applied" do
         before do
           feature.update!(applied_at: Time.current)

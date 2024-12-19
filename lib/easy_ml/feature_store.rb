@@ -35,25 +35,8 @@ module EasyML
         Dir.glob(File.join(feature_dir(feature), "feature*.parquet")).sort
       end
 
-      def repartition(feature, primary_key)
-        # Read all existing data
-        reader = EasyML::Data::PolarsReader.new
-        old_pattern = File.join(
-          feature_dir(feature),
-          "feature*.parquet"
-        )
-        old_files = Dir.glob(old_pattern)
-
-        return if old_files.empty?
-
-        # Read and combine all existing data
-        df = reader.query(old_files)
-
-        # Delete old partition files
-        old_files.each { |f| File.delete(f) }
-
-        # Store with new batch size
-        store(feature, df, primary_key: primary_key)
+      def wipe(feature)
+        FileUtils.rm_rf(feature_dir(feature))
       end
 
       private

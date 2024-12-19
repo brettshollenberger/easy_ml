@@ -1,12 +1,4 @@
 module EasyML::Features
-  def fit(reader, feature)
-    raise NotImplementedError
-  end
-
-  def batch(reader, feature)
-    raise NotImplementedError
-  end
-
   def transform(df, feature)
     raise NotImplementedError
   end

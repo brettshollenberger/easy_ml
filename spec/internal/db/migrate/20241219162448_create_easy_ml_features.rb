@@ -5,7 +5,6 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.string :name
       t.bigint :version
       t.string :feature_class, null: false
-      t.string :feature_method, null: false
       t.integer :feature_position
       t.datetime :applied_at
 

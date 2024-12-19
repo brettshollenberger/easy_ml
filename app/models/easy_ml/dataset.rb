@@ -608,7 +608,7 @@ module EasyML
           result = feature.apply!(acc_df)
 
           unless result.is_a?(Polars::DataFrame)
-            raise "Feature '#{feature.feature_method}' must return a Polars::DataFrame, got #{result.class}"
+            raise "Feature '#{feature.name}' must return a Polars::DataFrame, got #{result.class}"
           end
 
           result

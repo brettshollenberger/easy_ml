@@ -57,7 +57,6 @@ module EasyML
         puts "Converting to Parquet..."
 
         csv_files.each do |path|
-          puts path
           df = read_file(path, columns)
           df = cast(df, columns)
           path.dup
@@ -231,8 +230,8 @@ module EasyML
       end
 
       def cast(df, columns = [])
-        keep_cols = columns.any? ? columns.map(&:name) : schema.keys
-        lookup = columns.any? ? columns_to_dtypes(columns) : schema
+        keep_cols = columns && columns.any? ? columns.map(&:name) : schema.keys
+        lookup = columns && columns.any? ? columns_to_dtypes(columns) : schema
         cast_cols = keep_cols & df.columns
         df = df.with_columns(
           cast_cols.map do |column|

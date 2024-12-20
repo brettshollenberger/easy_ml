@@ -2,6 +2,8 @@ module EasyML
   class RefreshDatasetJob < ApplicationJob
     def perform(id)
       dataset = EasyML::Dataset.find(id)
+      return unless dataset.needs_refresh?
+
       create_event(dataset, "started")
 
       begin

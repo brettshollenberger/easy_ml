@@ -163,7 +163,7 @@ module EasyML
             params = {}
           end
           df = dataset.raw.query(**params)
-          batch_df = adapter.fit(df, self)
+          batch_df = adapter.fit(df, self, options)
         end
         raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
         EasyML::FeatureStore.store(self, batch_df)

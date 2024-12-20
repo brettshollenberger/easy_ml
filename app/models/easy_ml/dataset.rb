@@ -112,7 +112,7 @@ module EasyML
       return unless columns_need_refresh?
 
       cleanup
-      datasource.convert_to_parquet(columns)
+      datasource.reread(columns)
     end
 
     def num_rows
@@ -123,6 +123,8 @@ module EasyML
     end
 
     def refresh_async
+      return if analyzing?
+
       update(workflow_status: "analyzing")
       EasyML::RefreshDatasetJob.perform_later(id)
     end
@@ -174,7 +176,7 @@ module EasyML
     end
 
     def features_need_refresh?
-      features.where("updated_at > ?", refreshed_at).exists?
+      features.where("updated_at > ?", refreshed_at).exists? || features.needs_recompute.any?
     end
 
     def needs_refresh?
@@ -361,7 +363,6 @@ module EasyML
 
     def normalize(df = nil, split_ys: false, inference: false)
       df = drop_nulls(df)
-      df = apply_features(df)
       df = preprocessor.postprocess(df, inference: inference)
 
       # Learn will update columns, so if any features have been added

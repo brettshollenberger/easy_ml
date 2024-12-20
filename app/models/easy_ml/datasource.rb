@@ -71,7 +71,7 @@ module EasyML
       }
     end
 
-    def convert_to_parquet(columns = nil)
+    def reread(columns = nil)
       return false unless adapter.respond_to?(:convert_to_parquet)
 
       adapter.convert_to_parquet(columns)

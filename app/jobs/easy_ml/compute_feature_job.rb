@@ -15,7 +15,7 @@ module EasyML
       EasyML::Feature.where(id: feature_ids).update_all(needs_recompute: false, fit_at: Time.current)
 
       dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
-      EasyML::RefreshDatasetJob.perform_later(dataset.id)
+      dataset.refresh
     end
   end
 end

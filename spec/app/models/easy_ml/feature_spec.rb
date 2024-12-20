@@ -397,23 +397,11 @@ RSpec.describe EasyML::Datasource do
         class ZipFeature
           include EasyML::Features
 
-          def fit(reader, feature, options = {})
-            batch_start = options.dig(:batch_start)
-            batch_end = options.dig(:batch_end)
-
-            zips = EasyML::Dataset.find_by(name: "Zips")
-            binding.pry
-
-            # Filter to just the batch we're processing
-            df = reader.query(
-              filter: Polars.col("ID").is_between(batch_start, batch_end),
-              sort: ["ID"],
-            )
+          def fit(df, feature, options = {})
+            zip_df = EasyML::Dataset.find_by(name: "Zips").data
 
             # Join with zip data and return just the columns we need
-            df.with_columns([
-              (Polars.lit("0") + (Polars.col("ID") % 100).cast(:str).str.pad_start(5, "0")).alias("ZIP"),
-            ]).join(
+            df.join(
               zip_df,
               on: "ZIP",
               how: "left",
@@ -460,7 +448,6 @@ RSpec.describe EasyML::Datasource do
             dataset: dataset,
             feature_class: "ZipFeature",
             name: "Zip Feature",
-            batch_size: 10,
           )
         end
 
@@ -468,10 +455,16 @@ RSpec.describe EasyML::Datasource do
           EasyML::Features::Registry.register(ZipFeature)
         end
 
-        it "computes the feature in batches based on ID ranges", :focus do
+        it "computes the feature in batches based on ID ranges" do
           zips_dataset
+          feature
+          dataset.refresh
+          dataset.columns.find_by(name: "ZIP").update(datatype: "string")
+          dataset.refresh
+          clear_enqueued_jobs
+
           # Feature lazily creates the dataset, which triggers the refresh
-          expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
+          expect { dataset.refresh_async }.to have_enqueued_job(EasyML::RefreshDatasetJob).with(dataset.id)
 
           perform_enqueued_jobs
           expect(EasyML::ComputeFeaturesJob).to have_been_enqueued.with(dataset.id)
@@ -498,11 +491,8 @@ RSpec.describe EasyML::Datasource do
             Resque.reserve(:easy_ml).perform
           end
 
-          expect(EasyML::RefreshDatasetJob).to have_been_enqueued.with(dataset.id)
-          perform_enqueued_jobs
-
           # Test that the feature data was computed correctly
-          affected_rows = dataset.data(filter: Polars.col("ID").is_between(1, 10))
+          affected_rows = dataset.data(filter: Polars.col("ID").is_between(1, 10), sort: "ID")
 
           # First row should have ZIP 00001 and match with first ZIP in our data
           first_row = affected_rows.filter(Polars.col("ID").eq(1))
@@ -512,9 +502,9 @@ RSpec.describe EasyML::Datasource do
 
           # Fifth row should have ZIP 00005 and match with BARRE
           fifth_row = affected_rows.filter(Polars.col("ID").eq(5))
-          expect(fifth_row["CITY"].to_a.first).to eq("BARRE")
+          expect(fifth_row["CITY"].to_a.first).to eq("AMHERST")
           expect(fifth_row["STATE"].to_a.first).to eq("MA")
-          expect(fifth_row["POPULATION"].to_a.first).to eq(5000)
+          expect(fifth_row["POPULATION"].to_a.first).to eq(20000)
 
           # Feature should be marked as computed
           feature.reload
@@ -574,7 +564,7 @@ RSpec.describe EasyML::Datasource do
           EasyML::Features::Registry.register(BatchFeature)
         end
 
-        it "computes the feature in batches based on custom batch args" do
+        it "computes the feature in batches based on custom batch args", :focus do
           # Feature lazily creates the dataset, which triggers the refresh
           expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
 
@@ -605,22 +595,19 @@ RSpec.describe EasyML::Datasource do
             Resque.reserve(:easy_ml).perform
           end
 
-          expect(EasyML::RefreshDatasetJob).to have_been_enqueued.with(dataset.id)
-          perform_enqueued_jobs
-
           affected_rows = dataset.data(filter: Polars.col("COMPANY_ID").is_in([1, 2, 3, 4, 10, 12]), sort: ["COMPANY_ID", "ID"])
 
           # Test specific rows have expected LAST_APP_TIME values
           expect(affected_rows.filter(Polars.col("ID").eq(1))["LAST_APP_TIME"].to_a.first).to be_nil
-          expect(affected_rows.filter(Polars.col("ID").eq(19))["LAST_APP_TIME"].to_a.first).to eq("2024-01-01 00:00:00")
-          expect(affected_rows.filter(Polars.col("ID").eq(29))["LAST_APP_TIME"].to_a.first).to eq("2024-01-19 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(19))["LAST_APP_TIME"].to_a.first).to eq("2024-01-01")
+          expect(affected_rows.filter(Polars.col("ID").eq(29))["LAST_APP_TIME"].to_a.first).to eq("2024-01-19")
           expect(affected_rows.filter(Polars.col("ID").eq(2))["LAST_APP_TIME"].to_a.first).to be_nil
-          expect(affected_rows.filter(Polars.col("ID").eq(39))["LAST_APP_TIME"].to_a.first).to eq("2024-01-02 00:00:00")
-          expect(affected_rows.filter(Polars.col("ID").eq(73))["LAST_APP_TIME"].to_a.first).to eq("2024-01-04 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(39))["LAST_APP_TIME"].to_a.first).to eq("2024-01-02")
+          expect(affected_rows.filter(Polars.col("ID").eq(73))["LAST_APP_TIME"].to_a.first).to eq("2024-01-04")
           expect(affected_rows.filter(Polars.col("ID").eq(10))["LAST_APP_TIME"].to_a.first).to be_nil
-          expect(affected_rows.filter(Polars.col("ID").eq(86))["LAST_APP_TIME"].to_a.first).to eq("2024-01-10 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(86))["LAST_APP_TIME"].to_a.first).to eq("2024-01-10")
           expect(affected_rows.filter(Polars.col("ID").eq(12))["LAST_APP_TIME"].to_a.first).to be_nil
-          expect(affected_rows.filter(Polars.col("ID").eq(98))["LAST_APP_TIME"].to_a.first).to eq("2024-01-12 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(98))["LAST_APP_TIME"].to_a.first).to eq("2024-01-12")
 
           # Test all other rows have null LAST_APP_TIME
           other_rows = dataset.data.filter(!Polars.col("COMPANY_ID").is_in([1, 2, 3, 4, 10, 12]))

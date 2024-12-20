@@ -114,6 +114,8 @@ module EasyML
         rescue => e
           raise "Couldn't find primary key #{primary_key.first} for feature #{feature_class}: #{e.message}"
         end
+        return [] if df.nil?
+
         min_id = df[primary_key.first].min
         max_id = df[primary_key.first].max
       end
@@ -270,7 +272,11 @@ module EasyML
     end
 
     def update_sha
-      self.sha = compute_sha
+      new_sha = compute_sha
+      if new_sha != self.sha
+        self.sha = new_sha
+        self.needs_recompute = true
+      end
     end
 
     def update_from_feature_class

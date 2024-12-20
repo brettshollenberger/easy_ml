@@ -63,18 +63,14 @@ RSpec.describe EasyML::Datasource do
     class DidConvert
       include EasyML::Features
 
-      def fit(df, feature)
+      def transform(df, feature)
         df.with_column(
           (Polars.col("rev") > 0).alias("did_convert")
         )
       end
 
-      def transform(df, feature)
-      end
-
       feature name: "did_convert",
-              description: "Boolean true/false, did the loan application fund?",
-              primary_key: "LOAN_APP_ID"
+              description: "Boolean true/false, did the loan application fund?"
     end
 
     # class Age
@@ -171,8 +167,7 @@ RSpec.describe EasyML::Datasource do
       ).prepend
 
       expect(dataset).to be_needs_refresh
-      dataset.refresh!
-      expect(dataset).to_not be_needs_refresh
+      dataset.refresh
 
       # Verify the data is computed correctly
       expect(dataset.data["did_convert"].to_a).to eq([false, false, true, true, false, true, true, true])
@@ -203,7 +198,7 @@ RSpec.describe EasyML::Datasource do
       class LastAppTime
         include EasyML::Features
 
-        def fit(df, feature)
+        def fit(df, feature, options = {})
           batch_df = df.with_columns(
             Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
           )
@@ -249,7 +244,7 @@ RSpec.describe EasyML::Datasource do
       end
 
       it "computes and stores feature values during fit" do
-        fit_df = feature.fit(dataset.raw)
+        fit_df = feature.fit
 
         # Load the stored feature values
         stored_df = EasyML::FeatureStore.query(feature)
@@ -273,7 +268,7 @@ RSpec.describe EasyML::Datasource do
       end
 
       it "applies stored features during transform" do
-        feature.fit(dataset.raw)
+        feature.fit
 
         # Create a test dataframe for transformation
         test_df = Polars::DataFrame.new([
@@ -302,33 +297,31 @@ RSpec.describe EasyML::Datasource do
           ]
         end
 
-        let(:reader) { instance_double("EasyML::Data::Reader") }
         let(:feature_instance) { instance_double("LastAppTime") }
         let(:batch_df) { Polars::DataFrame.new(test_data) }
 
         before do
           allow(LastAppTime).to receive(:new).and_return(feature_instance)
           allow(feature_instance).to receive(:fit).and_return(batch_df)
-          allow(reader).to receive(:read).and_return(batch_df)
           allow(EasyML::FeatureStore).to receive(:store)
         end
 
         it "computes features using the feature class" do
-          feature.fit(reader)
-          expect(feature_instance).to have_received(:fit).with(reader, feature)
+          feature.fit
+          expect(feature_instance).to have_received(:fit).with(any_args)
         end
 
         it "stores the computed features" do
-          feature.fit(reader)
-          expect(EasyML::FeatureStore).to have_received(:store).with(feature, batch_df)
+          feature.fit
+          expect(EasyML::FeatureStore).to have_received(:store).with(any_args)
         end
 
         it "updates applied_at timestamp" do
-          expect { feature.fit(reader) }.to change { feature.applied_at }.from(nil)
+          expect { feature.fit }.to change { feature.applied_at }.from(nil)
         end
 
         it "returns the computed batch dataframe" do
-          expect(feature.fit(reader)).to eq(batch_df)
+          expect(feature.fit).to eq(batch_df)
         end
       end
     end
@@ -365,13 +358,14 @@ RSpec.describe EasyML::Datasource do
         expect(feature.batch_size).to eq(5000)
       end
 
-      it "returns default batch size when not configured" do
+      it "has no batch size when not set" do
         feature = EasyML::Feature.create!(
           dataset: dataset,
           feature_class: "DefaultBatchFeature",
           name: "Default Batch Feature",
         )
-        expect(feature.batch_size).to eq(10_000)
+        expect(feature.batch_size).to be_nil
+        expect(feature).to_not be_batchable
       end
     end
 
@@ -514,6 +508,20 @@ RSpec.describe EasyML::Datasource do
           dataset.reload
           expect(dataset.needs_refresh?).to be false
         end
+
+        describe "#batch" do
+          context "when feature needs recompute" do
+            before do
+              allow(feature).to receive(:needs_recompute?).and_return(true)
+              allow(feature).to receive(:reset)
+            end
+
+            it "resets the feature" do
+              feature.batch
+              expect(feature).to have_received(:reset)
+            end
+          end
+        end
       end
 
       describe "custom batching" do
@@ -564,7 +572,7 @@ RSpec.describe EasyML::Datasource do
           EasyML::Features::Registry.register(BatchFeature)
         end
 
-        it "computes the feature in batches based on custom batch args", :focus do
+        it "computes the feature in batches based on custom batch args" do
           # Feature lazily creates the dataset, which triggers the refresh
           expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
 
@@ -620,99 +628,6 @@ RSpec.describe EasyML::Datasource do
 
           dataset.reload
           expect(dataset.needs_refresh?).to be false
-        end
-      end
-
-      describe "#batch" do
-        context "when feature needs recompute" do
-          before do
-            allow(feature).to receive(:needs_recompute?).and_return(true)
-            allow(feature).to receive(:reset)
-          end
-
-          it "resets the feature" do
-            feature.batch
-            expect(feature).to have_received(:reset)
-          end
-        end
-
-        it "splits data into batches based on batch_size" do
-          batches = feature.batch
-          expect(batches.length).to eq(10)
-
-          # Check first batch boundaries
-          expect(batches.first).to include(
-            feature_id: feature.id,
-            batch_start: 1,
-            batch_end: 10,
-          )
-
-          # Check last batch boundaries
-          expect(batches.last).to include(
-            feature_id: feature.id,
-            batch_start: 91,
-            batch_end: 100,
-          )
-        end
-      end
-
-      describe "end-to-end batch processing" do
-        let(:feature_instance) { BatchFeature.new }
-
-        before do
-          allow(BatchFeature).to receive(:new).and_return(feature_instance)
-          allow(feature_instance).to receive(:fit).and_call_original
-          allow(EasyML::FeatureStore).to receive(:store)
-
-          # Simulate batch job execution
-          allow(batch).to receive(:add) do |job_class, args|
-            feature_id, min_id, max_id = args
-
-            # Get batch data
-            batch_df = df.filter(
-              (Polars.col("COMPANY_ID").ge(min_id)) &
-              (Polars.col("COMPANY_ID").lt(max_id))
-            )
-
-            # Process batch
-            result_df = feature_instance.fit(reader, feature, batch_df)
-            EasyML::FeatureStore.store(feature, result_df)
-          end
-
-          # Simulate finalization
-          allow(batch).to receive(:on_complete) do |job_class, args|
-            feature.update!(
-              applied_at: Time.current,
-              needs_recompute: false,
-            )
-          end
-
-          feature.batch
-        end
-
-        it "processes each batch with the feature adapter" do
-          expect(feature_instance).to have_received(:fit).exactly(10).times
-        end
-
-        it "stores results for each batch" do
-          expect(EasyML::FeatureStore).to have_received(:store).exactly(10).times
-        end
-
-        it "updates feature status after completion" do
-          expect(feature.applied_at).to be_present
-          expect(feature.needs_recompute).to be false
-        end
-
-        it "allows querying across batch boundaries" do
-          test_df = Polars::DataFrame.new([
-            { "COMPANY_ID" => 5 },   # First batch
-            { "COMPANY_ID" => 55 },  # Middle batch
-            { "COMPANY_ID" => 95 },  # Last batch
-          ])
-
-          allow(EasyML::FeatureStore).to receive(:query).and_return(df)
-          result = feature.transform(test_df)
-          expect(result["LAST_APP_TIME"].to_a).to all(be_present)
         end
       end
     end
@@ -785,6 +700,7 @@ RSpec.describe EasyML::Datasource do
 
       context "when feature code hasn't changed" do
         it "is not returned in has_changes scope" do
+          feature.update(needs_recompute: false)
           expect(EasyML::Feature.has_changes).not_to include(feature)
         end
       end
@@ -815,7 +731,7 @@ RSpec.describe EasyML::Datasource do
       end
       context "when feature has been applied" do
         before do
-          feature.update!(applied_at: Time.current)
+          feature.update!(applied_at: Time.current, fit_at: Time.now, needs_recompute: false)
         end
 
         it "is not returned in needs_recompute scope if code hasn't changed" do

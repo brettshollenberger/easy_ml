@@ -9,6 +9,17 @@ module EasyML
         max_key = df[primary_key].max
         batch_size = feature.batch_size || 10_000
 
+        # Try to parse as integers if they're strings
+        begin
+          min_key = Integer(min_key) if min_key.is_a?(String)
+          max_key = Integer(max_key) if max_key.is_a?(String)
+        rescue ArgumentError
+          return store_without_partitioning(feature, df)
+        end
+
+        # Only partition if we have integer keys where we can predict boundaries
+        return store_without_partitioning(feature, df) unless min_key.is_a?(Integer) && max_key.is_a?(Integer)
+
         partitions = compute_partition_boundaries(min_key, max_key, batch_size)
         partitions.each do |partition_start|
           partition_end = partition_start + batch_size - 1

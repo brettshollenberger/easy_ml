@@ -2,13 +2,30 @@
 
 # EasyML
 
-EasyML is a Ruby gem designed to simplify the process of building, deploying, and managing the lifecycle of machine learning models within a Ruby on Rails application. It is a plug-and-play, opinionated framework that currently supports XGBoost, with plans to expand support to a variety of models and infrastructures. EasyML aims to make deployment and lifecycle management straightforward and efficient.
+~~You can't do machine learning in Ruby.~~
+Deploy ML models in minutes.
+
+EasyML is a low code/no code, end-to-end machine learning framework for Ruby on Rails that **gets you productionized models in minutes.**
+
+It takes the guesswork out of:
+
+- Preprocessing data
+- Storing and batch computing features
+- Training models
+- Metric visualization
+- Deployment and versioning
+- Evaluating model performance
+
+With a dead-simple point-and-click interface, EasyML makes it stupid easy to deploy your models.
+
+Oh yeah, and it's open source!
 
 ## Features
 
-- **Plug-and-Play Architecture**: EasyML is designed to be easily extendable, allowing for the integration of various machine learning models and data sources.
-- **Opinionated Framework**: Provides a structured approach to model management, ensuring best practices are followed.
-- **Model Lifecycle On Rails**: Seamlessly integrates with Ruby on Rails, allowing simplified deployment of models to production.
+- **No Code (if you want)**: EasyML ships as a Rails engine. Just mount it in your app and get started.
+- **Opinionated Framework**: Provides a structured approach to data and model management, ensuring best practices are followed.
+- **Model Lifecycle On Rails**: Want predictions directly from your Rails app? You can do that.
+- **Easily Extensible**: Want a model that's not supported? Send a pull request!
 
 ## Current and Planned Features
 

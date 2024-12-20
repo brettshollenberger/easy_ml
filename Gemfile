@@ -22,6 +22,7 @@ gem "suo"
 gem "wandb", path: "/Users/brettshollenberger/programming/wandb"
 gem "xgb", "~> 0.9.0"
 gem "date", "~> 3.4.1"
+gem "resque-batched-job"
 
 group :development, :test do
   gem "combustion"

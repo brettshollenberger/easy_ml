@@ -69,6 +69,7 @@ module EasyML
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha
+    after_find :update_from_feature_class
     before_save :update_from_feature_class
 
     def feature_klass
@@ -85,9 +86,28 @@ module EasyML
       Feature.has_changes.where(id: id).exists?
     end
 
+    def batchable?
+      batch_size.present?
+    end
+
     def batch
       reset if needs_recompute?
-      adapter.batch(data, batch_size)
+
+      reader = dataset.raw
+
+      # Get all primary keys
+      df = reader.query(select: [primary_key.first])
+      min_id = df[primary_key.first].min
+      max_id = df[primary_key.first].max
+
+      (min_id..max_id).step(batch_size).map do |batch_start|
+        batch_end = [batch_start + batch_size, max_id + 1].min - 1
+        {
+          feature_id: id,
+          batch_start: batch_start,
+          batch_end: batch_end,
+        }
+      end
     end
 
     def reset
@@ -98,12 +118,31 @@ module EasyML
       needs_recompute? && !adapter.respond_to?(:batch)
     end
 
-    def fit(reader)
+    def reset_on_transform?
+      needs_recompute? && !adapter.respond_to?(:batch) && !adapter.respond_to?(:fit)
+    end
+
+    def fit(options = {})
       reset if reset_on_fit?
 
-      batch_df = nil
       if adapter.respond_to?(:fit)
-        batch_df = adapter.fit(reader, self)
+        options.symbolize_keys!
+
+        batch_start = options.dig(:batch_start)
+        batch_end = options.dig(:batch_end)
+
+        if batch_start && batch_end
+          select = needs_columns.present? ? needs_columns : nil
+          filter = Polars.col(primary_key.first).is_between(batch_start, batch_end)
+          params = {
+            select: select,
+            filter: filter,
+          }.compact
+        else
+          params = {}
+        end
+        df = dataset.raw.query(**params)
+        batch_df = adapter.fit(df, self)
         raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
         EasyML::FeatureStore.store(self, batch_df)
       end
@@ -116,6 +155,8 @@ module EasyML
     end
 
     def transform(df)
+      reset if reset_on_transform?
+
       result = adapter.transform(df, self)
       update!(applied_at: Time.current)
       result
@@ -171,6 +212,10 @@ module EasyML
     def apply_defaults
       self.name ||= self.feature_class.demodulize.titleize
       self.version ||= 1
+    end
+
+    def needs_columns
+      feature_class_config.dig(:needs_columns) || []
     end
 
     private

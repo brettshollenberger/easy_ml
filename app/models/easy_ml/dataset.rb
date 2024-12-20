@@ -142,6 +142,11 @@ module EasyML
       save
     end
 
+    def prepare
+      refresh_datasource
+      split_data
+    end
+
     def refresh!
       refreshing do
         cleanup
@@ -592,8 +597,6 @@ module EasyML
         end
       end
     end
-
-    # log_method :split_data, "Splitting data", verbose: true
 
     def should_split?
       split_timestamp = raw.split_at

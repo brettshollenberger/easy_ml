@@ -55,14 +55,6 @@ RSpec.describe EasyML::Datasource do
     describe "base methods" do
       let(:feature) { BaseFeature.new }
 
-      it "raises NotImplementedError for fit if not overridden" do
-        expect { feature.fit(nil, nil) }.to raise_error(NotImplementedError)
-      end
-
-      it "raises NotImplementedError for batch if not overridden" do
-        expect { feature.batch(nil, nil) }.to raise_error(NotImplementedError)
-      end
-
       it "raises NotImplementedError for transform if not overridden" do
         expect { feature.transform(nil, nil) }.to raise_error(NotImplementedError)
       end
@@ -71,14 +63,18 @@ RSpec.describe EasyML::Datasource do
     class DidConvert
       include EasyML::Features
 
-      def transform(df, feature)
+      def fit(df, feature)
         df.with_column(
           (Polars.col("rev") > 0).alias("did_convert")
         )
       end
 
+      def transform(df, feature)
+      end
+
       feature name: "did_convert",
-              description: "Boolean true/false, did the loan application fund?"
+              description: "Boolean true/false, did the loan application fund?",
+              primary_key: "LOAN_APP_ID"
     end
 
     # class Age
@@ -207,15 +203,11 @@ RSpec.describe EasyML::Datasource do
       class LastAppTime
         include EasyML::Features
 
-        # The job of fit is to pre-compute large set of values from entire datasource
-        def fit(reader, feature)
-          # Reader is the wrapper, which automatically queries the training data ONLY
-          df = reader.read(:all, select: ["COMPANY_ID", "LOAN_APP_ID", "CREATED_AT"])
+        def fit(df, feature)
           batch_df = df.with_columns(
             Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
           )
-          batch_df = batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
-          # EasyML::FeatureStore.store("loans.last_app_time", feature.version, batch_df)
+          batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
         end
 
         def transform(df, feature)
@@ -224,7 +216,10 @@ RSpec.describe EasyML::Datasource do
         end
 
         feature name: "Last Application Time",
-                description: "Time since the company's last loan application"
+                description: "Time since the company's last loan application",
+                primary_key: "LOAN_APP_ID",
+                batch_size: 10,
+                needs_columns: ["LOAN_APP_ID", "CREATED_AT", "COMPANY_ID"]
       end
 
       let(:feature) do
@@ -377,6 +372,162 @@ RSpec.describe EasyML::Datasource do
           name: "Default Batch Feature",
         )
         expect(feature.batch_size).to eq(10_000)
+      end
+    end
+
+    describe "batch processing" do
+      class BatchFeature
+        include EasyML::Features
+
+        def fit(reader, feature)
+          df = batch_df || reader.read(:all)
+          df.with_columns(
+            Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
+          )
+        end
+
+        def transform(df, feature)
+          stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("COMPANY_ID").is_in(df["COMPANY_ID"]))
+          df.join(stored_df, on: "COMPANY_ID", how: "left")
+        end
+
+        feature name: "Batch Feature",
+                description: "A feature that processes in batches",
+                batch_size: 10,
+                primary_key: "COMPANY_ID"
+      end
+
+      let(:feature) do
+        EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: "BatchFeature",
+          name: "Batch Feature",
+          batch_size: 10,
+        )
+      end
+
+      let(:test_data) do
+        (1..100).map do |company_id|
+          {
+            "COMPANY_ID" => company_id,
+            "CREATED_AT" => "2024-01-#{company_id.to_s.rjust(2, "0")}",
+          }
+        end
+      end
+
+      let(:df) { Polars::DataFrame.new(test_data) }
+      let(:reader) { instance_double("EasyML::Data::PolarsReader") }
+
+      before do
+        EasyML::Features::Registry.register(BatchFeature)
+        allow(reader).to receive(:query).and_return(df)
+      end
+
+      describe "#batch" do
+        context "when feature needs recompute" do
+          before do
+            allow(feature).to receive(:needs_recompute?).and_return(true)
+            allow(feature).to receive(:reset)
+          end
+
+          it "resets the feature" do
+            feature.batch(reader)
+            expect(feature).to have_received(:reset)
+          end
+        end
+
+        it "computes the feature in batches", :focus do
+          binding.pry
+        end
+
+        it "splits data into batches based on batch_size" do
+          feature.batch(reader)
+          expect(batch).to have_received(:add).exactly(10).times
+        end
+
+        it "passes correct batch boundaries to jobs" do
+          feature.batch(reader)
+
+          # Check first batch
+          expect(batch).to have_received(:add).with(
+            EasyML::Jobs::ComputeFeatureBatchJob,
+            [feature.id, 1, 10] # feature_id, min_id, max_id
+          ).ordered
+
+          # Check last batch
+          expect(batch).to have_received(:add).with(
+            EasyML::Jobs::ComputeFeatureBatchJob,
+            [feature.id, 91, 100] # feature_id, min_id, max_id
+          ).ordered
+        end
+
+        it "sets up finalization callback" do
+          feature.batch(reader)
+          expect(batch).to have_received(:on_complete).with(
+            EasyML::Jobs::FinalizeFeatureJob,
+            [feature.id]
+          )
+        end
+      end
+
+      describe "end-to-end batch processing" do
+        let(:feature_instance) { BatchFeature.new }
+
+        before do
+          allow(BatchFeature).to receive(:new).and_return(feature_instance)
+          allow(feature_instance).to receive(:fit).and_call_original
+          allow(EasyML::FeatureStore).to receive(:store)
+
+          # Simulate batch job execution
+          allow(batch).to receive(:add) do |job_class, args|
+            feature_id, min_id, max_id = args
+
+            # Get batch data
+            batch_df = df.filter(
+              (Polars.col("COMPANY_ID").ge(min_id)) &
+              (Polars.col("COMPANY_ID").lt(max_id))
+            )
+
+            # Process batch
+            result_df = feature_instance.fit(reader, feature, batch_df)
+            EasyML::FeatureStore.store(feature, result_df)
+          end
+
+          # Simulate finalization
+          allow(batch).to receive(:on_complete) do |job_class, args|
+            feature.update!(
+              applied_at: Time.current,
+              needs_recompute: false,
+            )
+          end
+
+          feature.batch(reader)
+        end
+
+        it "processes each batch with the feature adapter" do
+          expect(feature_instance).to have_received(:fit).exactly(10).times
+        end
+
+        it "stores results for each batch" do
+          expect(EasyML::FeatureStore).to have_received(:store).exactly(10).times
+        end
+
+        it "updates feature status after completion" do
+          expect(feature.applied_at).to be_present
+          expect(feature.needs_recompute).to be false
+        end
+
+        it "allows querying across batch boundaries" do
+          test_df = Polars::DataFrame.new([
+            { "COMPANY_ID" => 5 },   # First batch
+            { "COMPANY_ID" => 55 },  # Middle batch
+            { "COMPANY_ID" => 95 },  # Last batch
+          ])
+
+          allow(EasyML::FeatureStore).to receive(:query).and_return(df)
+          result = feature.transform(test_df)
+          expect(result["LAST_APP_TIME"].to_a).to all(be_present)
+        end
       end
     end
 

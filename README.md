@@ -6,11 +6,11 @@
 
 Deploy models in minutes.
 
+## What is EasyML?
+
 EasyML is a **low code/no code**, end-to-end machine learning framework for Ruby on Rails.
 
-**Get productionized models in minutes.**
-
-It takes the guesswork out of:
+**Get productionized models in minutes.** It takes the guesswork out of:
 
 - Preprocessing data
 - Storing and batch computing features
@@ -19,7 +19,7 @@ It takes the guesswork out of:
 - Deployment and versioning
 - Evaluating model performance
 
-With a dead-simple point-and-click interface, EasyML makes it stupid easy to deploy your models.
+With a dead-simple point-and-click interface, EasyML makes it stupid easy to train and deploy.
 
 Oh yeah, and it's open source!
 

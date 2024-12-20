@@ -3,9 +3,12 @@
 # EasyML
 
 ~~You can't do machine learning in Ruby.~~
-Deploy ML models in minutes.
 
-EasyML is a low code/no code, end-to-end machine learning framework for Ruby on Rails that **gets you productionized models in minutes.**
+Deploy models in minutes.
+
+EasyML is a **low code/no code**, end-to-end machine learning framework for Ruby on Rails.
+
+**Get productionized models in minutes.**
 
 It takes the guesswork out of:
 

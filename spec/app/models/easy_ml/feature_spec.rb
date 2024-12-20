@@ -393,6 +393,139 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
+      describe "default batching with primary key" do
+        class ZipFeature
+          include EasyML::Features
+
+          def fit(reader, feature, options = {})
+            batch_start = options.dig(:batch_start)
+            batch_end = options.dig(:batch_end)
+
+            zips = EasyML::Dataset.find_by(name: "Zips")
+            binding.pry
+
+            # Filter to just the batch we're processing
+            df = reader.query(
+              filter: Polars.col("ID").is_between(batch_start, batch_end),
+              sort: ["ID"],
+            )
+
+            # Join with zip data and return just the columns we need
+            df.with_columns([
+              (Polars.lit("0") + (Polars.col("ID") % 100).cast(:str).str.pad_start(5, "0")).alias("ZIP"),
+            ]).join(
+              zip_df,
+              on: "ZIP",
+              how: "left",
+            )[["ID", "CITY", "STATE", "POPULATION"]]
+          end
+
+          def transform(df, feature)
+            stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
+            return df if stored_df.empty?
+
+            df.join(stored_df, on: "ID", how: "left")
+          end
+
+          feature name: "Zip Feature",
+                  description: "Adds ZIP code data based on ID",
+                  batch_size: 10,
+                  primary_key: "ID"
+        end
+
+        let(:zips_datasource) do
+          EasyML::Datasource.create(
+            name: "Zips",
+            datasource_type: "file",
+          )
+        end
+
+        let(:zips_dataset) do
+          zips = EasyML::Dataset.create(
+            name: "Zips",
+            datasource: zips_datasource,
+            splitter_attributes: {
+              splitter_type: "random",
+            },
+          )
+
+          zips.refresh
+          zips.columns.find_by(name: "ZIP").update(datatype: "string")
+          zips.refresh
+          zips
+        end
+
+        let(:feature) do
+          EasyML::Feature.create!(
+            dataset: dataset,
+            feature_class: "ZipFeature",
+            name: "Zip Feature",
+            batch_size: 10,
+          )
+        end
+
+        before do
+          EasyML::Features::Registry.register(ZipFeature)
+        end
+
+        it "computes the feature in batches based on ID ranges", :focus do
+          zips_dataset
+          # Feature lazily creates the dataset, which triggers the refresh
+          expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
+
+          perform_enqueued_jobs
+          expect(EasyML::ComputeFeaturesJob).to have_been_enqueued.with(dataset.id)
+
+          perform_enqueued_jobs
+
+          batch_jobs = Resque.peek(:easy_ml, 0, 10)
+          expect(batch_jobs.length).to eq(10) # 10 jobs
+
+          # Verify first batch
+          first_job = batch_jobs.first
+          expect(first_job["class"]).to eq("EasyML::ComputeFeatureJob")
+          expect(first_job["args"].last[:batch_start]).to eq(1)
+          expect(first_job["args"].last[:batch_end]).to eq(10)
+
+          # Verify last batch
+          last_job = batch_jobs.last
+          expect(last_job["class"]).to eq("EasyML::ComputeFeatureJob")
+          expect(last_job["args"].last[:batch_start]).to eq(91)
+          expect(last_job["args"].last[:batch_end]).to eq(100)
+
+          # Process all batch jobs
+          batch_jobs.each do |job|
+            Resque.reserve(:easy_ml).perform
+          end
+
+          expect(EasyML::RefreshDatasetJob).to have_been_enqueued.with(dataset.id)
+          perform_enqueued_jobs
+
+          # Test that the feature data was computed correctly
+          affected_rows = dataset.data(filter: Polars.col("ID").is_between(1, 10))
+
+          # First row should have ZIP 00001 and match with first ZIP in our data
+          first_row = affected_rows.filter(Polars.col("ID").eq(1))
+          expect(first_row["CITY"].to_a.first).to eq("HOLTSVILLE")
+          expect(first_row["STATE"].to_a.first).to eq("NY")
+          expect(first_row["POPULATION"].to_a.first).to eq(1000)
+
+          # Fifth row should have ZIP 00005 and match with BARRE
+          fifth_row = affected_rows.filter(Polars.col("ID").eq(5))
+          expect(fifth_row["CITY"].to_a.first).to eq("BARRE")
+          expect(fifth_row["STATE"].to_a.first).to eq("MA")
+          expect(fifth_row["POPULATION"].to_a.first).to eq(5000)
+
+          # Feature should be marked as computed
+          feature.reload
+          expect(feature.fit_at).to be_present
+          expect(feature.needs_recompute).to be false
+
+          dataset.reload
+          expect(dataset.needs_refresh?).to be false
+        end
+      end
+
       describe "custom batching" do
         class BatchFeature
           include EasyML::Features
@@ -441,7 +574,7 @@ RSpec.describe EasyML::Datasource do
           EasyML::Features::Registry.register(BatchFeature)
         end
 
-        it "computes the feature in batches based on custom batch args", :focus do
+        it "computes the feature in batches based on custom batch args" do
           # Feature lazily creates the dataset, which triggers the refresh
           expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
 

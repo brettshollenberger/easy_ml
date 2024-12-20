@@ -108,6 +108,13 @@ module EasyML
       read_attribute(:schema) || datasource.schema
     end
 
+    def refresh_datatypes
+      return unless columns_need_refresh?
+
+      cleanup
+      datasource.convert_to_parquet(columns)
+    end
+
     def num_rows
       if datasource&.num_rows.nil?
         datasource.after_sync
@@ -162,10 +169,18 @@ module EasyML
       end
     end
 
+    def columns_need_refresh?
+      columns.where("updated_at > ?", refreshed_at).exists?
+    end
+
+    def features_need_refresh?
+      features.where("updated_at > ?", refreshed_at).exists?
+    end
+
     def needs_refresh?
       return true if refreshed_at.nil?
-      return true if columns.where("updated_at > ?", refreshed_at).exists?
-      return true if features.where("updated_at > ?", refreshed_at).exists?
+      return true if columns_need_refresh?
+      return true if features_need_refresh?
       return true if datasource&.needs_refresh?
 
       false
@@ -533,6 +548,7 @@ module EasyML
     end
 
     def refresh_datasource
+      refresh_datatypes
       datasource.reload.refresh
       initialize_splits
     end
@@ -540,6 +556,7 @@ module EasyML
     # log_method :refresh_datasource, "Refreshing datasource", verbose: true
 
     def refresh_datasource!
+      refresh_datatypes
       datasource.reload.refresh!
       initialize_splits
     end

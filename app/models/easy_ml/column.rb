@@ -36,15 +36,24 @@ module EasyML
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
 
+    def datatype=(dtype)
+      write_attribute(:datatype, dtype)
+      write_attribute(:polars_datatype, dtype)
+    end
+
+    def get_polars_type(dtype)
+      EasyML::Data::PolarsColumn::TYPE_MAP[dtype.to_sym]
+    end
+
     def polars_type
       return nil if polars_datatype.blank?
 
-      EasyML::Data::PolarsColumn.parse_polars_dtype(polars_datatype)
+      get_polars_type(polars_datatype)
     end
 
-    def polars_type=(type)
-      self.polars_datatype = type.to_s
-      self.datatype = EasyML::Data::PolarsColumn::POLARS_MAP[type.class.to_s]&.to_s
+    def polars_type=(dtype)
+      write_attribute(:polars_datatype, dtype.to_s)
+      write_attribute(:datatype, EasyML::Data::PolarsColumn::POLARS_MAP[type.class.to_s]&.to_s)
     end
 
     def preprocessing_steps=(steps)

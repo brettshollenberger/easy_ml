@@ -51,6 +51,24 @@ module EasyML
         query
       end
 
+      def convert_to_parquet(columns = nil)
+        return files if any_parquet? && columns.nil?
+
+        puts "Converting to Parquet..."
+
+        csv_files.each do |path|
+          puts path
+          df = read_file(path, columns)
+          df = cast(df, columns)
+          path.dup
+          filename = Pathname.new(path).basename
+          ext = Pathname.new(path).extname.gsub(/\./, "")
+          filename = filename.to_s.gsub(Regexp.new(ext), "parquet")
+          path = File.join(root_dir, filename).to_s
+          df.write_parquet(path)
+        end
+      end
+
       def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
                              batch_size: nil, batch_start: nil, batch_key: nil, &block)
         files ||= self.files
@@ -172,7 +190,12 @@ module EasyML
         end
       end
 
-      def read_file(file)
+      def read_file(file, columns = nil)
+        if columns
+          dtypes = columns_to_dtypes(columns)
+          polars_args[:dtypes] ||= {}
+          polars_args[:dtypes].merge!(dtypes)
+        end
         ext = Pathname.new(file).extname.gsub(/\./, "")
         case ext
         when "csv"
@@ -203,29 +226,17 @@ module EasyML
         Dir.glob(File.join(root_dir, "**/*.{parquet}"))
       end
 
-      def convert_to_parquet
-        return files if any_parquet?
-
-        puts "Converting to Parquet..."
-
-        csv_files.each do |path|
-          puts path
-          df = read_file(path)
-          df = cast(df)
-          path.dup
-          filename = Pathname.new(path).basename
-          ext = Pathname.new(path).extname.gsub(/\./, "")
-          filename = filename.to_s.gsub(Regexp.new(ext), "parquet")
-          path = File.join(root_dir, filename).to_s
-          df.write_parquet(path)
-        end
+      def columns_to_dtypes(columns)
+        columns.reduce({}) { |h, c| h[c.name] = c.polars_type; h }
       end
 
-      def cast(df)
-        cast_cols = schema.keys & df.columns
+      def cast(df, columns = [])
+        keep_cols = columns.any? ? columns.map(&:name) : schema.keys
+        lookup = columns.any? ? columns_to_dtypes(columns) : schema
+        cast_cols = keep_cols & df.columns
         df = df.with_columns(
           cast_cols.map do |column|
-            dtype = schema[column]
+            dtype = lookup[column]
             df[column].cast(dtype).alias(column)
           end
         )

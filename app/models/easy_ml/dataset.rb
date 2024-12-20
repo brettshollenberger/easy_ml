@@ -332,12 +332,16 @@ module EasyML
 
     def needs_learn?(df)
       never_learned = columns.none?
+      return true if never_learned
+
       new_features = features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
+      return true if new_features
+
       new_cols = df.present? ? (df.columns - columns.map(&:name)) : []
 
       new_cols = (new_cols - one_hot_cols(new_cols)).any?
 
-      return never_learned || new_features || new_cols
+      return true if new_cols
     end
 
     def normalize(df = nil, split_ys: false, inference: false)

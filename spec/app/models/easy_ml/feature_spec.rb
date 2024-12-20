@@ -376,45 +376,6 @@ RSpec.describe EasyML::Datasource do
     end
 
     describe "batch processing" do
-      class BatchFeature
-        include EasyML::Features
-
-        def batch(reader, feature)
-          reader.query(select: ["COMPANY_ID"], unique: true)["COMPANY_ID"]
-        end
-
-        def fit(reader, feature, options = {})
-          batch_start = options.dig(:batch_start)
-          batch_end = options.dig(:batch_end)
-
-          df = reader.query(filter: Polars.col("COMPANY_ID").is_in((batch_start..batch_end).to_a))
-
-          df.with_columns(
-            Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
-          )[["ID", "LAST_APP_TIME"]]
-        end
-
-        def transform(df, feature)
-          stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("COMPANY_ID").is_in(df["COMPANY_ID"]))
-          return df if stored_df.empty?
-
-          df.join(stored_df, on: "COMPANY_ID", how: "left")
-        end
-
-        feature name: "Batch Feature",
-                description: "A feature that processes in batches",
-                batch_size: 10
-      end
-
-      let(:feature) do
-        EasyML::Feature.create!(
-          dataset: dataset,
-          feature_class: "BatchFeature",
-          name: "Batch Feature",
-          batch_size: 10,
-        )
-      end
-
       let(:datasource) do
         EasyML::Datasource.create(
           name: "Batches",
@@ -432,24 +393,55 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      before do
-        EasyML::Features::Registry.register(BatchFeature)
-      end
+      describe "custom batching" do
+        class BatchFeature
+          include EasyML::Features
 
-      describe "#batch" do
-        context "when feature needs recompute" do
-          before do
-            allow(feature).to receive(:needs_recompute?).and_return(true)
-            allow(feature).to receive(:reset)
+          def batch(reader, feature)
+            reader.query(select: ["COMPANY_ID"], unique: true)["COMPANY_ID"]
           end
 
-          it "resets the feature" do
-            feature.batch
-            expect(feature).to have_received(:reset)
+          def fit(reader, feature, options = {})
+            batch_start = options.dig(:batch_start)
+            batch_end = options.dig(:batch_end)
+
+            df = reader.query(
+              filter: Polars.col("COMPANY_ID").is_in((batch_start..batch_end).to_a),
+              sort: ["COMPANY_ID", "ID"],
+            )
+
+            df.with_columns(
+              Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
+            )[["ID", "LAST_APP_TIME"]]
           end
+
+          def transform(df, feature)
+            stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
+            return df if stored_df.empty?
+
+            df.join(stored_df, on: "ID", how: "left")
+          end
+
+          feature name: "Batch Feature",
+                  description: "A feature that processes in batches",
+                  batch_size: 10,
+                  primary_key: "ID"
         end
 
-        it "computes the feature in batches", :focus do
+        let(:feature) do
+          EasyML::Feature.create!(
+            dataset: dataset,
+            feature_class: "BatchFeature",
+            name: "Batch Feature",
+            batch_size: 10,
+          )
+        end
+
+        before do
+          EasyML::Features::Registry.register(BatchFeature)
+        end
+
+        it "computes the feature in batches based on custom batch args", :focus do
           # Feature lazily creates the dataset, which triggers the refresh
           expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
 
@@ -477,12 +469,50 @@ RSpec.describe EasyML::Datasource do
           # because we're using the resque batched gem, we
           # need to queue these outside of ActiveJob
           batch_jobs.each do |job|
-            # Constantize the job class and perform the job with its arguments
-            job_class = job["class"].constantize
-            job_args = job["args"].last
+            Resque.reserve(:easy_ml).perform
+          end
 
-            # Manually perform the job
-            job_class.perform(job_args)
+          expect(EasyML::RefreshDatasetJob).to have_been_enqueued.with(dataset.id)
+          perform_enqueued_jobs
+
+          affected_rows = dataset.data(filter: Polars.col("COMPANY_ID").is_in([1, 2, 3, 4, 10, 12]), sort: ["COMPANY_ID", "ID"])
+
+          # Test specific rows have expected LAST_APP_TIME values
+          expect(affected_rows.filter(Polars.col("ID").eq(1))["LAST_APP_TIME"].to_a.first).to be_nil
+          expect(affected_rows.filter(Polars.col("ID").eq(19))["LAST_APP_TIME"].to_a.first).to eq("2024-01-01 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(29))["LAST_APP_TIME"].to_a.first).to eq("2024-01-19 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(2))["LAST_APP_TIME"].to_a.first).to be_nil
+          expect(affected_rows.filter(Polars.col("ID").eq(39))["LAST_APP_TIME"].to_a.first).to eq("2024-01-02 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(73))["LAST_APP_TIME"].to_a.first).to eq("2024-01-04 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(10))["LAST_APP_TIME"].to_a.first).to be_nil
+          expect(affected_rows.filter(Polars.col("ID").eq(86))["LAST_APP_TIME"].to_a.first).to eq("2024-01-10 00:00:00")
+          expect(affected_rows.filter(Polars.col("ID").eq(12))["LAST_APP_TIME"].to_a.first).to be_nil
+          expect(affected_rows.filter(Polars.col("ID").eq(98))["LAST_APP_TIME"].to_a.first).to eq("2024-01-12 00:00:00")
+
+          # Test all other rows have null LAST_APP_TIME
+          other_rows = dataset.data.filter(!Polars.col("COMPANY_ID").is_in([1, 2, 3, 4, 10, 12]))
+          expect(other_rows["LAST_APP_TIME"].null_count).to eq(other_rows.height)
+
+          # Feature should be marked as computed
+          feature.reload
+          expect(feature.fit_at).to be_present
+          expect(feature.needs_recompute).to be false
+
+          dataset.reload
+          expect(dataset.needs_refresh?).to be false
+        end
+      end
+
+      describe "#batch" do
+        context "when feature needs recompute" do
+          before do
+            allow(feature).to receive(:needs_recompute?).and_return(true)
+            allow(feature).to receive(:reset)
+          end
+
+          it "resets the feature" do
+            feature.batch
+            expect(feature).to have_received(:reset)
           end
         end
 

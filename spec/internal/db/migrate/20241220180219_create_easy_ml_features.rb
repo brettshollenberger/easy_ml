@@ -11,6 +11,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.string :sha
       t.string :primary_key, array: true
       t.datetime :applied_at
+      t.datetime :fit_at
 
       t.timestamps
 
@@ -23,6 +24,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.index :sha
       t.index :batch_size
       t.index :needs_recompute
+      t.index :fit_at
     end
   end
 end

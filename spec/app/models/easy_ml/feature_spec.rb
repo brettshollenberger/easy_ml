@@ -379,22 +379,31 @@ RSpec.describe EasyML::Datasource do
       class BatchFeature
         include EasyML::Features
 
-        def fit(reader, feature)
-          df = batch_df || reader.read(:all)
+        def batch(reader, feature)
+          reader.query(select: ["COMPANY_ID"], unique: true)["COMPANY_ID"]
+        end
+
+        def fit(reader, feature, options = {})
+          batch_start = options.dig(:batch_start)
+          batch_end = options.dig(:batch_end)
+
+          df = reader.query(filter: Polars.col("COMPANY_ID").is_in((batch_start..batch_end).to_a))
+
           df.with_columns(
             Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
-          )
+          )[["ID", "LAST_APP_TIME"]]
         end
 
         def transform(df, feature)
           stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("COMPANY_ID").is_in(df["COMPANY_ID"]))
+          return df if stored_df.empty?
+
           df.join(stored_df, on: "COMPANY_ID", how: "left")
         end
 
         feature name: "Batch Feature",
                 description: "A feature that processes in batches",
-                batch_size: 10,
-                primary_key: "COMPANY_ID"
+                batch_size: 10
       end
 
       let(:feature) do
@@ -406,21 +415,25 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      let(:test_data) do
-        (1..100).map do |company_id|
-          {
-            "COMPANY_ID" => company_id,
-            "CREATED_AT" => "2024-01-#{company_id.to_s.rjust(2, "0")}",
-          }
-        end
+      let(:datasource) do
+        EasyML::Datasource.create(
+          name: "Batches",
+          datasource_type: "file",
+        )
       end
 
-      let(:df) { Polars::DataFrame.new(test_data) }
-      let(:reader) { instance_double("EasyML::Data::PolarsReader") }
+      let(:dataset) do
+        EasyML::Dataset.create(
+          name: "My Dataset",
+          datasource: datasource,
+          splitter_attributes: {
+            splitter_type: "random",
+          },
+        )
+      end
 
       before do
         EasyML::Features::Registry.register(BatchFeature)
-        allow(reader).to receive(:query).and_return(df)
       end
 
       describe "#batch" do
@@ -431,41 +444,64 @@ RSpec.describe EasyML::Datasource do
           end
 
           it "resets the feature" do
-            feature.batch(reader)
+            feature.batch
             expect(feature).to have_received(:reset)
           end
         end
 
         it "computes the feature in batches", :focus do
-          binding.pry
+          # Feature lazily creates the dataset, which triggers the refresh
+          expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
+
+          perform_enqueued_jobs
+          expect(EasyML::ComputeFeaturesJob).to have_been_enqueued.with(dataset.id)
+
+          perform_enqueued_jobs
+
+          batch_jobs = Resque.peek(:easy_ml, 0, 10)
+          expect(batch_jobs.length).to eq(10) # 10 jobs
+
+          # Verify first batch
+          first_job = batch_jobs.first
+          expect(first_job["class"]).to eq("EasyML::ComputeFeatureJob")
+          expect(first_job["args"].last[:batch_start]).to eq(1)
+          expect(first_job["args"].last[:batch_end]).to eq(10)
+
+          # Verify last batch
+          last_job = batch_jobs.last
+          expect(last_job["class"]).to eq("EasyML::ComputeFeatureJob")
+          expect(last_job["args"].last[:batch_start]).to eq(91)
+          expect(last_job["args"].last[:batch_end]).to eq(100)
+
+          # Here we need to run the jobs queued via resque,
+          # because we're using the resque batched gem, we
+          # need to queue these outside of ActiveJob
+          batch_jobs.each do |job|
+            # Constantize the job class and perform the job with its arguments
+            job_class = job["class"].constantize
+            job_args = job["args"].last
+
+            # Manually perform the job
+            job_class.perform(job_args)
+          end
         end
 
         it "splits data into batches based on batch_size" do
-          feature.batch(reader)
-          expect(batch).to have_received(:add).exactly(10).times
-        end
+          batches = feature.batch
+          expect(batches.length).to eq(10)
 
-        it "passes correct batch boundaries to jobs" do
-          feature.batch(reader)
+          # Check first batch boundaries
+          expect(batches.first).to include(
+            feature_id: feature.id,
+            batch_start: 1,
+            batch_end: 10,
+          )
 
-          # Check first batch
-          expect(batch).to have_received(:add).with(
-            EasyML::Jobs::ComputeFeatureBatchJob,
-            [feature.id, 1, 10] # feature_id, min_id, max_id
-          ).ordered
-
-          # Check last batch
-          expect(batch).to have_received(:add).with(
-            EasyML::Jobs::ComputeFeatureBatchJob,
-            [feature.id, 91, 100] # feature_id, min_id, max_id
-          ).ordered
-        end
-
-        it "sets up finalization callback" do
-          feature.batch(reader)
-          expect(batch).to have_received(:on_complete).with(
-            EasyML::Jobs::FinalizeFeatureJob,
-            [feature.id]
+          # Check last batch boundaries
+          expect(batches.last).to include(
+            feature_id: feature.id,
+            batch_start: 91,
+            batch_end: 100,
           )
         end
       end
@@ -501,7 +537,7 @@ RSpec.describe EasyML::Datasource do
             )
           end
 
-          feature.batch(reader)
+          feature.batch
         end
 
         it "processes each batch with the feature adapter" do

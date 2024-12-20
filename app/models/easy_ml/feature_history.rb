@@ -9,8 +9,12 @@
 #  version            :integer
 #  feature_class      :string           not null
 #  feature_position   :integer
+#  batch_size         :integer
+#  needs_recompute    :boolean
 #  sha                :string
+#  primary_key        :string
 #  applied_at         :datetime
+#  fit_at             :datetime
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  history_started_at :datetime         not null

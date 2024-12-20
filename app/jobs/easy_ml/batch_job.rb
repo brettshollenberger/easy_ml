@@ -19,15 +19,7 @@ module EasyML
           Resque.enqueue_batched_job(self, batch_id, *args)
         end
 
-        log_batch(batch_id, args_list)
         batch_id
-      end
-
-      # Helper for logging
-      def log(message)
-        File.open(Rails.root.join("tmp", "batch_logs.log"), "a") do |file|
-          file.puts("[#{Time.now}] #{message}")
-        end
       end
 
       private
@@ -48,10 +40,6 @@ module EasyML
       # Redis instance for storing batch arguments
       def redis
         Resque.redis
-      end
-
-      def log_batch(batch_id, args_list)
-        log "Batch #{batch_id} created with #{args_list.size} jobs."
       end
     end
   end

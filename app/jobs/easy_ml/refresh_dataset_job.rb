@@ -13,6 +13,9 @@ module EasyML
           EasyML::ComputeFeaturesJob.perform_later(dataset.id)
         end
       rescue StandardError => e
+        if Rails.env.test?
+          raise e
+        end
         handle_error(dataset, e)
       end
     end

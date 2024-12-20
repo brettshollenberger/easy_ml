@@ -333,7 +333,7 @@ module EasyML
     def needs_learn?(df)
       never_learned = columns.none?
       new_features = features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
-      new_cols = (df.columns - columns.map(&:name))
+      new_cols = df.present? ? (df.columns - columns.map(&:name)) : []
 
       new_cols = (new_cols - one_hot_cols(new_cols)).any?
 

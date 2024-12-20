@@ -8,11 +8,14 @@
 #  version          :bigint
 #  feature_class    :string           not null
 #  feature_position :integer
+#  batch_size       :integer
+#  needs_recompute  :boolean
+#  sha              :string
+#  primary_key      :string           is an Array
 #  applied_at       :datetime
+#  fit_at           :datetime
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
-#  sha              :string
-#  batch_size       :integer
 #
 module EasyML
   class Feature < ActiveRecord::Base
@@ -65,7 +68,12 @@ module EasyML
       where(needs_recompute: true).or(where(conditions.join(" OR ")))
     }
     scope :never_applied, -> { where(applied_at: nil) }
-    scope :needs_recompute, -> { has_changes.or(never_applied) }
+    scope :never_fit, -> do
+            fittable = where(fit_at: nil)
+            fittable = fittable.select { |f| f.adapter.respond_to?(:fit) }
+            where(id: fittable.map(&:id))
+          end
+    scope :needs_recompute, -> { has_changes.or(never_applied).or(never_fit) }
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha
@@ -87,7 +95,7 @@ module EasyML
     end
 
     def batchable?
-      batch_size.present?
+      batch_size.present? || adapter.respond_to?(:batch)
     end
 
     def batch
@@ -95,10 +103,20 @@ module EasyML
 
       reader = dataset.raw
 
-      # Get all primary keys
-      df = reader.query(select: [primary_key.first])
-      min_id = df[primary_key.first].min
-      max_id = df[primary_key.first].max
+      if adapter.respond_to?(:batch)
+        array = adapter.batch(reader, self)
+        min_id = array.min
+        max_id = array.max
+      else
+        # Get all primary keys
+        begin
+          df = reader.query(select: [primary_key.first])
+        rescue => e
+          raise "Couldn't find primary key #{primary_key.first} for feature #{feature_class}: #{e.message}"
+        end
+        min_id = df[primary_key.first].min
+        max_id = df[primary_key.first].max
+      end
 
       (min_id..max_id).step(batch_size).map do |batch_start|
         batch_end = [batch_start + batch_size, max_id + 1].min - 1
@@ -128,21 +146,25 @@ module EasyML
       if adapter.respond_to?(:fit)
         options.symbolize_keys!
 
-        batch_start = options.dig(:batch_start)
-        batch_end = options.dig(:batch_end)
-
-        if batch_start && batch_end
-          select = needs_columns.present? ? needs_columns : nil
-          filter = Polars.col(primary_key.first).is_between(batch_start, batch_end)
-          params = {
-            select: select,
-            filter: filter,
-          }.compact
+        if adapter.respond_to?(:batch)
+          batch_df = adapter.fit(dataset.raw, self, options)
         else
-          params = {}
+          batch_start = options.dig(:batch_start)
+          batch_end = options.dig(:batch_end)
+
+          if batch_start && batch_end
+            select = needs_columns.present? ? needs_columns : nil
+            filter = Polars.col(primary_key.first).is_between(batch_start, batch_end)
+            params = {
+              select: select,
+              filter: filter,
+            }.compact
+          else
+            params = {}
+          end
+          df = dataset.raw.query(**params)
+          batch_df = adapter.fit(df, self)
         end
-        df = dataset.raw.query(**params)
-        batch_df = adapter.fit(df, self)
         raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
         EasyML::FeatureStore.store(self, batch_df)
       end

@@ -157,7 +157,7 @@ RSpec.describe EasyML::FeatureStore do
       context "when updating existing partitions" do
         let(:existing_data) do
           [
-            { "LOAN_APP_ID" => 5, "LAST_APP_TIME" => "2023-12-31" },  # Will be overwritten
+            { "LOAN_APP_ID" => 5, "LAST_APP_TIME" => "2024-01-31" },  # Will be overwritten
             { "LOAN_APP_ID" => 7, "LAST_APP_TIME" => "2024-01-03" },  # Will be preserved
           ]
         end

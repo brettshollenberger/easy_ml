@@ -7,6 +7,7 @@
 #  datasource_type :string
 #  root_dir        :string
 #  configuration   :json
+#  refreshed_at    :datetime
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -113,6 +114,7 @@ module EasyML
       self.columns = data.columns
       self.num_rows = data.shape[0]
       self.is_syncing = false
+      self.refreshed_at = Time.now
       save
     end
 

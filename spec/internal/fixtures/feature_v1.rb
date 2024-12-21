@@ -1,8 +1,12 @@
 class FeatureV1
   include EasyML::Features
 
+  def fit(df, feature, options = {})
+    df
+  end
+
   def transform(df, feature)
-    df["test_feature"] = [1, 2, 3]
+    df["test_feature"] = (1..df.height).to_a
     df
   end
 

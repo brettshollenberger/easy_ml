@@ -65,7 +65,7 @@ module EasyML
       end
 
       # Combine all conditions with OR
-      where(needs_recompute: true).or(where(conditions.join(" OR ")))
+      where(id: where(needs_recompute: true).or(where(conditions.join(" OR "))).select { |f| f.adapter.respond_to?(:fit) }.map(&:id))
     }
     scope :never_applied, -> { where(applied_at: nil) }
     scope :never_fit, -> do
@@ -87,11 +87,28 @@ module EasyML
     end
 
     def adapter
-      feature_klass.new
+      @adapter ||= feature_klass.new
     end
 
     def needs_recompute?
-      Feature.has_changes.where(id: id).exists?
+      return false unless adapter.respond_to?(:fit)
+      return true if needs_recompute
+      return true if datasource_refreshed_after_fit?
+      return true if code_changed?
+
+      false
+    end
+
+    def code_changed?
+      current_sha = self.class.compute_sha(feature_class)
+      sha != current_sha
+    end
+
+    def datasource_refreshed_after_fit?
+      return true if fit_at.nil?
+      return false if dataset.datasource.refreshed_at.nil?
+
+      dataset.datasource.refreshed_at > fit_at
     end
 
     def batchable?
@@ -187,10 +204,6 @@ module EasyML
       result = adapter.transform(df, self)
       update!(applied_at: Time.current)
       result
-    end
-
-    def code_changed?
-      sha != compute_sha
     end
 
     def compute_sha

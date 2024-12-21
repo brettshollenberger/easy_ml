@@ -1,8 +1,12 @@
 class FeatureV1
   include EasyML::Features
 
+  def fit(df, feature, options = {})
+    df
+  end
+
   def transform(df, feature)
-    df["test_feature"] = [4, 5, 6]  # Changed values
+    df["test_feature"] = df.height.times.map { rand(4..6) }
     df
   end
 

@@ -385,6 +385,14 @@ RSpec.describe EasyML::Datasource do
       end
 
       describe "#fit" do
+        let(:feature) do
+          EasyML::Feature.create!(
+            dataset: dataset,
+            feature_class: "LastAppTime",
+            name: "Last Application Time",
+          )
+        end
+
         let(:test_data) do
           [
             { "COMPANY_ID" => 1, "CREATED_AT" => "2024-01-01" },
@@ -647,10 +655,12 @@ RSpec.describe EasyML::Datasource do
         end
 
         it "resets after running fit" do
-          feature.update(batch_size: 100)
+          dataset.refresh
+
+          feature.reload.update(needs_recompute: true)
           expect(EasyML::Feature.needs_recompute).to include(feature)
 
-          feature.fit(dataset.raw)
+          feature.fit
           expect(EasyML::Feature.needs_recompute).to_not include(feature)
         end
       end
@@ -711,6 +721,7 @@ RSpec.describe EasyML::Datasource do
           expect(EasyML::Feature.needs_recompute).to include(unapplied_feature)
         end
       end
+
       context "when feature has been applied" do
         before do
           feature.update!(applied_at: Time.current, fit_at: Time.now, needs_recompute: false)
@@ -763,6 +774,90 @@ RSpec.describe EasyML::Datasource do
         expect(dataset.data.columns).to include("POPULATION")
         expect(dataset.data.columns).to include("CITY")
         expect(dataset.data.columns).to include("STATE")
+      end
+    end
+
+    describe "#needs_recompute?" do
+      let(:feature) do
+        EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: "ZipFeature",
+          name: "Zip Feature",
+        )
+      end
+
+      context "when feature adapter does not respond to fit" do
+        before do
+          allow(feature.adapter).to receive(:respond_to?).with(:fit).and_return(false)
+        end
+
+        it "returns false" do
+          expect(feature.needs_recompute?).to be false
+        end
+      end
+
+      context "when needs_recompute flag is set" do
+        before do
+          feature.update(needs_recompute: true)
+        end
+
+        it "returns true" do
+          expect(feature.needs_recompute?).to be true
+        end
+      end
+
+      context "when code has changed" do
+        before do
+          feature.update(sha: "old_sha")
+          allow(EasyML::Feature).to receive(:compute_sha).and_return("new_sha")
+        end
+
+        it "returns true" do
+          expect(feature.needs_recompute?).to be true
+        end
+      end
+
+      context "when datasource has been refreshed after feature was fit" do
+        before do
+          feature.update(fit_at: 1.day.ago)
+          dataset.datasource.update(refreshed_at: Time.current)
+        end
+
+        it "returns true" do
+          expect(feature.needs_recompute?).to be true
+        end
+      end
+
+      context "when datasource has not been refreshed since feature was fit" do
+        before do
+          dataset.datasource.update(refreshed_at: 1.day.ago)
+          feature.update(fit_at: Time.current, needs_recompute: false)
+        end
+
+        it "returns false" do
+          expect(feature.needs_recompute?).to be false
+        end
+      end
+
+      context "when feature has never been fit" do
+        before do
+          feature.update(fit_at: nil)
+        end
+
+        it "returns true" do
+          expect(feature.needs_recompute?).to be true
+        end
+      end
+
+      context "when datasource has never been refreshed" do
+        before do
+          feature.update(fit_at: Time.current, needs_recompute: false)
+          dataset.datasource.update(refreshed_at: nil)
+        end
+
+        it "returns false" do
+          expect(feature.needs_recompute?).to be false
+        end
       end
     end
   end

@@ -1,6 +1,71 @@
 require "spec_helper"
 require "support/model_spec_helper"
 require "support/file_spec_helper"
+# class Age
+#   include EasyML::Features
+
+#   def age(df)
+#     df.with_column(
+#       Polars::Series.new("age", Array.new(df.height) { rand(1..50) })
+#     )
+#   end
+
+#   feature :age,
+#           name: "age",
+#           description: "Age of the owner"
+# end
+
+# class BusinessInception
+#   include EasyML::Features
+
+#   def business_inception(df)
+#     df.with_column(
+#       Polars::Series.new("business_inception", Array.new(df.height) do
+#         rand(Date.new(1970, 1, 1)..Date.today - 30.years)
+#       end).alias("business_inception")
+#     )
+#   end
+
+#   feature :business_inception,
+#           name: "Business Inception",
+#           description: "Business inception date"
+# end
+
+# class DaysInBusiness
+#   include EasyML::Features
+
+#   def days_in_business(df)
+#     df.with_column(
+#       (Polars.col("created_date") - Polars.col("business_inception")).dt.days.alias("days_in_business")
+#     )
+#   end
+
+#   feature :days_in_business,
+#           name: "Days in business",
+#           description: "Days since the business inception date"
+# end
+# EasyML::Features::Registry.register(Age)
+# EasyML::Features::Registry.register(BusinessInception)
+# EasyML::Features::Registry.register(DaysInBusiness)
+#
+# EasyML::Feature.new(
+#   dataset: dataset,
+#   feature_class: BusinessInception,
+#   feature_method: :business_inception,
+# ).insert
+
+# EasyML::Feature.new(
+#   dataset: dataset,
+#   feature_class: DaysInBusiness,
+#   feature_method: :days_in_business,
+# ).insert
+
+# # Insert age between business_inception and days_in_business
+# EasyML::Feature.new(
+#   dataset: dataset,
+#   feature_class: Age,
+#   feature_method: :age,
+# ).insert_after(:business_inception)
 
 RSpec.describe EasyML::Datasource do
   include ModelSpecHelper
@@ -11,6 +76,13 @@ RSpec.describe EasyML::Datasource do
 
   before(:each) do
     EasyML::Cleaner.clean
+    EasyML::Features::Registry.register(DidConvert)
+    EasyML::Features::Registry.register(BadFeature)
+    EasyML::Features::Registry.register(LastAppTime)
+    EasyML::Features::Registry.register(TestFeature)
+    EasyML::Features::Registry.register(DefaultBatchFeature)
+    EasyML::Features::Registry.register(ZipFeature)
+    EasyML::Features::Registry.register(BatchFeature)
   end
 
   after(:each) do
@@ -47,11 +119,155 @@ RSpec.describe EasyML::Datasource do
     EasyML::Data::SyncedDirectory
   end
 
-  describe "Features" do
-    class BaseFeature
-      include EasyML::Features
+  class ZipFeature
+    include EasyML::Features
+
+    def fit(df, feature, options = {})
+      zip_df = EasyML::Dataset.find_by(name: "Zips").data
+
+      # Join with zip data and return just the columns we need
+      df.join(
+        zip_df,
+        on: "ZIP",
+        how: "left",
+      )[["ID", "CITY", "STATE", "POPULATION"]]
     end
 
+    def transform(df, feature)
+      binding.pry
+
+      stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
+      return df if stored_df.empty?
+
+      df.join(stored_df, on: "ID", how: "left")
+    end
+
+    feature name: "Zip Feature",
+            description: "Adds ZIP code data based on ID",
+            batch_size: 10,
+            primary_key: "ID"
+  end
+
+  class DidConvert
+    include EasyML::Features
+
+    def transform(df, feature)
+      df.with_column(
+        (Polars.col("rev") > 0).alias("did_convert")
+      )
+    end
+
+    feature name: "did_convert",
+            description: "Boolean true/false, did the loan application fund?"
+  end
+
+  class BadFeature
+    include EasyML::Features
+
+    def transform(df, feature)
+      "not a dataframe" # Intentionally return wrong type
+    end
+
+    feature name: "Bad Feature",
+            description: "A feature that doesn't return a DataFrame"
+  end
+
+  class BaseFeature
+    include EasyML::Features
+  end
+
+  class LastAppTime
+    include EasyML::Features
+
+    def fit(df, feature, options = {})
+      batch_df = df.with_columns(
+        Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
+      )
+      batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
+    end
+
+    def transform(df, feature)
+      stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("LOAN_APP_ID").is_in(df["LOAN_APP_ID"]))
+      df.join(stored_df, on: "LOAN_APP_ID", how: "left")
+    end
+
+    feature name: "Last Application Time",
+            description: "Time since the company's last loan application",
+            primary_key: "LOAN_APP_ID",
+            batch_size: 10,
+            needs_columns: ["LOAN_APP_ID", "CREATED_AT", "COMPANY_ID"]
+  end
+
+  class TestFeature
+    include EasyML::Features
+    feature name: "Test Feature",
+            description: "A test feature",
+            batch_size: 5000
+  end
+
+  class DefaultBatchFeature
+    include EasyML::Features
+    feature name: "Default Batch Feature",
+            description: "A feature with default batch size"
+  end
+
+  class BatchFeature
+    include EasyML::Features
+
+    def batch(reader, feature)
+      reader.query(select: ["COMPANY_ID"], unique: true)["COMPANY_ID"]
+    end
+
+    def fit(reader, feature, options = {})
+      batch_start = options.dig(:batch_start)
+      batch_end = options.dig(:batch_end)
+
+      df = reader.query(
+        filter: Polars.col("COMPANY_ID").is_in((batch_start..batch_end).to_a),
+        sort: ["COMPANY_ID", "ID"],
+      )
+
+      df.with_columns(
+        Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
+      )[["ID", "LAST_APP_TIME"]]
+    end
+
+    def transform(df, feature)
+      stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
+      return df if stored_df.empty?
+
+      df.join(stored_df, on: "ID", how: "left")
+    end
+
+    feature name: "Batch Feature",
+            description: "A feature that processes in batches",
+            batch_size: 10,
+            primary_key: "ID"
+  end
+
+  let(:zips_datasource) do
+    EasyML::Datasource.create(
+      name: "Zips",
+      datasource_type: "file",
+    )
+  end
+
+  let(:zips_dataset) do
+    zips = EasyML::Dataset.create(
+      name: "Zips",
+      datasource: zips_datasource,
+      splitter_attributes: {
+        splitter_type: "random",
+      },
+    )
+
+    zips.refresh
+    zips.columns.find_by(name: "ZIP").update(datatype: "string")
+    zips.refresh
+    zips
+  end
+
+  describe "Features" do
     describe "base methods" do
       let(:feature) { BaseFeature.new }
 
@@ -59,80 +275,7 @@ RSpec.describe EasyML::Datasource do
         expect { feature.transform(nil, nil) }.to raise_error(NotImplementedError)
       end
     end
-
-    class DidConvert
-      include EasyML::Features
-
-      def transform(df, feature)
-        df.with_column(
-          (Polars.col("rev") > 0).alias("did_convert")
-        )
-      end
-
-      feature name: "did_convert",
-              description: "Boolean true/false, did the loan application fund?"
-    end
-
-    # class Age
-    #   include EasyML::Features
-
-    #   def age(df)
-    #     df.with_column(
-    #       Polars::Series.new("age", Array.new(df.height) { rand(1..50) })
-    #     )
-    #   end
-
-    #   feature :age,
-    #           name: "age",
-    #           description: "Age of the owner"
-    # end
-
-    # class BusinessInception
-    #   include EasyML::Features
-
-    #   def business_inception(df)
-    #     df.with_column(
-    #       Polars::Series.new("business_inception", Array.new(df.height) do
-    #         rand(Date.new(1970, 1, 1)..Date.today - 30.years)
-    #       end).alias("business_inception")
-    #     )
-    #   end
-
-    #   feature :business_inception,
-    #           name: "Business Inception",
-    #           description: "Business inception date"
-    # end
-
-    # class DaysInBusiness
-    #   include EasyML::Features
-
-    #   def days_in_business(df)
-    #     df.with_column(
-    #       (Polars.col("created_date") - Polars.col("business_inception")).dt.days.alias("days_in_business")
-    #     )
-    #   end
-
-    #   feature :days_in_business,
-    #           name: "Days in business",
-    #           description: "Days since the business inception date"
-    # end
-
-    class BadFeature
-      include EasyML::Features
-
-      def transform(df, feature)
-        "not a dataframe" # Intentionally return wrong type
-      end
-
-      feature name: "Bad Feature",
-              description: "A feature that doesn't return a DataFrame"
-    end
-
     before do
-      EasyML::Features::Registry.register(DidConvert)
-      # EasyML::Features::Registry.register(Age)
-      # EasyML::Features::Registry.register(BusinessInception)
-      # EasyML::Features::Registry.register(DaysInBusiness)
     end
 
     it "versions features" do
@@ -140,25 +283,6 @@ RSpec.describe EasyML::Datasource do
       expect(dataset).to be_needs_refresh
       dataset.refresh!
       expect(dataset).to_not be_needs_refresh
-
-      # EasyML::Feature.new(
-      #   dataset: dataset,
-      #   feature_class: BusinessInception,
-      #   feature_method: :business_inception,
-      # ).insert
-
-      # EasyML::Feature.new(
-      #   dataset: dataset,
-      #   feature_class: DaysInBusiness,
-      #   feature_method: :days_in_business,
-      # ).insert
-
-      # # Insert age between business_inception and days_in_business
-      # EasyML::Feature.new(
-      #   dataset: dataset,
-      #   feature_class: Age,
-      #   feature_method: :age,
-      # ).insert_after(:business_inception)
 
       # Prepend did_convert to be first
       EasyML::Feature.new(
@@ -178,8 +302,6 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "raises appropriate error if any feature doesn't return df" do
-      # Register the bad feature
-      EasyML::Features::Registry.register(BadFeature)
 
       # Create a feature that will fail
       feature = EasyML::Feature.new(
@@ -195,28 +317,6 @@ RSpec.describe EasyML::Datasource do
     end
 
     describe "#fit method" do
-      class LastAppTime
-        include EasyML::Features
-
-        def fit(df, feature, options = {})
-          batch_df = df.with_columns(
-            Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
-          )
-          batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
-        end
-
-        def transform(df, feature)
-          stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("LOAN_APP_ID").is_in(df["LOAN_APP_ID"]))
-          df.join(stored_df, on: "LOAN_APP_ID", how: "left")
-        end
-
-        feature name: "Last Application Time",
-                description: "Time since the company's last loan application",
-                primary_key: "LOAN_APP_ID",
-                batch_size: 10,
-                needs_columns: ["LOAN_APP_ID", "CREATED_AT", "COMPANY_ID"]
-      end
-
       let(:feature) do
         EasyML::Feature.create!(
           dataset: dataset,
@@ -235,9 +335,6 @@ RSpec.describe EasyML::Datasource do
       end
 
       before(:each) do
-        # Register the feature
-        EasyML::Features::Registry.register(LastAppTime)
-
         # Create test data in the training split
         df = Polars::DataFrame.new(test_data)
         dataset.raw.save(:train, df)
@@ -327,24 +424,6 @@ RSpec.describe EasyML::Datasource do
     end
 
     describe "#batch_size" do
-      class TestFeature
-        include EasyML::Features
-        feature name: "Test Feature",
-                description: "A test feature",
-                batch_size: 5000
-      end
-
-      class DefaultBatchFeature
-        include EasyML::Features
-        feature name: "Default Batch Feature",
-                description: "A feature with default batch size"
-      end
-
-      before(:each) do
-        EasyML::Features::Registry.register(TestFeature)
-        EasyML::Features::Registry.register(DefaultBatchFeature)
-      end
-
       after(:each) do
         EasyML::Features::Registry.instance_variable_set(:@registry, {})
       end
@@ -388,65 +467,12 @@ RSpec.describe EasyML::Datasource do
       end
 
       describe "default batching with primary key" do
-        class ZipFeature
-          include EasyML::Features
-
-          def fit(df, feature, options = {})
-            zip_df = EasyML::Dataset.find_by(name: "Zips").data
-
-            # Join with zip data and return just the columns we need
-            df.join(
-              zip_df,
-              on: "ZIP",
-              how: "left",
-            )[["ID", "CITY", "STATE", "POPULATION"]]
-          end
-
-          def transform(df, feature)
-            stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
-            return df if stored_df.empty?
-
-            df.join(stored_df, on: "ID", how: "left")
-          end
-
-          feature name: "Zip Feature",
-                  description: "Adds ZIP code data based on ID",
-                  batch_size: 10,
-                  primary_key: "ID"
-        end
-
-        let(:zips_datasource) do
-          EasyML::Datasource.create(
-            name: "Zips",
-            datasource_type: "file",
-          )
-        end
-
-        let(:zips_dataset) do
-          zips = EasyML::Dataset.create(
-            name: "Zips",
-            datasource: zips_datasource,
-            splitter_attributes: {
-              splitter_type: "random",
-            },
-          )
-
-          zips.refresh
-          zips.columns.find_by(name: "ZIP").update(datatype: "string")
-          zips.refresh
-          zips
-        end
-
         let(:feature) do
           EasyML::Feature.create!(
             dataset: dataset,
             feature_class: "ZipFeature",
             name: "Zip Feature",
           )
-        end
-
-        before do
-          EasyML::Features::Registry.register(ZipFeature)
         end
 
         it "computes the feature in batches based on ID ranges" do
@@ -525,40 +551,6 @@ RSpec.describe EasyML::Datasource do
       end
 
       describe "custom batching" do
-        class BatchFeature
-          include EasyML::Features
-
-          def batch(reader, feature)
-            reader.query(select: ["COMPANY_ID"], unique: true)["COMPANY_ID"]
-          end
-
-          def fit(reader, feature, options = {})
-            batch_start = options.dig(:batch_start)
-            batch_end = options.dig(:batch_end)
-
-            df = reader.query(
-              filter: Polars.col("COMPANY_ID").is_in((batch_start..batch_end).to_a),
-              sort: ["COMPANY_ID", "ID"],
-            )
-
-            df.with_columns(
-              Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
-            )[["ID", "LAST_APP_TIME"]]
-          end
-
-          def transform(df, feature)
-            stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
-            return df if stored_df.empty?
-
-            df.join(stored_df, on: "ID", how: "left")
-          end
-
-          feature name: "Batch Feature",
-                  description: "A feature that processes in batches",
-                  batch_size: 10,
-                  primary_key: "ID"
-        end
-
         let(:feature) do
           EasyML::Feature.create!(
             dataset: dataset,
@@ -567,11 +559,6 @@ RSpec.describe EasyML::Datasource do
             batch_size: 10,
           )
         end
-
-        before do
-          EasyML::Features::Registry.register(BatchFeature)
-        end
-
         it "computes the feature in batches based on custom batch args" do
           # Feature lazily creates the dataset, which triggers the refresh
           expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
@@ -742,6 +729,43 @@ RSpec.describe EasyML::Datasource do
           load File.join(Rails.root, "fixtures/feature_v2.rb")
           expect(EasyML::Feature.needs_recompute).to include(feature)
         end
+      end
+    end
+
+    describe "Synchronous feature computation", :focus do
+      let(:feature) do
+        EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: "ZipFeature",
+          name: "Zip Feature",
+        )
+      end
+
+      let(:datasource) do
+        EasyML::Datasource.create(
+          name: "Batches",
+          datasource_type: "file",
+        )
+      end
+
+      let(:dataset) do
+        EasyML::Dataset.create(
+          name: "My Dataset",
+          datasource: datasource,
+          splitter_attributes: {
+            splitter_type: "random",
+          },
+        )
+      end
+
+      it "computes features synchronously" do
+        zips_dataset
+        feature
+        dataset.refresh
+        dataset.columns.find_by(name: "ZIP").update(datatype: "string")
+        dataset.refresh
+
+        expect(dataset.data.columns).to include("POPULATION")
       end
     end
   end

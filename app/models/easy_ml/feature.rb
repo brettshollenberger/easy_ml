@@ -179,6 +179,9 @@ module EasyML
     end
 
     def transform(df)
+      return nil unless df.present?
+      return df if adapter.respond_to?(:fit) && FeatureStore.empty?(self)
+
       reset if reset_on_transform?
 
       result = adapter.transform(df, self)

@@ -134,8 +134,6 @@ RSpec.describe EasyML::Datasource do
     end
 
     def transform(df, feature)
-      binding.pry
-
       stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
       return df if stored_df.empty?
 
@@ -476,18 +474,18 @@ RSpec.describe EasyML::Datasource do
         end
 
         it "computes the feature in batches based on ID ranges" do
+          # Setup the dataset and feature to need recomputation
           zips_dataset
           feature
           dataset.refresh
           dataset.columns.find_by(name: "ZIP").update(datatype: "string")
           dataset.refresh
           clear_enqueued_jobs
+          feature.reload.update(needs_recompute: true)
+          dataset.reload
 
           # Feature lazily creates the dataset, which triggers the refresh
           expect { dataset.refresh_async }.to have_enqueued_job(EasyML::RefreshDatasetJob).with(dataset.id)
-
-          perform_enqueued_jobs
-          expect(EasyML::ComputeFeaturesJob).to have_been_enqueued.with(dataset.id)
 
           perform_enqueued_jobs
 
@@ -562,9 +560,6 @@ RSpec.describe EasyML::Datasource do
         it "computes the feature in batches based on custom batch args" do
           # Feature lazily creates the dataset, which triggers the refresh
           expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
-
-          perform_enqueued_jobs
-          expect(EasyML::ComputeFeaturesJob).to have_been_enqueued.with(dataset.id)
 
           perform_enqueued_jobs
 
@@ -732,7 +727,7 @@ RSpec.describe EasyML::Datasource do
       end
     end
 
-    describe "Synchronous feature computation", :focus do
+    describe "Synchronous feature computation" do
       let(:feature) do
         EasyML::Feature.create!(
           dataset: dataset,
@@ -766,6 +761,8 @@ RSpec.describe EasyML::Datasource do
         dataset.refresh
 
         expect(dataset.data.columns).to include("POPULATION")
+        expect(dataset.data.columns).to include("CITY")
+        expect(dataset.data.columns).to include("STATE")
       end
     end
   end

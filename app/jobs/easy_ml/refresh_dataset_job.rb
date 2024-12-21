@@ -7,13 +7,8 @@ module EasyML
       create_event(dataset, "started")
 
       begin
-        if dataset.features.needs_recompute.empty?
-          dataset.refresh
-          create_event(dataset, "success")
-        else
-          dataset.prepare
-          EasyML::ComputeFeaturesJob.perform_later(dataset.id)
-        end
+        dataset.prepare
+        dataset.compute_features(async: true)
       rescue StandardError => e
         if Rails.env.test?
           raise e

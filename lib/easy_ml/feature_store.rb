@@ -42,6 +42,10 @@ module EasyML
         end
       end
 
+      def empty?(feature)
+        list_partitions(feature).empty?
+      end
+
       def list_partitions(feature)
         Dir.glob(File.join(feature_dir(feature), "feature*.parquet")).sort
       end

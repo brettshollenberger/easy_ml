@@ -151,23 +151,61 @@ module EasyML
       save
     end
 
+    def prepare!
+      cleanup
+      refresh_datasource!
+      split_data
+    end
+
     def prepare
       refresh_datasource
       split_data
     end
 
-    def refresh!
+    def actually_refresh
       refreshing do
-        cleanup
-        refresh_datasource!
+        split_data
         process_data
+        learn
+        now = UTC.now
+        update(workflow_status: "ready", refreshed_at: now, updated_at: now)
+        fully_reload
       end
     end
 
-    def refresh
+    def refresh!(async: false)
       refreshing do
-        refresh_datasource
-        process_data
+        prepare!
+        compute_features(async: async)
+      end
+      actually_refresh unless async
+    end
+
+    def refresh(async: false)
+      return refresh_async if async
+
+      refreshing do
+        prepare
+        compute_features(async: async)
+      end
+      actually_refresh unless async
+    end
+
+    def compute_features(async: false)
+      features_to_compute = features.needs_recompute
+      return if features_to_compute.empty?
+
+      if async
+        batch_features, single_features = features_to_compute.partition(&:batchable?)
+
+        jobs = batch_features.flat_map(&:batch).concat(
+          single_features.map { |feature| { feature_id: feature.id } }
+        )
+
+        EasyML::ComputeFeatureJob.enqueue_batch(jobs)
+      else
+        features_to_compute.each { |feature| feature.fit }
+        features_to_compute.update_all(needs_recompute: false, fit_at: Time.current)
       end
     end
 
@@ -201,10 +239,6 @@ module EasyML
         update(workflow_status: "analyzing")
         fully_reload
         yield
-        learn
-        now = UTC.now
-        update(workflow_status: "ready", refreshed_at: now, updated_at: now)
-        fully_reload
       end
     rescue StandardError => e
       update(workflow_status: "failed")
@@ -549,20 +583,16 @@ module EasyML
     end
 
     def refresh_datasource
-      refresh_datatypes
       datasource.reload.refresh
+      refresh_datatypes
       initialize_splits
     end
-
-    # log_method :refresh_datasource, "Refreshing datasource", verbose: true
 
     def refresh_datasource!
-      refresh_datatypes
       datasource.reload.refresh!
+      refresh_datatypes
       initialize_splits
     end
-
-    # log_method :refresh_datasource!, "Refreshing! datasource", verbose: true
 
     def normalize_all
       processed.cleanup
@@ -574,8 +604,6 @@ module EasyML
       end
       @normalized = true
     end
-
-    # log_method :normalize_all, "Normalizing dataset", verbose: true
 
     def drop_nulls(df)
       return df if drop_if_null.nil? || drop_if_null.empty?

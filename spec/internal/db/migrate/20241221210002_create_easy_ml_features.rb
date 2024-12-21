@@ -12,6 +12,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.string :primary_key, array: true
       t.datetime :applied_at
       t.datetime :fit_at
+      t.bigint :refresh_every
 
       t.timestamps
 
@@ -25,6 +26,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.index :batch_size
       t.index :needs_recompute
       t.index :fit_at
+      t.index :refresh_every
     end
   end
 end

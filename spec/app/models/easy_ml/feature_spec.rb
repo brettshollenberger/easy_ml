@@ -859,6 +859,91 @@ RSpec.describe EasyML::Datasource do
           expect(feature.needs_recompute?).to be false
         end
       end
+
+      context "when refresh_every period has elapsed" do
+        before do
+          feature.update(
+            fit_at: 2.days.ago,
+            needs_recompute: false,
+            refresh_every: 1.day.to_i,
+          )
+        end
+
+        it "returns true" do
+          expect(feature.needs_recompute?).to be true
+        end
+      end
+
+      context "when refresh_every period has not elapsed" do
+        before do
+          feature.update(
+            fit_at: 12.hours.ago,
+            needs_recompute: false,
+            refresh_every: 1.day.to_i,
+          )
+        end
+
+        it "returns false" do
+          expect(feature.needs_recompute?).to be false
+        end
+      end
+
+      context "when refresh_every is not set" do
+        before do
+          feature.update(
+            fit_at: 2.days.ago,
+            needs_recompute: false,
+            refresh_every: nil,
+          )
+        end
+
+        it "returns false" do
+          expect(feature.needs_recompute?).to be false
+        end
+      end
+    end
+
+    describe "#update_from_feature_class" do
+      class TestFeatureClass
+        include EasyML::Features
+
+        feature name: "Test Feature",
+                batch_size: 100,
+                primary_key: "ID",
+                refresh_every: 1.day
+
+        def transform(df, feature)
+          df
+        end
+      end
+
+      let(:feature) do
+        EasyML::Features::Registry.register(TestFeatureClass)
+        EasyML::Feature.create!(
+          dataset: dataset,
+          feature_class: TestFeatureClass.to_s,
+          name: "Test Feature",
+        )
+      end
+
+      it "updates refresh_every from feature configuration" do
+        expect(feature.refresh_every).to eq(1.day.to_i)
+      end
+
+      it "converts refresh_every to integer" do
+        allow(feature).to receive(:feature_class_config).and_return({ refresh_every: 1.day })
+        feature.send(:update_from_feature_class)
+        expect(feature.refresh_every).to be_a(Integer)
+      end
+
+      it "doesn't change refresh_every if not specified in configuration" do
+        allow(feature).to receive(:feature_class_config).and_return({})
+        original_refresh_every = 2.days.to_i
+        feature.update(refresh_every: original_refresh_every)
+
+        feature.send(:update_from_feature_class)
+        expect(feature.refresh_every).to eq(original_refresh_every)
+      end
     end
   end
 end

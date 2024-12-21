@@ -95,8 +95,15 @@ module EasyML
       return true if needs_recompute
       return true if datasource_refreshed_after_fit?
       return true if code_changed?
+      return true if refresh_period_elapsed?
 
       false
+    end
+
+    def refresh_period_elapsed?
+      return false if refresh_every.nil? || fit_at.nil?
+
+      fit_at < refresh_every.seconds.ago
     end
 
     def code_changed?
@@ -303,6 +310,10 @@ module EasyML
 
       if self.primary_key != feature_class_config.dig(:primary_key)
         self.primary_key = [feature_class_config.dig(:primary_key)].flatten
+      end
+
+      if new_refresh_every = feature_class_config.dig(:refresh_every)
+        self.refresh_every = new_refresh_every.to_i
       end
     end
 

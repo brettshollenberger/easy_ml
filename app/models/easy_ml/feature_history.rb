@@ -15,6 +15,7 @@
 #  primary_key        :string
 #  applied_at         :datetime
 #  fit_at             :datetime
+#  refresh_every      :integer
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  history_started_at :datetime         not null
@@ -26,5 +27,12 @@ module EasyML
   class FeatureHistory < ActiveRecord::Base
     self.table_name = "easy_ml_feature_histories"
     include Historiographer::History
+
+    after_find :download_remote_files
+    scope :ordered, -> { order(feature_position: :asc) }
+
+    def download_remote_files
+      feature_store.download
+    end
   end
 end

@@ -18,11 +18,11 @@ RSpec.describe EasyML::FeatureStore do
         Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
       )
       batch_df = batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
-      EasyML::FeatureStore.store(feature, batch_df)
+      feature.store(batch_df)
     end
 
     def transform(df, feature)
-      stored_df = EasyML::FeatureStore.query(feature)
+      stored_df = feature.query
       df.join(stored_df, on: "LOAN_APP_ID", how: "left")
     end
 
@@ -41,11 +41,11 @@ RSpec.describe EasyML::FeatureStore do
         Polars.col("CREATED_AT").alias("SIMPLE_TIME")
       )
       batch_df = batch_df[["COMPANY_ID", "SIMPLE_TIME"]]
-      EasyML::FeatureStore.store(feature, batch_df)
+      feature.store(batch_df)
     end
 
     def transform(df, feature)
-      stored_df = EasyML::FeatureStore.query(feature)
+      stored_df = feature.query
       df.join(stored_df, on: "COMPANY_ID", how: "left")
     end
 
@@ -139,7 +139,7 @@ RSpec.describe EasyML::FeatureStore do
       end
 
       it "writes data to correct partition files" do
-        EasyML::FeatureStore.store(feature, df)
+        feature.store(df)
 
         # Check first partition (0-9)
         first_partition = Polars.read_parquet(expected_paths[0])
@@ -164,7 +164,7 @@ RSpec.describe EasyML::FeatureStore do
 
         before do
           existing_df = Polars::DataFrame.new(existing_data)
-          EasyML::FeatureStore.store(feature, existing_df)
+          feature.store(existing_df)
         end
 
         it "updates only affected partitions" do
@@ -173,7 +173,7 @@ RSpec.describe EasyML::FeatureStore do
           ]
           new_df = Polars::DataFrame.new(new_data)
 
-          EasyML::FeatureStore.store(feature, new_df)
+          feature.store(new_df)
 
           # Check first partition (0-9)
           first_partition = Polars.read_parquet(expected_paths[0])
@@ -208,7 +208,7 @@ RSpec.describe EasyML::FeatureStore do
       end
 
       it "writes dataframe to single file" do
-        EasyML::FeatureStore.store(simple_feature, simple_df)
+        simple_feature.store(simple_df)
         expect(File.exist?(expected_path)).to be true
         stored_df = Polars.read_parquet(expected_path)
         expect(stored_df.to_hashes).to match_array(simple_data)
@@ -219,12 +219,11 @@ RSpec.describe EasyML::FeatureStore do
   describe ".query" do
     context "with primary key filter" do
       before do
-        EasyML::FeatureStore.store(feature, df)
+        feature.store(df)
       end
 
       it "loads only relevant partitions" do
-        result = EasyML::FeatureStore.query(
-          feature,
+        result = feature.query(
           filter: Polars.col("LOAN_APP_ID").eq(5),
         )
         expect(result.to_hashes).to contain_exactly(
@@ -233,8 +232,7 @@ RSpec.describe EasyML::FeatureStore do
       end
 
       it "handles queries spanning multiple partitions" do
-        result = EasyML::FeatureStore.query(
-          feature,
+        result = feature.query(
           filter: (Polars.col("LOAN_APP_ID").gt(4) & Polars.col("LOAN_APP_ID").lt(16)),
         )
         expect(result.to_hashes).to match_array(test_data)
@@ -251,17 +249,16 @@ RSpec.describe EasyML::FeatureStore do
 
       before do
         simple_df = Polars::DataFrame.new(simple_data)
-        EasyML::FeatureStore.store(simple_feature, simple_df)
+        simple_feature.store(simple_df)
       end
 
       it "returns all data from single file" do
-        result = EasyML::FeatureStore.query(simple_feature)
+        result = simple_feature.query
         expect(result.to_hashes).to match_array(simple_data)
       end
 
       it "supports filtering on non-primary key columns" do
-        result = EasyML::FeatureStore.query(
-          simple_feature,
+        result = simple_feature.query(
           filter: Polars.col("COMPANY_ID").eq(1),
         )
         expect(result.to_hashes).to contain_exactly(

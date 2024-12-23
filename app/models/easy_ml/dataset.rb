@@ -1,4 +1,4 @@
-# == Schema Information
+# == Schetuma Information
 #
 # Table name: easy_ml_datasets
 #
@@ -395,14 +395,40 @@ module EasyML
       return true if new_cols
     end
 
+    def compare_datasets(df, df_was)
+      # Step 1: Check if the entire dataset is identical
+      if df == df_was
+        return "The datasets are identical."
+      end
+
+      # Step 2: Identify columns with differences
+      differing_columns = df.columns.select do |column|
+        df[column] != df_was[column]
+      end
+
+      # Step 3: Find row-level differences for each differing column
+      differences = {}
+      differing_columns.each do |column|
+        mask = df[column] != df_was[column]
+        differing_rows = df[mask][column].zip(df_was[mask][column]).map.with_index do |(df_value, df_was_value), index|
+          { row_index: index, df_value: df_value, df_was_value: df_was_value }
+        end
+
+        differences[column] = differing_rows
+      end
+
+      { differing_columns: differing_columns, differences: differences }
+    end
+
     def normalize(df = nil, split_ys: false, inference: false)
+      df = apply_features(df)
       df = drop_nulls(df)
       df = preprocessor.postprocess(df, inference: inference)
 
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
       learn if needs_learn?(df)
-      df = apply_column_mask(df)
+      df = apply_column_mask(df, inference: inference)
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
@@ -502,26 +528,32 @@ module EasyML
       @drop_if_null ||= columns.where(drop_if_null: true).map(&:name)
     end
 
-    def column_mask(df)
+    def col_order(inference: false)
       one_hots = columns.select(&:one_hot?)
       one_hot_cats = preprocessor.statistics.dup.select { |k, _v| one_hots.map(&:name).include?(k.to_s) }.to_h.reduce({}) do |h, (k, v)|
         h.tap do
           h[k] = v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" }
         end
       end
-      col_order = columns.order(:id).flat_map do |col|
+      filtered_columns = columns.where(hidden: false); 1
+      filtered_columns = filtered_columns.where(is_target: [nil, false]) if inference
+
+      filtered_columns.order(:id).flat_map do |col|
         if col.one_hot?
           one_hot_cats[col.name.to_sym]
         else
           col.name
         end
       end
-      cols = df.columns & col_order
+    end
+
+    def column_mask(df, inference: false)
+      cols = df.columns & col_order(inference: inference)
       cols.sort_by { |col| col_order.index(col) }
     end
 
-    def apply_column_mask(df)
-      df[column_mask(df)]
+    def apply_column_mask(df, inference: false)
+      df[column_mask(df, inference: inference)]
     end
 
     def drop_columns(all_columns: false)
@@ -544,6 +576,8 @@ module EasyML
       return unless processed?
 
       processed.upload.tap do
+        features.each(&:upload_remote_files)
+        features.each(&:save)
         save
       end
     end

@@ -14,6 +14,7 @@
 #  primary_key      :string           is an Array
 #  applied_at       :datetime
 #  fit_at           :datetime
+#  refresh_every    :bigint
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #
@@ -155,7 +156,7 @@ module EasyML
     end
 
     def reset
-      EasyML::FeatureStore.wipe(self)
+      feature_store.wipe
     end
 
     def reset_on_fit?
@@ -192,7 +193,7 @@ module EasyML
           batch_df = adapter.fit(df, self, options)
         end
         raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
-        EasyML::FeatureStore.store(self, batch_df)
+        store(batch_df)
       end
       updates = {
         applied_at: Time.current,
@@ -204,7 +205,7 @@ module EasyML
 
     def transform(df)
       return nil unless df.present?
-      return df if adapter.respond_to?(:fit) && FeatureStore.empty?(self)
+      return df if adapter.respond_to?(:fit) && feature_store.empty?
 
       reset if reset_on_transform?
 
@@ -253,7 +254,10 @@ module EasyML
     end
 
     def bump_version
+      old_version = version
       write_attribute(:version, version + 1)
+      feature_store.cp(old_version, version)
+      self
     end
 
     def apply_defaults
@@ -263,6 +267,30 @@ module EasyML
 
     def needs_columns
       feature_class_config.dig(:needs_columns) || []
+    end
+
+    def upload_remote_files
+      feature_store.upload
+    end
+
+    def feature_store
+      @feature_store ||= EasyML::FeatureStore.new(self)
+    end
+
+    def upload_remote_files
+      feature_store.upload_remote_files
+    end
+
+    def files
+      feature_store.list_partitions
+    end
+
+    def query(filter: nil)
+      feature_store.query(filter: filter)
+    end
+
+    def store(df)
+      feature_store.store(df)
     end
 
     private

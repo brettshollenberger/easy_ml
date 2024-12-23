@@ -134,7 +134,7 @@ RSpec.describe EasyML::Datasource do
     end
 
     def transform(df, feature)
-      stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
+      stored_df = feature.query(filter: Polars.col("ID").is_in(df["ID"]))
       return df if stored_df.empty?
 
       df.join(stored_df, on: "ID", how: "left")
@@ -185,7 +185,7 @@ RSpec.describe EasyML::Datasource do
     end
 
     def transform(df, feature)
-      stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("LOAN_APP_ID").is_in(df["LOAN_APP_ID"]))
+      stored_df = feature.query(filter: Polars.col("LOAN_APP_ID").is_in(df["LOAN_APP_ID"]))
       df.join(stored_df, on: "LOAN_APP_ID", how: "left")
     end
 
@@ -231,7 +231,7 @@ RSpec.describe EasyML::Datasource do
     end
 
     def transform(df, feature)
-      stored_df = EasyML::FeatureStore.query(feature, filter: Polars.col("ID").is_in(df["ID"]))
+      stored_df = feature.query(filter: Polars.col("ID").is_in(df["ID"]))
       return df if stored_df.empty?
 
       df.join(stored_df, on: "ID", how: "left")
@@ -342,7 +342,7 @@ RSpec.describe EasyML::Datasource do
         fit_df = feature.fit
 
         # Load the stored feature values
-        stored_df = EasyML::FeatureStore.query(feature)
+        stored_df = feature.query
 
         expect(stored_df).to eq(fit_df)
 
@@ -406,7 +406,7 @@ RSpec.describe EasyML::Datasource do
         before do
           allow(LastAppTime).to receive(:new).and_return(feature_instance)
           allow(feature_instance).to receive(:fit).and_return(batch_df)
-          allow(EasyML::FeatureStore).to receive(:store)
+          allow_any_instance_of(EasyML::FeatureStore).to receive(:store)
         end
 
         it "computes features using the feature class" do
@@ -416,7 +416,7 @@ RSpec.describe EasyML::Datasource do
 
         it "stores the computed features" do
           feature.fit
-          expect(EasyML::FeatureStore).to have_received(:store).with(any_args)
+          expect(feature).to have_received(:store).with(any_args)
         end
 
         it "updates applied_at timestamp" do

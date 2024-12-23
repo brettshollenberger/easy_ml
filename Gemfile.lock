@@ -27,7 +27,7 @@ PATH
 PATH
   remote: /Users/brettshollenberger/programming/historiographer
   specs:
-    historiographer (4.1.13)
+    historiographer (4.1.14)
       activerecord (>= 6)
       activerecord-import
       activesupport

@@ -142,35 +142,33 @@ RSpec.describe EasyML::Datasource do
     class DidConvert
       include EasyML::Features
 
-      def did_convert(df)
+      def transform(df)
         df.with_column(
           (Polars.col("rev") > 0).alias("did_convert")
         )
       end
 
-      feature :did_convert,
-              name: "did_convert",
+      feature name: "did_convert",
               description: "Boolean true/false, did the loan application fund?"
     end
 
     class Age
       include EasyML::Features
 
-      def age(df)
+      def transform(df)
         df.with_column(
           Polars::Series.new("age", Array.new(df.height) { rand(1..50) })
         )
       end
 
-      feature :age,
-              name: "age",
+      feature name: "age",
               description: "Age of the owner"
     end
 
     class BusinessInception
       include EasyML::Features
 
-      def business_inception(df)
+      def transform(df)
         df.with_column(
           Polars::Series.new("business_inception", Array.new(df.height) do
             rand(Date.new(1970, 1, 1)..Date.today - 30.years)
@@ -178,34 +176,31 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      feature :business_inception,
-              name: "Business Inception",
+      feature name: "Business Inception",
               description: "Business inception date"
     end
 
     class DaysInBusiness
       include EasyML::Features
 
-      def days_in_business(df)
+      def transform(df)
         df.with_column(
           (Polars.col("created_date") - Polars.col("business_inception")).dt.days.alias("days_in_business")
         )
       end
 
-      feature :days_in_business,
-              name: "Days in business",
+      feature name: "Days in business",
               description: "Days since the business inception date"
     end
 
     class BadFeature
       include EasyML::Features
 
-      def bad_feature(_df)
+      def transform(_df)
         "not a dataframe" # Intentionally return wrong type
       end
 
-      feature :bad_feature,
-              name: "Bad Feature",
+      feature name: "Bad Feature",
               description: "A feature that doesn't return a DataFrame"
     end
 

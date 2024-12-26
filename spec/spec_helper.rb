@@ -46,7 +46,9 @@ RSpec.configure do |config|
 
   config.before(:each) do
     clear_enqueued_jobs
-    EasyML::Cleaner.clean
+    if any_rails_files
+      EasyML::Cleaner.clean
+    end
   end
 
   # Enable flags like --only-failures and --next-failure

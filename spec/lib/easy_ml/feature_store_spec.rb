@@ -6,7 +6,9 @@ RSpec.describe EasyML::FeatureStore do
   include ModelSpecHelper
 
   before(:all) do
-    require_rails_files
+    unless Rails.application.initialized?
+      require_rails_files
+    end
   end
 
   class LastAppTime

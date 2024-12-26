@@ -3,6 +3,7 @@ module EasyML
     module FilterExtensions
       def is_primary_key_filter?(primary_key)
         return false unless primary_key
+        primary_key = [primary_key] unless primary_key.is_a?(Array)
         # Filter expressions in Polars are represented as strings like:
         # [([(col("LOAN_APP_ID")) > (dyn int: 4)]) & ([(col("LOAN_APP_ID")) < (dyn int: 16)])]
         expr_str = to_s

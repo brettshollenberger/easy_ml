@@ -14,8 +14,7 @@ RSpec.describe EasyML::Features do
           df # Mock implementation
         end
 
-        feature :uppercase_text,
-                name: "text_to_upper",
+        feature name: "text_to_upper",
                 description: "Converts text to uppercase"
       end
     end
@@ -37,7 +36,7 @@ RSpec.describe EasyML::Features do
     describe ".find" do
       it "finds feature by name and namespace" do
         feature = EasyML::Features::Registry.find("text_to_upper", namespace: :text)
-        expect(feature[:name]).to eq(:uppercase_text)
+        expect(feature[:name]).to eq("text_to_upper")
       end
 
       it "returns nil for non-existent feature" do

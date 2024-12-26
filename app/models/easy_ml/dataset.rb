@@ -420,7 +420,7 @@ module EasyML
       { differing_columns: differing_columns, differences: differences }
     end
 
-    def normalize(df = nil, split_ys: false, inference: false)
+    def normalize(df = nil, split_ys: false, inference: false, all_columns: false)
       df = apply_features(df)
       df = drop_nulls(df)
       df = preprocessor.postprocess(df, inference: inference)
@@ -428,7 +428,7 @@ module EasyML
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
       learn if needs_learn?(df)
-      df = apply_column_mask(df, inference: inference)
+      df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
@@ -633,7 +633,7 @@ module EasyML
 
       SPLIT_ORDER.each do |segment|
         df = raw.read(segment)
-        processed_df = normalize(df)
+        processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
       @normalized = true

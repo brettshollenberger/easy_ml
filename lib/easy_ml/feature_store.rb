@@ -40,11 +40,7 @@ module EasyML
     end
 
     def query(filter: nil)
-      if filter&.is_primary_key_filter?(feature.primary_key) && (primary_key_values = filter.extract_primary_key_values).any?
-        query_partitions(filter)
-      else
-        query_all_partitions(filter)
-      end
+      query_all_partitions(filter)
     end
 
     def empty?

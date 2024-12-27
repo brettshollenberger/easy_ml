@@ -44,6 +44,10 @@ RSpec.configure do |config|
     require_rails_files
   end
 
+  Dir.glob(Rails.root.join("app/features/**/*.rb")).each do |file|
+    require file
+  end
+
   config.before(:each) do
     clear_enqueued_jobs
     if any_rails_files

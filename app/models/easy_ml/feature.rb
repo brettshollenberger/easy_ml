@@ -267,7 +267,7 @@ module EasyML
     end
 
     def needs_columns
-      feature_class_config.dig(:needs_columns) || []
+      config.dig(:needs_columns) || []
     end
 
     def upload_remote_files
@@ -332,22 +332,27 @@ module EasyML
     end
 
     def update_from_feature_class
-      if self.batch_size != feature_class_config.dig(:batch_size)
-        self.batch_size = feature_class_config.dig(:batch_size)
+      if self.batch_size != config.dig(:batch_size)
+        self.batch_size = config.dig(:batch_size)
         self.needs_recompute = true
       end
 
-      if self.primary_key != feature_class_config.dig(:primary_key)
-        self.primary_key = [feature_class_config.dig(:primary_key)].flatten
+      if self.primary_key != config.dig(:primary_key)
+        self.primary_key = [config.dig(:primary_key)].flatten
       end
 
-      if new_refresh_every = feature_class_config.dig(:refresh_every)
+      if new_refresh_every = config.dig(:refresh_every)
         self.refresh_every = new_refresh_every.to_i
       end
     end
 
-    def feature_class_config
-      EasyML::Features::Registry.list_flat.detect { |f| f[:feature_class] == feature_class.constantize } || {}
+    def feature_klass
+      @feature_klass ||= EasyML::Features::Registry.find(feature_class)
+    end
+
+    def config
+      raise "Feature not found: #{feature_class}" unless feature_klass
+      feature_klass.features&.first
     end
   end
 

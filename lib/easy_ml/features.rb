@@ -5,6 +5,7 @@ module EasyML::Features
 
   def self.included(base)
     base.extend(ClassMethods)
+    Registry.register(base)
   end
 
   module ClassMethods
@@ -26,13 +27,7 @@ module EasyML::Features
       def register(feature_class, namespace: nil)
         namespace = namespace&.to_sym
         registry[namespace] ||= {}
-
-        feature_class.features.each do |feature|
-          [namespace, feature[:name]].compact.join("/")
-          registry[namespace][feature[:name]] = feature.merge!(
-            feature_class: feature_class,
-          )
-        end
+        registry[namespace][feature_class] = feature_class
       end
 
       def list(namespace: nil)
@@ -43,16 +38,8 @@ module EasyML::Features
         (list.try(:values) || []).flat_map(&:values)
       end
 
-      def find(name, namespace: nil)
-        namespace = namespace&.to_sym
-        return registry.dig(namespace, name) if namespace
-
-        registry.each_value do |ns_registry|
-          if found = ns_registry[name]
-            return found
-          end
-        end
-        nil
+      def find(name)
+        list_flat.detect { |feature| feature.name == name }
       end
 
       def clear

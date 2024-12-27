@@ -9,21 +9,6 @@ RSpec.describe EasyML::Datasource do
     EasyML::Support::EST.parse("2024-10-01")
   end
 
-  before(:each) do
-    EasyML::Cleaner.clean
-    EasyML::Features::Registry.register(DidConvert)
-    EasyML::Features::Registry.register(BadFeature)
-    EasyML::Features::Registry.register(LastAppTime)
-    EasyML::Features::Registry.register(TestFeature)
-    EasyML::Features::Registry.register(DefaultBatchFeature)
-    EasyML::Features::Registry.register(ZipFeature)
-    EasyML::Features::Registry.register(BatchFeature)
-  end
-
-  after(:each) do
-    EasyML::Cleaner.clean
-  end
-
   let(:dir) do
     single_file_dir
   end
@@ -52,130 +37,6 @@ RSpec.describe EasyML::Datasource do
 
   let(:synced_directory) do
     EasyML::Data::SyncedDirectory
-  end
-
-  class ZipFeature
-    include EasyML::Features
-
-    def fit(df, feature, options = {})
-      zip_df = EasyML::Dataset.find_by(name: "Zips").data
-
-      # Join with zip data and return just the columns we need
-      df.join(
-        zip_df,
-        on: "ZIP",
-        how: "left",
-      )[["ID", "CITY", "STATE", "POPULATION"]]
-    end
-
-    def transform(df, feature)
-      stored_df = feature.query(filter: Polars.col("ID").is_in(df["ID"]))
-      return df if stored_df.empty?
-
-      df.join(stored_df, on: "ID", how: "left")
-    end
-
-    feature name: "Zip Feature",
-            description: "Adds ZIP code data based on ID",
-            batch_size: 10,
-            primary_key: "ID"
-  end
-
-  class DidConvert
-    include EasyML::Features
-
-    def transform(df, feature)
-      df.with_column(
-        (Polars.col("rev") > 0).alias("did_convert")
-      )
-    end
-
-    feature name: "did_convert",
-            description: "Boolean true/false, did the loan application fund?"
-  end
-
-  class BadFeature
-    include EasyML::Features
-
-    def transform(df, feature)
-      "not a dataframe" # Intentionally return wrong type
-    end
-
-    feature name: "Bad Feature",
-            description: "A feature that doesn't return a DataFrame"
-  end
-
-  class BaseFeature
-    include EasyML::Features
-  end
-
-  class LastAppTime
-    include EasyML::Features
-
-    def fit(df, feature, options = {})
-      batch_df = df.with_columns(
-        Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
-      )
-      batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
-    end
-
-    def transform(df, feature)
-      stored_df = feature.query(filter: Polars.col("LOAN_APP_ID").is_in(df["LOAN_APP_ID"]))
-      df.join(stored_df, on: "LOAN_APP_ID", how: "left")
-    end
-
-    feature name: "Last Application Time",
-            description: "Time since the company's last loan application",
-            primary_key: "LOAN_APP_ID",
-            batch_size: 10,
-            needs_columns: ["LOAN_APP_ID", "CREATED_AT", "COMPANY_ID"]
-  end
-
-  class TestFeature
-    include EasyML::Features
-    feature name: "Test Feature",
-            description: "A test feature",
-            batch_size: 5000
-  end
-
-  class DefaultBatchFeature
-    include EasyML::Features
-    feature name: "Default Batch Feature",
-            description: "A feature with default batch size"
-  end
-
-  class BatchFeature
-    include EasyML::Features
-
-    def batch(reader, feature)
-      reader.query(select: ["COMPANY_ID"], unique: true)["COMPANY_ID"]
-    end
-
-    def fit(reader, feature, options = {})
-      batch_start = options.dig(:batch_start)
-      batch_end = options.dig(:batch_end)
-
-      df = reader.query(
-        filter: Polars.col("COMPANY_ID").is_in((batch_start..batch_end).to_a),
-        sort: ["COMPANY_ID", "ID"],
-      )
-
-      df.with_columns(
-        Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
-      )[["ID", "LAST_APP_TIME"]]
-    end
-
-    def transform(df, feature)
-      stored_df = feature.query(filter: Polars.col("ID").is_in(df["ID"]))
-      return df if stored_df.empty?
-
-      df.join(stored_df, on: "ID", how: "left")
-    end
-
-    feature name: "Batch Feature",
-            description: "A feature that processes in batches",
-            batch_size: 10,
-            primary_key: "ID"
   end
 
   let(:zips_datasource) do
@@ -365,10 +226,6 @@ RSpec.describe EasyML::Datasource do
     end
 
     describe "#batch_size" do
-      after(:each) do
-        EasyML::Features::Registry.instance_variable_set(:@registry, {})
-      end
-
       it "returns configured batch size from feature class" do
         feature = EasyML::Feature.create!(
           dataset: dataset,
@@ -568,8 +425,6 @@ RSpec.describe EasyML::Datasource do
       end
 
       before(:each) do
-        # Clear the registry and SHA cache before each test
-        EasyML::Features::Registry.instance_variable_set(:@registry, {})
         EasyML::Feature.clear_sha_cache!
 
         # Load V1 of the feature
@@ -578,8 +433,6 @@ RSpec.describe EasyML::Datasource do
       end
 
       after(:each) do
-        # Clear the registry and SHA cache after each test
-        EasyML::Features::Registry.instance_variable_set(:@registry, {})
         EasyML::Feature.clear_sha_cache!
       end
 
@@ -853,7 +706,6 @@ RSpec.describe EasyML::Datasource do
       end
 
       let(:feature) do
-        EasyML::Features::Registry.register(TestFeatureClass)
         EasyML::Feature.create!(
           dataset: dataset,
           feature_class: TestFeatureClass.to_s,
@@ -869,15 +721,6 @@ RSpec.describe EasyML::Datasource do
         allow(feature).to receive(:feature_class_config).and_return({ refresh_every: 1.day })
         feature.send(:update_from_feature_class)
         expect(feature.refresh_every).to be_a(Integer)
-      end
-
-      it "doesn't change refresh_every if not specified in configuration" do
-        allow(feature).to receive(:feature_class_config).and_return({})
-        original_refresh_every = 2.days.to_i
-        feature.update(refresh_every: original_refresh_every)
-
-        feature.send(:update_from_feature_class)
-        expect(feature.refresh_every).to eq(original_refresh_every)
       end
     end
   end

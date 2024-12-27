@@ -11,51 +11,6 @@ RSpec.describe EasyML::FeatureStore do
     end
   end
 
-  class LastAppTime
-    include EasyML::Features
-
-    def fit(reader, feature)
-      df = reader.read(:all, select: ["COMPANY_ID", "LOAN_APP_ID", "CREATED_AT"])
-      batch_df = df.with_columns(
-        Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
-      )
-      batch_df = batch_df[["COMPANY_ID", "LOAN_APP_ID", "LAST_APP_TIME"]]
-      feature.store(batch_df)
-    end
-
-    def transform(df, feature)
-      stored_df = feature.query
-      df.join(stored_df, on: "LOAN_APP_ID", how: "left")
-    end
-
-    feature name: "Last Application Time",
-            description: "Time since the company's last loan application",
-            batch_size: 10,
-            primary_key: "LOAN_APP_ID"
-  end
-
-  class SimpleFeature
-    include EasyML::Features
-
-    def fit(reader, feature)
-      df = reader.read(:all, select: ["COMPANY_ID", "CREATED_AT"])
-      batch_df = df.with_columns(
-        Polars.col("CREATED_AT").alias("SIMPLE_TIME")
-      )
-      batch_df = batch_df[["COMPANY_ID", "SIMPLE_TIME"]]
-      feature.store(batch_df)
-    end
-
-    def transform(df, feature)
-      stored_df = feature.query
-      df.join(stored_df, on: "COMPANY_ID", how: "left")
-    end
-
-    feature name: "Simple Time",
-            description: "Simple non-partitioned feature",
-            batch_size: 10
-  end
-
   let(:datasource) do
     EasyML::Datasource.create!(
       name: "Test Source",
@@ -104,15 +59,6 @@ RSpec.describe EasyML::FeatureStore do
   end
 
   let(:df) { Polars::DataFrame.new(test_data) }
-
-  before(:each) do
-    EasyML::Features::Registry.register(LastAppTime)
-    EasyML::Features::Registry.register(SimpleFeature)
-  end
-
-  after(:each) do
-    EasyML::Features::Registry.instance_variable_set(:@registry, {})
-  end
 
   describe ".store" do
     context "with partitioning" do

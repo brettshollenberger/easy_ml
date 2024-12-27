@@ -2,13 +2,33 @@
 
 # EasyML
 
-EasyML is a Ruby gem designed to simplify the process of building, deploying, and managing the lifecycle of machine learning models within a Ruby on Rails application. It is a plug-and-play, opinionated framework that currently supports XGBoost, with plans to expand support to a variety of models and infrastructures. EasyML aims to make deployment and lifecycle management straightforward and efficient.
+~~You can't do machine learning in Ruby.~~
+
+Deploy models in minutes.
+
+## What is EasyML?
+
+EasyML is a **low code/no code**, end-to-end machine learning framework for Ruby on Rails.
+
+**Get productionized models in minutes.** It takes the guesswork out of:
+
+- Preprocessing data
+- Storing and batch computing features
+- Training models
+- Metric visualization
+- Deployment and versioning
+- Evaluating model performance
+
+With a dead-simple point-and-click interface, EasyML makes it stupid easy to train and deploy.
+
+Oh yeah, and it's open source!
 
 ## Features
 
-- **Plug-and-Play Architecture**: EasyML is designed to be easily extendable, allowing for the integration of various machine learning models and data sources.
-- **Opinionated Framework**: Provides a structured approach to model management, ensuring best practices are followed.
-- **Model Lifecycle On Rails**: Seamlessly integrates with Ruby on Rails, allowing simplified deployment of models to production.
+- **No Code (if you want)**: EasyML ships as a Rails engine. Just mount it in your app and get started.
+- **Opinionated Framework**: Provides a structured approach to data and model management, ensuring best practices are followed.
+- **Model Lifecycle On Rails**: Want predictions directly from your Rails app? You can do that.
+- **Easily Extensible**: Want a model that's not supported? Send a pull request!
 
 ## Current and Planned Features
 
@@ -178,6 +198,198 @@ EasyML offers a variety of preprocessing features to prepare your data for machi
 - **Batch Processing**: Process data in batches to handle large datasets efficiently.
 - **Null Handling**: Alert and handle null values in datasets to ensure data quality.
 
+## Feature Store
+
+The Feature Store is a powerful component of EasyML that helps you manage, compute, and serve features for your machine learning models. Here's how to use it effectively:
+
+### Setting Up Features
+
+1. Create a `features` directory in your application:
+
+```bash
+mkdir app/features
+```
+
+2. Create feature classes in this directory. Each feature should include the `EasyML::Features` module:
+
+```ruby
+class MyFeature
+  include EasyML::Features
+
+  def transform(df, feature)
+    # Your feature transformation logic here
+  end
+
+  feature name: "My Feature",
+          description: "Description of what this feature does"
+end
+```
+
+### Feature Types and Configurations
+
+#### Simple Transform-Only Features
+
+For features that can be computed using only the input columns:
+
+```ruby
+class DidConvert
+  include EasyML::Features
+
+  def transform(df, feature)
+    df.with_column(
+      (Polars.col("rev") > 0).alias("did_convert")
+    )
+  end
+
+  feature name: "did_convert",
+          description: "Boolean indicating if conversion occurred"
+end
+```
+
+#### Batch Processing Features
+
+For features that require processing large datasets in chunks:
+
+```ruby
+class LastConversionTimeFeature
+  include EasyML::Features
+
+  def batch(reader, feature)
+    # Efficiently query only the company_id column for batching
+    # This will create batches of batch_size records (default 1000)
+    reader.query(select: ["company_id"], unique: true)["company_id"]
+  end
+
+  def fit(reader, feature, options = {})
+    batch_start = options.dig(:batch_start)
+    batch_end = options.dig(:batch_end)
+
+    # More efficient than is_in for continuous ranges
+    df = reader.query(
+      filter: Polars.col("company_id").is_between(batch_start, batch_end),
+      select: ["id", "company_id", "converted_at", "created_at"],
+      sort: ["company_id", "created_at"]
+    )
+
+    # For each company, find the last time they converted before each application
+    #
+    # This value will be cached in the feature store for fast inference retrieval
+    df.with_columns([
+      Polars.col("converted_at")
+        .shift(1)
+        .filter(Polars.col("converted_at").is_not_null())
+        .over("company_id")
+        .alias("last_conversion_time"),
+
+      # Also compute days since last conversion
+      (Polars.col("created_at") - Polars.col("last_conversion_time"))
+        .dt.days()
+        .alias("days_since_last_conversion")
+    ])[["id", "last_conversion_time", "days_since_last_conversion"]]
+  end
+
+  def transform(df, feature)
+    # Pull the pre-computed values from the feature store
+    stored_df = feature.query(filter: Polars.col("id").is_in(df["id"]))
+    return df if stored_df.empty?
+
+    df.join(stored_df, on: "id", how: "left")
+  end
+
+  feature name: "Last Conversion Time",
+          description: "Computes the last time a company converted before each application",
+          batch_size: 1000,  # Process 1000 companies at a time
+          primary_key: "id",
+          cache_for: 24.hours  # Cache feature values for 24 hours after running fit
+end
+```
+
+This example demonstrates several key concepts:
+
+1. **Efficient Batching**: The `batch` method uses the reader to lazily query only the necessary column for batching
+1. **Batches Groups Together**: All records with the same `company_id` need to be in the same batch to properly compute the feature, so we create a custom batch (instead of using the primary key `id` column, which would split up companies into different batches)
+1. **Column Selection**: Only selects required columns in the reader query
+1. **Feature Computation**: Computes multiple related features (last conversion time and days since) in a single pass.
+1. **Automatic Feature Store Caching**: The feature store automatically caches feature values returned from the `fit` method
+
+### Performance Optimization
+
+#### Caching During Development
+
+Use `cache_for` to save processing time during development:
+
+```ruby
+feature name: "My Feature",
+        cache_for: 24.hours # After running fit, this feature will be cached for 24 hours (unless new data is read from datasource, like S3)
+```
+
+#### Early Returns
+
+Always implement early returns in your transform method to avoid unnecessary reprocessing:
+
+```ruby
+def transform(df, feature)
+  return df if df["required_column"].nil?
+  # Feature computation logic
+end
+```
+
+#### Using Reader vs DataFrame
+
+- The Polars `reader` is a lazy reader that allows you to query data incrementally.
+- If your feature includes a `batch` method or uses the `batch_size` variable, you will receive a reader instead of a dataframe in the `fit` method
+
+```ruby
+def fit(reader, feature)
+  df = reader.query(select: ["column1", "column2"])
+  # Process only needed columns
+end
+```
+
+- If you don't have a `batch` method or don't use the `batch_size` variable, you will receive a dataframe in the `fit` method
+
+````ruby
+def fit(df, feature)
+  # process directly on dataframe
+end
+
+- To ensure you get a reader instead of a dataframe, include the `batch_size` parameter, or `batch` method
+
+```ruby
+def batch(reader, feature)
+  reader.query(select: ["column1"])["column1"]
+end
+
+feature name: "My Feature", batch_size: 1_000
+````
+
+### Production Considerations
+
+#### Handling Missing Data
+
+When processing historical data:
+
+1. Check for missing dates:
+
+```ruby
+def transform(df, feature)
+  missing_dates = feature.store.missing_dates(start_date, end_date)
+  return df if missing_dates.empty?
+
+  # Process only missing dates
+  process_dates(df, missing_dates)
+end
+```
+
+### Best Practices
+
+1. Always specify a `primary_key` to allow the feature store to partition your data
+1. Use `batch/fit` to process large datasets in batches
+1. Use `batch/fit` to allow faster inference feature computation
+1. Use transform-only features when all required columns will be available on the inference dataset
+1. Use `cache_for` to save processing time during development
+1. Only query necessary columns using the reader
+
 ## Installation
 
 Install necessary Python dependencies
@@ -201,10 +413,6 @@ pip install optuna
    rails generate easy_ml:migration
    rails db:migrate
    ```
-
-3. **Configure CarrierWave for S3 storage**:
-
-TODO: Update this to new information
 
 ## Usage
 

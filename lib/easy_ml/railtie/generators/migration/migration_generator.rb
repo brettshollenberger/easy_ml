@@ -49,6 +49,7 @@ module EasyML
             create_easy_ml_model_histories_migration
             create_easy_ml_model_file_histories_migration
             create_easy_ml_feature_histories_migration
+            create_easy_ml_predictions_migration
           end
 
           private
@@ -184,6 +185,13 @@ module EasyML
             migration_template(
               "create_easy_ml_deploys.rb.tt",
               "db/migrate/create_easy_ml_deploys.rb"
+            )
+          end
+
+          def create_easy_ml_predictions_migration
+            migration_template(
+              "create_easy_ml_predictions.rb.tt",
+              "db/migrate/create_easy_ml_predictions.rb"
             )
           end
 

@@ -1,14 +1,14 @@
 require "spec_helper"
 require "support/model_spec_helper"
 
-RSpec.describe EasyML::Orchestrator do
+RSpec.describe EasyML::Predict do
   include ModelSpecHelper
   before(:each) do
-    EasyML::Orchestrator.reset
+    EasyML::Predict.reset
   end
 
   after(:each) do
-    EasyML::Orchestrator.reset
+    EasyML::Predict.reset
   end
 
   let(:model) do
@@ -55,7 +55,7 @@ RSpec.describe EasyML::Orchestrator do
       model.deploy(async: false)
       df, = model.dataset.test(split_ys: true)
 
-      # Orchestrator already ran model loading her
+      # Predict already ran model loading her
       3.times do
         described_class.predict(model.name, df)
       end
@@ -74,7 +74,7 @@ RSpec.describe EasyML::Orchestrator do
 
       model.deploy(async: false)
 
-      # So if Orchestrator runs model loading again here, test passes
+      # So if Predict runs model loading again here, test passes
       expect_any_instance_of(EasyML::Models::XGBoost).to receive(:initialize_model).once.and_call_original
       3.times do
         described_class.predict(model.name, df)

@@ -5,10 +5,16 @@
 #  id               :bigint           not null, primary key
 #  dataset_id       :bigint           not null
 #  name             :string
+#  version          :bigint
 #  feature_class    :string           not null
-#  feature_method   :string           not null
 #  feature_position :integer
+#  batch_size       :integer
+#  needs_recompute  :boolean
+#  sha              :string
+#  primary_key      :string           is an Array
 #  applied_at       :datetime
+#  fit_at           :datetime
+#  refresh_every    :bigint
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
 #
@@ -18,28 +24,198 @@ module EasyML
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
-    # Associations
+    class << self
+      def compute_sha(feature_class)
+        require "digest"
+        path = feature_class.constantize.instance_method(:transform).source_location.first
+        current_mtime = File.mtime(path)
+        cache_key = "feature_sha/#{path}"
+
+        cached = Rails.cache.read(cache_key)
+
+        if cached && cached[:mtime] == current_mtime
+          cached[:sha]
+        else
+          # Compute new SHA and cache it with the current mtime
+          sha = Digest::SHA256.hexdigest(File.read(path))
+          Rails.cache.write(cache_key, { sha: sha, mtime: current_mtime })
+          sha
+        end
+      end
+
+      def clear_sha_cache!
+        Rails.cache.delete_matched("feature_sha/*")
+      end
+    end
+
     belongs_to :dataset, class_name: "EasyML::Dataset"
 
-    # Validations
     validates :feature_class, presence: true
-    validates :feature_method, presence: true
     validates :feature_position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
-
     before_validation :set_feature_position, on: :create
 
-    # Scopes
     scope :ordered, -> { order(feature_position: :asc) }
+    scope :has_changes, lambda {
+      # Get all unique feature classes
+      feature_classes = pluck(:feature_class).uniq
 
-    # Instance methods
-    def feature_class_constant
+      # Build conditions for each feature class
+      conditions = feature_classes.map do |klass|
+        current_sha = compute_sha(klass)
+        sanitize_sql_array(["(feature_class = ? AND (sha IS NULL OR sha != ?))", klass, current_sha])
+      end
+
+      # Combine all conditions with OR
+      where(id: where(needs_recompute: true).or(where(conditions.join(" OR "))).select { |f| f.adapter.respond_to?(:fit) }.map(&:id))
+    }
+    scope :never_applied, -> { where(applied_at: nil) }
+    scope :never_fit, -> do
+            fittable = where(fit_at: nil)
+            fittable = fittable.select { |f| f.adapter.respond_to?(:fit) }
+            where(id: fittable.map(&:id))
+          end
+    scope :needs_recompute, -> { has_changes.or(never_applied).or(never_fit) }
+
+    before_save :apply_defaults, if: :new_record?
+    before_save :update_sha
+    after_find :update_from_feature_class
+    before_save :update_from_feature_class
+
+    def feature_klass
       feature_class.constantize
     rescue NameError
       raise InvalidFeatureError, "Invalid feature class: #{feature_class}"
     end
 
-    def apply!(df)
-      feature_class_constant.new.public_send(feature_method, df)
+    def adapter
+      @adapter ||= feature_klass.new
+    end
+
+    def needs_recompute?
+      return false unless adapter.respond_to?(:fit)
+      return true if needs_recompute
+      return true if datasource_refreshed_after_fit?
+      return true if code_changed?
+      return true if refresh_period_elapsed?
+
+      false
+    end
+
+    def refresh_period_elapsed?
+      return false if refresh_every.nil? || fit_at.nil?
+
+      fit_at < refresh_every.seconds.ago
+    end
+
+    def code_changed?
+      current_sha = self.class.compute_sha(feature_class)
+      sha != current_sha
+    end
+
+    def datasource_refreshed_after_fit?
+      return true if fit_at.nil?
+      return false if dataset.datasource.refreshed_at.nil?
+
+      dataset.datasource.refreshed_at > fit_at
+    end
+
+    def batchable?
+      batch_size.present? || adapter.respond_to?(:batch)
+    end
+
+    def batch
+      reset if needs_recompute?
+
+      reader = dataset.raw
+
+      if adapter.respond_to?(:batch)
+        array = adapter.batch(reader, self)
+        min_id = array.min
+        max_id = array.max
+      else
+        # Get all primary keys
+        begin
+          df = reader.query(select: [primary_key.first])
+        rescue => e
+          raise "Couldn't find primary key #{primary_key.first} for feature #{feature_class}: #{e.message}"
+        end
+        return [] if df.nil?
+
+        min_id = df[primary_key.first].min
+        max_id = df[primary_key.first].max
+      end
+
+      (min_id..max_id).step(batch_size).map do |batch_start|
+        batch_end = [batch_start + batch_size, max_id + 1].min - 1
+        {
+          feature_id: id,
+          batch_start: batch_start,
+          batch_end: batch_end,
+        }
+      end
+    end
+
+    def reset
+      feature_store.wipe
+    end
+
+    def reset_on_fit?
+      needs_recompute? && !adapter.respond_to?(:batch)
+    end
+
+    def reset_on_transform?
+      needs_recompute? && !adapter.respond_to?(:batch) && !adapter.respond_to?(:fit)
+    end
+
+    def fit(options = {})
+      reset if reset_on_fit?
+
+      if adapter.respond_to?(:fit)
+        options.symbolize_keys!
+
+        if adapter.respond_to?(:batch)
+          batch_df = adapter.fit(dataset.raw, self, options)
+        else
+          batch_start = options.dig(:batch_start)
+          batch_end = options.dig(:batch_end)
+
+          if batch_start && batch_end
+            select = needs_columns.present? ? needs_columns : nil
+            filter = Polars.col(primary_key.first).is_between(batch_start, batch_end)
+            params = {
+              select: select,
+              filter: filter,
+            }.compact
+          else
+            params = {}
+          end
+          df = dataset.raw.query(**params)
+          batch_df = adapter.fit(df, self, options)
+        end
+        raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
+        store(batch_df)
+      end
+      updates = {
+        applied_at: Time.current,
+        needs_recompute: reset_on_fit? ? false : nil,
+      }.compact
+      update!(updates)
+      batch_df
+    end
+
+    def transform(df)
+      return nil unless df.present?
+      return df if adapter.respond_to?(:fit) && feature_store.empty?
+
+      reset if reset_on_transform?
+
+      result = adapter.transform(df, self)
+      update!(applied_at: Time.current)
+      result
+    end
+
+    def compute_sha
+      self.class.compute_sha(feature_class)
     end
 
     # Position manipulation methods
@@ -48,9 +224,9 @@ module EasyML
       self
     end
 
-    def insert_where(feature_method)
+    def insert_where(feature_class)
       features = dataset.features.reload
-      target = features.detect { |t| t.feature_method.to_sym == feature_method }
+      target = features.detect { |t| t.feature_class == feature_class.to_s }
       target_position = target&.feature_position
       yield target_position
       features.select { |t| target_position.nil? || t.feature_position > target_position }.each { |t| t.feature_position += 1 }
@@ -66,16 +242,56 @@ module EasyML
       end
     end
 
-    def insert_before(feature_method)
-      insert_where(feature_method) do |position|
+    def insert_before(feature_class)
+      insert_where(feature_class) do |position|
         self.feature_position = position - 1
       end
     end
 
-    def insert_after(feature_method)
-      insert_where(feature_method) do |position|
+    def insert_after(feature_class)
+      insert_where(feature_class) do |position|
         self.feature_position = position + 1
       end
+    end
+
+    def bump_version
+      old_version = version
+      write_attribute(:version, version + 1)
+      feature_store.cp(old_version, version)
+      self
+    end
+
+    def apply_defaults
+      self.name ||= self.feature_class.demodulize.titleize
+      self.version ||= 1
+    end
+
+    def needs_columns
+      config.dig(:needs_columns) || []
+    end
+
+    def upload_remote_files
+      feature_store.upload
+    end
+
+    def feature_store
+      @feature_store ||= EasyML::FeatureStore.new(self)
+    end
+
+    def upload_remote_files
+      feature_store.upload_remote_files
+    end
+
+    def files
+      feature_store.list_partitions
+    end
+
+    def query(filter: nil)
+      feature_store.query(filter: filter)
+    end
+
+    def store(df)
+      feature_store.store(df)
     end
 
     private
@@ -83,6 +299,7 @@ module EasyML
     def bulk_update_positions(features)
       # Use activerecord-import for bulk updates
       features = order_features(features)
+      features.each(&:apply_defaults)
       new_features = features.reject(&:persisted?)
       existing_features = features.select(&:persisted?)
       Feature.import(
@@ -104,6 +321,38 @@ module EasyML
 
       max_feature_position = dataset&.features&.maximum(:feature_position) || -1
       self.feature_position = max_feature_position + 1
+    end
+
+    def update_sha
+      new_sha = compute_sha
+      if new_sha != self.sha
+        self.sha = new_sha
+        self.needs_recompute = true
+      end
+    end
+
+    def update_from_feature_class
+      if self.batch_size != config.dig(:batch_size)
+        self.batch_size = config.dig(:batch_size)
+        self.needs_recompute = true
+      end
+
+      if self.primary_key != config.dig(:primary_key)
+        self.primary_key = [config.dig(:primary_key)].flatten
+      end
+
+      if new_refresh_every = config.dig(:refresh_every)
+        self.refresh_every = new_refresh_every.to_i
+      end
+    end
+
+    def feature_klass
+      @feature_klass ||= EasyML::Features::Registry.find(feature_class)
+    end
+
+    def config
+      raise "Feature not found: #{feature_class}" unless feature_klass
+      feature_klass.features&.first
     end
   end
 

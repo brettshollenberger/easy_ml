@@ -8,7 +8,7 @@ gemspec
 gem "annotate"
 gem "awesome_print"
 gem "aws-sdk", "~> 3.1"
-gem "historiographer", path: "/Users/brettshollenberger/programming/historiographer" # "~> 4.1.12"
+gem "historiographer", path: "/Users/brettshollenberger/programming/historiographer" # "~> 4.1.14"
 gem "inertia_rails", require: false
 gem "jsonapi-serializer"
 gem "numpy", "~> 0.4.0"
@@ -22,6 +22,7 @@ gem "suo"
 gem "wandb", path: "/Users/brettshollenberger/programming/wandb"
 gem "xgb", "~> 0.9.0"
 gem "date", "~> 3.4.1"
+gem "resque-batched-job"
 
 group :development, :test do
   gem "combustion"

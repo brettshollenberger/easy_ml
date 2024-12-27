@@ -8,6 +8,7 @@
 #  datasource_type    :string
 #  root_dir           :string
 #  configuration      :json
+#  refreshed_at       :datetime
 #  created_at         :datetime         not null
 #  updated_at         :datetime         not null
 #  history_started_at :datetime         not null

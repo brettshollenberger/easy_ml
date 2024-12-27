@@ -7,6 +7,7 @@
 #  datasource_type :string
 #  root_dir        :string
 #  configuration   :json
+#  refreshed_at    :datetime
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
 #
@@ -71,6 +72,12 @@ module EasyML
       }
     end
 
+    def reread(columns = nil)
+      return false unless adapter.respond_to?(:convert_to_parquet)
+
+      adapter.convert_to_parquet(columns)
+    end
+
     def available_files
       all_files.select { |f| File.exist?(f) && Pathname.new(f).extname == ".csv" }.map { |f| f.gsub(Regexp.new(Rails.root.to_s), "") }
     end
@@ -107,6 +114,7 @@ module EasyML
       self.columns = data.columns
       self.num_rows = data.shape[0]
       self.is_syncing = false
+      self.refreshed_at = Time.now
       save
     end
 

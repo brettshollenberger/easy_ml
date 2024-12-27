@@ -18,7 +18,7 @@ module EasyML
   class FeatureSerializer
     include JSONAPI::Serializer
 
-    attributes :id, :feature_class, :feature_method, :feature_position, :name
+    attributes :id, :feature_class, :feature_position, :name
 
     attribute :description do |feature|
       (EasyML::Features::Registry.find(feature.name) || {}).dig(:description)

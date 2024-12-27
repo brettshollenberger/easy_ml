@@ -99,6 +99,10 @@ module EasyML
           file_path
         end
 
+        def query(**kwargs, &block)
+          read(:all, **kwargs, &block)
+        end
+
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
                           unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: nil, batch_key: nil, &block)
           files = files_for_segment(segment)

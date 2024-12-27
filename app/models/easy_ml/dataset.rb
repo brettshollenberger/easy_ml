@@ -1,4 +1,4 @@
-# == Schema Information
+# == Schetuma Information
 #
 # Table name: easy_ml_datasets
 #
@@ -108,6 +108,13 @@ module EasyML
       read_attribute(:schema) || datasource.schema
     end
 
+    def refresh_datatypes
+      return unless columns_need_refresh?
+
+      cleanup
+      datasource.reread(columns)
+    end
+
     def num_rows
       if datasource&.num_rows.nil?
         datasource.after_sync
@@ -116,6 +123,8 @@ module EasyML
     end
 
     def refresh_async
+      return if analyzing?
+
       update(workflow_status: "analyzing")
       EasyML::RefreshDatasetJob.perform_later(id)
     end
@@ -137,29 +146,81 @@ module EasyML
 
       @raw = raw.cp(version)
       @processed = processed.cp(version)
+      features.each(&:bump_version)
 
       save
     end
 
-    def refresh!
+    def prepare!
+      cleanup
+      refresh_datasource!
+      split_data
+    end
+
+    def prepare
+      refresh_datasource
+      split_data
+    end
+
+    def actually_refresh
       refreshing do
-        cleanup
-        refresh_datasource!
+        split_data
         process_data
+        learn
+        now = UTC.now
+        update(workflow_status: "ready", refreshed_at: now, updated_at: now)
+        fully_reload
       end
     end
 
-    def refresh
+    def refresh!(async: false)
       refreshing do
-        refresh_datasource
-        process_data
+        prepare!
+        compute_features(async: async)
       end
+      actually_refresh unless async
+    end
+
+    def refresh(async: false)
+      return refresh_async if async
+
+      refreshing do
+        prepare
+        compute_features(async: async)
+      end
+      actually_refresh unless async
+    end
+
+    def compute_features(async: false)
+      features_to_compute = features.needs_recompute
+      return if features_to_compute.empty?
+
+      if async
+        batch_features, single_features = features_to_compute.partition(&:batchable?)
+
+        jobs = batch_features.flat_map(&:batch).concat(
+          single_features.map { |feature| { feature_id: feature.id } }
+        )
+
+        EasyML::ComputeFeatureJob.enqueue_batch(jobs)
+      else
+        features_to_compute.each { |feature| feature.fit }
+        features_to_compute.update_all(needs_recompute: false, fit_at: Time.current)
+      end
+    end
+
+    def columns_need_refresh?
+      columns.where("updated_at > ?", refreshed_at).exists?
+    end
+
+    def features_need_refresh?
+      features.where("updated_at > ?", refreshed_at).exists? || features.needs_recompute.any?
     end
 
     def needs_refresh?
       return true if refreshed_at.nil?
-      return true if columns.where("updated_at > ?", refreshed_at).exists?
-      return true if features.where("updated_at > ?", refreshed_at).exists?
+      return true if columns_need_refresh?
+      return true if features_need_refresh?
       return true if datasource&.needs_refresh?
 
       false
@@ -178,10 +239,6 @@ module EasyML
         update(workflow_status: "analyzing")
         fully_reload
         yield
-        learn
-        now = UTC.now
-        update(workflow_status: "ready", refreshed_at: now, updated_at: now)
-        fully_reload
       end
     rescue StandardError => e
       update(workflow_status: "failed")
@@ -326,23 +383,52 @@ module EasyML
 
     def needs_learn?(df)
       never_learned = columns.none?
+      return true if never_learned
+
       new_features = features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
-      new_cols = (df.columns - columns.map(&:name))
+      return true if new_features
+
+      new_cols = df.present? ? (df.columns - columns.map(&:name)) : []
 
       new_cols = (new_cols - one_hot_cols(new_cols)).any?
 
-      return never_learned || new_features || new_cols
+      return true if new_cols
     end
 
-    def normalize(df = nil, split_ys: false, inference: false)
-      df = drop_nulls(df)
+    def compare_datasets(df, df_was)
+      # Step 1: Check if the entire dataset is identical
+      if df == df_was
+        return "The datasets are identical."
+      end
+
+      # Step 2: Identify columns with differences
+      differing_columns = df.columns.select do |column|
+        df[column] != df_was[column]
+      end
+
+      # Step 3: Find row-level differences for each differing column
+      differences = {}
+      differing_columns.each do |column|
+        mask = df[column] != df_was[column]
+        differing_rows = df[mask][column].zip(df_was[mask][column]).map.with_index do |(df_value, df_was_value), index|
+          { row_index: index, df_value: df_value, df_was_value: df_was_value }
+        end
+
+        differences[column] = differing_rows
+      end
+
+      { differing_columns: differing_columns, differences: differences }
+    end
+
+    def normalize(df = nil, split_ys: false, inference: false, all_columns: false)
       df = apply_features(df)
+      df = drop_nulls(df)
       df = preprocessor.postprocess(df, inference: inference)
 
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
       learn if needs_learn?(df)
-      df = apply_column_mask(df)
+      df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
@@ -442,26 +528,32 @@ module EasyML
       @drop_if_null ||= columns.where(drop_if_null: true).map(&:name)
     end
 
-    def column_mask(df)
+    def col_order(inference: false)
       one_hots = columns.select(&:one_hot?)
       one_hot_cats = preprocessor.statistics.dup.select { |k, _v| one_hots.map(&:name).include?(k.to_s) }.to_h.reduce({}) do |h, (k, v)|
         h.tap do
           h[k] = v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" }
         end
       end
-      col_order = columns.order(:id).flat_map do |col|
+      filtered_columns = columns.where(hidden: false); 1
+      filtered_columns = filtered_columns.where(is_target: [nil, false]) if inference
+
+      filtered_columns.order(:id).flat_map do |col|
         if col.one_hot?
           one_hot_cats[col.name.to_sym]
         else
           col.name
         end
       end
-      cols = df.columns & col_order
+    end
+
+    def column_mask(df, inference: false)
+      cols = df.columns & col_order(inference: inference)
       cols.sort_by { |col| col_order.index(col) }
     end
 
-    def apply_column_mask(df)
-      df[column_mask(df)]
+    def apply_column_mask(df, inference: false)
+      df[column_mask(df, inference: inference)]
     end
 
     def drop_columns(all_columns: false)
@@ -484,6 +576,8 @@ module EasyML
       return unless processed?
 
       processed.upload.tap do
+        features.each(&:upload_remote_files)
+        features.each(&:save)
         save
       end
     end
@@ -524,30 +618,26 @@ module EasyML
 
     def refresh_datasource
       datasource.reload.refresh
+      refresh_datatypes
       initialize_splits
     end
-
-    # log_method :refresh_datasource, "Refreshing datasource", verbose: true
 
     def refresh_datasource!
       datasource.reload.refresh!
+      refresh_datatypes
       initialize_splits
     end
-
-    # log_method :refresh_datasource!, "Refreshing! datasource", verbose: true
 
     def normalize_all
       processed.cleanup
 
       SPLIT_ORDER.each do |segment|
         df = raw.read(segment)
-        processed_df = normalize(df)
+        processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
       @normalized = true
     end
-
-    # log_method :normalize_all, "Normalizing dataset", verbose: true
 
     def drop_nulls(df)
       return df if drop_if_null.nil? || drop_if_null.empty?
@@ -592,8 +682,6 @@ module EasyML
       end
     end
 
-    # log_method :split_data, "Splitting data", verbose: true
-
     def should_split?
       split_timestamp = raw.split_at
       processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at || needs_refresh?
@@ -604,10 +692,10 @@ module EasyML
         df
       else
         features.ordered.reduce(df) do |acc_df, feature|
-          result = feature.apply!(acc_df)
+          result = feature.transform(acc_df)
 
           unless result.is_a?(Polars::DataFrame)
-            raise "Feature '#{feature.feature_method}' must return a Polars::DataFrame, got #{result.class}"
+            raise "Feature '#{feature.name}' must return a Polars::DataFrame, got #{result.class}"
           end
 
           result

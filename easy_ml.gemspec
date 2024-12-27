@@ -41,6 +41,7 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "rails"
   spec.add_runtime_dependency "red-optuna"
   spec.add_runtime_dependency "resque"
+  spec.add_runtime_dependency "resque-batched-job"
   spec.add_runtime_dependency "suo"
   spec.add_runtime_dependency "tailwindcss-rails"
   spec.add_runtime_dependency "vite_rails"

@@ -142,35 +142,33 @@ RSpec.describe EasyML::Datasource do
     class DidConvert
       include EasyML::Features
 
-      def did_convert(df)
+      def transform(df, feature)
         df.with_column(
           (Polars.col("rev") > 0).alias("did_convert")
         )
       end
 
-      feature :did_convert,
-              name: "did_convert",
+      feature name: "did_convert",
               description: "Boolean true/false, did the loan application fund?"
     end
 
     class Age
       include EasyML::Features
 
-      def age(df)
+      def transform(df, feature)
         df.with_column(
           Polars::Series.new("age", Array.new(df.height) { rand(1..50) })
         )
       end
 
-      feature :age,
-              name: "age",
+      feature name: "age",
               description: "Age of the owner"
     end
 
     class BusinessInception
       include EasyML::Features
 
-      def business_inception(df)
+      def transform(df, feature)
         df.with_column(
           Polars::Series.new("business_inception", Array.new(df.height) do
             rand(Date.new(1970, 1, 1)..Date.today - 30.years)
@@ -178,34 +176,31 @@ RSpec.describe EasyML::Datasource do
         )
       end
 
-      feature :business_inception,
-              name: "Business Inception",
+      feature name: "Business Inception",
               description: "Business inception date"
     end
 
     class DaysInBusiness
       include EasyML::Features
 
-      def days_in_business(df)
+      def transform(df, feature)
         df.with_column(
           (Polars.col("created_date") - Polars.col("business_inception")).dt.days.alias("days_in_business")
         )
       end
 
-      feature :days_in_business,
-              name: "Days in business",
+      feature name: "Days in business",
               description: "Days since the business inception date"
     end
 
     class BadFeature
       include EasyML::Features
 
-      def bad_feature(_df)
+      def transform(_df, feature)
         "not a dataframe" # Intentionally return wrong type
       end
 
-      feature :bad_feature,
-              name: "Bad Feature",
+      feature name: "Bad Feature",
               description: "A feature that doesn't return a DataFrame"
     end
 
@@ -225,27 +220,23 @@ RSpec.describe EasyML::Datasource do
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: BusinessInception,
-        feature_method: :business_inception,
       ).insert
 
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: DaysInBusiness,
-        feature_method: :days_in_business,
       ).insert
 
       # Insert age between business_inception and days_in_business
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: Age,
-        feature_method: :age,
-      ).insert_after(:business_inception)
+      ).insert_after(BusinessInception)
 
       # Prepend did_convert to be first
       EasyML::Feature.new(
         dataset: dataset,
         feature_class: DidConvert,
-        feature_method: :did_convert,
       ).prepend
 
       expect(dataset).to be_needs_refresh
@@ -253,8 +244,10 @@ RSpec.describe EasyML::Datasource do
       expect(dataset).to_not be_needs_refresh
 
       features = dataset.features.ordered
-      expect(features.map(&:feature_method)).to eq(
-        %w[did_convert business_inception age days_in_business]
+      expect(features.map(&:name)).to eq(
+        [
+          "Did Convert", "Business Inception", "Age", "Days In Business",
+        ]
       )
 
       # Verify the data is computed correctly
@@ -273,14 +266,13 @@ RSpec.describe EasyML::Datasource do
       feature = EasyML::Feature.new(
         dataset: dataset,
         feature_class: BadFeature,
-        feature_method: :bad_feature,
       )
       feature.insert
 
       # Attempt to refresh the dataset
       expect do
         dataset.refresh!
-      end.to raise_error(/Feature 'bad_feature' must return a Polars::DataFrame/)
+      end.to raise_error(/Feature 'Bad Feature' must return a Polars::DataFrame/)
     end
   end
 
@@ -333,7 +325,6 @@ RSpec.describe EasyML::Datasource do
             EasyML::Feature.create!(
               dataset: dataset,
               feature_class: Age,
-              feature_method: :age,
             )
           end
 

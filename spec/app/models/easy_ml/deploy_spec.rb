@@ -35,11 +35,53 @@ RSpec.describe EasyML::Deploy do
     %w[Name Ticket Cabin]
   end
 
+  class FamilySizeFeature
+    include EasyML::Features
+
+    def fit(df, feature, options = {})
+      df.with_columns(
+        (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
+      )[["PassengerId", "FamilySize"]]
+    end
+
+    def transform(df, feature)
+      unless df.columns.include?("PassengerId")
+        df["PassengerId"] = (1..df.height).to_a
+        merge = fit(df, feature)
+        df = df.join(merge, on: "PassengerId", how: "left")
+        df.drop("PassengerId")
+        return df
+      end
+
+      if df.columns.include?("FamilySize")
+        missing_family_size = df.filter(Polars.col("FamilySize").is_null)
+        return df if missing_family_size.empty?
+        passenger_ids = missing_family_size["PassengerId"]
+      else
+        passenger_ids = df["PassengerId"]
+      end
+      stored_df = feature.query(filter: Polars.col("PassengerId").is_in(passenger_ids))
+      return df if stored_df.empty?
+
+      df.join(stored_df, on: "PassengerId", how: "left")
+    end
+
+    feature name: "Family Size",
+            description: "Adds family size data",
+            primary_key: "PassengerId"
+  end
+
   let(:dataset) do
     mock_s3_download(day_1_dir)
     mock_s3_upload
 
+    EasyML::Features::Registry.register(FamilySizeFeature)
     EasyML::Dataset.create(**dataset_config).tap do |dataset|
+      family_size_feature = EasyML::Feature.create!(
+        dataset: dataset,
+        feature_class: FamilySizeFeature.to_s,
+        name: "Family Size",
+      )
       dataset.refresh
       dataset.columns.find_by(name: target).update(is_target: true)
       dataset.columns.where(name: hidden_cols).update_all(hidden: true)
@@ -214,6 +256,10 @@ RSpec.describe EasyML::Deploy do
       y_true["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
+      # Historical features are still queryable
+      expect(model.current_version.dataset.features.first.query.shape).to eq([500, 2])
+
+      Thread.current[:stop] = true
       live_predictions = model.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
 
@@ -250,6 +296,24 @@ RSpec.describe EasyML::Deploy do
       model.deploy(async: false)
       live_predictions = model.reload.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(retrain_preds.sum)
+
+      raw_input = {
+        "Pclass" => 1,
+        "Sex" => "male",
+        "SibSp" => 0,
+        "Parch" => 1,
+        "Fare" => 100,
+      }
+      preds = EasyML::Predict.predict("My model", raw_input)
+
+      prediction = EasyML::Prediction.last
+      expect(prediction.prediction).to eq(preds.first)
+      expect(prediction.normalized_input.dig("Sex_male")).to eq true
+      expect(prediction.normalized_input.dig("FamilySize")).to eq 1 # It saves the computed features
+      expect(prediction.prediction_type).to eq "regression"
+      expect(prediction.raw_input).to eq(raw_input)
+      # It records which version of the model was used
+      expect(prediction.model_history.id).to eq model.current_version.id
     end
 
     it "uses historical dataset when running predictions" do

@@ -112,7 +112,6 @@ RSpec.describe EasyML::FeatureStore do
 
   after(:each) do
     EasyML::Features::Registry.instance_variable_set(:@registry, {})
-    FileUtils.rm_rf(File.join(Rails.root, "easy_ml"))
   end
 
   describe ".store" do

@@ -224,9 +224,10 @@ module EasyML
       self
     end
 
-    def insert_where
+    def insert_where(feature_class)
       features = dataset.features.reload
-      target_position = features.map(&:feature_position).max
+      target = features.detect { |t| t.feature_class == feature_class.to_s }
+      target_position = target&.feature_position
       yield target_position
       features.select { |t| target_position.nil? || t.feature_position > target_position }.each { |t| t.feature_position += 1 }
       features += [self]
@@ -236,19 +237,19 @@ module EasyML
     end
 
     def prepend
-      insert_where do |_position|
+      insert_where(nil) do |_position|
         self.feature_position = 0
       end
     end
 
-    def insert_before
-      insert_where do |position|
+    def insert_before(feature_class)
+      insert_where(feature_class) do |position|
         self.feature_position = position - 1
       end
     end
 
-    def insert_after
-      insert_where do |position|
+    def insert_after(feature_class)
+      insert_where(feature_class) do |position|
         self.feature_position = position + 1
       end
     end

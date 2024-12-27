@@ -8,6 +8,7 @@ module EasyML
 
     def store(df)
       primary_key = feature.primary_key&.first
+      return store_without_partitioning(df) unless df.columns.include?(primary_key)
       return store_without_partitioning(df) unless primary_key
 
       min_key = df[primary_key].min

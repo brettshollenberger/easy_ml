@@ -341,7 +341,7 @@ RSpec.describe EasyML::Datasource do
         before do
           allow(LastAppTime).to receive(:new).and_return(feature_instance)
           allow(feature_instance).to receive(:fit).and_return(batch_df)
-          allow_any_instance_of(EasyML::FeatureStore).to receive(:store)
+          allow_any_instance_of(EasyML::FeatureStore).to receive(:store).and_call_original
         end
 
         it "computes features using the feature class" do
@@ -351,7 +351,7 @@ RSpec.describe EasyML::Datasource do
 
         it "stores the computed features" do
           feature.fit
-          expect(feature).to have_received(:store).with(any_args)
+          expect(feature.query.size).to eq 2
         end
 
         it "updates applied_at timestamp" do

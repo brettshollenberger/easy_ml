@@ -92,6 +92,8 @@ module EasyML
     end
 
     def recompute_reasons
+      return [] if !adapter.respond_to?(:fit)
+
       {
         "Needs recompute set" => needs_recompute,
         "Datasource was refreshed" => datasource_was_refreshed?,
@@ -124,6 +126,14 @@ module EasyML
 
     def batchable?
       batch_size.present? || adapter.respond_to?(:batch)
+    end
+
+    def build_batches
+      if batchable?
+        batch
+      else
+        { feature_id: id }
+      end
     end
 
     def batch
@@ -165,17 +175,11 @@ module EasyML
       feature_store.wipe
     end
 
-    def reset_on_fit?
-      needs_recompute? && !adapter.respond_to?(:batch)
-    end
-
     def reset_on_transform?
       needs_recompute? && !adapter.respond_to?(:batch) && !adapter.respond_to?(:fit)
     end
 
     def fit(options = {})
-      reset if reset_on_fit?
-
       if adapter.respond_to?(:fit)
         options.symbolize_keys!
 
@@ -198,12 +202,12 @@ module EasyML
           df = dataset.raw.query(**params)
           batch_df = adapter.fit(df, self, options)
         end
-        raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
-        store(batch_df)
       end
+      raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
+      store(batch_df)
       updates = {
         applied_at: Time.current,
-        needs_recompute: reset_on_fit? ? false : nil,
+        needs_recompute: false,
       }.compact
       update!(updates)
       batch_df

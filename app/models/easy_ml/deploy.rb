@@ -77,16 +77,14 @@ module EasyML
     alias_method :rollback, :deploy
 
     def unlock_deploy
-      with_lock_client do |client|
-        client.client.del(lock_key)
+      Support::Lockable.query.keys.select { |key| key.include?(lock_key) }.each do |key|
+        Rails.cache.delete(key)
       end
     end
 
     def lock_deploy
       with_lock_client do |client|
-        client.lock do
-          yield
-        end
+        yield
       end
     end
 

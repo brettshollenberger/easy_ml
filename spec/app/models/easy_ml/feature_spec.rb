@@ -60,7 +60,6 @@ RSpec.describe EasyML::Datasource do
     zips.refresh
     zips
   end
-
   describe "Features" do
     describe "base methods" do
       let(:feature) { BaseFeature.new }
@@ -69,9 +68,6 @@ RSpec.describe EasyML::Datasource do
         expect { feature.transform(nil, nil) }.to raise_error(NotImplementedError)
       end
     end
-    before do
-    end
-
     it "versions features" do
       # Create business_inception first since days_in_business depends on it
       expect(dataset).to be_needs_refresh
@@ -84,6 +80,7 @@ RSpec.describe EasyML::Datasource do
         feature_class: DidConvert,
       ).prepend
 
+      dataset.reload
       expect(dataset).to be_needs_refresh
       dataset.refresh
 
@@ -96,7 +93,6 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "raises appropriate error if any feature doesn't return df" do
-
       # Create a feature that will fail
       feature = EasyML::Feature.new(
         dataset: dataset,

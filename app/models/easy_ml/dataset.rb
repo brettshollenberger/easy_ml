@@ -191,16 +191,11 @@ module EasyML
       after_compute_features unless async
     end
 
-    def compute_features(async: false)
+    def compute_features(async: false, features: self.features)
       features_to_compute = features.needs_recompute
       return if features_to_compute.empty?
 
-      batch_features, single_features = features_to_compute.partition(&:batchable?)
-
-      jobs = batch_features.flat_map(&:batch).concat(
-        single_features.map { |feature| { feature_id: feature.id } }
-      )
-
+      jobs = features.flat_map(&:build_batches)
       if async
         EasyML::ComputeFeatureJob.enqueue_batch(jobs)
       else
@@ -276,16 +271,14 @@ module EasyML
     end
 
     def unlock_dataset
-      with_lock_client do |client|
-        client.client.del(lock_key)
+      Support::Lockable.query.keys.select { |key| key.include?(lock_key) }.each do |key|
+        Rails.cache.delete(key)
       end
     end
 
     def lock_dataset
       with_lock_client do |client|
-        client.lock do
-          yield
-        end
+        yield
       end
     end
 
@@ -569,7 +562,11 @@ module EasyML
       one_hots = scope.select(&:one_hot?)
       one_hot_cats = preprocessor.statistics.dup
         .select { |k, _v| one_hots.map(&:name).include?(k.to_s) }
-        .transform_values { |v| v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" } }
+        .to_h.reduce({}) do |h, (k, v)|
+        h.tap do
+          h[k] = v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" }
+        end
+      end
 
       # Map columns to names, handling one_hot expansion
       scope.sort_by(&:id).flat_map do |col|
@@ -581,9 +578,13 @@ module EasyML
       end
     end
 
-    def apply_column_mask(df, inference: false)
+    def column_mask(df, inference: false)
       cols = df.columns & col_order(inference: inference)
       cols.sort_by { |col| col_order.index(col) }
+    end
+
+    def apply_column_mask(df, inference: false)
+      df[column_mask(df, inference: inference)]
     end
 
     def drop_columns(all_columns: false)

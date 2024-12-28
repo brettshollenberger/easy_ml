@@ -178,7 +178,7 @@ module EasyML
         prepare!
         compute_features(async: async)
       end
-      actually_refresh unless async
+      after_compute_features unless async
     end
 
     def refresh(async: false)
@@ -188,7 +188,7 @@ module EasyML
         prepare
         compute_features(async: async)
       end
-      actually_refresh unless async
+      after_compute_features unless async
     end
 
     def compute_features(async: false)
@@ -207,37 +207,41 @@ module EasyML
         jobs.each do |job|
           EasyML::ComputeFeatureJob.perform(nil, job)
         end
-        features_to_compute.update_all(needs_recompute: false, fit_at: Time.current)
       end
+    end
+
+    def after_compute_features
+      features.update_all(needs_recompute: false, fit_at: Time.current)
+      actually_refresh
     end
 
     def columns_need_refresh?
-      preloaded_columns.any? { |col| col.updated_at > refreshed_at }
-    end
-
-    def features_need_refresh?
-      return true if preloaded_features.any? { |f| f.updated_at > refreshed_at }
-
-      # Check for features that need recompute
-      preloaded_features.any? do |feature|
-        next unless feature.adapter.respond_to?(:fit)
-        feature.needs_recompute ||
-          feature.applied_at.nil? ||
-          (feature.adapter.respond_to?(:fit) && feature.fit_at.nil?) ||
-          feature.datasource_refreshed_after_fit? ||
-          feature.code_changed?
+      preloaded_columns.any? do |col|
+        col.updated_at.present? &&
+          refreshed_at.present? &&
+          col.updated_at > refreshed_at
       end
     end
 
-    def needs_refresh?
-      return true if not_split?
-      return true if refreshed_at.nil?
-      return true if columns_need_refresh?
-      return true if features_need_refresh?
-      return true if datasource_needs_refresh?
-      return true if datasource_was_refreshed?
+    def features_need_refresh?
+      return true if preloaded_features.any? { |f| f.updated_at.present? && refreshed_at.present? && f.updated_at > refreshed_at }
 
-      false
+      preloaded_features.any?(&:needs_recompute)
+    end
+
+    def refresh_reasons
+      {
+        "Not split" => not_split?,
+        "Refreshed at is nil" => refreshed_at.nil?,
+        "Columns need refresh" => columns_need_refresh?,
+        "Features need refresh" => features_need_refresh?,
+        "Datasource needs refresh" => datasource_needs_refresh?,
+        "Datasource was refreshed" => datasource_was_refreshed?,
+      }.select { |k, v| v }.map { |k, v| k }
+    end
+
+    def needs_refresh?
+      refresh_reasons.any?
     end
 
     def not_split?
@@ -249,7 +253,7 @@ module EasyML
     end
 
     def datasource_was_refreshed?
-      raw.split_at < datasource.last_updated_at
+      raw.split_at.present? && raw.split_at < datasource.last_updated_at
     end
 
     def learn
@@ -606,6 +610,15 @@ module EasyML
         features.each(&:save)
         save
       end
+    end
+
+    def reload(*args)
+      # Call the original reload method
+      super(*args)
+      # Reset preloaded instance variables
+      @preloaded_columns = nil
+      @preloaded_features = nil
+      self
     end
 
     private

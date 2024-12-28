@@ -12,10 +12,8 @@ module EasyML
 
     def self.after_batch_hook(batch_id, *args)
       feature_ids = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys).pluck(:feature_id).uniq
-      EasyML::Feature.where(id: feature_ids).update_all(needs_recompute: false, fit_at: Time.current)
-
       dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
-      dataset.actually_refresh
+      dataset.after_compute_features
     end
   end
 end

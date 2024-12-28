@@ -92,6 +92,7 @@ RSpec.describe EasyML::Datasource do
 
       # When updating column, dataset is marked again as needing processing
       dataset.columns.find_by(name: "rev").update(is_target: true)
+      dataset.reload
       expect(dataset).to_not be_processed
       dataset.refresh
       expect(dataset).to be_processed
@@ -133,6 +134,117 @@ RSpec.describe EasyML::Datasource do
       reloaded.refresh!
       expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
+    end
+  end
+
+  describe "needs_refresh?" do
+    let(:datasource) { single_file_datasource }
+
+    context "when dataset is not split" do
+      it "needs refresh until split" do
+        mock_s3_download(single_file_dir)
+        expect(dataset).to be_needs_refresh
+        expect(dataset.refresh_reasons).to include("Not split")
+
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+        expect(dataset.refresh_reasons).to be_empty
+      end
+    end
+
+    context "when refreshed_at is nil" do
+      it "needs refresh when refreshed_at is cleared" do
+        mock_s3_download(single_file_dir)
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+
+        dataset.update_column(:refreshed_at, nil)
+        dataset.reload
+        expect(dataset).to be_needs_refresh
+        expect(dataset.refresh_reasons).to include("Refreshed at is nil")
+
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+        expect(dataset.refresh_reasons).to be_empty
+      end
+    end
+
+    context "when columns change" do
+      it "needs refresh when columns are updated" do
+        mock_s3_download(single_file_dir)
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+
+        dataset.columns.find_by(name: "rev").update(is_target: true)
+        dataset.reload
+        expect(dataset).to be_needs_refresh
+        expect(dataset.refresh_reasons).to include("Columns need refresh")
+
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+        expect(dataset.refresh_reasons).to be_empty
+      end
+    end
+
+    context "when features change" do
+      before do
+        EasyML::Features::Registry.register(DidConvert)
+      end
+
+      it "needs refresh when features are added" do
+        mock_s3_download(single_file_dir)
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+
+        EasyML::Feature.new(
+          dataset: dataset,
+          feature_class: DidConvert,
+        ).prepend
+
+        dataset.reload
+        expect(dataset).to be_needs_refresh
+        expect(dataset.refresh_reasons).to include("Features need refresh")
+
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+        expect(dataset.refresh_reasons).to be_empty
+      end
+    end
+
+    context "when datasource needs refresh" do
+      it "needs refresh when datasource is marked for refresh" do
+        mock_s3_download(single_file_dir)
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+
+        allow(dataset.datasource).to receive(:needs_refresh?).and_return(true)
+        expect(dataset).to be_needs_refresh
+        expect(dataset.refresh_reasons).to include("Datasource needs refresh")
+
+        allow(dataset.datasource).to receive(:needs_refresh?).and_return(false)
+        expect(dataset).to_not be_needs_refresh
+        expect(dataset.refresh_reasons).to be_empty
+      end
+    end
+
+    context "when datasource is refreshed" do
+      it "needs refresh when datasource is updated" do
+        mock_s3_download(single_file_dir)
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+
+        allow(dataset.datasource).to receive(:last_updated_at).and_return(Time.current)
+        expect(dataset).to be_needs_refresh
+        expect(dataset.refresh_reasons).to include("Datasource was refreshed")
+
+        Timecop.freeze(2.hours.from_now)
+
+        dataset.refresh!
+        expect(dataset).to_not be_needs_refresh
+        expect(dataset.refresh_reasons).to be_empty
+
+        Timecop.return
+      end
     end
   end
 
@@ -239,6 +351,7 @@ RSpec.describe EasyML::Datasource do
         feature_class: DidConvert,
       ).prepend
 
+      dataset.reload
       expect(dataset).to be_needs_refresh
       dataset.refresh!
       expect(dataset).to_not be_needs_refresh

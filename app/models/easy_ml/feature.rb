@@ -91,17 +91,20 @@ module EasyML
       @adapter ||= feature_klass.new
     end
 
-    def needs_recompute?
-      return false unless adapter.respond_to?(:fit)
-      return true if needs_recompute
-      return true if datasource_refreshed_after_fit?
-      return true if code_changed?
-      return true if refresh_period_elapsed?
-
-      false
+    def recompute_reasons
+      {
+        "Needs recompute set" => needs_recompute,
+        "Datasource was refreshed" => datasource_was_refreshed?,
+        "Code changed" => code_changed?,
+        "Cache expired" => cache_expired?,
+      }.select { |k, v| v }.map { |k, v| k }
     end
 
-    def refresh_period_elapsed?
+    def needs_recompute?
+      recompute_reasons.any?
+    end
+
+    def cache_expired?
       return false if refresh_every.nil? || fit_at.nil?
 
       fit_at < refresh_every.seconds.ago
@@ -112,7 +115,7 @@ module EasyML
       sha != current_sha
     end
 
-    def datasource_refreshed_after_fit?
+    def datasource_was_refreshed?
       return true if fit_at.nil?
       return false if dataset.datasource.refreshed_at.nil?
 

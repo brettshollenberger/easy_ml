@@ -436,8 +436,8 @@ module EasyML
       { differing_columns: differing_columns, differences: differences }
     end
 
-    def normalize(df = nil, split_ys: false, inference: false, all_columns: false)
-      df = apply_features(df)
+    def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
+      df = apply_features(df, features)
       df = drop_nulls(df)
       df = preprocessor.postprocess(df, inference: inference)
 
@@ -732,7 +732,11 @@ module EasyML
         df
       else
         # Eager load all features with their necessary associations in one query
-        features_to_apply = features.ordered.includes(dataset: :datasource).to_a
+        if features.is_a?(Array) # Used for testing (feature.transform_batch)
+          features_to_apply = features
+        else
+          features_to_apply = features.ordered.includes(dataset: :datasource).to_a
+        end
 
         # Preload all feature SHAs in one batch
         feature_classes = features_to_apply.map(&:feature_class).uniq
@@ -743,7 +747,7 @@ module EasyML
           # Set SHA without querying
           feature.instance_variable_set(:@current_sha, shas[feature.feature_class])
 
-          result = feature.transform(acc_df)
+          result = feature.transform_batch(acc_df)
 
           unless result.is_a?(Polars::DataFrame)
             raise "Feature '#{feature.name}' must return a Polars::DataFrame, got #{result.class}"

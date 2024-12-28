@@ -125,14 +125,25 @@ module EasyML
     end
 
     def batchable?
-      batch_size.present? || adapter.respond_to?(:batch)
+      adapter.respond_to?(:batch) || (batch_size.present? &&
+                                      numeric_primary_key?)
+    end
+
+    def numeric_primary_key?
+      dataset.raw.data(limit: 1, select: primary_key)[primary_key].to_a.flat_map(&:values).all? do |value|
+        case value
+        when String then value.match?(/\A[-+]?\d+(\.\d+)?\z/)
+        else
+          value.is_a?(Numeric)
+        end
+      end
     end
 
     def build_batches
       if batchable?
         batch
       else
-        { feature_id: id }
+        [{ feature_id: id }]
       end
     end
 
@@ -190,37 +201,62 @@ module EasyML
       end
     end
 
-    def fit_one(random: true)
-      if random
+    # Fit a single batch, used for testing the user's feature implementation
+    def fit_batch(batch_args = {})
+      batch_args.symbolize_keys!
+      if batch_args.key?(:batch_start)
+        actually_fit_batch(batch_args)
+      else
+        actually_fit_batch(get_batch_args(**batch_args))
+      end
+    end
+
+    # Transform a single batch, used for testing the user's feature implementation
+    def transform_batch(df = nil, batch_args = {})
+      if df.present?
+        actually_transform_batch(df)
+      else
+        actually_transform_batch(build_batch(get_batch_args(**batch_args)))
+      end
+    end
+
+    def get_batch_args(batch_args = {})
+      unless batch_args.key?(:random)
+        batch_args[:random] = true
+      end
+      if batch_args[:random]
         batch = build_batches.sample
       else
         batch = build_batches.first
       end
-      fit_batch(batch)
     end
 
-    def fit_batch(options = {})
+    def build_batch(batch_args = {})
+      batch_start = batch_args.dig(:batch_start)
+      batch_end = batch_args.dig(:batch_end)
+
+      if batch_start && batch_end
+        select = needs_columns.present? ? needs_columns : nil
+        filter = Polars.col(primary_key.first).is_between(batch_start, batch_end)
+        params = {
+          select: select,
+          filter: filter,
+        }.compact
+      else
+        params = {}
+      end
+      dataset.raw.query(**params)
+    end
+
+    def actually_fit_batch(batch_args = {})
       if adapter.respond_to?(:fit)
-        options.symbolize_keys!
+        batch_args.symbolize_keys!
 
         if adapter.respond_to?(:batch)
-          batch_df = adapter.fit(dataset.raw, self, options)
+          batch_df = adapter.fit(dataset.raw, self, batch_args)
         else
-          batch_start = options.dig(:batch_start)
-          batch_end = options.dig(:batch_end)
-
-          if batch_start && batch_end
-            select = needs_columns.present? ? needs_columns : nil
-            filter = Polars.col(primary_key.first).is_between(batch_start, batch_end)
-            params = {
-              select: select,
-              filter: filter,
-            }.compact
-          else
-            params = {}
-          end
-          df = dataset.raw.query(**params)
-          batch_df = adapter.fit(df, self, options)
+          df = build_batch(batch_args)
+          batch_df = adapter.fit(df, self, batch_args)
         end
       end
       raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
@@ -233,7 +269,7 @@ module EasyML
       batch_df
     end
 
-    def transform(df)
+    def actually_transform_batch(df)
       return nil unless df.present?
       return df if adapter.respond_to?(:fit) && feature_store.empty?
 

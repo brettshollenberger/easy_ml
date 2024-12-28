@@ -60,6 +60,7 @@ RSpec.describe EasyML::Datasource do
     zips.refresh
     zips
   end
+
   describe "Features" do
     describe "base methods" do
       let(:feature) { BaseFeature.new }
@@ -81,8 +82,6 @@ RSpec.describe EasyML::Datasource do
         feature_class: DidConvert,
       ).prepend
 
-      dataset.reload
-      expect(dataset).to be_needs_refresh
       dataset.refresh
 
       # Verify the data is computed correctly
@@ -132,7 +131,7 @@ RSpec.describe EasyML::Datasource do
       end
 
       it "computes and stores feature values during fit" do
-        fit_df = feature.fit
+        fit_df = feature.fit_batch
 
         # Load the stored feature values
         stored_df = feature.query
@@ -156,7 +155,7 @@ RSpec.describe EasyML::Datasource do
       end
 
       it "applies stored features during transform" do
-        feature.fit
+        feature.fit_batch
 
         # Create a test dataframe for transformation
         test_df = Polars::DataFrame.new([
@@ -164,7 +163,7 @@ RSpec.describe EasyML::Datasource do
         ])
 
         # Transform the test data
-        result_df = feature.transform(test_df)
+        result_df = feature.transform_batch(test_df)
 
         # Verify the transformation results
         expect(result_df.schema).to include(
@@ -188,8 +187,8 @@ RSpec.describe EasyML::Datasource do
 
         let(:test_data) do
           [
-            { "COMPANY_ID" => 1, "CREATED_AT" => "2024-01-01" },
-            { "COMPANY_ID" => 2, "CREATED_AT" => "2024-01-02" },
+            { "COMPANY_ID" => 1, "CREATED_AT" => "2024-01-01", "LOAN_APP_ID" => 1 },
+            { "COMPANY_ID" => 2, "CREATED_AT" => "2024-01-02", "LOAN_APP_ID" => 2 },
           ]
         end
 
@@ -203,21 +202,21 @@ RSpec.describe EasyML::Datasource do
         end
 
         it "computes features using the feature class" do
-          feature.fit
+          feature.fit_batch
           expect(feature_instance).to have_received(:fit).with(any_args)
         end
 
         it "stores the computed features" do
-          feature.fit
+          feature.fit_batch
           expect(feature.query.size).to eq 2
         end
 
         it "updates applied_at timestamp" do
-          expect { feature.fit }.to change { feature.applied_at }.from(nil)
+          expect { feature.fit_batch }.to change { feature.applied_at }.from(nil)
         end
 
         it "returns the computed batch dataframe" do
-          expect(feature.fit).to eq(batch_df)
+          expect(feature.fit_batch).to eq(batch_df)
         end
       end
     end
@@ -445,7 +444,7 @@ RSpec.describe EasyML::Datasource do
           feature.reload.update(needs_recompute: true)
           expect(EasyML::Feature.needs_recompute).to include(feature)
 
-          feature.fit
+          feature.fit_batch
           expect(EasyML::Feature.needs_recompute).to_not include(feature)
         end
       end

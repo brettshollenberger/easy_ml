@@ -17,7 +17,7 @@ RSpec.describe EasyML::Features do
     describe ".list" do
       it "lists all features" do
         features = EasyML::Features::Registry.list_flat&.flat_map(&:features)
-        expect(features.first[:name]).to eq("Test Feature")
+        expect(features.first[:name]).to eq("Bad Feature")
       end
     end
   end

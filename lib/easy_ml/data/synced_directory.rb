@@ -110,8 +110,9 @@ module EasyML
       end
 
       def download_file(object)
-        # Get the relative path by removing s3_prefix from object.key
-        local_file_path = File.join(relative_path(root_dir), object.key)
+        # When s3_prefix is present, strip it from the key and just use the filename
+        key_without_prefix = s3_prefix.present? ? object.key.sub(/^#{Regexp.escape(s3_prefix)}\//, "") : object.key
+        local_file_path = File.join(root_dir, File.basename(key_without_prefix))
         FileUtils.mkdir_p(File.dirname(local_file_path))
 
         Rails.logger.info("Downloading object #{object.key} to #{local_file_path}")
@@ -179,7 +180,7 @@ module EasyML
       private
 
       def dir
-        s3_prefix.present? ? File.join(relative_path(root_dir), s3_prefix).to_s : root_dir
+        root_dir
       end
 
       def relative_path(path)
@@ -276,7 +277,7 @@ module EasyML
 
       def upload_file(file_path)
         relative_path = Pathname.new(file_path).relative_path_from(Pathname.new(root_dir)).to_s
-        s3_key = s3_prefix.present? ? File.join(s3_prefix, relative_path) : relative_path
+        s3_key = s3_prefix.present? ? File.join(s3_prefix, File.basename(relative_path)) : relative_path
 
         # Create a temporary gzipped version of the file
         gzipped_file_path = "#{file_path}.gz"

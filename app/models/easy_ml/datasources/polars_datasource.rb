@@ -58,7 +58,7 @@ module EasyML
         return unless df
 
         datasource.configuration = (datasource.configuration || {}).merge(
-          "df" => JSON.parse(df.write_json)
+          "df" => JSON.parse(df.write_json),
         )
       end
 
@@ -70,15 +70,15 @@ module EasyML
 
         columns = df_data["columns"].map do |col|
           dtype = case col["datatype"]
-                  when Hash
-                    if col["datatype"]["Datetime"]
-                      Polars::Datetime.new(col["datatype"]["Datetime"][0].downcase.to_sym).class
-                    else
-                      Polars::Utf8
-                    end
-                  else
-                    Polars.const_get(col["datatype"])
-                  end
+            when Hash
+              if col["datatype"]["Datetime"]
+                Polars::Datetime.new(col["datatype"]["Datetime"][0].downcase.to_sym).class
+              else
+                Polars::Utf8
+              end
+            else
+              Polars.const_get(col["datatype"])
+            end
           Polars::Series.new(col["name"], col["values"], dtype: dtype)
         end
 

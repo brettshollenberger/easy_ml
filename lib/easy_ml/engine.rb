@@ -26,10 +26,19 @@ module EasyML
       Rails.root.join("easy_ml")
     end
 
-    # config.autoload_paths = config.autoload_paths.dup << root.join("app/models")
-    # config.eager_load_paths = config.eager_load_paths.dup << root.join("app/models")
-    # paths["lib"] << EasyML::Engine.root.join("lib")
-    # paths["lib"].autoload!
+    config.autoload_paths += [
+      root.join("app/models"),
+      root.join("app/models/datasources"),
+      root.join("app/models/models"),
+      root.join("lib/easy_ml"),
+    ]
+
+    config.eager_load_paths += [
+      root.join("app/models"),
+      root.join("app/models/datasources"),
+      root.join("app/models/models"),
+      root.join("lib/easy_ml"),
+    ]
 
     initializer "easy_ml.inflections" do
       require_relative "initializers/inflections"
@@ -42,9 +51,16 @@ module EasyML
 
     unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate db:drop easy_ml:migration].include?(ARGV.first)
       config.after_initialize do
-        Dir.glob(
-          File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)
-        ).each do |file|
+        Dir.glob(File.expand_path("app/models/easy_ml/datasources/*.rb", EasyML::Engine.root)).each do |file|
+          require file
+        end
+        Dir.glob(File.expand_path("app/models/easy_ml/models/*.rb", EasyML::Engine.root)).each do |file|
+          require file
+        end
+        Dir.glob(File.expand_path("app/models/easy_ml/splitters/*.rb", EasyML::Engine.root)).each do |file|
+          require file
+        end
+        Dir.glob(File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)).each do |file|
           require file
         end
       end

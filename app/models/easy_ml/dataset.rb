@@ -195,16 +195,18 @@ module EasyML
       features_to_compute = features.needs_recompute
       return if features_to_compute.empty?
 
+      batch_features, single_features = features_to_compute.partition(&:batchable?)
+
+      jobs = batch_features.flat_map(&:batch).concat(
+        single_features.map { |feature| { feature_id: feature.id } }
+      )
+
       if async
-        batch_features, single_features = features_to_compute.partition(&:batchable?)
-
-        jobs = batch_features.flat_map(&:batch).concat(
-          single_features.map { |feature| { feature_id: feature.id } }
-        )
-
         EasyML::ComputeFeatureJob.enqueue_batch(jobs)
       else
-        features_to_compute.each { |feature| feature.fit }
+        jobs.each do |job|
+          EasyML::ComputeFeatureJob.perform(nil, job)
+        end
         features_to_compute.update_all(needs_recompute: false, fit_at: Time.current)
       end
     end
@@ -455,6 +457,8 @@ module EasyML
     def data(**kwargs, &block)
       load_data(:all, **kwargs, &block)
     end
+
+    alias_method :query, :data
 
     def cleanup
       raw.cleanup

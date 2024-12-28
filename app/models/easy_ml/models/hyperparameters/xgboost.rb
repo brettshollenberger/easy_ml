@@ -1,3 +1,5 @@
+require_relative "base"
+
 module EasyML
   module Models
     module Hyperparameters

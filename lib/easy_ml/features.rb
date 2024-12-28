@@ -14,7 +14,7 @@ module EasyML::Features
     end
 
     def feature(**kwargs)
-      features << kwargs
+      features << kwargs.merge!(feature_class: self.to_s)
     end
   end
 
@@ -35,11 +35,11 @@ module EasyML::Features
       end
 
       def list_flat
-        (list.try(:values) || []).flat_map(&:values)
+        (list.try(:values) || []).flat_map(&:values).flat_map(&:features)
       end
 
       def find(name)
-        list_flat.detect { |feature| feature.name == name }
+        list_flat.detect { |feature| feature[:name] == name || feature[:feature_class] == name }
       end
 
       def clear

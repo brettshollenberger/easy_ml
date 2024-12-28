@@ -135,6 +135,9 @@ module EasyML
       else
         # Get all primary keys
         begin
+          unless primary_key.present?
+            raise "Couldn't find primary key for feature #{feature_class}, check your feature class"
+          end
           df = reader.query(select: [primary_key.first])
         rescue => e
           raise "Couldn't find primary key #{primary_key.first} for feature #{feature_class}: #{e.message}"
@@ -347,7 +350,7 @@ module EasyML
     end
 
     def feature_klass
-      @feature_klass ||= EasyML::Features::Registry.find(feature_class)
+      @feature_klass ||= EasyML::Features::Registry.find(feature_class.to_s).dig(:feature_class).constantize
     end
 
     def config

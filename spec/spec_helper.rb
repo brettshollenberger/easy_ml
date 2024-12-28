@@ -44,7 +44,7 @@ RSpec.configure do |config|
     require_rails_files
   end
 
-  Dir.glob(Rails.root.join("app/features/**/*.rb")).each do |file|
+  Dir.glob(EasyML::Engine.root.join("spec/internal/app/features/**/*.rb")).each do |file|
     require file
   end
 

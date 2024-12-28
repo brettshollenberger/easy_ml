@@ -68,6 +68,7 @@ RSpec.describe EasyML::Datasource do
         expect { feature.transform(nil, nil) }.to raise_error(NotImplementedError)
       end
     end
+
     it "versions features" do
       # Create business_inception first since days_in_business depends on it
       expect(dataset).to be_needs_refresh

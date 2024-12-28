@@ -4,7 +4,7 @@ RSpec.describe EasyML::Features do
   describe "Registry" do
     describe ".find" do
       it "finds feature by name and namespace" do
-        feature = EasyML::Features::Registry.find("TestFeatureClass")&.features.first
+        feature = EasyML::Features::Registry.find("TestFeatureClass")
         expect(feature[:name]).to eq("Test Feature")
       end
 
@@ -16,7 +16,7 @@ RSpec.describe EasyML::Features do
 
     describe ".list" do
       it "lists all features" do
-        features = EasyML::Features::Registry.list_flat&.flat_map(&:features)
+        features = EasyML::Features::Registry.list_flat
         expect(features.first[:name]).to eq("Bad Feature")
       end
     end

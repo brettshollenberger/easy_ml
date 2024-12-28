@@ -176,9 +176,9 @@ module EasyML
     def refresh!(async: false)
       refreshing do
         prepare!
-        compute_features(async: async)
+        fit_features(async: async)
       end
-      after_compute_features unless async
+      after_fit_features unless async
     end
 
     def refresh(async: false)
@@ -186,26 +186,19 @@ module EasyML
 
       refreshing do
         prepare
-        compute_features(async: async)
+        fit_features(async: async)
       end
-      after_compute_features unless async
+      after_fit_features unless async
     end
 
-    def compute_features(async: false, features: self.features)
+    def fit_features(async: false, features: self.features)
       features_to_compute = features.needs_recompute
       return if features_to_compute.empty?
 
-      jobs = features.flat_map(&:build_batches)
-      if async
-        EasyML::ComputeFeatureJob.enqueue_batch(jobs)
-      else
-        jobs.each do |job|
-          EasyML::ComputeFeatureJob.perform(nil, job)
-        end
-      end
+      features.first.fit(features: features_to_compute, async: async)
     end
 
-    def after_compute_features
+    def after_fit_features
       features.update_all(needs_recompute: false, fit_at: Time.current)
       actually_refresh
     end

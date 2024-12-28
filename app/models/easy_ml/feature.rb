@@ -179,7 +179,27 @@ module EasyML
       needs_recompute? && !adapter.respond_to?(:batch) && !adapter.respond_to?(:fit)
     end
 
-    def fit(options = {})
+    def fit(features: [self], async: false)
+      jobs = features.flat_map(&:build_batches)
+      if async
+        EasyML::ComputeFeatureJob.enqueue_batch(jobs)
+      else
+        jobs.each do |job|
+          EasyML::ComputeFeatureJob.perform(nil, job)
+        end
+      end
+    end
+
+    def fit_one(random: true)
+      if random
+        batch = build_batches.sample
+      else
+        batch = build_batches.first
+      end
+      fit_batch(batch)
+    end
+
+    def fit_batch(options = {})
       if adapter.respond_to?(:fit)
         options.symbolize_keys!
 

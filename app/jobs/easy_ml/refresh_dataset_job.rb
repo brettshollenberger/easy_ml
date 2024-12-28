@@ -12,7 +12,7 @@ module EasyML
         puts "Prepare! #{dataset.name}"
         dataset.prepare
         if dataset.features.needs_recompute.any?
-          dataset.compute_features(async: true)
+          dataset.fit_features(async: true)
           puts "Computing features!"
         else
           dataset.actually_refresh

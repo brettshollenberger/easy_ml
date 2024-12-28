@@ -212,20 +212,44 @@ module EasyML
     end
 
     def columns_need_refresh?
-      columns.where("updated_at > ?", refreshed_at).exists?
+      preloaded_columns.any? { |col| col.updated_at > refreshed_at }
     end
 
     def features_need_refresh?
-      features.where("updated_at > ?", refreshed_at).exists? || features.needs_recompute.any?
+      return true if preloaded_features.any? { |f| f.updated_at > refreshed_at }
+
+      # Check for features that need recompute
+      preloaded_features.any? do |feature|
+        next unless feature.adapter.respond_to?(:fit)
+        feature.needs_recompute ||
+          feature.applied_at.nil? ||
+          (feature.adapter.respond_to?(:fit) && feature.fit_at.nil?) ||
+          feature.datasource_refreshed_after_fit? ||
+          feature.code_changed?
+      end
     end
 
     def needs_refresh?
+      return true if not_split?
       return true if refreshed_at.nil?
       return true if columns_need_refresh?
       return true if features_need_refresh?
-      return true if datasource&.needs_refresh?
+      return true if datasource_needs_refresh?
+      return true if datasource_was_refreshed?
 
       false
+    end
+
+    def not_split?
+      processed.split_at.nil? || raw.split_at.nil?
+    end
+
+    def datasource_needs_refresh?
+      datasource&.needs_refresh?
+    end
+
+    def datasource_was_refreshed?
+      raw.split_at < datasource.last_updated_at
     end
 
     def learn
@@ -521,28 +545,30 @@ module EasyML
     end
 
     def target
-      @target ||= columns.find_by(is_target: true)&.name
+      @target ||= preloaded_columns.find(&:is_target)&.name
     end
 
     def drop_cols
-      @drop_cols ||= columns.select(&:hidden).map(&:name)
+      @drop_cols ||= preloaded_columns.select(&:hidden).map(&:name)
     end
 
     def drop_if_null
-      @drop_if_null ||= columns.where(drop_if_null: true).map(&:name)
+      @drop_if_null ||= preloaded_columns.select(&:drop_if_null).map(&:name)
     end
 
     def col_order(inference: false)
-      one_hots = columns.select(&:one_hot?)
-      one_hot_cats = preprocessor.statistics.dup.select { |k, _v| one_hots.map(&:name).include?(k.to_s) }.to_h.reduce({}) do |h, (k, v)|
-        h.tap do
-          h[k] = v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" }
-        end
-      end
-      filtered_columns = columns.where(hidden: false); 1
-      filtered_columns = filtered_columns.where(is_target: [nil, false]) if inference
+      # Filter preloaded columns in memory
+      scope = preloaded_columns.reject(&:hidden)
+      scope = scope.reject(&:is_target) if inference
 
-      filtered_columns.order(:id).flat_map do |col|
+      # Get one_hot columns for category mapping
+      one_hots = scope.select(&:one_hot?)
+      one_hot_cats = preprocessor.statistics.dup
+        .select { |k, _v| one_hots.map(&:name).include?(k.to_s) }
+        .transform_values { |v| v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" } }
+
+      # Map columns to names, handling one_hot expansion
+      scope.sort_by(&:id).flat_map do |col|
         if col.one_hot?
           one_hot_cats[col.name.to_sym]
         else
@@ -551,13 +577,9 @@ module EasyML
       end
     end
 
-    def column_mask(df, inference: false)
+    def apply_column_mask(df, inference: false)
       cols = df.columns & col_order(inference: inference)
       cols.sort_by { |col| col_order.index(col) }
-    end
-
-    def apply_column_mask(df, inference: false)
-      df[column_mask(df, inference: inference)]
     end
 
     def drop_columns(all_columns: false)
@@ -587,6 +609,14 @@ module EasyML
     end
 
     private
+
+    def preloaded_features
+      @preloaded_features ||= features.includes(:dataset).load
+    end
+
+    def preloaded_columns
+      @preloaded_columns ||= columns.load
+    end
 
     def download_remote_files
       return unless is_history_class? # Only historical datasets need this
@@ -687,15 +717,25 @@ module EasyML
     end
 
     def should_split?
-      split_timestamp = raw.split_at
-      processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at || needs_refresh?
+      needs_refresh?
     end
 
     def apply_features(df, features = self.features)
       if features.nil? || features.empty?
         df
       else
-        features.ordered.reduce(df) do |acc_df, feature|
+        # Eager load all features with their necessary associations in one query
+        features_to_apply = features.ordered.includes(dataset: :datasource).to_a
+
+        # Preload all feature SHAs in one batch
+        feature_classes = features_to_apply.map(&:feature_class).uniq
+        shas = feature_classes.map { |klass| [klass, Feature.compute_sha(klass)] }.to_h
+
+        # Apply features in sequence with preloaded data
+        features_to_apply.reduce(df) do |acc_df, feature|
+          # Set SHA without querying
+          feature.instance_variable_set(:@current_sha, shas[feature.feature_class])
+
           result = feature.transform(acc_df)
 
           unless result.is_a?(Polars::DataFrame)

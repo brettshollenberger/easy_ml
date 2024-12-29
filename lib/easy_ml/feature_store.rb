@@ -61,7 +61,7 @@ module EasyML
     end
 
     def download
-      synced_directory.download
+      synced_directory&.download
     end
 
     def cp(old_version, new_version)
@@ -139,9 +139,9 @@ module EasyML
       File.join(
         Rails.root,
         "easy_ml/datasets",
-        feature.dataset.name.parameterize,
+        feature.dataset.name.parameterize.gsub("-", "_"),
         "features",
-        feature.name.parameterize,
+        feature.name.parameterize.gsub("-", "_"),
         version.to_s
       )
     end
@@ -163,6 +163,8 @@ module EasyML
     end
 
     def synced_directory
+      return unless feature.dataset&.datasource.present?
+
       datasource_config = feature.dataset.datasource.configuration || {}
       @synced_dir ||= EasyML::Data::SyncedDirectory.new(
         root_dir: feature_dir,

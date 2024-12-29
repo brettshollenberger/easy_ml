@@ -166,6 +166,7 @@ module EasyML
       refreshing do
         split_data
         process_data
+        fully_reload
         learn
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
@@ -176,7 +177,7 @@ module EasyML
     def refresh!(async: false)
       refreshing do
         prepare!
-        fit_features(async: async)
+        fit_features!(async: async)
       end
       after_fit_features unless async
     end
@@ -191,8 +192,12 @@ module EasyML
       after_fit_features unless async
     end
 
-    def fit_features(async: false, features: self.features)
-      features_to_compute = features.needs_recompute
+    def fit_features!(async: false, features: self.features)
+      fit_features(async: async, features: features, force: true)
+    end
+
+    def fit_features(async: false, features: self.features, force: false)
+      features_to_compute = force ? features : features.needs_recompute
       return if features_to_compute.empty?
 
       features.first.fit(features: features_to_compute, async: async)
@@ -258,8 +263,11 @@ module EasyML
         fully_reload
         yield
       end
-    rescue StandardError => e
+    rescue => e
       update(workflow_status: "failed")
+      e.backtrace.grep(/easy_ml/).each do |line|
+        puts line
+      end
       raise e
     end
 
@@ -270,6 +278,7 @@ module EasyML
     end
 
     def lock_dataset
+      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
       with_lock_client do |client|
         yield
       end
@@ -286,6 +295,7 @@ module EasyML
     end
 
     def learn_schema
+      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
       schema = data.schema.reduce({}) do |h, (k, v)|
         h.tap do
           h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
@@ -301,7 +311,8 @@ module EasyML
     end
 
     def syncable_cols
-      raw.data.schema.keys
+      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
+      data.schema.keys
     end
 
     def one_hot_cols(cols = nil)
@@ -333,7 +344,8 @@ module EasyML
         EasyML::Column.import(cols_to_insert)
         columns_to_update = columns.where(name: col_names)
         stats = statistics
-        cached_sample = data(limit: 100, all_columns: true)
+        use_processed = processed.data(limit: 1).to_a.any?
+        cached_sample = use_processed ? processed.data(limit: 10, all_columns: true) : raw.data(limit: 10, all_columns: true)
         existing_types = existing_columns.map(&:name).zip(existing_columns.map(&:datatype)).to_h
         polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
           EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
@@ -368,10 +380,10 @@ module EasyML
             actual_schema_type = "categorical"
             actual_type = "categorical"
           else
-            base = self
+            base = use_processed ? self.processed : self.raw
             processed = stats.dig("processed", column.name)
           end
-          sample_values = base.send(:data, unique: true, limit: 5, select: column.name, all_columns: true)[column.name].to_a.uniq[0...5]
+          sample_values = base.send(:data, unique: true, limit: 5, all_columns: true, select: column.name)[column.name].to_a.uniq[0...5]
 
           column.assign_attributes(
             statistics: {
@@ -383,6 +395,9 @@ module EasyML
             sample_values: sample_values,
           )
         end
+
+        columns_to_delete = columns - columns_to_update
+        columns_to_delete.each(&:destroy!)
 
         EasyML::Column.import(columns_to_update.to_a,
                               { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
@@ -439,14 +454,32 @@ module EasyML
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_features(df, features)
       df = drop_nulls(df)
+      df = apply_missing_features(df, inference: inference)
       df = preprocessor.postprocess(df, inference: inference)
 
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
       learn if needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
+      raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
+    end
+
+    def raise_on_nulls(df)
+      desc_df = df.describe
+
+      # Get the 'null_count' row
+      null_count_row = desc_df.filter(desc_df[:describe] == "null_count")
+
+      # Select columns with non-zero null counts
+      columns_with_nulls = null_count_row.columns.select do |col|
+        null_count_row[col][0].to_i > 0
+      end
+
+      if columns_with_nulls.any?
+        raise "Null values found in columns: #{columns_with_nulls.join(", ")}"
+      end
     end
 
     # Filter data using Polars predicates:
@@ -578,6 +611,13 @@ module EasyML
 
     def apply_column_mask(df, inference: false)
       df[column_mask(df, inference: inference)]
+    end
+
+    def apply_missing_features(df, inference: false)
+      return df unless inference
+
+      missing_features = col_order(inference: inference) - df.columns
+      df.with_columns(missing_features.map { |f| Polars.lit(nil).alias(f) })
     end
 
     def drop_columns(all_columns: false)
@@ -717,7 +757,6 @@ module EasyML
       features = self.features.ordered.load
       splitter.split(datasource) do |train_df, valid_df, test_df|
         [:train, :valid, :test].zip([train_df, valid_df, test_df]).each do |segment, df|
-          df = apply_features(df, features) if features.any?
           raw.save(segment, df)
         end
       end

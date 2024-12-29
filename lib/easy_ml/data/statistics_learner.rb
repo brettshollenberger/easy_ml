@@ -38,6 +38,7 @@ module EasyML::Data
       # Add basic column statistics first
       df.columns.each_with_object({}) do |col, stats|
         series = df[col]
+        return {} if series.dtype == Polars::Null
         field_type = PolarsColumn.determine_type(series)
 
         stats[col] = {

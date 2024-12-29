@@ -130,6 +130,8 @@ module EasyML
     end
 
     def numeric_primary_key?
+      raise "Couldn't find primary key for feature #{feature_class}, check your feature class" unless primary_key.present?
+
       dataset.raw.data(limit: 1, select: primary_key)[primary_key].to_a.flat_map(&:values).all? do |value|
         case value
         when String then value.match?(/\A[-+]?\d+(\.\d+)?\z/)
@@ -148,8 +150,6 @@ module EasyML
     end
 
     def batch
-      reset if needs_recompute?
-
       reader = dataset.raw
 
       if adapter.respond_to?(:batch)
@@ -182,12 +182,8 @@ module EasyML
       end
     end
 
-    def reset
+    def wipe
       feature_store.wipe
-    end
-
-    def reset_on_transform?
-      needs_recompute? && !adapter.respond_to?(:batch) && !adapter.respond_to?(:fit)
     end
 
     def fit(features: [self], async: false)
@@ -273,8 +269,6 @@ module EasyML
       return nil unless df.present?
       return df if adapter.respond_to?(:fit) && feature_store.empty?
 
-      reset if reset_on_transform?
-
       result = adapter.transform(df, self)
       update!(applied_at: Time.current)
       result
@@ -358,6 +352,10 @@ module EasyML
 
     def store(df)
       feature_store.store(df)
+    end
+
+    def batch_size
+      read_attribute(:batch_size) || 10_000
     end
 
     private

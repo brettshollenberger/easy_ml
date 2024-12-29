@@ -32,7 +32,7 @@ module EasyML
     scope :ordered, -> { order(feature_position: :asc) }
 
     def download_remote_files
-      feature_store.download
+      feature_store&.download
     end
   end
 end

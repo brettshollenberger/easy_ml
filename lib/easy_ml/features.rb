@@ -31,7 +31,12 @@ module EasyML::Features
       end
 
       def list(namespace: nil)
+        require_files
         namespace ? registry[namespace.to_sym] : registry
+      end
+
+      def require_files
+        Dir.glob(Rails.root.join("app/features/**/*.rb")).each { |f| require_dependency f }
       end
 
       def list_flat

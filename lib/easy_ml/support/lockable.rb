@@ -3,46 +3,68 @@ module EasyML
     module Lockable
       KEYS_HASH = "easy_ml:lock_keys"
 
+      # Fetch all tracked keys from the Redis hash
       def self.query
-        Rails.cache.read(KEYS_HASH) || {}
+        client.hgetall(KEYS_HASH) || {}
       end
 
+      # Delete all tracked keys and wipe the hash
       def self.wipe
         keys = query.keys
-        Rails.cache.delete_multi(keys)
-        Rails.cache.delete(KEYS_HASH)
+        keys.each { |key| client.del(key) } # Delete individual keys
+        client.del(KEYS_HASH) # Delete the KEYS_HASH
       end
 
+      # Execute a block with a Redis lock
       def self.with_lock_client(key, wait_timeout: 0.1, stale_timeout: 60 * 10, resources: 1)
         prefixed_key = "easy_ml:#{key}"
 
         # Track the key
-        current_keys = query
-        current_keys[prefixed_key] = Time.current
-        Rails.cache.write(KEYS_HASH, current_keys)
+        track_key(prefixed_key)
 
-        client = Suo::Client::Redis.new(prefixed_key, {
-          acquisition_lock: wait_timeout,
-          stale_lock: stale_timeout,
+        suo_client = Suo::Client::Redis.new(prefixed_key, {
+          acquisition_timeout: wait_timeout,
+          stale_lock_expiry: stale_timeout,
           resources: resources,
           client: client,
         })
 
+        lock_key = nil
         begin
-          lock_key = client.lock
+          lock_key = suo_client.lock
           if lock_key
-            yield client
+            track_lock(prefixed_key, lock_key)
+            yield suo_client
           end
         ensure
-          client.unlock(lock_key)
+          suo_client.unlock(lock_key) if lock_key
+          track_unlock(prefixed_key)
         end
       end
 
-      def client
-        return @client if @client
+      def self.track_lock(prefixed_key, lock_key)
+        client.hset(KEYS_HASH, prefixed_key, lock_key)
+      end
 
-        host = ENV["REDIS_HOST"] || Resque.redis.client.host
-        @client = Redis.new(host: host)
+      # Track a new key in the KEYS_HASH
+      def self.track_key(prefixed_key)
+        unless query.key?(prefixed_key)
+          client.hset(KEYS_HASH, prefixed_key, Time.current.to_s)
+        end
+      end
+
+      def self.track_unlock(prefixed_key)
+        client.hdel(KEYS_HASH, prefixed_key)
+      end
+
+      # Redis client
+      def self.client
+        @client ||= Redis.new(host: redis_host)
+      end
+
+      # Determine Redis host
+      def self.redis_host
+        ENV["REDIS_HOST"] || (defined?(Resque) ? Resque.redis.client.host : "localhost")
       end
     end
   end

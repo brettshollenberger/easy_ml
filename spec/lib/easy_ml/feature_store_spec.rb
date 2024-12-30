@@ -67,18 +67,18 @@ RSpec.describe EasyML::FeatureStore do
           File.join(
             Rails.root,
             "easy_ml/datasets",
-            dataset.name.parameterize,
+            dataset.name.parameterize.gsub(/-/, "_"),
             "features",
-            feature.name.parameterize,
+            feature.name.parameterize.gsub(/-/, "_"),
             feature.version.to_s,
             "feature0.parquet"
           ),
           File.join(
             Rails.root,
             "easy_ml/datasets",
-            dataset.name.parameterize,
+            dataset.name.parameterize.gsub(/-/, "_"),
             "features",
-            feature.name.parameterize,
+            feature.name.parameterize.gsub(/-/, "_"),
             feature.version.to_s,
             "feature10.parquet"
           ),
@@ -86,6 +86,7 @@ RSpec.describe EasyML::FeatureStore do
       end
 
       it "writes data to correct partition files" do
+        feature.wipe
         feature.store(df)
 
         # Check first partition (0-9)
@@ -111,6 +112,7 @@ RSpec.describe EasyML::FeatureStore do
 
         before do
           existing_df = Polars::DataFrame.new(existing_data)
+          feature.wipe
           feature.store(existing_df)
         end
 
@@ -146,9 +148,9 @@ RSpec.describe EasyML::FeatureStore do
         File.join(
           Rails.root,
           "easy_ml/datasets",
-          dataset.name.parameterize,
+          dataset.name.parameterize.gsub(/-/, "_"),
           "features",
-          simple_feature.name.parameterize,
+          simple_feature.name.parameterize.gsub(/-/, "_"),
           simple_feature.version.to_s,
           "feature.parquet"
         )
@@ -166,6 +168,7 @@ RSpec.describe EasyML::FeatureStore do
   describe ".query" do
     context "with primary key filter" do
       before do
+        feature.wipe
         feature.store(df)
       end
 

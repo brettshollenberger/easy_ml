@@ -34,6 +34,7 @@ RSpec.describe EasyML::Data::Preprocessor do
         months_valid: 2,
       },
     )
+    @dataset.unlock!
     @dataset.refresh # Will create columns
 
     @dataset.columns.find_by(name: "rev").update(is_target: true)
@@ -148,7 +149,6 @@ RSpec.describe EasyML::Data::Preprocessor do
       },
     )
 
-    # expect(@dataset.statistics.dig("raw", "mean"))
     @dataset.refresh
 
     mean_raw = @dataset.statistics.dig("raw", "annual_revenue", "mean")
@@ -422,6 +422,7 @@ RSpec.describe EasyML::Data::Preprocessor do
       # We don't add one_hot columns to the official columns join
       expect(@dataset.columns.map(&:name)).to_not include("group_a", "group_b", "group_other")
       expect(@dataset.columns.map(&:name)).to include("group")
+      expect(@dataset.col_order).to_not include("group_a")
     end
 
     it "preprocesses categorical with ordinal encoding" do
@@ -566,6 +567,10 @@ RSpec.describe EasyML::Data::Preprocessor do
       expect(@dataset.data[null_mask].count).to eq 2
 
       inference_df = Polars::DataFrame.new({
+                                             id: [1],
+                                             annual_revenue: [1000],
+                                             group: ["a"],
+                                             points: [1.0],
                                              created_date: [nil],
                                            })
       normalized = @dataset.normalize(inference_df, inference: true)

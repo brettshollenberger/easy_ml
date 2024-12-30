@@ -78,6 +78,12 @@ module EasyML
       preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :one_hot) == true
     end
 
+    def allowed_categories
+      return nil unless one_hot?
+
+      dataset.preprocessor.statistics.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
+    end
+
     private
 
     def ensure_valid_datatype

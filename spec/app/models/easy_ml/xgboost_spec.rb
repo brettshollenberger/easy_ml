@@ -187,7 +187,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         titanic_model
       end
 
-      it "produces same predictions as regular fit", :focus do
+      it "produces same predictions as regular fit" do
         # Get test data
         titanic_dataset.refresh
         model.reload

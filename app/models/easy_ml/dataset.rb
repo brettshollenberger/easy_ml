@@ -42,7 +42,7 @@ module EasyML
     belongs_to :datasource, class_name: "EasyML::Datasource"
 
     has_many :models, class_name: "EasyML::Model"
-    has_many :columns, class_name: "EasyML::Column", dependent: :destroy
+    has_many :columns, class_name: "EasyML::Column", dependent: :destroy, extend: EasyML::ColumnList
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
     has_many :features, dependent: :destroy, class_name: "EasyML::Feature"
@@ -108,6 +108,10 @@ module EasyML
       read_attribute(:schema) || datasource.schema
     end
 
+    def processed_schema
+      processed.data(limit: 1)&.schema || raw.data(limit: 1)&.schema
+    end
+
     def refresh_datatypes
       return unless columns_need_refresh?
 
@@ -168,7 +172,6 @@ module EasyML
         process_data
         fully_reload
         now = UTC.now
-        puts "Refreshed at #{now}"
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
       end
@@ -266,6 +269,7 @@ module EasyML
 
     def refreshing
       return false if is_history_class?
+      unlock! unless analyzing?
 
       lock_dataset do
         update(workflow_status: "analyzing")
@@ -323,29 +327,12 @@ module EasyML
       )
     end
 
-    def syncable_cols
-      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
-      data.schema.keys
-    end
-
-    def one_hot_cols(cols = nil)
-      return [] unless preprocessing_steps && preprocessing_steps.key?(:training)
-
-      one_hot_base_cols = preprocessing_steps[:training].select { |_k, v| v.dig(:params, :one_hot) }.keys.map(&:to_s)
-
-      return one_hot_base_cols if cols.nil?
-      return [] unless one_hot_base_cols
-
-      cols.select do |col|
-        one_hot_base_cols.any? { |base_col| col.start_with?(base_col) }
-      end
-    end
-
     def sync_columns
       return unless schema.present?
 
       EasyML::Column.transaction do
-        col_names = syncable_cols
+        # Which columns are syncable?
+        col_names = columns.syncable
         existing_columns = columns.where(name: col_names)
         new_columns = col_names - existing_columns.map(&:name)
         cols_to_insert = new_columns.map do |col_name|
@@ -357,7 +344,7 @@ module EasyML
         EasyML::Column.import(cols_to_insert)
         columns_to_update = columns.where(name: col_names)
         stats = statistics
-        use_processed = processed.data(limit: 1).to_a.any?
+        use_processed = processed.data(limit: 1).present?
         cached_sample = use_processed ? processed.data(limit: 10, all_columns: true) : raw.data(limit: 10, all_columns: true)
         existing_types = existing_columns.map(&:name).zip(existing_columns.map(&:datatype)).to_h
         polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
@@ -386,7 +373,7 @@ module EasyML
               schema_type
             end
 
-          if one_hot_cols.include?(column.name)
+          if columns.one_hot?(column.name)
             base = self.raw
             processed = stats.dig("raw", column.name).dup
             processed["null_count"] = 0
@@ -414,7 +401,6 @@ module EasyML
         columns_to_delete = columns - columns_to_update - raw_cols
         columns_to_delete.each(&:destroy!)
 
-        puts "Columns updated at #{Time.current}"
         EasyML::Column.import(columns_to_update.to_a,
                               { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
                                                                      sample_values] } })
@@ -429,6 +415,8 @@ module EasyML
     end
 
     def needs_learn?(df)
+      return true if columns_need_refresh?
+
       never_learned = columns.none?
       return true if never_learned
 
@@ -436,10 +424,9 @@ module EasyML
       return true if new_features
 
       new_cols = df.present? ? (df.columns - columns.map(&:name)) : []
+      new_cols = columns.syncable
 
-      new_cols = (new_cols - one_hot_cols(new_cols)).any?
-
-      return true if new_cols
+      return true if new_cols.any?
     end
 
     def compare_datasets(df, df_was)
@@ -475,7 +462,7 @@ module EasyML
 
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
-      learn if needs_learn?(df)
+      learn if !inference && needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
       raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys
@@ -602,13 +589,7 @@ module EasyML
 
       # Get one_hot columns for category mapping
       one_hots = scope.select(&:one_hot?)
-      one_hot_cats = preprocessor.statistics.dup
-        .select { |k, _v| one_hots.map(&:name).include?(k.to_s) }
-        .to_h.reduce({}) do |h, (k, v)|
-        h.tap do
-          h[k] = v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" }
-        end
-      end
+      one_hot_cats = columns.allowed_categories
 
       # Map columns to names, handling one_hot expansion
       scope.sort_by(&:id).flat_map do |col|

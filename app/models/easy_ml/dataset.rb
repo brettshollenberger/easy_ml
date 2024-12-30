@@ -73,6 +73,7 @@ module EasyML
       write_attribute(:workflow_status, :ready) if workflow_status.nil?
     end
     before_save :set_root_dir
+    before_validation :filter_duplicate_features
 
     def self.constants
       {
@@ -171,6 +172,7 @@ module EasyML
         split_data
         process_data
         fully_reload
+        learn
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
@@ -208,6 +210,7 @@ module EasyML
 
     def after_fit_features
       features.update_all(needs_fit: false, fit_at: Time.current)
+      unlock!
       actually_refresh
     end
 
@@ -374,7 +377,7 @@ module EasyML
       { differing_columns: differing_columns, differences: differences }
     end
 
-    def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
+    def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features, idx: nil)
       df = apply_features(df, features)
       df = drop_nulls(df)
       df = apply_missing_features(df, inference: inference)
@@ -382,7 +385,7 @@ module EasyML
 
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
-      learn if !inference && needs_learn?(df)
+      learn if idx == 0 && needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
       raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys
@@ -631,9 +634,9 @@ module EasyML
     def normalize_all
       processed.cleanup
 
-      SPLIT_ORDER.each do |segment|
+      SPLIT_ORDER.each_with_index do |segment, idx|
         df = raw.read(segment)
-        processed_df = normalize(df, all_columns: true)
+        processed_df = normalize(df, all_columns: true, idx: idx)
         processed.save(segment, processed_df)
       end
       @normalized = true
@@ -683,6 +686,19 @@ module EasyML
 
     def should_split?
       needs_refresh?
+    end
+
+    def filter_duplicate_features
+      return unless attributes["features_attributes"].present?
+
+      existing_feature_names = features.pluck(:name)
+      attributes["features_attributes"].each do |_, attrs|
+        # Skip if it's marked for destruction or is an existing record
+        next if attrs["_destroy"] == "1" || attrs["id"].present?
+
+        # Reject the feature if it would be a duplicate
+        attrs["_destroy"] = "1" if existing_feature_names.include?(attrs["name"])
+      end
     end
 
     def apply_features(df, features = self.features)

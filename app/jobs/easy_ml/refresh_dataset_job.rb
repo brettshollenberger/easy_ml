@@ -4,7 +4,9 @@ module EasyML
       dataset = EasyML::Dataset.find(id)
       puts "Refreshing dataset #{dataset.name}"
       puts "Needs refresh? #{dataset.needs_refresh?}"
-      return unless dataset.needs_refresh?
+      unless dataset.needs_refresh?
+        dataset.update(workflow_status: :ready)
+      end
 
       create_event(dataset, "started")
 

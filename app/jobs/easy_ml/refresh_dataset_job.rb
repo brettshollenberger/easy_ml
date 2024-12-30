@@ -2,14 +2,26 @@ module EasyML
   class RefreshDatasetJob < ApplicationJob
     def perform(id)
       dataset = EasyML::Dataset.find(id)
-      return unless dataset.needs_refresh?
+      puts "Refreshing dataset #{dataset.name}"
+      puts "Needs refresh? #{dataset.needs_refresh?}"
+      unless dataset.needs_refresh?
+        dataset.update(workflow_status: :ready)
+      end
 
       create_event(dataset, "started")
 
       begin
+        puts "Prepare! #{dataset.name}"
         dataset.prepare
-        dataset.compute_features(async: true)
+        if dataset.features.needs_fit.any?
+          dataset.fit_features(async: true)
+          puts "Computing features!"
+        else
+          dataset.actually_refresh
+          puts "Done!"
+        end
       rescue StandardError => e
+        puts "Error #{e.message}"
         if Rails.env.test?
           raise e
         end

@@ -1,0 +1,6 @@
+development:
+  '*': 2
+
+production:
+  '*': <%= ENV['WORKER_COUNT'] || 5 %>
+

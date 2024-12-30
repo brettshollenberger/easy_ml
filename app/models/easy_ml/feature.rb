@@ -9,7 +9,7 @@
 #  feature_class    :string           not null
 #  feature_position :integer
 #  batch_size       :integer
-#  needs_recompute  :boolean
+#  needs_fit        :boolean
 #  sha              :string
 #  primary_key      :string           is an Array
 #  applied_at       :datetime
@@ -66,7 +66,7 @@ module EasyML
       end
 
       # Combine all conditions with OR
-      where(id: where(needs_recompute: true).or(where(conditions.join(" OR "))).select { |f| f.adapter.respond_to?(:fit) }.map(&:id))
+      where(id: where(needs_fit: true).or(where(conditions.join(" OR "))).select { |f| f.adapter.respond_to?(:fit) }.map(&:id))
     }
     scope :never_applied, -> { where(applied_at: nil) }
     scope :never_fit, -> do
@@ -74,7 +74,7 @@ module EasyML
             fittable = fittable.select { |f| f.adapter.respond_to?(:fit) }
             where(id: fittable.map(&:id))
           end
-    scope :needs_recompute, -> { has_changes.or(never_applied).or(never_fit) }
+    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha
@@ -91,17 +91,24 @@ module EasyML
       @adapter ||= feature_klass.new
     end
 
-    def needs_recompute?
-      return false unless adapter.respond_to?(:fit)
-      return true if needs_recompute
-      return true if datasource_refreshed_after_fit?
-      return true if code_changed?
-      return true if refresh_period_elapsed?
+    def fit_reasons
+      return [] if !adapter.respond_to?(:fit)
 
-      false
+      {
+        "Needs fit manually set" => read_attribute(:needs_fit),
+        "Datasource was refreshed" => datasource_was_refreshed?,
+        "Code changed" => code_changed?,
+        "Cache expired" => cache_expired?,
+      }.select { |k, v| v }.map { |k, v| k }
     end
 
-    def refresh_period_elapsed?
+    alias_method :refresh_reasons, :fit_reasons
+
+    def needs_fit?
+      fit_reasons.any?
+    end
+
+    def cache_expired?
       return false if refresh_every.nil? || fit_at.nil?
 
       fit_at < refresh_every.seconds.ago
@@ -112,7 +119,7 @@ module EasyML
       sha != current_sha
     end
 
-    def datasource_refreshed_after_fit?
+    def datasource_was_refreshed?
       return true if fit_at.nil?
       return false if dataset.datasource.refreshed_at.nil?
 
@@ -120,12 +127,38 @@ module EasyML
     end
 
     def batchable?
-      batch_size.present? || adapter.respond_to?(:batch)
+      adapter.respond_to?(:batch) || (batch_size.present? &&
+                                      numeric_primary_key?)
+    end
+
+    def should_be_batchable?
+      adapter.respond_to?(:batch) || config.dig(:batch_size).present?
+    end
+
+    def numeric_primary_key?
+      if primary_key.nil?
+        return false unless should_be_batchable?
+        raise "Couldn't find primary key for feature #{feature_class}, check your feature class"
+      end
+
+      dataset.raw.data(limit: 1, select: primary_key)[primary_key].to_a.flat_map(&:values).all? do |value|
+        case value
+        when String then value.match?(/\A[-+]?\d+(\.\d+)?\z/)
+        else
+          value.is_a?(Numeric)
+        end
+      end
+    end
+
+    def build_batches
+      if batchable?
+        batch
+      else
+        [{ feature_id: id }]
+      end
     end
 
     def batch
-      reset if needs_recompute?
-
       reader = dataset.raw
 
       if adapter.respond_to?(:batch)
@@ -135,6 +168,9 @@ module EasyML
       else
         # Get all primary keys
         begin
+          unless primary_key.present?
+            raise "Couldn't find primary key for feature #{feature_class}, check your feature class"
+          end
           df = reader.query(select: [primary_key.first])
         rescue => e
           raise "Couldn't find primary key #{primary_key.first} for feature #{feature_class}: #{e.message}"
@@ -155,59 +191,94 @@ module EasyML
       end
     end
 
-    def reset
+    def wipe
       feature_store.wipe
     end
 
-    def reset_on_fit?
-      needs_recompute? && !adapter.respond_to?(:batch)
+    def fit(features: [self], async: false)
+      jobs = features.flat_map(&:build_batches)
+      if async
+        EasyML::ComputeFeatureJob.enqueue_batch(jobs)
+      else
+        jobs.each do |job|
+          EasyML::ComputeFeatureJob.perform(nil, job)
+        end
+      end
     end
 
-    def reset_on_transform?
-      needs_recompute? && !adapter.respond_to?(:batch) && !adapter.respond_to?(:fit)
+    # Fit a single batch, used for testing the user's feature implementation
+    def fit_batch(batch_args = {})
+      batch_args.symbolize_keys!
+      if batch_args.key?(:batch_start)
+        actually_fit_batch(batch_args)
+      else
+        actually_fit_batch(get_batch_args(**batch_args))
+      end
     end
 
-    def fit(options = {})
-      reset if reset_on_fit?
+    # Transform a single batch, used for testing the user's feature implementation
+    def transform_batch(df = nil, batch_args = {})
+      if df.present?
+        actually_transform_batch(df)
+      else
+        actually_transform_batch(build_batch(get_batch_args(**batch_args)))
+      end
+    end
+
+    def get_batch_args(batch_args = {})
+      unless batch_args.key?(:random)
+        batch_args[:random] = true
+      end
+      if batch_args[:random]
+        batch = build_batches.sample
+      else
+        batch = build_batches.first
+      end
+    end
+
+    def build_batch(batch_args = {})
+      batch_start = batch_args.dig(:batch_start)
+      batch_end = batch_args.dig(:batch_end)
+
+      if batch_start && batch_end
+        select = needs_columns.present? ? needs_columns : nil
+        filter = Polars.col(primary_key.first).is_between(batch_start, batch_end)
+        params = {
+          select: select,
+          filter: filter,
+        }.compact
+      else
+        params = {}
+      end
+      dataset.raw.query(**params)
+    end
+
+    def actually_fit_batch(batch_args = {})
+      return false unless adapter.respond_to?(:fit)
 
       if adapter.respond_to?(:fit)
-        options.symbolize_keys!
+        batch_args.symbolize_keys!
 
         if adapter.respond_to?(:batch)
-          batch_df = adapter.fit(dataset.raw, self, options)
+          batch_df = adapter.fit(dataset.raw, self, batch_args)
         else
-          batch_start = options.dig(:batch_start)
-          batch_end = options.dig(:batch_end)
-
-          if batch_start && batch_end
-            select = needs_columns.present? ? needs_columns : nil
-            filter = Polars.col(primary_key.first).is_between(batch_start, batch_end)
-            params = {
-              select: select,
-              filter: filter,
-            }.compact
-          else
-            params = {}
-          end
-          df = dataset.raw.query(**params)
-          batch_df = adapter.fit(df, self, options)
+          df = build_batch(batch_args)
+          batch_df = adapter.fit(df, self, batch_args)
         end
-        raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
-        store(batch_df)
       end
+      raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
+      store(batch_df)
       updates = {
         applied_at: Time.current,
-        needs_recompute: reset_on_fit? ? false : nil,
+        needs_fit: false,
       }.compact
       update!(updates)
       batch_df
     end
 
-    def transform(df)
+    def actually_transform_batch(df)
       return nil unless df.present?
       return df if adapter.respond_to?(:fit) && feature_store.empty?
-
-      reset if reset_on_transform?
 
       result = adapter.transform(df, self)
       update!(applied_at: Time.current)
@@ -294,6 +365,12 @@ module EasyML
       feature_store.store(df)
     end
 
+    def batch_size
+      read_attribute(:batch_size) ||
+        config.dig(:batch_size) ||
+        (should_be_batchable? ? 10_000 : nil)
+    end
+
     private
 
     def bulk_update_positions(features)
@@ -327,14 +404,14 @@ module EasyML
       new_sha = compute_sha
       if new_sha != self.sha
         self.sha = new_sha
-        self.needs_recompute = true
+        self.needs_fit = true
       end
     end
 
     def update_from_feature_class
-      if self.batch_size != config.dig(:batch_size)
-        self.batch_size = config.dig(:batch_size)
-        self.needs_recompute = true
+      if read_attribute(:batch_size) != config.dig(:batch_size)
+        write_attribute(:batch_size, config.dig(:batch_size))
+        self.needs_fit = true
       end
 
       if self.primary_key != config.dig(:primary_key)
@@ -347,7 +424,7 @@ module EasyML
     end
 
     def feature_klass
-      @feature_klass ||= EasyML::Features::Registry.find(feature_class)
+      @feature_klass ||= EasyML::Features::Registry.find(feature_class.to_s).dig(:feature_class).constantize
     end
 
     def config

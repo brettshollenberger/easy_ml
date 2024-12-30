@@ -116,7 +116,6 @@ RSpec.describe EasyML::Core::Tuner do
       expect(best_params["learning_rate"]).to be_between(0.01, 0.1)
       expect(best_params["n_estimators"]).to be_between(0, 2)
       expect(best_params["max_depth"]).to be_between(1, 5)
-      Thread.current[:stop] = false
     end
 
     it "configures custom params for callbacks" do

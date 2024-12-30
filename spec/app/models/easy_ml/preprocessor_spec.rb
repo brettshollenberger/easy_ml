@@ -34,6 +34,7 @@ RSpec.describe EasyML::Data::Preprocessor do
         months_valid: 2,
       },
     )
+    @dataset.unlock!
     @dataset.refresh # Will create columns
 
     @dataset.columns.find_by(name: "rev").update(is_target: true)
@@ -148,7 +149,6 @@ RSpec.describe EasyML::Data::Preprocessor do
       },
     )
 
-    # expect(@dataset.statistics.dig("raw", "mean"))
     @dataset.refresh
 
     mean_raw = @dataset.statistics.dig("raw", "annual_revenue", "mean")
@@ -566,6 +566,10 @@ RSpec.describe EasyML::Data::Preprocessor do
       expect(@dataset.data[null_mask].count).to eq 2
 
       inference_df = Polars::DataFrame.new({
+                                             id: [1],
+                                             annual_revenue: [1000],
+                                             group: ["a"],
+                                             points: [1.0],
                                              created_date: [nil],
                                            })
       normalized = @dataset.normalize(inference_df, inference: true)

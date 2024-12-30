@@ -6,16 +6,14 @@ module EasyML
       options.symbolize_keys!
       feature_id = options.dig(:feature_id)
       feature = EasyML::Feature.find(feature_id)
-
-      feature.fit(options)
+      feature.fit_batch(options)
     end
 
     def self.after_batch_hook(batch_id, *args)
+      puts "After batch!"
       feature_ids = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys).pluck(:feature_id).uniq
-      EasyML::Feature.where(id: feature_ids).update_all(needs_recompute: false, fit_at: Time.current)
-
       dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
-      dataset.actually_refresh
+      dataset.after_fit_features
     end
   end
 end

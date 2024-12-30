@@ -1,4 +1,4 @@
-class CreateEasyMLColumns < ActiveRecord::Migration[6.0]
+class CreateEasyMLColumns < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
     create_table :easy_ml_columns do |t|
       t.bigint :dataset_id, null: false

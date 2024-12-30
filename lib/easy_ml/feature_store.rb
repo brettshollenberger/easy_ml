@@ -61,7 +61,7 @@ module EasyML
     end
 
     def download
-      synced_directory.download
+      synced_directory&.download
     end
 
     def cp(old_version, new_version)
@@ -83,25 +83,29 @@ module EasyML
     private
 
     def store_without_partitioning(df)
-      path = feature_path
-      FileUtils.mkdir_p(File.dirname(path))
-      df.write_parquet(path)
+      lock_file do
+        path = feature_path
+        FileUtils.mkdir_p(File.dirname(path))
+        df.write_parquet(path)
+      end
     end
 
     def store_partition(partition_df, primary_key, partition_start)
-      path = partition_path(partition_start)
-      FileUtils.mkdir_p(File.dirname(path))
+      lock_partition(partition_start) do
+        path = partition_path(partition_start)
+        FileUtils.mkdir_p(File.dirname(path))
 
-      if File.exist?(path)
-        reader = EasyML::Data::PolarsReader.new
-        existing_df = reader.query([path])
-        preserved_records = existing_df.filter(
-          Polars.col(primary_key).is_in(partition_df[primary_key]).is_not
-        )
-        partition_df = Polars.concat([preserved_records, partition_df], how: "vertical")
+        if File.exist?(path)
+          reader = EasyML::Data::PolarsReader.new
+          existing_df = reader.query([path])
+          preserved_records = existing_df.filter(
+            Polars.col(primary_key).is_in(partition_df[primary_key]).is_not
+          )
+          partition_df = Polars.concat([preserved_records, partition_df], how: "vertical")
+        end
+
+        partition_df.write_parquet(path)
       end
-
-      partition_df.write_parquet(path)
     end
 
     def query_partitions(filter)
@@ -139,9 +143,9 @@ module EasyML
       File.join(
         Rails.root,
         "easy_ml/datasets",
-        feature.dataset.name.parameterize,
+        feature.dataset.name.parameterize.gsub("-", "_"),
         "features",
-        feature.name.parameterize,
+        feature.name.parameterize.gsub("-", "_"),
         version.to_s
       )
     end
@@ -163,6 +167,8 @@ module EasyML
     end
 
     def synced_directory
+      return unless feature.dataset&.datasource.present?
+
       datasource_config = feature.dataset.datasource.configuration || {}
       @synced_dir ||= EasyML::Data::SyncedDirectory.new(
         root_dir: feature_dir,
@@ -173,6 +179,49 @@ module EasyML
         polars_args: datasource_config.dig("polars_args"),
         cache_for: 0,
       )
+    end
+
+    def lock_partition(partition_start)
+      Support::Lockable.with_lock(partition_lock_key(partition_start), wait_timeout: 2, stale_timeout: 60) do |client|
+        begin
+          yield client if block_given?
+        ensure
+          unlock_partition(partition_start)
+        end
+      end
+    end
+
+    def lock_file
+      Support::Lockable.with_lock(file_lock_key, wait_timeout: 2, stale_timeout: 60) do |client|
+        begin
+          yield client if block_given?
+        ensure
+          unlock_file
+        end
+      end
+    end
+
+    def unlock_partition(partition_start)
+      Support::Lockable.unlock!(partition_lock_key(partition_start))
+    end
+
+    def unlock_file
+      Support::Lockable.unlock!(file_lock_key)
+    end
+
+    def unlock_all_partitions
+      list_partitions.each do |partition_path|
+        partition_start = partition_path.match(/feature(\d+)\.parquet/)[1].to_i
+        unlock_partition(partition_start)
+      end
+    end
+
+    def partition_lock_key(partition_start)
+      "feature_store:#{feature.id}.partition.#{partition_start}"
+    end
+
+    def file_lock_key
+      "feature_store:#{feature.id}.file"
     end
   end
 end

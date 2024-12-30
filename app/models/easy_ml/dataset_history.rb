@@ -30,6 +30,13 @@ module EasyML
     self.table_name = "easy_ml_dataset_histories"
     include Historiographer::History
 
+    has_many :columns,
+      ->(dataset_history) { where(snapshot_id: dataset_history.snapshot_id) },
+      class_name: "EasyML::ColumnHistory",
+      foreign_key: "dataset_id",
+      primary_key: "dataset_id",
+      extend: EasyML::ColumnList
+
     def root_dir
       read_attribute(:root_dir)
     end

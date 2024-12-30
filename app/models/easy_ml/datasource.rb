@@ -52,6 +52,7 @@ module EasyML
     after_initialize :read_adapter_from_configuration, if: :persisted?
     after_find :read_adapter_from_configuration
     before_save :store_adapter_in_configuration
+    after_create :refresh_async
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
     attr_accessor :schema, :columns, :num_rows, :is_syncing

@@ -7,7 +7,7 @@ module EasyML
         feature = EasyML::Feature.find(feature_id)
         feature.update!(
           applied_at: Time.current,
-          needs_recompute: false,
+          needs_fit: false,
         )
       end
     end

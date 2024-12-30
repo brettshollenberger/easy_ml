@@ -1,4 +1,4 @@
-class CreateEasyMLTunerJobs < ActiveRecord::Migration[6.0]
+class CreateEasyMLTunerJobs < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
     create_table :easy_ml_tuner_jobs do |t|
       t.json :config, null: false

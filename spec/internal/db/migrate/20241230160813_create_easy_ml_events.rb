@@ -1,4 +1,4 @@
-class CreateEasyMLEvents < ActiveRecord::Migration[6.0]
+class CreateEasyMLEvents < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_events do |t|
       t.string :name, null: false

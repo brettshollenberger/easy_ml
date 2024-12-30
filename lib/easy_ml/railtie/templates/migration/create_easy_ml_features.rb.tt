@@ -1,4 +1,4 @@
-class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
+class CreateEasyMLFeatures < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
     create_table :easy_ml_features do |t|
       t.bigint :dataset_id, null: false
@@ -7,7 +7,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.string :feature_class, null: false
       t.integer :feature_position
       t.integer :batch_size
-      t.boolean :needs_recompute
+      t.boolean :needs_fit
       t.string :sha
       t.string :primary_key, array: true
       t.datetime :applied_at
@@ -24,7 +24,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[6.0]
       t.index :version
       t.index :sha
       t.index :batch_size
-      t.index :needs_recompute
+      t.index :needs_fit
       t.index :fit_at
       t.index :refresh_every
     end

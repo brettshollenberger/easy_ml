@@ -1,4 +1,4 @@
-class CreateEasyMLDeploys < ActiveRecord::Migration[6.0]
+class CreateEasyMLDeploys < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_deploys do |t|
       t.bigint :model_id

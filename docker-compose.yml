@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:6.2
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  rails_backend:
+    build: .
+    container_name: rails_backend
+    volumes:
+      - ".:/app"
+    environment:
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
+    command: ["bundle", "exec", "resque-pool"]
+
+  resque_web:
+    image: ennexa/resque-web
+    container_name: resque_web
+    environment:
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "5678:5678"

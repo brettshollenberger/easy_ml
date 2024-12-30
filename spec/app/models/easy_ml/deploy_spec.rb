@@ -218,23 +218,6 @@ RSpec.describe EasyML::Deploy do
     EasyML::Cleaner.clean
   end
 
-  def build_model(params)
-    Timecop.freeze(incr_time)
-    EasyML::Model.new(params.reverse_merge!(
-      dataset: dataset,
-      metrics: %w[mean_absolute_error],
-      task: :regression,
-      model_type: "xgboost",
-      hyperparameters: {
-        objective: "reg:squarederror",
-        n_estimators: 1,
-      },
-    )).tap do |model|
-      model.fit
-      model.save
-    end
-  end
-
   def incr_time
     @time += 1.second
   end
@@ -259,7 +242,6 @@ RSpec.describe EasyML::Deploy do
       # Historical features are still queryable
       expect(model.current_version.dataset.features.first.query.shape).to eq([500, 2])
 
-      Thread.current[:stop] = true
       live_predictions = model.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
 
@@ -303,6 +285,7 @@ RSpec.describe EasyML::Deploy do
         "SibSp" => 0,
         "Parch" => 1,
         "Fare" => 100,
+        "Embarked" => "C",
       }
       preds = EasyML::Predict.predict("My model", raw_input)
 
@@ -593,7 +576,7 @@ RSpec.describe EasyML::Deploy do
 
       FileUtils.rm_rf(SPEC_ROOT.join("backups/models"))
     ensure
-      deploy.unlock_deploy if deploy
+      deploy.unlock! if deploy
     end
   end
 end

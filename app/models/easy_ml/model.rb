@@ -158,25 +158,23 @@ module EasyML
         end
         update(is_training: false)
         run.reload
+      ensure
+        unlock!
       end
     end
 
-    def unlock_model
-      with_lock_client do |client|
-        client.client.del(lock_key)
-      end
+    def unlock!
+      Support::Lockable.unlock!(lock_key)
     end
 
     def lock_model
-      with_lock_client do |client|
-        client.lock do
-          yield
-        end
+      with_lock do |client|
+        yield
       end
     end
 
-    def with_lock_client
-      EasyML::Support::Lockable.with_lock_client(lock_key, stale_timeout: 60, resources: 1) do |client|
+    def with_lock
+      EasyML::Support::Lockable.with_lock(lock_key, stale_timeout: 60, resources: 1) do |client|
         yield client
       end
     end

@@ -42,7 +42,7 @@ module EasyML
     belongs_to :datasource, class_name: "EasyML::Datasource"
 
     has_many :models, class_name: "EasyML::Model"
-    has_many :columns, class_name: "EasyML::Column", dependent: :destroy
+    has_many :columns, class_name: "EasyML::Column", dependent: :destroy, extend: EasyML::ColumnList
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
     has_many :features, dependent: :destroy, class_name: "EasyML::Feature"
@@ -73,6 +73,7 @@ module EasyML
       write_attribute(:workflow_status, :ready) if workflow_status.nil?
     end
     before_save :set_root_dir
+    before_validation :filter_duplicate_features
 
     def self.constants
       {
@@ -106,6 +107,10 @@ module EasyML
 
     def schema
       read_attribute(:schema) || datasource.schema
+    end
+
+    def processed_schema
+      processed.data(limit: 1)&.schema || raw.data(limit: 1)&.schema
     end
 
     def refresh_datatypes
@@ -166,6 +171,7 @@ module EasyML
       refreshing do
         split_data
         process_data
+        fully_reload
         learn
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
@@ -176,9 +182,9 @@ module EasyML
     def refresh!(async: false)
       refreshing do
         prepare!
-        compute_features(async: async)
+        fit_features!(async: async)
       end
-      actually_refresh unless async
+      after_fit_features unless async
     end
 
     def refresh(async: false)
@@ -186,81 +192,120 @@ module EasyML
 
       refreshing do
         prepare
-        compute_features(async: async)
+        fit_features(async: async)
       end
-      actually_refresh unless async
+      after_fit_features unless async
     end
 
-    def compute_features(async: false)
-      features_to_compute = features.needs_recompute
+    def fit_features!(async: false, features: self.features)
+      fit_features(async: async, features: features, force: true)
+    end
+
+    def fit_features(async: false, features: self.features, force: false)
+      features_to_compute = force ? features : features.needs_fit
       return if features_to_compute.empty?
 
-      if async
-        batch_features, single_features = features_to_compute.partition(&:batchable?)
+      features.first.fit(features: features_to_compute, async: async)
+    end
 
-        jobs = batch_features.flat_map(&:batch).concat(
-          single_features.map { |feature| { feature_id: feature.id } }
-        )
+    def after_fit_features
+      features.update_all(needs_fit: false, fit_at: Time.current)
+      unlock!
+      actually_refresh
+    end
 
-        EasyML::ComputeFeatureJob.enqueue_batch(jobs)
-      else
-        features_to_compute.each { |feature| feature.fit }
-        features_to_compute.update_all(needs_recompute: false, fit_at: Time.current)
+    def columns_need_refresh
+      preloaded_columns.select do |col|
+        col.updated_at.present? &&
+          refreshed_at.present? &&
+          col.updated_at > refreshed_at
       end
     end
 
     def columns_need_refresh?
-      columns.where("updated_at > ?", refreshed_at).exists?
+      columns_need_refresh.any?
     end
 
-    def features_need_refresh?
-      features.where("updated_at > ?", refreshed_at).exists? || features.needs_recompute.any?
+    def features_need_fit
+      preloaded_features.select do |f|
+        (f.updated_at.present? && refreshed_at.present? && f.updated_at > refreshed_at) ||
+          f.needs_fit?
+      end
+    end
+
+    def features_need_fit?
+      features_need_fit.any?
+    end
+
+    def refresh_reasons
+      {
+        "Not split" => not_split?,
+        "Refreshed at is nil" => refreshed_at.nil?,
+        "Columns need refresh" => columns_need_refresh?,
+        "Features need refresh" => features_need_fit?,
+        "Datasource needs refresh" => datasource_needs_refresh?,
+        "Datasource was refreshed" => datasource_was_refreshed?,
+      }.select { |k, v| v }.map { |k, v| k }
     end
 
     def needs_refresh?
-      return true if refreshed_at.nil?
-      return true if columns_need_refresh?
-      return true if features_need_refresh?
-      return true if datasource&.needs_refresh?
+      refresh_reasons.any?
+    end
 
-      false
+    def not_split?
+      processed.split_at.nil? || raw.split_at.nil?
+    end
+
+    def datasource_needs_refresh?
+      datasource&.needs_refresh?
+    end
+
+    def datasource_was_refreshed?
+      raw.split_at.present? && raw.split_at < datasource.last_updated_at
     end
 
     def learn
       learn_schema
       learn_statistics
-      sync_columns
+      columns.sync
     end
 
     def refreshing
       return false if is_history_class?
+      unlock! unless analyzing?
 
       lock_dataset do
         update(workflow_status: "analyzing")
         fully_reload
         yield
+      ensure
+        unlock!
       end
-    rescue StandardError => e
+    rescue => e
       update(workflow_status: "failed")
+      e.backtrace.grep(/easy_ml/).each do |line|
+        puts line
+      end
       raise e
     end
 
-    def unlock_dataset
-      with_lock_client do |client|
-        client.client.del(lock_key)
-      end
+    def unlock!
+      Support::Lockable.unlock!(lock_key)
+    end
+
+    def locked?
+      Support::Lockable.locked?(lock_key)
     end
 
     def lock_dataset
-      with_lock_client do |client|
-        client.lock do
-          yield
-        end
+      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
+      with_lock do |client|
+        yield
       end
     end
 
-    def with_lock_client
-      EasyML::Support::Lockable.with_lock_client(lock_key, stale_timeout: 60, resources: 1) do |client|
+    def with_lock
+      EasyML::Support::Lockable.with_lock(lock_key, stale_timeout: 60, resources: 1) do |client|
         yield client
       end
     end
@@ -270,6 +315,7 @@ module EasyML
     end
 
     def learn_schema
+      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
       schema = data.schema.reduce({}) do |h, (k, v)|
         h.tap do
           h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
@@ -284,96 +330,6 @@ module EasyML
       )
     end
 
-    def syncable_cols
-      raw.data.schema.keys
-    end
-
-    def one_hot_cols(cols = nil)
-      return [] unless preprocessing_steps && preprocessing_steps.key?(:training)
-
-      one_hot_base_cols = preprocessing_steps[:training].select { |_k, v| v.dig(:params, :one_hot) }.keys.map(&:to_s)
-
-      return one_hot_base_cols if cols.nil?
-      return [] unless one_hot_base_cols
-
-      cols.select do |col|
-        one_hot_base_cols.any? { |base_col| col.start_with?(base_col) }
-      end
-    end
-
-    def sync_columns
-      return unless schema.present?
-
-      EasyML::Column.transaction do
-        col_names = syncable_cols
-        existing_columns = columns.where(name: col_names)
-        new_columns = col_names - existing_columns.map(&:name)
-        cols_to_insert = new_columns.map do |col_name|
-          EasyML::Column.new(
-            name: col_name,
-            dataset_id: id,
-          )
-        end
-        EasyML::Column.import(cols_to_insert)
-        columns_to_update = columns.where(name: col_names)
-        stats = statistics
-        cached_sample = data(limit: 100, all_columns: true)
-        existing_types = existing_columns.map(&:name).zip(existing_columns.map(&:datatype)).to_h
-        polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
-          EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
-        end)).to_h
-        type_differences = find_type_differences(existing_types, polars_types)
-
-        # Log type changes if any are found
-        Rails.logger.info "Column type changes detected: #{type_differences}" if type_differences.any?
-
-        columns_to_update.each do |column|
-          new_polars_type = polars_types[column.name]
-          existing_type = existing_types[column.name]
-          schema_type = schema[column.name]
-
-          # Keep both datatype and polars_datatype if it's an ordinal encoding case
-          actual_type = if ordinal_encoding?(existing_type, new_polars_type)
-              existing_type
-            else
-              new_polars_type
-            end
-
-          actual_schema_type = if ordinal_encoding?(existing_type, schema_type)
-              existing_type
-            else
-              schema_type
-            end
-
-          if one_hot_cols.include?(column.name)
-            base = self.raw
-            processed = stats.dig("raw", column.name).dup
-            processed["null_count"] = 0
-            actual_schema_type = "categorical"
-            actual_type = "categorical"
-          else
-            base = self
-            processed = stats.dig("processed", column.name)
-          end
-          sample_values = base.send(:data, unique: true, limit: 5, select: column.name, all_columns: true)[column.name].to_a.uniq[0...5]
-
-          column.assign_attributes(
-            statistics: {
-              raw: stats.dig("raw", column.name),
-              processed: processed,
-            },
-            datatype: actual_schema_type,
-            polars_datatype: actual_type,
-            sample_values: sample_values,
-          )
-        end
-
-        EasyML::Column.import(columns_to_update.to_a,
-                              { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
-                                                                     sample_values] } })
-      end
-    end
-
     def process_data
       split_data
       fit
@@ -382,6 +338,8 @@ module EasyML
     end
 
     def needs_learn?(df)
+      return true if columns_need_refresh?
+
       never_learned = columns.none?
       return true if never_learned
 
@@ -389,10 +347,9 @@ module EasyML
       return true if new_features
 
       new_cols = df.present? ? (df.columns - columns.map(&:name)) : []
+      new_cols = columns.syncable
 
-      new_cols = (new_cols - one_hot_cols(new_cols)).any?
-
-      return true if new_cols
+      return true if new_cols.any?
     end
 
     def compare_datasets(df, df_was)
@@ -420,17 +377,35 @@ module EasyML
       { differing_columns: differing_columns, differences: differences }
     end
 
-    def normalize(df = nil, split_ys: false, inference: false, all_columns: false)
-      df = apply_features(df)
+    def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features, idx: nil)
+      df = apply_features(df, features)
       df = drop_nulls(df)
+      df = apply_missing_features(df, inference: inference)
       df = preprocessor.postprocess(df, inference: inference)
 
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
-      learn if needs_learn?(df)
+      learn if idx == 0 && needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
+      raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
+    end
+
+    def raise_on_nulls(df)
+      desc_df = df.describe
+
+      # Get the 'null_count' row
+      null_count_row = desc_df.filter(desc_df[:describe] == "null_count")
+
+      # Select columns with non-zero null counts
+      columns_with_nulls = null_count_row.columns.select do |col|
+        null_count_row[col][0].to_i > 0
+      end
+
+      if columns_with_nulls.any?
+        raise "Null values found in columns: #{columns_with_nulls.join(", ")}"
+      end
     end
 
     # Filter data using Polars predicates:
@@ -455,6 +430,8 @@ module EasyML
     def data(**kwargs, &block)
       load_data(:all, **kwargs, &block)
     end
+
+    alias_method :query, :data
 
     def cleanup
       raw.cleanup
@@ -517,30 +494,32 @@ module EasyML
     end
 
     def target
-      @target ||= columns.find_by(is_target: true)&.name
+      @target ||= preloaded_columns.find(&:is_target)&.name
     end
 
     def drop_cols
-      @drop_cols ||= columns.select(&:hidden).map(&:name)
+      @drop_cols ||= preloaded_columns.select(&:hidden).map(&:name)
     end
 
     def drop_if_null
-      @drop_if_null ||= columns.where(drop_if_null: true).map(&:name)
+      @drop_if_null ||= preloaded_columns.select(&:drop_if_null).map(&:name)
     end
 
     def col_order(inference: false)
-      one_hots = columns.select(&:one_hot?)
-      one_hot_cats = preprocessor.statistics.dup.select { |k, _v| one_hots.map(&:name).include?(k.to_s) }.to_h.reduce({}) do |h, (k, v)|
-        h.tap do
-          h[k] = v[:allowed_categories].sort.concat(["other"]).map { |val| "#{k}_#{val}" }
-        end
-      end
-      filtered_columns = columns.where(hidden: false); 1
-      filtered_columns = filtered_columns.where(is_target: [nil, false]) if inference
+      # Filter preloaded columns in memory
+      scope = preloaded_columns.reject(&:hidden)
+      scope = scope.reject(&:is_target) if inference
 
-      filtered_columns.order(:id).flat_map do |col|
+      # Get one_hot columns for category mapping
+      one_hots = scope.select(&:one_hot?)
+      one_hot_cats = columns.allowed_categories.symbolize_keys
+
+      # Map columns to names, handling one_hot expansion
+      scope.sort_by(&:id).flat_map do |col|
         if col.one_hot?
-          one_hot_cats[col.name.to_sym]
+          one_hot_cats[col.name.to_sym].map do |cat|
+            "#{col.name}_#{cat}"
+          end
         else
           col.name
         end
@@ -554,6 +533,13 @@ module EasyML
 
     def apply_column_mask(df, inference: false)
       df[column_mask(df, inference: inference)]
+    end
+
+    def apply_missing_features(df, inference: false)
+      return df unless inference
+
+      missing_features = (col_order(inference: inference) - df.columns).compact
+      df.with_columns(missing_features.map { |f| Polars.lit(nil).alias(f) })
     end
 
     def drop_columns(all_columns: false)
@@ -582,7 +568,24 @@ module EasyML
       end
     end
 
+    def reload(*args)
+      # Call the original reload method
+      super(*args)
+      # Reset preloaded instance variables
+      @preloaded_columns = nil
+      @preloaded_features = nil
+      self
+    end
+
     private
+
+    def preloaded_features
+      @preloaded_features ||= features.includes(:dataset).load
+    end
+
+    def preloaded_columns
+      @preloaded_columns ||= columns.load
+    end
 
     def download_remote_files
       return unless is_history_class? # Only historical datasets need this
@@ -631,9 +634,9 @@ module EasyML
     def normalize_all
       processed.cleanup
 
-      SPLIT_ORDER.each do |segment|
+      SPLIT_ORDER.each_with_index do |segment, idx|
         df = raw.read(segment)
-        processed_df = normalize(df, all_columns: true)
+        processed_df = normalize(df, all_columns: true, idx: idx)
         processed.save(segment, processed_df)
       end
       @normalized = true
@@ -676,23 +679,49 @@ module EasyML
       features = self.features.ordered.load
       splitter.split(datasource) do |train_df, valid_df, test_df|
         [:train, :valid, :test].zip([train_df, valid_df, test_df]).each do |segment, df|
-          df = apply_features(df, features) if features.any?
           raw.save(segment, df)
         end
       end
     end
 
     def should_split?
-      split_timestamp = raw.split_at
-      processed.split_at.nil? || split_timestamp.nil? || split_timestamp < datasource.last_updated_at || needs_refresh?
+      needs_refresh?
+    end
+
+    def filter_duplicate_features
+      return unless attributes["features_attributes"].present?
+
+      existing_feature_names = features.pluck(:name)
+      attributes["features_attributes"].each do |_, attrs|
+        # Skip if it's marked for destruction or is an existing record
+        next if attrs["_destroy"] == "1" || attrs["id"].present?
+
+        # Reject the feature if it would be a duplicate
+        attrs["_destroy"] = "1" if existing_feature_names.include?(attrs["name"])
+      end
     end
 
     def apply_features(df, features = self.features)
       if features.nil? || features.empty?
         df
       else
-        features.ordered.reduce(df) do |acc_df, feature|
-          result = feature.transform(acc_df)
+        # Eager load all features with their necessary associations in one query
+        if features.is_a?(Array) # Used for testing (feature.transform_batch)
+          features_to_apply = features
+        else
+          features_to_apply = features.ordered.includes(dataset: :datasource).to_a
+        end
+
+        # Preload all feature SHAs in one batch
+        feature_classes = features_to_apply.map(&:feature_class).uniq
+        shas = feature_classes.map { |klass| [klass, Feature.compute_sha(klass)] }.to_h
+
+        # Apply features in sequence with preloaded data
+        features_to_apply.reduce(df) do |acc_df, feature|
+          # Set SHA without querying
+          feature.instance_variable_set(:@current_sha, shas[feature.feature_class])
+
+          result = feature.transform_batch(acc_df)
 
           unless result.is_a?(Polars::DataFrame)
             raise "Feature '#{feature.name}' must return a Polars::DataFrame, got #{result.class}"
@@ -729,31 +758,6 @@ module EasyML
         remove_instance_variable(ivar) unless in_memory_classes.any? { |in_memory_class| value.is_a?(in_memory_class) }
       end
       reload
-    end
-
-    def find_type_differences(existing_types, polars_types)
-      differences = {}
-
-      polars_types.each do |column_name, polars_type|
-        existing_type = existing_types[column_name]
-        next if existing_type.nil?
-        next if existing_type == polars_type
-
-        # Skip reporting differences for ordinal encoding cases
-        next if ordinal_encoding?(existing_type, polars_type)
-
-        differences[column_name] = {
-          old: existing_type,
-          new: polars_type,
-        }
-      end
-
-      differences
-    end
-
-    def ordinal_encoding?(old_type, new_type)
-      string_like_types = %w[text string categorical]
-      new_type == "integer" && string_like_types.include?(old_type)
     end
 
     def underscored_name

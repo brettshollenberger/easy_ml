@@ -1,5 +1,5 @@
 # lib/railtie/generators/templates/migration/create_easy_ml_models.rb.tt
-class CreateEasyMLModels < ActiveRecord::Migration[6.0]
+class CreateEasyMLModels < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_models do |t|
       t.string :name, null: false

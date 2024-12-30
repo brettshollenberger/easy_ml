@@ -78,6 +78,10 @@ module EasyML
       preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :one_hot) == true
     end
 
+    def ordinal_encoding?
+      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :ordinal_encoding) == true
+    end
+
     def allowed_categories
       return nil unless one_hot?
 

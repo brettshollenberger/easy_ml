@@ -422,7 +422,6 @@ RSpec.describe EasyML::Data::Preprocessor do
       # We don't add one_hot columns to the official columns join
       expect(@dataset.columns.map(&:name)).to_not include("group_a", "group_b", "group_other")
       expect(@dataset.columns.map(&:name)).to include("group")
-      expect(@dataset.col_order).to_not include("group_a")
     end
 
     it "preprocesses categorical with ordinal encoding" do

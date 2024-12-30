@@ -1,4 +1,4 @@
-class CreateEasyMLSplitters < ActiveRecord::Migration[6.0]
+class CreateEasyMLSplitters < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_splitters do |t|
       t.string :splitter_type, null: false

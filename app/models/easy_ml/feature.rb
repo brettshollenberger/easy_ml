@@ -9,7 +9,7 @@
 #  feature_class    :string           not null
 #  feature_position :integer
 #  batch_size       :integer
-#  needs_recompute  :boolean
+#  needs_fit        :boolean
 #  sha              :string
 #  primary_key      :string           is an Array
 #  applied_at       :datetime
@@ -66,7 +66,7 @@ module EasyML
       end
 
       # Combine all conditions with OR
-      where(id: where(needs_recompute: true).or(where(conditions.join(" OR "))).select { |f| f.adapter.respond_to?(:fit) }.map(&:id))
+      where(id: where(needs_fit: true).or(where(conditions.join(" OR "))).select { |f| f.adapter.respond_to?(:fit) }.map(&:id))
     }
     scope :never_applied, -> { where(applied_at: nil) }
     scope :never_fit, -> do
@@ -74,7 +74,7 @@ module EasyML
             fittable = fittable.select { |f| f.adapter.respond_to?(:fit) }
             where(id: fittable.map(&:id))
           end
-    scope :needs_recompute, -> { has_changes.or(never_applied).or(never_fit) }
+    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha
@@ -91,19 +91,21 @@ module EasyML
       @adapter ||= feature_klass.new
     end
 
-    def recompute_reasons
+    def fit_reasons
       return [] if !adapter.respond_to?(:fit)
 
       {
-        "Needs recompute set" => needs_recompute,
+        "Needs fit manually set" => read_attribute(:needs_fit),
         "Datasource was refreshed" => datasource_was_refreshed?,
         "Code changed" => code_changed?,
         "Cache expired" => cache_expired?,
       }.select { |k, v| v }.map { |k, v| k }
     end
 
-    def needs_recompute?
-      recompute_reasons.any?
+    alias_method :refresh_reasons, :fit_reasons
+
+    def needs_fit?
+      fit_reasons.any?
     end
 
     def cache_expired?
@@ -129,8 +131,15 @@ module EasyML
                                       numeric_primary_key?)
     end
 
+    def should_be_batchable?
+      adapter.respond_to?(:batch) || config.dig(:batch_size).present?
+    end
+
     def numeric_primary_key?
-      raise "Couldn't find primary key for feature #{feature_class}, check your feature class" unless primary_key.present?
+      if primary_key.nil?
+        return false unless should_be_batchable?
+        raise "Couldn't find primary key for feature #{feature_class}, check your feature class"
+      end
 
       dataset.raw.data(limit: 1, select: primary_key)[primary_key].to_a.flat_map(&:values).all? do |value|
         case value
@@ -245,6 +254,8 @@ module EasyML
     end
 
     def actually_fit_batch(batch_args = {})
+      return false unless adapter.respond_to?(:fit)
+
       if adapter.respond_to?(:fit)
         batch_args.symbolize_keys!
 
@@ -259,7 +270,7 @@ module EasyML
       store(batch_df)
       updates = {
         applied_at: Time.current,
-        needs_recompute: false,
+        needs_fit: false,
       }.compact
       update!(updates)
       batch_df
@@ -355,7 +366,9 @@ module EasyML
     end
 
     def batch_size
-      read_attribute(:batch_size) || 10_000
+      read_attribute(:batch_size) ||
+        config.dig(:batch_size) ||
+        (should_be_batchable? ? 10_000 : nil)
     end
 
     private
@@ -391,14 +404,14 @@ module EasyML
       new_sha = compute_sha
       if new_sha != self.sha
         self.sha = new_sha
-        self.needs_recompute = true
+        self.needs_fit = true
       end
     end
 
     def update_from_feature_class
-      if self.batch_size != config.dig(:batch_size)
-        self.batch_size = config.dig(:batch_size)
-        self.needs_recompute = true
+      if read_attribute(:batch_size) != config.dig(:batch_size)
+        write_attribute(:batch_size, config.dig(:batch_size))
+        self.needs_fit = true
       end
 
       if self.primary_key != config.dig(:primary_key)

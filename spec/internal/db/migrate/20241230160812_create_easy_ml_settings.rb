@@ -1,4 +1,4 @@
-class CreateEasyMLSettings < ActiveRecord::Migration[6.0]
+class CreateEasyMLSettings < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_settings do |t|
       t.json :configuration

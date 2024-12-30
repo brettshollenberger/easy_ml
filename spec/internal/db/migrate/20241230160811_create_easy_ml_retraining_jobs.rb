@@ -1,4 +1,4 @@
-class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.0]
+class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_retraining_jobs do |t|
       t.bigint :model_id

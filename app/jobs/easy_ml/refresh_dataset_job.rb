@@ -11,7 +11,7 @@ module EasyML
       begin
         puts "Prepare! #{dataset.name}"
         dataset.prepare
-        if dataset.features.needs_recompute.any?
+        if dataset.features.needs_fit.any?
           dataset.fit_features(async: true)
           puts "Computing features!"
         else

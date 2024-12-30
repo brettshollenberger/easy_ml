@@ -7,7 +7,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[<%= ActiveRecord::Migration
       t.string :feature_class, null: false
       t.integer :feature_position
       t.integer :batch_size
-      t.boolean :needs_recompute
+      t.boolean :needs_fit
       t.string :sha
       t.string :primary_key, array: true
       t.datetime :applied_at
@@ -24,7 +24,7 @@ class CreateEasyMLFeatures < ActiveRecord::Migration[<%= ActiveRecord::Migration
       t.index :version
       t.index :sha
       t.index :batch_size
-      t.index :needs_recompute
+      t.index :needs_fit
       t.index :fit_at
       t.index :refresh_every
     end

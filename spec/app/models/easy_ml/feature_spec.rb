@@ -231,7 +231,7 @@ RSpec.describe EasyML::Datasource do
         expect(feature.batch_size).to eq(5000)
       end
 
-      it "has no batch size when not set" do
+      it "has no batch size when not set, batch method not defined, and batch_size not set" do
         feature = EasyML::Feature.create!(
           dataset: dataset,
           feature_class: "DefaultBatchFeature",
@@ -277,7 +277,7 @@ RSpec.describe EasyML::Datasource do
           dataset.columns.find_by(name: "ZIP").update(datatype: "string")
           dataset.refresh
           clear_enqueued_jobs
-          feature.reload.update(needs_recompute: true)
+          feature.reload.update(needs_fit: true)
           dataset.reload
 
           # Feature lazily creates the dataset, which triggers the refresh
@@ -304,6 +304,7 @@ RSpec.describe EasyML::Datasource do
           batch_jobs.each do |job|
             Resque.reserve(:easy_ml).perform
           end
+          dataset.reload
 
           # Test that the feature data was computed correctly
           affected_rows = dataset.data(filter: Polars.col("ID").is_between(1, 10), sort: "ID")
@@ -323,24 +324,10 @@ RSpec.describe EasyML::Datasource do
           # Feature should be marked as computed
           feature.reload
           expect(feature.fit_at).to be_present
-          expect(feature.needs_recompute).to be false
+          expect(feature.needs_fit).to be false
 
           dataset.reload
           expect(dataset.needs_refresh?).to be false
-        end
-
-        describe "#batch" do
-          context "when feature needs recompute" do
-            before do
-              allow(feature).to receive(:needs_recompute?).and_return(true)
-              allow(feature).to receive(:reset)
-            end
-
-            it "resets the feature" do
-              feature.batch
-              expect(feature).to have_received(:reset)
-            end
-          end
         end
       end
 
@@ -353,6 +340,7 @@ RSpec.describe EasyML::Datasource do
             batch_size: 10,
           )
         end
+
         it "computes the feature in batches based on custom batch args" do
           # Feature lazily creates the dataset, which triggers the refresh
           expect { feature }.to have_enqueued_job(EasyML::RefreshDatasetJob)
@@ -380,6 +368,7 @@ RSpec.describe EasyML::Datasource do
           batch_jobs.each do |job|
             Resque.reserve(:easy_ml).perform
           end
+          dataset.reload
 
           affected_rows = dataset.data(filter: Polars.col("COMPANY_ID").is_in([1, 2, 3, 4, 10, 12]), sort: ["COMPANY_ID", "ID"])
 
@@ -402,7 +391,7 @@ RSpec.describe EasyML::Datasource do
           # Feature should be marked as computed
           feature.reload
           expect(feature.fit_at).to be_present
-          expect(feature.needs_recompute).to be false
+          expect(feature.needs_fit).to be false
 
           dataset.reload
           expect(dataset.needs_refresh?).to be false
@@ -433,19 +422,19 @@ RSpec.describe EasyML::Datasource do
       end
 
       context "when feature has different batch_size than its code" do
-        it "is returned in needs_recompute scope" do
+        it "is returned in needs_fit scope" do
           feature.update(batch_size: 100)
-          expect(EasyML::Feature.needs_recompute).to include(feature)
+          expect(EasyML::Feature.needs_fit).to include(feature)
         end
 
         it "resets after running fit" do
           dataset.refresh
 
-          feature.reload.update(needs_recompute: true)
-          expect(EasyML::Feature.needs_recompute).to include(feature)
+          feature.reload.update(needs_fit: true)
+          expect(EasyML::Feature.needs_fit).to include(feature)
 
           feature.fit_batch
-          expect(EasyML::Feature.needs_recompute).to_not include(feature)
+          expect(EasyML::Feature.needs_fit).to_not include(feature)
         end
       end
 
@@ -476,7 +465,7 @@ RSpec.describe EasyML::Datasource do
 
       context "when feature code hasn't changed" do
         it "is not returned in has_changes scope" do
-          feature.update(needs_recompute: false)
+          feature.update(needs_fit: false)
           expect(EasyML::Feature.has_changes).not_to include(feature)
         end
       end
@@ -501,23 +490,23 @@ RSpec.describe EasyML::Datasource do
           )
         end
 
-        it "is returned in needs_recompute scope" do
-          expect(EasyML::Feature.needs_recompute).to include(unapplied_feature)
+        it "is returned in needs_fit scope" do
+          expect(EasyML::Feature.needs_fit).to include(unapplied_feature)
         end
       end
 
       context "when feature has been applied" do
         before do
-          feature.update!(applied_at: Time.current, fit_at: Time.now, needs_recompute: false)
+          feature.update!(applied_at: Time.current, fit_at: Time.now, needs_fit: false)
         end
 
-        it "is not returned in needs_recompute scope if code hasn't changed" do
-          expect(EasyML::Feature.needs_recompute).not_to include(feature)
+        it "is not returned in needs_fit scope if code hasn't changed" do
+          expect(EasyML::Feature.needs_fit).not_to include(feature)
         end
 
-        it "is returned in needs_recompute scope if code has changed" do
+        it "is returned in needs_fit scope if code has changed" do
           load File.join(Rails.root, "fixtures/feature_v2.rb")
-          expect(EasyML::Feature.needs_recompute).to include(feature)
+          expect(EasyML::Feature.needs_fit).to include(feature)
         end
       end
     end
@@ -561,7 +550,7 @@ RSpec.describe EasyML::Datasource do
       end
     end
 
-    describe "#needs_recompute?" do
+    describe "#needs_fit?" do
       let(:feature) do
         EasyML::Feature.create!(
           dataset: dataset,
@@ -576,17 +565,17 @@ RSpec.describe EasyML::Datasource do
         end
 
         it "returns false" do
-          expect(feature.needs_recompute?).to be false
+          expect(feature.needs_fit?).to be false
         end
       end
 
-      context "when needs_recompute flag is set" do
+      context "when needs_fit flag is set" do
         before do
-          feature.update(needs_recompute: true)
+          feature.update(needs_fit: true)
         end
 
         it "returns true" do
-          expect(feature.needs_recompute?).to be true
+          expect(feature.needs_fit?).to be true
         end
       end
 
@@ -597,7 +586,7 @@ RSpec.describe EasyML::Datasource do
         end
 
         it "returns true" do
-          expect(feature.needs_recompute?).to be true
+          expect(feature.needs_fit?).to be true
         end
       end
 
@@ -608,18 +597,18 @@ RSpec.describe EasyML::Datasource do
         end
 
         it "returns true" do
-          expect(feature.needs_recompute?).to be true
+          expect(feature.needs_fit?).to be true
         end
       end
 
       context "when datasource has not been refreshed since feature was fit" do
         before do
           dataset.datasource.update(refreshed_at: 1.day.ago)
-          feature.update(fit_at: Time.current, needs_recompute: false)
+          feature.update(fit_at: Time.current, needs_fit: false)
         end
 
         it "returns false" do
-          expect(feature.needs_recompute?).to be false
+          expect(feature.needs_fit?).to be false
         end
       end
 
@@ -629,18 +618,18 @@ RSpec.describe EasyML::Datasource do
         end
 
         it "returns true" do
-          expect(feature.needs_recompute?).to be true
+          expect(feature.needs_fit?).to be true
         end
       end
 
       context "when datasource has never been refreshed" do
         before do
-          feature.update(fit_at: Time.current, needs_recompute: false)
+          feature.update(fit_at: Time.current, needs_fit: false)
           dataset.datasource.update(refreshed_at: nil)
         end
 
         it "returns false" do
-          expect(feature.needs_recompute?).to be false
+          expect(feature.needs_fit?).to be false
         end
       end
 
@@ -648,13 +637,13 @@ RSpec.describe EasyML::Datasource do
         before do
           feature.update(
             fit_at: 2.days.ago,
-            needs_recompute: false,
+            needs_fit: false,
             refresh_every: 1.day.to_i,
           )
         end
 
         it "returns true" do
-          expect(feature.needs_recompute?).to be true
+          expect(feature.needs_fit?).to be true
         end
       end
 
@@ -662,13 +651,13 @@ RSpec.describe EasyML::Datasource do
         before do
           feature.update(
             fit_at: 12.hours.ago,
-            needs_recompute: false,
+            needs_fit: false,
             refresh_every: 1.day.to_i,
           )
         end
 
         it "returns false" do
-          expect(feature.needs_recompute?).to be false
+          expect(feature.needs_fit?).to be false
         end
       end
 
@@ -676,13 +665,13 @@ RSpec.describe EasyML::Datasource do
         before do
           feature.update(
             fit_at: 2.days.ago,
-            needs_recompute: false,
+            needs_fit: false,
             refresh_every: nil,
           )
         end
 
         it "returns false" do
-          expect(feature.needs_recompute?).to be false
+          expect(feature.needs_fit?).to be false
         end
       end
     end

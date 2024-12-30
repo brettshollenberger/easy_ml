@@ -83,7 +83,7 @@ module EasyML
     end
 
     def lock_deploy
-      with_lock_client do |client|
+      with_lock do |client|
         yield
       end
     end
@@ -95,8 +95,8 @@ module EasyML
 
     private
 
-    def with_lock_client
-      EasyML::Support::Lockable.with_lock_client(lock_key, stale_timeout: 60, resources: 1) do |client|
+    def with_lock
+      EasyML::Support::Lockable.with_lock(lock_key, stale_timeout: 60, resources: 1) do |client|
         yield client
       end
     end

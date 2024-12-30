@@ -167,8 +167,8 @@ module EasyML
         split_data
         process_data
         fully_reload
-        learn
         now = UTC.now
+        puts "Refreshed at #{now}"
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
       end
@@ -197,29 +197,38 @@ module EasyML
     end
 
     def fit_features(async: false, features: self.features, force: false)
-      features_to_compute = force ? features : features.needs_recompute
+      features_to_compute = force ? features : features.needs_fit
       return if features_to_compute.empty?
 
       features.first.fit(features: features_to_compute, async: async)
     end
 
     def after_fit_features
-      features.update_all(needs_recompute: false, fit_at: Time.current)
+      features.update_all(needs_fit: false, fit_at: Time.current)
       actually_refresh
     end
 
-    def columns_need_refresh?
-      preloaded_columns.any? do |col|
+    def columns_need_refresh
+      preloaded_columns.select do |col|
         col.updated_at.present? &&
           refreshed_at.present? &&
           col.updated_at > refreshed_at
       end
     end
 
-    def features_need_refresh?
-      return true if preloaded_features.any? { |f| f.updated_at.present? && refreshed_at.present? && f.updated_at > refreshed_at }
+    def columns_need_refresh?
+      columns_need_refresh.any?
+    end
 
-      preloaded_features.any?(&:needs_recompute)
+    def features_need_fit
+      preloaded_features.select do |f|
+        (f.updated_at.present? && refreshed_at.present? && f.updated_at > refreshed_at) ||
+          f.needs_fit?
+      end
+    end
+
+    def features_need_fit?
+      features_need_fit.any?
     end
 
     def refresh_reasons
@@ -227,7 +236,7 @@ module EasyML
         "Not split" => not_split?,
         "Refreshed at is nil" => refreshed_at.nil?,
         "Columns need refresh" => columns_need_refresh?,
-        "Features need refresh" => features_need_refresh?,
+        "Features need refresh" => features_need_fit?,
         "Datasource needs refresh" => datasource_needs_refresh?,
         "Datasource was refreshed" => datasource_was_refreshed?,
       }.select { |k, v| v }.map { |k, v| k }
@@ -262,6 +271,8 @@ module EasyML
         update(workflow_status: "analyzing")
         fully_reload
         yield
+      ensure
+        unlock!
       end
     rescue => e
       update(workflow_status: "failed")
@@ -271,21 +282,23 @@ module EasyML
       raise e
     end
 
-    def unlock_dataset
-      Support::Lockable.query.keys.select { |key| key.include?(lock_key) }.each do |key|
-        Rails.cache.delete(key)
-      end
+    def unlock!
+      Support::Lockable.unlock!(lock_key)
+    end
+
+    def locked?
+      Support::Lockable.locked?(lock_key)
     end
 
     def lock_dataset
       data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
-      with_lock_client do |client|
+      with_lock do |client|
         yield
       end
     end
 
-    def with_lock_client
-      EasyML::Support::Lockable.with_lock_client(lock_key, stale_timeout: 60, resources: 1) do |client|
+    def with_lock
+      EasyML::Support::Lockable.with_lock(lock_key, stale_timeout: 60, resources: 1) do |client|
         yield client
       end
     end
@@ -396,9 +409,12 @@ module EasyML
           )
         end
 
-        columns_to_delete = columns - columns_to_update
+        raw_cols = raw.train(all_columns: true, limit: 1).columns
+        raw_cols = columns.where(name: raw_cols)
+        columns_to_delete = columns - columns_to_update - raw_cols
         columns_to_delete.each(&:destroy!)
 
+        puts "Columns updated at #{Time.current}"
         EasyML::Column.import(columns_to_update.to_a,
                               { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
                                                                      sample_values] } })

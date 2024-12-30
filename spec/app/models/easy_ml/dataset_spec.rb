@@ -367,7 +367,7 @@ RSpec.describe EasyML::Datasource do
       expect(dataset.data["did_convert"].to_a).to eq([
                                                        false, false, true, true, false, true, true, true,
                                                      ])
-      expect(dataset.statistics.dig("raw", "age", "mean")).to be_between(1, 50)
+      expect(dataset.statistics.dig("processed", "age", "mean")).to be_between(1, 50)
       expect(dataset.data["days_in_business"].to_a).to all(be > 0)
     end
 

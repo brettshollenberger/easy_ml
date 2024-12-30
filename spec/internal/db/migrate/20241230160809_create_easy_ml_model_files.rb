@@ -1,4 +1,4 @@
-class CreateEasyMLModelFiles < ActiveRecord::Migration[6.0]
+class CreateEasyMLModelFiles < ActiveRecord::Migration[7.2]
   def change
     create_table :easy_ml_model_files do |t|
       t.string :filename, null: false

@@ -509,12 +509,14 @@ module EasyML
 
       # Get one_hot columns for category mapping
       one_hots = scope.select(&:one_hot?)
-      one_hot_cats = columns.allowed_categories
+      one_hot_cats = columns.allowed_categories.symbolize_keys
 
       # Map columns to names, handling one_hot expansion
       scope.sort_by(&:id).flat_map do |col|
         if col.one_hot?
-          one_hot_cats[col.name.to_sym]
+          one_hot_cats[col.name.to_sym].map do |cat|
+            "#{col.name}_#{cat}"
+          end
         else
           col.name
         end
@@ -533,7 +535,7 @@ module EasyML
     def apply_missing_features(df, inference: false)
       return df unless inference
 
-      missing_features = col_order(inference: inference) - df.columns
+      missing_features = (col_order(inference: inference) - df.columns).compact
       df.with_columns(missing_features.map { |f| Polars.lit(nil).alias(f) })
     end
 

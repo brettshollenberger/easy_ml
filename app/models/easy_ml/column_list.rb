@@ -70,10 +70,6 @@ module EasyML
       polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
         EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
       end)).to_h
-      type_differences = find_type_differences(existing_types, polars_types)
-
-      # Log type changes if any are found
-      Rails.logger.info "Column type changes detected: #{type_differences}" if type_differences.any?
 
       existing_columns.each do |column|
         new_polars_type = polars_types[column.name]
@@ -121,26 +117,6 @@ module EasyML
       raw_cols = where(name: raw_cols)
       columns_to_delete = column_list - existing_columns - raw_cols
       columns_to_delete.each(&:destroy!)
-    end
-
-    def find_type_differences(existing_types, polars_types)
-      differences = {}
-
-      polars_types.each do |column_name, polars_type|
-        existing_type = existing_types[column_name]
-        next if existing_type.nil?
-        next if existing_type == polars_type
-
-        # Skip reporting differences for ordinal encoding cases
-        next if ordinal_encoding?(existing_type, polars_type)
-
-        differences[column_name] = {
-          old: existing_type,
-          new: polars_type,
-        }
-      end
-
-      differences
     end
   end
 end

@@ -158,13 +158,13 @@ module EasyML
         end
         update(is_training: false)
         run.reload
+      ensure
+        unlock!
       end
     end
 
-    def unlock_model
-      Support::Lockable.query.keys.select { |key| key.include?(lock_key) }.each do |key|
-        Rails.cache.delete(key)
-      end
+    def unlock!
+      Support::Lockable.unlock!(lock_key)
     end
 
     def lock_model

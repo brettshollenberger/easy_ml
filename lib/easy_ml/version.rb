@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module EasyML
-  VERSION = "0.1.8"
+  VERSION = "0.2.0-rc3"
 
   module Version
   end

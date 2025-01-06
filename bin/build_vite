@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -e
+
+echo "Building production assets for EasyML gem..."
+# Run the Vite production build
+bundle exec vite build
+echo "Production assets built successfully."

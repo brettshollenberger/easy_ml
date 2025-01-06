@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import RubyPlugin from 'vite-plugin-ruby';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+console.log('Loaded Vite config');
 
 export default defineConfig({
   plugins: [
@@ -18,13 +19,23 @@ export default defineConfig({
   css: {
     postcss: './postcss.config.js', // Use postcss for Tailwind and autoprefixer
   },
-  build: {
-    outDir: 'public/vite_assets', // Customize output directory
-  },
   server: {
     hmr: {
       overlay: true, // HMR overlay for errors
     },
     open: true, // Automatically open the browser on server start
   },
+  build: {
+    outDir: 'public/easy_ml/assets',
+    assetsDir: 'assets',
+    manifest: true,
+    rollupOptions: {
+      output: {
+        // Put files directly in outDir with no "assets" subfolder
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]'
+      }
+    }
+  }
 });

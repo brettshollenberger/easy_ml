@@ -2,7 +2,8 @@
   "all": {
     "sourceCodeDir": "app/frontend",
     "watchAdditionalPaths": [],
-    "publicOutputDir": "easy-ml"
+    "publicDir": "public",
+    "publicOutputDir": "easy_ml/assets"
   },
   "development": {
     "autoBuild": true,

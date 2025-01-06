@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// import { useNavigate } from 'react-router-dom';
 import { Code2 } from 'lucide-react';
 import { mockDatasets, mockFeatureGroups } from '../mockData';
 import { FeatureForm } from '../components/features/FeatureForm';

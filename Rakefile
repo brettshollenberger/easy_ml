@@ -33,14 +33,6 @@ end
 
 namespace :easy_ml do
   task annotate_models: :environment do
-    # db_config = YAML.load_file(
-    #   File.expand_path("spec/internal/config/database.yml")
-    # )
-    # ActiveRecord::Base.establish_connection(db_config["test"])
-
-    # Dir.glob(File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)).each do |file|
-    #   require file
-    # end
     model_dir = File.expand_path("app/models", EasyML::Engine.root)
     $LOAD_PATH.unshift(model_dir) unless $LOAD_PATH.include?(model_dir)
 

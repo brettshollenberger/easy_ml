@@ -1,5 +1,4 @@
 import React from 'react';
-// import { Link } from 'react-router-dom';
 import { FolderOpen, Settings, Trash2 } from 'lucide-react';
 import type { FeatureGroup } from '../../types';
 

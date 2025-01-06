@@ -1,0 +1,17 @@
+{
+  "entrypoints/Application.tsx": {
+    "file": "assets/Application-GDgZ4vVt.js",
+    "name": "entrypoints/Application.tsx",
+    "src": "entrypoints/Application.tsx",
+    "isEntry": true,
+    "css": [
+      "assets/Application-tsa3Id3n.css"
+    ]
+  },
+  "entrypoints/application.js": {
+    "file": "assets/application-DBfCPIOZ.js",
+    "name": "entrypoints/application.js",
+    "src": "entrypoints/application.js",
+    "isEntry": true
+  }
+}

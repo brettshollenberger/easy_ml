@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Plus, FolderPlus } from 'lucide-react';
-// import { Link } from 'react-router-dom';
 import { mockFeatureGroups } from '../mockData';
 import { FeatureCard } from '../components/features/FeatureCard';
 import { FeatureGroupCard } from '../components/features/FeatureGroupCard';

@@ -30,7 +30,6 @@ group :development, :test do
   gem "database_cleaner-active_record"
   gem "rspec", "~> 3.0"
   gem "rspec-rails"
-  gem "rspec-sidekiq"
   gem "resque_spec"
   gem "spring"
   gem "spring-commands-rspec"

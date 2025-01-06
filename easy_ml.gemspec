@@ -47,7 +47,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "suo"
   spec.add_dependency "tailwindcss-rails"
   spec.add_dependency "vite_rails"
-  spec.add_dependency "wandb", "~> 0.1.12"
+  spec.add_dependency "wandb", "~> 0.1.13"
   spec.add_dependency "xgb", "~> 0.9.0"
 
   spec.add_development_dependency "annotate"

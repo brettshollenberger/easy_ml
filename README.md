@@ -353,7 +353,7 @@ def fit(df, feature)
   # process directly on dataframe
 end
 
-- To ensure you get a reader instead of a dataframe, include the `batch_size` parameter, or `batch` method
+- To ensure you get a reader instead of a dataframe, include the `batch` method
 
 ```ruby
 def batch(reader, feature)
@@ -397,8 +397,7 @@ Install necessary Python dependencies
 1. **Install Python dependencies (don't worry, all code is in Ruby, we just call through to Python)**
 
 ```bash
-pip install wandb
-pip install optuna
+pip install wandb optuna
 ```
 
 1. **Install the gem**:
@@ -411,8 +410,16 @@ pip install optuna
 
    ```bash
    rails generate easy_ml:migration
+   rails db:create # If this is a new app
    rails db:migrate
    ```
+
+3. Add the `easy_ml` dir to your `.gitignore` — This is where datasets and model files will be downloaded
+
+```
+# .gitignore
+easy_ml/
+```
 
 ## Usage
 
@@ -457,7 +464,19 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 bundle exec appraisal install
 ```
 
-2. Ensure you run tests against all supported Rails versions
+1. Creating a test app:
+
+a. Follow the typical steps
+b. Declare an environment variable: `EASY_ML_DEV=true`, using Figaro, dotenv, or similar to load develoment assets
+c. Run `yarn vite dev` in both the `easy_ml` gem and test app directories
+
+1. Building production assets
+
+```bash
+bin/vite_build
+```
+
+1. Ensure you run tests against all supported Rails versions
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/easy_ml. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/[USERNAME]/easy_ml/blob/main/CODE_OF_CONDUCT.md).
 

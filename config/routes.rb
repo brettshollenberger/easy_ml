@@ -1,6 +1,5 @@
 EasyML::Engine.routes.draw do
   root to: "models#index"
-
   resources :models, as: :easy_ml_models do
     member do
       post :train

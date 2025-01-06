@@ -12,8 +12,8 @@ require "optuna"
 require "tailwindcss-rails"
 require "wandb"
 require "xgb"
-require "sidekiq"
 require "vite_ruby"
+require "vite_rails"
 require "rails/engine"
 require "activerecord-import"
 require "historiographer"
@@ -49,7 +49,7 @@ module EasyML
       Polars.enable_string_cache
     end
 
-    unless %w[rake rails].include?(File.basename($0)) && %w[generate db:migrate db:drop easy_ml:migration].include?(ARGV.first)
+    unless %w[rake rails bin/rails].include?(File.basename($0)) && %w[generate db:migrate db:drop easy_ml:migration].include?(ARGV.first)
       config.after_initialize do
         Dir.glob(File.expand_path("app/models/easy_ml/datasources/*.rb", EasyML::Engine.root)).each do |file|
           require file
@@ -72,17 +72,6 @@ module EasyML
       end
     end
 
-    # This tells our demo app where to look for assets like css, js
-    initializer "easy_ml.assets" do |app|
-      if app.config.respond_to?(:assets)
-        app.config.assets.precompile += %w[
-          easy_ml/application.js
-          easy_ml/application.css
-        ]
-        app.config.assets.paths << root.join("app", "frontend")
-      end
-    end
-
     initializer "easy_ml.setup_generators" do |app|
       generators_path = EasyML::Engine.root.join("lib/easy_ml/railtie/generators")
       generators_dirs = Dir[File.join(generators_path, "**", "*.rb")]
@@ -96,27 +85,12 @@ module EasyML
     delegate :vite_ruby, to: :class
 
     def self.vite_ruby
-      @vite_ruby ||= ViteRuby.new(root: root)
+      @vite_ruby ||= ViteRuby.new(root: EasyML::Engine.root)
     end
 
-    unless Rails.env.development?
-      config.app_middleware.use(Rack::Static,
-                                urls: ["/#{vite_ruby.config.public_output_dir}"],
-                                root: root.join(vite_ruby.config.public_dir))
-    end
-
-    initializer "vite_rails_engine.proxy" do |app|
-      if vite_ruby.run_proxy?
-        # Use Vite proxy in development for live assets
-        app.middleware.insert_before 0, ViteRuby::DevServerProxy, ssl_verify_none: true, vite_ruby: vite_ruby
-      end
-    end
-
-    initializer "vite_rails_engine.logger" do
-      config.after_initialize do
-        vite_ruby.logger = Rails.logger
-      end
-    end
+    config.app_middleware.use(Rack::Static,
+                              urls: ["/#{vite_ruby.config.public_output_dir}"],
+                              root: root.join(vite_ruby.config.public_dir))
 
     def list_routes
       EasyML::Engine.routes.routes.map { |r| "#{r.name} #{r.path.spec}" }

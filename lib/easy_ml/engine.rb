@@ -1,6 +1,5 @@
 require "aws-sdk"
 require "awesome_print"
-require "action_controller"
 require "inertia_rails"
 require "jsonapi/serializer"
 require "numo/narray"

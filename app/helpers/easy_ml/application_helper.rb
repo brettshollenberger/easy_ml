@@ -13,13 +13,12 @@ module EasyML
       application_js = entrypoint.dig("file")
       css_files = entrypoint.dig("css")
 
-      # Create HTML tags for the JavaScript and CSS
+      # Create HTML tags for the JavaScript and CSS using Rails tag helpers
       tags = []
-      tags << "<script type=\"module\" src=\"/easy_ml/assets/#{application_js}\"></script>"
+      tags << javascript_include_tag("/easy_ml/assets/#{application_js}", type: "module")
       css_files.each do |css_file|
-        tags << "<link rel=\"stylesheet\" href=\"/easy_ml/assets/#{css_file}\" />"
+        tags << stylesheet_link_tag("/easy_ml/assets/#{css_file}")
       end
-
       tags.join("\n").html_safe
     end
   end

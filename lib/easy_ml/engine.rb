@@ -33,7 +33,8 @@ module EasyML
     config.eager_load_paths += [
       root.join("app/models"),
       root.join("app/models/datasources"),
-      root.join("app/models/models"),
+      root.join("app/models"),
+      root.join("app/models/**/"),
       root.join("lib/easy_ml"),
     ]
 
@@ -44,6 +45,12 @@ module EasyML
 
     initializer "easy_ml.enable_string_cache" do
       Polars.enable_string_cache
+    end
+
+    config.after_initialize do
+      Dir[root.join("app/models/**/*.rb")].select { |x| x.match?(/_history.rb/) }.each do |file|
+        require_dependency file
+      end
     end
 
     unless %w[rake rails bin/rails].include?(File.basename($0)) && %w[generate db:migrate db:drop easy_ml:migration].include?(ARGV.first)

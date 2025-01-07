@@ -11,6 +11,7 @@ module EasyML
           inflect.acronym "GBTree"
           inflect.acronym "EST"
           inflect.acronym "UTC"
+          inflect.acronym "HTML"
         end
       end
     end

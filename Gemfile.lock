@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc2)
+    easy_ml (0.2.0.pre.rc4)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -22,8 +22,6 @@ PATH
       resque-batched-job
       resque-pool
       suo
-      tailwindcss-rails
-      vite_rails
       wandb (~> 0.1.13)
       xgb (~> 0.9.0)
 
@@ -2084,7 +2082,9 @@ DEPENDENCIES
   spring-commands-rspec
   sprockets-rails
   suo
+  tailwindcss-rails
   timecop
+  vite_rails
   wandb
   xgb (~> 0.9.0)
 

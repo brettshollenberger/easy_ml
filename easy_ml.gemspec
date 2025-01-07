@@ -20,7 +20,13 @@ Gem::Specification.new do |spec|
 
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
-  spec.files = Dir["{app,config,db,lib}/**/*", "MIT-LICENSE", "Rakefile", "README.md"]
+  spec.files = Dir[
+    "{app,config,db,lib}/**/*",
+    "MIT-LICENSE",
+    "Rakefile",
+    "README.md",
+    "public/easy_ml/assets/**/*"
+  ]
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
@@ -45,8 +51,6 @@ Gem::Specification.new do |spec|
   spec.add_dependency "resque-batched-job"
   spec.add_dependency "resque-pool"
   spec.add_dependency "suo"
-  spec.add_dependency "tailwindcss-rails"
-  spec.add_dependency "vite_rails"
   spec.add_dependency "wandb", "~> 0.1.13"
   spec.add_dependency "xgb", "~> 0.9.0"
 
@@ -56,4 +60,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "ostruct"
   spec.add_development_dependency "pry"
   spec.add_development_dependency "sprockets-rails"
+  spec.add_development_dependency "tailwindcss-rails"
+  spec.add_development_dependency "vite_rails"
 end

@@ -9,11 +9,8 @@ require "parallel"
 require "polars-df"
 require "pycall"
 require "optuna"
-require "tailwindcss-rails"
 require "wandb"
 require "xgb"
-require "vite_ruby"
-require "vite_rails"
 require "rails/engine"
 require "activerecord-import"
 require "historiographer"
@@ -82,15 +79,11 @@ module EasyML
       end
     end
 
-    delegate :vite_ruby, to: :class
-
-    def self.vite_ruby
-      @vite_ruby ||= ViteRuby.new(root: EasyML::Engine.root)
-    end
-
-    config.app_middleware.use(Rack::Static,
-                              urls: ["/#{vite_ruby.config.public_output_dir}"],
-                              root: root.join(vite_ruby.config.public_dir))
+    config.app_middleware.use(
+      Rack::Static,
+      urls: ["/easy_ml/assets"],
+      root: EasyML::Engine.root.join("public"),
+    )
 
     def list_routes
       EasyML::Engine.routes.routes.map { |r| "#{r.name} #{r.path.spec}" }

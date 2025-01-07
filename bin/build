@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -e
+
+bin/build_vite
+gem build easy_ml.gemspec

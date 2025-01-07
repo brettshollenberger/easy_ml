@@ -5,9 +5,13 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
     
-    <%= vite_client_tag %>
-    <%= vite_react_refresh_tag %>
-    <%= vite_typescript_tag 'Application.tsx' %>
+    <% if ENV["EASY_ML_DEV"] == "true" %>
+      <%= vite_client_tag %>
+      <%= vite_react_refresh_tag %>
+      <%= vite_typescript_tag 'Application.tsx' %>
+    <% else %>
+      <%= prod_script_tags %>
+    <% end%>
   </head>
   <body>
     <%= yield %>

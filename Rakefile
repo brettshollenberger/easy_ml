@@ -3,7 +3,6 @@
 require "sprockets/railtie"
 require "bundler/gem_tasks"
 require "rspec/core/rake_task"
-require "resque/tasks"
 
 RSpec::Core::RakeTask.new(:spec)
 
@@ -56,29 +55,3 @@ namespace :easy_ml do
     Rails::Generators.invoke("easy_ml:migration", [], { destination_root: EasyML::Engine.root.join("spec/internal") })
   end
 end
-
-task :environment do
-  # Force the application to load (Rails or standalone app setup)
-  require File.expand_path("config/environment", __dir__)
-end
-
-# Ensure resque:work depends on :environment
-namespace :resque do
-  desc "Start a Resque worker"
-  task :easy_ml => [:preload, :setup] do
-    require "resque"
-
-    begin
-      worker = Resque::Worker.new
-    rescue Resque::NoQueueError
-      abort "set QUEUE env var, e.g. $ QUEUE=critical,high rake resque:work"
-    end
-
-    worker.prepare
-    worker.log "Starting worker #{worker}"
-    worker.work(ENV["INTERVAL"] || 5) # interval, will block
-  end
-end
-
-task "resque:work" => :environment
-task "resque:workers" => :environment

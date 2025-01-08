@@ -1,6 +1,6 @@
 development:
-  '*': 2
+  'easy_ml': 5
 
 production:
-  '*': <%= ENV['WORKER_COUNT'] || 5 %>
+  'easy_ml': <%= ENV['WORKER_COUNT'] || 5 %>
 

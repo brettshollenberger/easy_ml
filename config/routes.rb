@@ -1,5 +1,6 @@
 EasyML::Engine.routes.draw do
   root to: "models#index"
+  get "healthcheck", to: "health#up"
   resources :models, as: :easy_ml_models do
     member do
       post :train

@@ -65,6 +65,9 @@ module EasyML
     end
 
     initializer "easy_ml.active_job_config" do
+      resque_initializer = File.expand_path("config/initializers/resque.rb", root)
+      require resque_initializer if File.exist?(resque_initializer)
+
       ActiveSupport.on_load(:active_job) do
         self.queue_adapter = :resque
       end

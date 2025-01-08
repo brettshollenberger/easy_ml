@@ -14,6 +14,7 @@ require "rails/engine"
 require "activerecord-import"
 require "historiographer"
 require "resque-batched-job"
+require "rake"
 require "resque/tasks"
 
 module EasyML

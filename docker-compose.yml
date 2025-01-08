@@ -1,27 +1,47 @@
-version: "3.9"
+x-app: &default-app
+  build:
+    context: .
+    target: "app"
+    args:
+      RAILS_ENV: ${RAILS_ENV:-production}
+      POSTGRES_URL: ${POSTGRES_URL}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      REDIS_URL: ${REDIS_URL}
+  env_file:
+    - .env
+  stop_grace_period: 3s
+  tty: true
+  volumes:
+    - ./public:/app/public
+    - ./easy_ml:/app/easy_ml
+  environment:
+    RAILS_ENV: ${RAILS_ENV}
+    SECRET_KEY_BASE: "${SECRET_KEY_BASE}" # Pass from host environment or .env file
+    POSTGRES_URL: "${POSTGRES_URL}" # Pass from .env
+    REDIS_URL: "${REDIS_URL}"
 
 services:
-  redis:
-    image: redis:6.2
-    container_name: redis
+  web:
+    <<: *default-app
+    healthcheck:
+      test: "curl -f http://localhost:3000/easy_ml/healthcheck || exit 1"
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
     ports:
-      - "6379:6379"
+      - "3000:3000" # Map container's port 3000 to host's port 3000
+    profiles: ["web"]
 
-  rails_backend:
-    build: .
-    container_name: rails_backend
-    volumes:
-      - ".:/app"
-    environment:
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      - redis
-    command: ["bundle", "exec", "resque-pool"]
+  worker:
+    <<: *default-app
+    command: "bundle exec rake easy_ml:resque_pool"
+    entrypoint: []
+    profiles: ["worker"]
 
-  resque_web:
-    image: ennexa/resque-web
-    container_name: resque_web
-    environment:
-      REDIS_URL: redis://redis:6379
+  resque-web:
+    <<: *default-app
+    command: "bundle exec resque-web -F"
     ports:
       - "5678:5678"
+    profiles: ["resque-web"]

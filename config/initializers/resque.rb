@@ -1,4 +1,5 @@
 require "resque"
+require "resque-pool"
 
 gem_path = Gem::Specification.find_by_name("easy_ml").gem_dir
 Resque::Pool.configure do |config|

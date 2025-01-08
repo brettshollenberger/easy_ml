@@ -40,8 +40,8 @@ module EasyML
       root.join("lib/easy_ml/**/*"),
     ]
 
-    initializer "easy_ml.inflections" do
-      require_relative "initializers/inflections"
+    initializer "easy_ml.initializers" do
+      Dir.glob(EasyML::Engine.root.join("config/initializers/*.rb")).each { |f| require f }
       EasyML::Initializers::Inflections.inflect
     end
 

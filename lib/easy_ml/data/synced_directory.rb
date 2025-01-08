@@ -3,7 +3,9 @@ require_relative "polars_reader"
 module EasyML
   module Data
     class SyncedDirectory
-      attr_accessor :root_dir, :s3_bucket, :s3_prefix, :s3_access_key_id, :s3_secret_access_key, :cache_for, :polars_args
+      attr_accessor :root_dir, :s3_bucket, :s3_prefix,
+                    :s3_access_key_id, :s3_secret_access_key,
+                    :s3_region, :cache_for, :polars_args
 
       def initialize(options = {})
         @root_dir = options.dig(:root_dir)
@@ -11,6 +13,7 @@ module EasyML
         @s3_prefix = options.dig(:s3_prefix)
         @s3_access_key_id = options.dig(:s3_access_key_id)
         @s3_secret_access_key = options.dig(:s3_secret_access_key)
+        @s3_region = options.dig(:s3_region) || EasyML::Configuration.s3_region
         @cache_for = options.dig(:cache_for)
         @polars_args = options.dig(:polars_args)
       end
@@ -224,6 +227,7 @@ module EasyML
           http_read_timeout: 30, # Timeout for reading response (in seconds))
           http_wire_trace: false, # Enable verbose HTTP logging
           http_idle_timeout: 0,
+          region: s3_region,
           logger: Logger.new(STDOUT), # Logs to STDOUT; you can also set a file
         )
       end

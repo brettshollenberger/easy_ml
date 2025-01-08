@@ -95,7 +95,7 @@ module EasyML
       def s3
         @s3 ||= begin
             credentials = Aws::Credentials.new(s3_access_key_id, s3_secret_access_key)
-            Aws::S3::Client.new(credentials: credentials)
+            Aws::S3::Client.new(credentials: credentials, region: s3_region)
           end
       end
     end

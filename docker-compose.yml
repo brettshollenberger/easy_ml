@@ -35,9 +35,11 @@ services:
 
   worker:
     <<: *default-app
-    command: "bundle exec rake easy_ml:resque_pool"
+    command: "bundle exec rake resque:work COUNT=5 QUEUE=easy_ml"
     entrypoint: []
     profiles: ["worker"]
+    deploy:
+      replicas: 5
 
   resque-web:
     <<: *default-app

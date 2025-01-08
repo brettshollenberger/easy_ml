@@ -72,9 +72,9 @@ module EasyML
       # Start sync in background to avoid blocking
       datasource.refresh_async
 
-      redirect_to easy_ml_datasources_path, notice: "Datasource is syncing..."
+      redirect_to easy_ml_datasources_path(host: request.host), notice: "Datasource is syncing..."
     rescue ActiveRecord::RecordNotFound
-      redirect_to easy_ml_datasources_path, error: "Datasource not found..."
+      redirect_to easy_ml_datasources_path(host: request.host), error: "Datasource not found..."
     end
 
     private

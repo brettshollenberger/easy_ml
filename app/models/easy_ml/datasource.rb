@@ -89,9 +89,12 @@ module EasyML
 
     def root_dir
       persisted = read_attribute(:root_dir)
-      return persisted if persisted.present? && !persisted.to_s.blank?
 
-      default_root_dir
+      if persisted.present? && !persisted.blank?
+        EasyML::Engine.root_dir.join(persisted).to_s
+      else
+        default_root_dir
+      end
     end
 
     def refresh_async
@@ -156,7 +159,7 @@ module EasyML
 
     def default_root_dir
       folder = name.gsub(/\s{2,}/, " ").split(" ").join("_").downcase
-      EasyML::Engine.root_dir.join("datasources").join(folder)
+      File.join("datasources", folder)
     end
 
     def set_root_dir

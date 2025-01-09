@@ -484,11 +484,21 @@ module EasyML
     end
 
     def set_root_dir
-      write_attribute(:root_dir, root_dir)
+      write_attribute(:root_dir, default_root_dir)
     end
 
     def root_dir
-      EasyML::Engine.root_dir.join("models").join(underscored_name).to_s
+      persisted = read_attribute(:root_dir)
+
+      if persisted.present? && !persisted.blank?
+        EasyML::Engine.root_dir.join(persisted).to_s
+      else
+        default_root_dir
+      end
+    end
+
+    def default_root_dir
+      File.join("models", underscored_name).to_s
     end
 
     def load_model(force: false)

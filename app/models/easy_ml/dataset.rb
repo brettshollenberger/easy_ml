@@ -93,12 +93,22 @@ module EasyML
     end
 
     def set_root_dir
-      write_attribute(:root_dir, root_dir)
+      bump_version
+      write_attribute(:root_dir, default_root_dir)
+    end
+
+    def default_root_dir
+      File.join("datasets", underscored_name, version).to_s
     end
 
     def root_dir
-      bump_version
-      EasyML::Engine.root_dir.join("datasets").join(underscored_name).join(version).to_s
+      persisted = read_attribute(:root_dir)
+
+      if persisted.present? && !persisted.blank?
+        EasyML::Engine.root_dir.join(persisted).to_s
+      else
+        default_root_dir
+      end
     end
 
     def destructively_cleanup!

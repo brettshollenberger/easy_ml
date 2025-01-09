@@ -16,9 +16,10 @@ ENV RAILS_ENV=${RAILS_ENV:-production}
 # Rails app lives here
 WORKDIR /app
 
-# Install base packages
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
+    vim \
+    redis-tools \
     curl \
     libjemalloc2 \
     postgresql-client \
@@ -37,7 +38,6 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 ENV BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
-    BUNDLE_WITHOUT="development" \
     PYCALL_PYTHON=/usr/bin/python3
 
 # Throw-away build stage to reduce size of final image
@@ -69,12 +69,6 @@ FROM base AS app
 # Copy built artifacts: gems, application
 COPY --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --from=build /app /app
-
-# Run and own only the runtime files as a non-root user for security
-RUN groupadd --system --gid 1000 rails && \
-    useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash && \
-    chown -R rails:rails db log tmp
-USER 1000:1000
 
 # Entrypoint prepares the database.
 ENTRYPOINT ["/app/bin/docker-entrypoint"]

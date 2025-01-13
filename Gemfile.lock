@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc21)
+    easy_ml (0.2.0.pre.rc24)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -14,7 +14,7 @@ PATH
       numo-narray
       numpy
       parallel
-      polars-df (~> 0.15.0)
+      polars-df (~> 0.16.0)
       pycall
       rails
       red-optuna
@@ -1852,17 +1852,17 @@ GEM
       ast (~> 2.4.1)
       racc
     pg (1.5.9)
-    polars-df (0.15.0-aarch64-linux)
+    polars-df (0.16.0-aarch64-linux)
       bigdecimal
-    polars-df (0.15.0-aarch64-linux-musl)
+    polars-df (0.16.0-aarch64-linux-musl)
       bigdecimal
-    polars-df (0.15.0-arm64-darwin)
+    polars-df (0.16.0-arm64-darwin)
       bigdecimal
-    polars-df (0.15.0-x86_64-darwin)
+    polars-df (0.16.0-x86_64-darwin)
       bigdecimal
-    polars-df (0.15.0-x86_64-linux)
+    polars-df (0.16.0-x86_64-linux)
       bigdecimal
-    polars-df (0.15.0-x86_64-linux-musl)
+    polars-df (0.16.0-x86_64-linux-musl)
       bigdecimal
     pry (0.15.2)
       coderay (~> 1.1)
@@ -2068,7 +2068,7 @@ DEPENDENCIES
   numpy (~> 0.4.0)
   ostruct
   pg
-  polars-df (~> 0.15.0)
+  polars-df (~> 0.16.0)
   pry
   rake (~> 13.0)
   resque

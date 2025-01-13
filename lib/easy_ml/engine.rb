@@ -85,11 +85,23 @@ module EasyML
       end
     end
 
-    config.app_middleware.use(
-      Rack::Static,
-      urls: ["/easy_ml/assets"],
-      root: EasyML::Engine.root.join("public"),
-    )
+    if ENV["EASY_ML_DEMO_APP"]
+      require "vite_ruby"
+      require "vite_rails"
+
+      def vite_ruby
+        @vite_ruby ||= ViteRuby.new(root: root)
+      end
+
+      puts "Running dev proxy"
+      config.app_middleware.insert_before 0, ViteRuby::DevServerProxy, ssl_verify_none: true, vite_ruby: vite_ruby
+    else
+      config.app_middleware.use(
+        Rack::Static,
+        urls: ["/easy_ml/assets"],
+        root: EasyML::Engine.root.join("public"),
+      )
+    end
 
     def list_routes
       EasyML::Engine.routes.routes.map { |r| "#{r.name} #{r.path.spec}" }

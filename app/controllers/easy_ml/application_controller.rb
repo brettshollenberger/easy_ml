@@ -44,8 +44,7 @@ module EasyML
     end
 
     def easy_ml_root
-      path = Rails.application.routes.routes.find { |r| r.app.app == EasyML::Engine }&.path&.spec&.to_s
-      URI.join("#{request.scheme}://#{request.host_with_port}", path).to_s
+      Rails.application.routes.routes.find { |r| r.app.app == EasyML::Engine }&.path&.spec&.to_s
     end
 
     inertia_share do

@@ -69,6 +69,9 @@ module EasyML
       datasource = Datasource.find(params[:id])
       datasource.update(is_syncing: true)
 
+      Rails.logger.info("X-Forwarded-Host: #{request.headers["X-Forwarded-Host"]}")
+      Rails.logger.info("X-Forwarded-Port: #{request.headers["X-Forwarded-Port"]}")
+
       # Start sync in background to avoid blocking
       datasource.refresh_async
 

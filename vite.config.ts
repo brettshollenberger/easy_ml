@@ -29,6 +29,7 @@ export default defineConfig({
     outDir: 'public/easy_ml/assets',
     assetsDir: 'assets',
     manifest: true,
+    emptyOutDir: true,
     rollupOptions: {
       output: {
         // Put files directly in outDir with no "assets" subfolder

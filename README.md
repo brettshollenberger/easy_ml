@@ -467,7 +467,7 @@ bundle exec appraisal install
 1. Creating a test app:
 
 a. Follow the typical steps
-b. Declare an environment variable: `EASY_ML_DEV=true`, using Figaro, dotenv, or similar to load develoment assets
+b. Declare an environment variable: `EASY_ML_DEMO_APP=true`, using Figaro, dotenv, or similar to load develoment assets
 c. Run `yarn vite dev` in both the `easy_ml` gem and test app directories
 
 1. Building production assets

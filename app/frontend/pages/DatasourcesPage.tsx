@@ -11,6 +11,7 @@ const ITEMS_PER_PAGE = 6;
 
 export default function DatasourcesPage({ datasources }: { datasources: Datasource[] }) {
   const { rootPath } = usePage().props;
+  console.log(`rootPath: ${rootPath}`);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedErrors, setExpandedErrors] = useState<number[]>([]);
@@ -47,10 +48,13 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
       router.post(`${rootPath}/datasources/${id}/sync`, {}, {
         preserveScroll: true, // Keeps the scroll position
         preserveState: true,  // Keeps the form state
-        onSuccess: () => {
+        onSuccess: (e) => {
+          debugger;
+          console.log("SUCCESS")
           // The page will automatically refresh with new data
         },
         onError: () => {
+          debugger;
           // Handle error case if needed
           console.error('Failed to sync datasource');
         }

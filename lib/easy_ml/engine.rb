@@ -49,7 +49,9 @@ module EasyML
       Polars.enable_string_cache
     end
 
-    unless %w[rake rails bin/rails].include?(File.basename($0)) && %w[generate db:migrate db:drop easy_ml:migration].include?(ARGV.first)
+    if %w[db:migrate db:migrate:status db:setup db:drop].include?(ARGV.first)
+      config.eager_load_paths = config.eager_load_paths.without(config.eager_load_paths.map(&:to_s).grep(/easy_ml/).map { |p| Pathname.new(p) })
+    else
       config.after_initialize do
         Dir.glob(File.expand_path("app/models/easy_ml/datasources/*.rb", EasyML::Engine.root)).each do |file|
           require file

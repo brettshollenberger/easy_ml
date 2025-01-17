@@ -49,7 +49,7 @@ module EasyML
       Polars.enable_string_cache
     end
 
-    if %w[db:migrate db:migrate:status db:setup db:drop].include?(ARGV.first)
+    if %w[db:migrate db:migrate:status db:setup db:drop assets:precompile].include?(ARGV.first)
       config.eager_load_paths = config.eager_load_paths.without(config.eager_load_paths.map(&:to_s).grep(/easy_ml/).map { |p| Pathname.new(p) })
     else
       config.after_initialize do

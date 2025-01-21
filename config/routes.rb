@@ -1,3 +1,5 @@
+require "zhong/web"
+
 EasyML::Engine.routes.draw do
   root to: "models#index"
   get "healthcheck", to: "health#up"

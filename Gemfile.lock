@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc28)
+    easy_ml (0.2.0.pre.rc33)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -24,6 +24,7 @@ PATH
       suo
       wandb (~> 0.1.13)
       xgb (~> 0.9.0)
+      zhong
 
 GEM
   remote: https://rubygems.org/

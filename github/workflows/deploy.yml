@@ -1,0 +1,65 @@
+name: Build and Deploy to ECS
+
+# If you prefer to have this workflow run after merging to main...
+# on:
+#   push:
+#     branches:
+#       - main # Run this workflow when pushing to the main branch
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and Deploy to ECS
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for OIDC (Authentication)
+      contents: read # Required for actions/checkout
+      packages: write
+
+    steps:
+      # Step 1: Checkout Code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Configure AWS Credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: us-east-1
+
+      # Step 3: Login to Amazon ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      # Step 4: Build and Push Docker Image to Amazon ECR
+      - name: Build and push Docker image
+        env:
+          AWS_URL: ${{ secrets.AWS_URL }}
+        run: |
+          docker build -t easy_ml:web .
+          docker tag easy_ml:web $AWS_URL:web
+          docker tag easy_ml:web $AWS_URL:worker
+          docker push $AWS_URL:web
+          docker push $AWS_URL:worker
+
+      - name: Trigger Redeployment
+        run: |
+          export LAST_DEPLOYMENT_ID=$(aws deploy list-deployments \
+            --application-name Milhouse \
+            --deployment-group-name MilhouseDeploymentGroup \
+            --include-only-statuses Succeeded \
+            --query "deployments[0]" \
+            --output text)
+
+          export LAST_REVISION=$(aws deploy get-deployment \
+            --deployment-id $LAST_DEPLOYMENT_ID \
+            --query "deploymentInfo.revision" \
+            --output json)
+
+          aws deploy create-deployment \
+            --application-name Milhouse \
+            --deployment-group-name MilhouseDeploymentGroup \
+            --revision "$LAST_REVISION"

@@ -48,6 +48,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "suo"
   spec.add_dependency "wandb", "~> 0.1.13"
   spec.add_dependency "xgb", "~> 0.9.0"
+  spec.add_dependency "zhong"
 
   spec.add_development_dependency "annotate"
   spec.add_development_dependency "appraisal"

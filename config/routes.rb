@@ -1,6 +1,13 @@
 EasyML::Engine.routes.draw do
   root to: "models#index"
   get "healthcheck", to: "health#up"
+
+  mount Zhong::Web, at: "/zhong"
+  mount Resque::Server.new, at: "/resque"
+
+  # Predictions API
+  resources :predictions, only: [:create]
+
   resources :models, as: :easy_ml_models do
     member do
       post :train

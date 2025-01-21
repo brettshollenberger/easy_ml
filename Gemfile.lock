@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc24)
+    easy_ml (0.2.0.pre.rc28)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -2041,6 +2041,11 @@ GEM
     xgb (0.9.0)
       ffi
     zeitwerk (2.7.1)
+    zhong (0.3.0)
+      activesupport
+      redis
+      suo
+      tzinfo
 
 PLATFORMS
   aarch64-linux
@@ -2087,6 +2092,7 @@ DEPENDENCIES
   vite_rails
   wandb
   xgb (~> 0.9.0)
+  zhong
 
 BUNDLED WITH
    2.6.2

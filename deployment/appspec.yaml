@@ -1,0 +1,10 @@
+---
+version: 0.1
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: "arn:aws:ecs:your-aws-region:your-aws-account:task-definition/TaskName:RevisionNumber"
+        LoadBalancerInfo:
+          ContainerName: "web"
+          ContainerPort: 3000

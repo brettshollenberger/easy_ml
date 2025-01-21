@@ -24,6 +24,7 @@ gem "xgb", "~> 0.9.0"
 gem "date", "~> 3.4.1"
 gem "resque-batched-job"
 gem "resque-pool"
+gem "zhong"
 
 group :development, :test do
   gem "combustion"

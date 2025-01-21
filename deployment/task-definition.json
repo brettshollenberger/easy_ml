@@ -1,0 +1,232 @@
+{
+    "family": "EasyML",
+    "containerDefinitions": [
+        {
+            "name": "web",
+            "image": "AWS_ACCOUNT.dkr.ecr.AWS_REGION.amazonaws.com/easy_ml:web",
+            "cpu": 0,
+            "linuxParameters": {
+                "initProcessEnabled": true
+            },
+            "portMappings": [
+                {
+                    "name": "3000",
+                    "containerPort": 3000,
+                    "hostPort": 3000,
+                    "protocol": "tcp",
+                    "appProtocol": "http",
+                },
+            ],
+            "essential": true,
+            "environment": [
+                {
+                    "name": "RAILS_ENV",
+                    "value": "production"
+                },
+                {
+                    "name": "ECS_CONTAINER_METADATA_LOGFILE",
+                    "value": "/dev/stdout",
+                },
+            ],
+            "mountPoints": [
+                {
+                    "sourceVolume": "easy-ml-volume",
+                    "containerPath": "/app/easy_ml",
+                },
+            ],
+            "volumesFrom": [],
+            "secrets": [
+                {
+                    "name": "POSTGRES_URL",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/POSTGRES_URL",
+                },
+                {
+                    "name": "REDIS_URL",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/REDIS_URL",
+                },
+                {
+                    "name": "SECRET_KEY_BASE",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/SECRET_KEY_BASE",
+                },
+                {
+                    "name": "ROLLBAR_ACCESS_TOKEN",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/ROLLBAR_ACCESS_TOKEN",
+                },
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/EasyML",
+                    "mode": "non-blocking",
+                    "awslogs-create-group": "true",
+                    "max-buffer-size": "25m",
+                    "awslogs-region": "AWS_REGION",
+                    "awslogs-stream-prefix": "ecs",
+                },
+            },
+            "healthCheck": {
+                "command": [
+                    "CMD-SHELL",
+                    "curl -f http://localhost:3000/easy_ml/healthcheck || exit 1",
+                ],
+                "interval": 30,
+                "timeout": 5,
+                "retries": 3,
+            },
+            "systemControls": [],
+        },
+        {
+            "name": "worker",
+            "image": "AWS_ACCOUNT.dkr.ecr.AWS_REGION.amazonaws.com/easy-ml:worker",
+            "cpu": 0,
+            "essential": true,
+            "linuxParameters": {
+                "initProcessEnabled": true
+            },
+            "environment": [
+                {
+                    "name": "RAILS_ENV",
+                    "value": "production"
+                },
+                {
+                    "name": "ECS_CONTAINER_METADATA_LOGFILE",
+                    "value": "/dev/stdout",
+                },
+            ],
+            "mountPoints": [
+                {
+                    "sourceVolume": "easy-ml-volume",
+                    "containerPath": "/app/easy_ml",
+                },
+            ],
+            "volumesFrom": [],
+            "command": [
+                "bundle",
+                "exec",
+                "rake",
+                "resque:work",
+                "QUEUE=easy_ml"
+            ],
+            "entrypoint": [],
+            "portMappings": [],
+            "secrets": [
+                {
+                    "name": "POSTGRES_URL",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/POSTGRES_URL",
+                },
+                {
+                    "name": "REDIS_URL",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/REDIS_URL",
+                },
+                {
+                    "name": "SECRET_KEY_BASE",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/SECRET_KEY_BASE",
+                },
+                {
+                    "name": "ROLLBAR_ACCESS_TOKEN",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/ROLLBAR_ACCESS_TOKEN",
+                },
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/EasyML",
+                    "mode": "non-blocking",
+                    "awslogs-create-group": "true",
+                    "max-buffer-size": "25m",
+                    "awslogs-region": "AWS_REGION",
+                    "awslogs-stream-prefix": "ecs",
+                },
+            },
+            "systemControls": [],
+        },
+        {
+            "name": "zhong",
+            "image": "AWS_ACCOUNT.dkr.ecr.AWS_REGION.amazonaws.com/easy-ml:zhong",
+            "cpu": 0,
+            "essential": true,
+            "linuxParameters": {
+                "initProcessEnabled": true
+            },
+            "environment": [
+                {
+                    "name": "RAILS_ENV",
+                    "value": "production"
+                },
+                {
+                    "name": "ECS_CONTAINER_METADATA_LOGFILE",
+                    "value": "/dev/stdout",
+                },
+            ],
+            "mountPoints": [
+                {
+                    "sourceVolume": "easy-ml-volume",
+                    "containerPath": "/app/easy_ml",
+                },
+            ],
+            "volumesFrom": [],
+            "command": [
+                "bundle",
+                "exec",
+                "rake",
+                "zhong:start"
+            ],
+            "entrypoint": [],
+            "portMappings": [],
+            "secrets": [
+                {
+                    "name": "POSTGRES_URL",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/POSTGRES_URL",
+                },
+                {
+                    "name": "REDIS_URL",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/REDIS_URL",
+                },
+                {
+                    "name": "SECRET_KEY_BASE",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/SECRET_KEY_BASE",
+                },
+                {
+                    "name": "ROLLBAR_ACCESS_TOKEN",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/ROLLBAR_ACCESS_TOKEN",
+                },
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/EasyML",
+                    "mode": "non-blocking",
+                    "awslogs-create-group": "true",
+                    "max-buffer-size": "25m",
+                    "awslogs-region": "AWS_REGION",
+                    "awslogs-stream-prefix": "ecs",
+                },
+            },
+            "systemControls": [],
+        },
+    ],
+    "taskRoleArn": "arn:aws:iam::AWS_ACCOUNT:role/AWS_ROLE",
+    "executionRoleArn": "arn:aws:iam::AWS_ACCOUNT:role/AWS_ROLE",
+    "networkMode": "awsvpc",
+    "volumes": [
+        {
+            "name": "easy-ml-volume",
+            "efsVolumeConfiguration": {
+                "fileSystemId": "AWS_FILE_SYSTEM_ID",
+                "rootDirectory": "/",
+                "transitEncryption": "ENABLED",
+            },
+        },
+    ],
+    "placementConstraints": [],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "2048",
+    "memory": "10240",
+    "runtimePlatform": {
+        "cpuArchitecture": "X86_64",
+        "operatingSystemFamily": "LINUX"
+    },
+    "enableFaultInjection": false,
+}

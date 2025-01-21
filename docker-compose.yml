@@ -7,6 +7,7 @@ x-app: &default-app
       POSTGRES_URL: ${POSTGRES_URL}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       REDIS_URL: ${REDIS_URL}
+      ROLLBAR_ACCESS_KEY: ${ROLLBAR_ACCESS_KEY}
   env_file:
     - .env
   stop_grace_period: 3s
@@ -18,10 +19,12 @@ x-app: &default-app
     SECRET_KEY_BASE: "${SECRET_KEY_BASE}" # Pass from host environment or .env file
     POSTGRES_URL: "${POSTGRES_URL}" # Pass from .env
     REDIS_URL: "${REDIS_URL}"
+    ROLLBAR_ACCESS_KEY: "${ROLLBAR_ACCESS_KEY}"
 
 services:
   web:
     <<: *default-app
+    image: web:latest
     healthcheck:
       test: "curl -f http://localhost:3000/easy_ml/healthcheck || exit 1"
       interval: 30s
@@ -30,12 +33,17 @@ services:
       retries: 3
     ports:
       - "3000:3000" # Map host's port 3000 to container's port 3000
-    profiles: ["web"]
 
   worker:
+    image: worker:latest
     <<: *default-app
     command: "bundle exec rake resque:work QUEUE=easy_ml"
     entrypoint: []
-    profiles: ["worker"]
     deploy:
       replicas: 5
+
+  zhong:
+    image: zhong:latest
+    <<: *default-app
+    command: "bundle exec rake zhong:start"
+    entrypoint: []

@@ -42,7 +42,6 @@ module EasyML
     ]
 
     initializer "easy_ml.initializers" do
-      Dir.glob(EasyML::Engine.root.join("config/initializers/*.rb")).each { |f| require f }
       EasyML::Initializers::Inflections.inflect
     end
 

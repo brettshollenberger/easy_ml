@@ -16,6 +16,7 @@ require "historiographer"
 require "resque-batched-job"
 require "rake"
 require "resque/tasks"
+require "zhong"
 
 module EasyML
   class Engine < Rails::Engine

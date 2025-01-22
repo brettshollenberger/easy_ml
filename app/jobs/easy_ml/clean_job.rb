@@ -2,7 +2,7 @@ module EasyML
   class CleanJob < ApplicationJob
     @queue = :easy_ml
 
-    def self.perform
+    def perform
       EasyML::Cleaner.clean
     end
   end

@@ -31,6 +31,9 @@ export default defineConfig({
     manifest: true,
     emptyOutDir: true,
     rollupOptions: {
+      watch: {
+        include: 'app/frontend/**/*.{js,jsx,ts,tsx}'
+      },
       output: {
         // Put files directly in outDir with no "assets" subfolder
         entryFileNames: 'assets/[name]-[hash].js',

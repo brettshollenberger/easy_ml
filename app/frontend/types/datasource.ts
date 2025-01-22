@@ -4,8 +4,7 @@ export type ColumnType =
   | "boolean"
   | "categorical"
   | "datetime"
-  | "text"
-  | "string";
+  | "text";
 
 export interface Schema {
   [key: string]: ColumnType;

@@ -476,6 +476,12 @@ c. Run `yarn vite dev` in both the `easy_ml` gem and test app directories
 bin/vite_build
 ```
 
+1. Building the new gem version:
+
+```bash
+bin/build
+```
+
 1. Ensure you run tests against all supported Rails versions
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/easy_ml. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/[USERNAME]/easy_ml/blob/main/CODE_OF_CONDUCT.md).

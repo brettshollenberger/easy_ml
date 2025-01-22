@@ -8,9 +8,10 @@ module EasyML
         integer: Polars::Int64,
         boolean: Polars::Boolean,
         datetime: Polars::Datetime,
+        date: Polars::Date,
         string: Polars::String,
         text: Polars::String,
-        categorical: Polars::Categorical
+        categorical: Polars::Categorical,
       }
       POLARS_MAP = TYPE_MAP.invert.stringify_keys
       class << self
@@ -37,19 +38,21 @@ module EasyML
           end
 
           type_name = case dtype
-                      when Polars::Float64
-                        :float
-                      when Polars::Int64
-                        :integer
-                      when Polars::Datetime
-                        :datetime
-                      when Polars::Boolean
-                        :boolean
-                      when Polars::Utf8
-                        determine_string_type(series)
-                      else
-                        :categorical
-                      end
+            when Polars::Float64
+              :float
+            when Polars::Int64
+              :integer
+            when Polars::Datetime
+              :datetime
+            when Polars::Date
+              :date
+            when Polars::Boolean
+              :boolean
+            when Polars::Utf8
+              determine_string_type(series)
+            else
+              :categorical
+            end
 
           polars_type ? sym_to_polars(type_name) : type_name
         end

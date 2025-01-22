@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc33)
+    easy_ml (0.2.0.pre.rc38)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -2081,6 +2081,7 @@ DEPENDENCIES
   resque-batched-job
   resque-pool
   resque_spec
+  rollbar
   rspec (~> 3.0)
   rspec-rails
   rubocop (~> 1.21)

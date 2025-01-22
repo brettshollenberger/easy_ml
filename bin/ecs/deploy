@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+bin/ecs/build
+
+echo "Logging into AWS..."
+aws ecr get-login-password --region AWS_REGION | docker login --username AWS --password-stdin AWS_ACCOUNT.dkr.ecr.AWS_REGION.amazonaws.com
+
+echo "Tagging"
+docker tag easy_ml:web "$AWS_URL":web
+docker tag easy_ml:web "$AWS_URL":worker
+docker tag easy_ml:web "$AWS_URL":zhong
+
+echo "Pushing to remote..."
+docker push "$AWS_URL":web
+docker push "$AWS_URL":worker
+docker push "$AWS_URL":zhong

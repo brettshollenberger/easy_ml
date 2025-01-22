@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+echo "Building web image"
+docker compose build web
+
+echo "Logging into AWS..."
+aws ecr get-login-password --region AWS_REGION | docker login --username AWS --password-stdin AWS_ACCOUNT.dkr.ecr.AWS_REGION.amazonaws.com
+
+echo "Tagging"
+docker tag easy_ml:web easy_ml:worker
+docker tag easy_ml:web easy_ml:zhong

@@ -27,7 +27,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ secrets.AWS_ROLE }}
-          aws-region: us-east-1
+          aws-region: AWS_REGION
 
       # Step 3: Login to Amazon ECR
       - name: Login to Amazon ECR
@@ -42,14 +42,16 @@ jobs:
           docker build -t easy_ml:web .
           docker tag easy_ml:web $AWS_URL:web
           docker tag easy_ml:web $AWS_URL:worker
+          docker tag easy_ml:web $AWS_URL:zhong
           docker push $AWS_URL:web
           docker push $AWS_URL:worker
+          docker push $AWS_URL:zhong
 
       - name: Trigger Redeployment
         run: |
           export LAST_DEPLOYMENT_ID=$(aws deploy list-deployments \
-            --application-name Milhouse \
-            --deployment-group-name MilhouseDeploymentGroup \
+            --application-name APPLICATION_NAME \
+            --deployment-group-name DEPLOYMENT_GROUP \
             --include-only-statuses Succeeded \
             --query "deployments[0]" \
             --output text)
@@ -59,7 +61,13 @@ jobs:
             --query "deploymentInfo.revision" \
             --output json)
 
+          aws ecs update-service \
+            --region us-east-1 \
+            --cluster CLUSTER_NAME \
+            --service SERVICE_NAME \
+            --enable-execute-command
+
           aws deploy create-deployment \
-            --application-name Milhouse \
-            --deployment-group-name MilhouseDeploymentGroup \
+            --application-name APPLICATION_NAME \
+            --deployment-group-name DEPLOYMENT_GROUP \
             --revision "$LAST_REVISION"

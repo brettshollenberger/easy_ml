@@ -25,6 +25,7 @@ gem "date", "~> 3.4.1"
 gem "resque-batched-job"
 gem "resque-pool"
 gem "zhong"
+gem "rollbar"
 
 group :development, :test do
   gem "combustion"

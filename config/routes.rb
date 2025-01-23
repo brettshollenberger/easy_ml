@@ -1,4 +1,5 @@
 require "zhong/web"
+require "resque/server"
 
 EasyML::Engine.routes.draw do
   root to: "models#index"

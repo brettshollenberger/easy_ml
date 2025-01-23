@@ -29,8 +29,6 @@ module EasyML
         raw_input: raw_input,
         normalized_input: df.to_hashes&.first,
       )
-
-      preds
     end
 
     def self.train(model_name, tuner: nil, evaluator: nil)

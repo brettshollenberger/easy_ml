@@ -12,14 +12,14 @@ export function DateSplitter({ attributes, columns, onChange }: DateSplitterProp
   return (
     <div className="space-y-4">
       <div>
-        <label htmlFor="date_column" className="block text-sm font-medium text-gray-700">
+        <label htmlFor="date_col" className="block text-sm font-medium text-gray-700">
           Date Column
         </label>
         <SearchableSelect
-          id="date_column"
-          value={attributes.date_column}
+          id="date_col"
+          value={attributes.date_col}
           options={columns.map(col => ({ value: col, label: col }))}
-          onChange={(value) => onChange({ ...attributes, date_column: value })}
+          onChange={(value) => onChange({ ...attributes, date_col: value })}
           placeholder="Select date column"
         />
       </div>

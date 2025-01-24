@@ -18,7 +18,7 @@ export type SplitterType =
   | 'leave_p_out';
 
 export interface DateSplitConfig {
-  date_column: string;
+  date_col: string;
   months_test: number;
   months_valid: number;
 }
@@ -81,7 +81,7 @@ export interface ValidationResult {
 
 // Validation functions for each splitter type
 export const validateDateSplitter = (config: DateSplitConfig): ValidationResult => {
-  if (!config.date_column) {
+  if (!config.date_col) {
     return { isValid: false, error: "Please select a date column" };
   }
   if (!config.months_test || config.months_test <= 0) {
@@ -108,7 +108,7 @@ export const validateRandomSplitter = (config: RandomSplitConfig): ValidationRes
 };
 
 export const validatePredefinedSplitter = (config: PredefinedSplitConfig): ValidationResult => {
-  if (!config.files || config.files.length === 0) {
+  if (!config.train_files || config.train_files.length === 0) {
     return { isValid: false, error: "Please select at least one file for splitting" };
   }
   return { isValid: true };

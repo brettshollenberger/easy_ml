@@ -30,7 +30,7 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
     switch (type) {
       case 'date':
         const dateConfig: DateSplitConfig = {
-          date_column: '',
+          date_col: '',
           months_test: 2,
           months_valid: 2
         };

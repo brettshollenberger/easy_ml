@@ -87,7 +87,7 @@ module EasyML
       end
     end
 
-    if ENV["EASY_ML_DEMO_APP"]
+    if ENV["EASY_ML_DEV"]
       require "vite_ruby"
       require "vite_rails"
 

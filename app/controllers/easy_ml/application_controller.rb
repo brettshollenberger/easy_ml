@@ -12,7 +12,7 @@ module EasyML
     before_action :hot_reload
 
     def hot_reload
-      return unless Rails.env.development? && ENV["EASY_ML_DEMO_APP"]
+      return unless Rails.env.development? && ENV["EASY_ML_DEV"]
 
       Dir[EasyML::Engine.root.join("lib/**/*")].select { |f| Pathname.new(f).extname == ".rb" }.each do |file|
         load file

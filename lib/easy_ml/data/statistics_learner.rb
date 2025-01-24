@@ -59,7 +59,7 @@ module EasyML::Data
           stats[col].merge!(most_frequent_value: series.mode.sort.to_a&.first)
           if field_type == :categorical
             stats[col].merge!(
-              unique_count: series.n_unique,
+              unique_count: series.cast(:str).n_unique,
               counts: Hash[series.value_counts.to_hashes.map(&:values)],
             )
           end

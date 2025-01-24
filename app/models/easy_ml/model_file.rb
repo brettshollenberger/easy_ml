@@ -23,7 +23,7 @@ module EasyML
     belongs_to :model, class_name: "EasyML::Model"
 
     include EasyML::Concerns::Configurable
-    add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :s3_access_key_id, :s3_secret_access_key, :root_dir
+    add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :s3_access_key_id, :s3_secret_access_key
 
     def synced_file
       EasyML::Support::SyncedFile.new(
@@ -33,8 +33,12 @@ module EasyML
         s3_region: s3_region,
         s3_access_key_id: s3_access_key_id,
         s3_secret_access_key: s3_secret_access_key,
-        root_dir: root_dir,
+        root_dir: full_dir,
       )
+    end
+
+    def root_dir
+      model.root_dir
     end
 
     def exist?
@@ -103,7 +107,7 @@ module EasyML
     end
 
     def relative_dir
-      root_dir.to_s.gsub(Regexp.new(Rails.root.to_s), "").gsub!(%r{^/}, "")
+      root_dir.to_s.gsub(Regexp.new(Rails.root.to_s), "").gsub(%r{^/}, "")
     end
 
     def full_dir

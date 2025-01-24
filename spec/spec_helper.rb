@@ -6,10 +6,13 @@ require "benchmark"
 require "resque"
 require "active_job"
 require "pry"
-Bundler.require :default, :development
+require "rails"
+require "active_record/railtie"
+require "action_controller/railtie"
+require "action_view/railtie"
+require "active_job/railtie"
 
-# Require the engine file
-require "easy_ml/engine"
+Bundler.require :default, :development
 
 # Timing instrumentation
 def log_time(label, &block)
@@ -43,6 +46,10 @@ RSpec.configure do |config|
   if any_rails_files
     require_rails_files
   end
+
+  # Require the engine file
+  # make sure this happens after require_rails_files
+  require "easy_ml/engine"
 
   Dir.glob(EasyML::Engine.root.join("spec/internal/app/features/**/*.rb")).each do |file|
     require file
@@ -88,6 +95,7 @@ RSpec.configure do |config|
         config.s3_bucket = "my-bucket"
         config.s3_access_key_id = "12345"
         config.s3_secret_access_key = "67890"
+        config.s3_region = "us-east-1"
       end
     end
   end

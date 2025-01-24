@@ -266,8 +266,11 @@ module EasyML
           batch_df = adapter.fit(df, self, batch_args)
         end
       end
-      raise "Feature #{feature_class}#fit must return a dataframe" unless batch_df.present?
-      store(batch_df)
+      if batch_df.present?
+        store(batch_df)
+      else
+        "Feature #{feature_class}#fit should return a dataframe, received #{batch_df.class}"
+      end
       updates = {
         applied_at: Time.current,
         needs_fit: false,

@@ -22,7 +22,7 @@ RSpec.describe "EasyML::Feature Computation" do
   describe "feature computation with failures" do
     let(:dataset) { titanic_dataset }
 
-    it "aborts all unrun jobs when any feature computation fails" do
+    it "aborts all unrun jobs when any feature computation fails", :focus do
       # Create failing feature first (position 1)
       failing_feature = dataset.features.create!(
         name: "failing_feature",

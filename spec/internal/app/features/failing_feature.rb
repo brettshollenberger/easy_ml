@@ -11,5 +11,6 @@ class FailingFeature
 
   feature name: "Failing Feature",
           description: "A feature that always fails during fit",
+          primary_key: "PassengerId",
           batch_size: 10
 end

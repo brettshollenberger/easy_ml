@@ -17,12 +17,19 @@
 #  refresh_every    :bigint
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
+#  workflow_status  :string
 #
 module EasyML
   class Feature < ActiveRecord::Base
     self.table_name = "easy_ml_features"
     include Historiographer::Silent
     historiographer_mode :snapshot_only
+
+    enum workflow_status: {
+      analyzing: "analyzing",
+      ready: "ready",
+      failed: "failed",
+    }
 
     class << self
       def compute_sha(feature_class)
@@ -274,11 +281,7 @@ module EasyML
       else
         "Feature #{feature_class}#fit should return a dataframe, received #{batch_df.class}"
       end
-      updates = {
-        applied_at: Time.current,
-        needs_fit: false,
-      }.compact
-      update!(updates)
+      binding.pry
       batch_df
     end
 
@@ -375,6 +378,17 @@ module EasyML
       read_attribute(:batch_size) ||
         config.dig(:batch_size) ||
         (should_be_batchable? ? 10_000 : nil)
+    end
+
+    def after_fit
+      updates = {
+        applied_at: Time.current,
+        needs_fit: false,
+      }.compact
+      update!(updates)
+    end
+
+    def fully_processed?
     end
 
     private

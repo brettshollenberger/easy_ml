@@ -28,8 +28,6 @@ RSpec.configure do |config|
 
   def require_rails_files
     require "combustion"
-    # require "rails/generators"
-    # Rails::Generators.invoke("easy_ml:migration", [], { destination_root: Combustion::Application.root })
 
     Combustion.initialize! :active_record do |config|
       config.assets = ActiveSupport::OrderedOptions.new

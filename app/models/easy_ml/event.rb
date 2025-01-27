@@ -19,6 +19,7 @@ module EasyML
     STATUSES = %w[started success failed].freeze
 
     belongs_to :eventable, polymorphic: true, optional: true
+    has_one :context, dependent: :destroy, class_name: "EasyML::EventContext"
 
     validates :name, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }

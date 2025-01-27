@@ -26,7 +26,6 @@ module EasyML
             create_easy_ml_retraining_jobs
             create_easy_ml_settings
             create_easy_ml_events
-            create_easy_ml_event_contexts
             create_easy_ml_features
             create_easy_ml_splitters
             create_easy_ml_splitter_histories
@@ -39,6 +38,7 @@ module EasyML
             create_easy_ml_feature_histories
             create_easy_ml_predictions
             create_easy_ml_event_contexts
+            add_workflow_status_to_easy_ml_features
           ].freeze
 
           # Specify the next migration number
@@ -63,16 +63,16 @@ module EasyML
             # Create migrations in order if they don't exist
             MIGRATION_ORDER.each do |migration_name|
               next if existing_migrations.include?(migration_name)
-              create_migration(migration_name)
+              install_migration(migration_name)
             end
           end
 
           private
 
-          def create_migration(migration_name)
+          def install_migration(migration_name)
             migration_template(
               "#{migration_name}.rb.tt",
-              "db/migrate/#{next_migration_number}_#{migration_name}.rb"
+              "db/migrate/#{migration_name}.rb"
             )
           end
 

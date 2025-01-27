@@ -16,7 +16,7 @@ module EasyML
       end
 
       begin
-        feature.fit_batch(options)
+        feature.fit_batch(options.merge!(batch_id: batch_id))
       rescue StandardError => e
         puts "Error computing feature: #{e.message}"
         feature.update(workflow_status: :error)
@@ -41,6 +41,9 @@ module EasyML
       feature_ids = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys).pluck(:feature_id).uniq
       dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
       dataset.after_fit_features
+    end
+
+    def self.feature_fully_processed?(feature)
     end
   end
 end

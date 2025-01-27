@@ -3,6 +3,7 @@ module EasyML
     @queue = :easy_ml
 
     def self.perform(batch_id, options = {})
+      puts "processing batch_id #{batch_id}"
       options.symbolize_keys!
       feature_id = options.dig(:feature_id)
       feature = EasyML::Feature.find(feature_id)
@@ -17,3 +18,6 @@ module EasyML
     end
   end
 end
+
+# If any feature fails, the entire batch fails
+# If any feature fails, the RELATED batches should fail

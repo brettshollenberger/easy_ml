@@ -196,7 +196,10 @@ module EasyML
     end
 
     def fit(features: [self], async: false)
-      jobs = features.flat_map(&:build_batches)
+      # Sort features by position to ensure they're processed in order
+      ordered_features = features.sort_by(&:feature_position)
+      jobs = ordered_features.flat_map(&:build_batches)
+
       if async
         EasyML::ComputeFeatureJob.enqueue_batch(jobs)
       else

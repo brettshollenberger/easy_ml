@@ -141,13 +141,22 @@ module EasyML
       adapter.respond_to?(:batch) || config.dig(:batch_size).present?
     end
 
+    def primary_key
+      pkey = config.dig(:primary_key)
+      if pkey.is_a?(Array)
+        pkey
+      else
+        [pkey]
+      end
+    end
+
     def numeric_primary_key?
       if primary_key.nil?
         return false unless should_be_batchable?
         raise "Couldn't find primary key for feature #{feature_class}, check your feature class"
       end
 
-      dataset.raw.data(limit: 1, select: primary_key)[primary_key].to_a.flat_map(&:values).all? do |value|
+      dataset.raw.data(limit: 1, select: primary_key)[primary_key].to_a.flat_map { |h| h.respond_to?(:values) ? h.values : h }.all? do |value|
         case value
         when String then value.match?(/\A[-+]?\d+(\.\d+)?\z/)
         else
@@ -177,14 +186,14 @@ module EasyML
           unless primary_key.present?
             raise "Couldn't find primary key for feature #{feature_class}, check your feature class"
           end
-          df = reader.query(select: [primary_key.first])
+          df = reader.query(select: primary_key)
         rescue => e
           raise "Couldn't find primary key #{primary_key.first} for feature #{feature_class}: #{e.message}"
         end
         return [] if df.nil?
 
         min_id = df[primary_key.first].min
-        max_id = df[primary_key.first].max
+        max_id = df[primary_key.last].max
       end
 
       (min_id..max_id).step(batch_size).map do |batch_start|
@@ -203,6 +212,7 @@ module EasyML
 
     def fit(features: [self], async: false)
       # Sort features by position to ensure they're processed in order
+      features.update_all(workflow_status: :analyzing)
       ordered_features = features.sort_by(&:feature_position)
       jobs = ordered_features.flat_map(&:build_batches)
 

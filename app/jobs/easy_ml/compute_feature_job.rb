@@ -19,7 +19,7 @@ module EasyML
 
       begin
         feature.fit_batch(options.merge!(batch_id: batch_id))
-      rescue StandardError => e
+      rescue => e
         puts "Error computing feature: #{e.message}"
         EasyML::Feature.transaction do
           return if dataset.reload.workflow_status == :failed

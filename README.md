@@ -421,40 +421,14 @@ pip install wandb optuna
 easy_ml/
 ```
 
-## Usage
+## Upgrading From An Earlier Version of EasyML
 
-To use EasyML in your Rails application, follow these steps:
+When upgrading, ensure you run the following commands to update the gem and database schema, in case you're missing any migrations
 
-1. **Define your preprocessing steps** in a configuration hash. For example:
-
-   ```ruby
-   preprocessing_steps = {
-     training: {
-       annual_revenue: {
-         median: true,
-         clip: { min: 0, max: 1_000_000 }
-       },
-       loan_purpose: {
-         categorical: {
-           categorical_min: 2,
-           one_hot: true
-         }
-       }
-     }
-   }
-   ```
-
-2. **Create a dataset** using the `EasyML::Data::Dataset` class, providing necessary configurations such as data source, target, and preprocessing steps.
-
-3. **Train a model** using the `EasyML::Models` module, specifying the model class and configuration.
-
-4. **Deploy the model** by marking it as live and storing it in the configured S3 bucket.
-
-## Development
-
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
-
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+```
+rails g easy_ml:migration # To install missing migrations
+bundle exec rake db:create
+```
 
 ## Contributing
 

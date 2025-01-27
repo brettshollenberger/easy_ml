@@ -544,7 +544,6 @@ module EasyML
 
     def new_model_file!
       build_model_file(
-        root_dir: root_dir,
         model: self,
         s3_bucket: EasyML::Configuration.s3_bucket,
         s3_region: EasyML::Configuration.s3_region,

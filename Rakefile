@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "sprockets/railtie"
 require "bundler/gem_tasks"
 require "rspec/core/rake_task"
 
@@ -20,16 +19,19 @@ require_relative "lib/easy_ml"
 # Load the annotate tasks
 require "annotate/annotate_models"
 
+require "combustion"
+Combustion.path = "spec/internal"
+Combustion::Application.configure_for_combustion
 task :environment do
-  require "combustion"
-  require "sprockets"
-  Combustion.path = "spec/internal"
-  Combustion.initialize! :active_record do |config|
-    config.assets = ActiveSupport::OrderedOptions.new # Stub to avoid errors
-    config.assets.enabled = false # Set false since assets are handled by Vite
-  end
-  EasyML::Engine.eager_load!
+  Combustion::Application.initialize!
+
+  # Reset migrations paths so we can keep the migrations in the project root,
+  # not the Rails root
+  migrations_paths = ["spec/internal/db/migrate"]
+  ActiveRecord::Tasks::DatabaseTasks.migrations_paths = migrations_paths
+  ActiveRecord::Migrator.migrations_paths = migrations_paths
 end
+Combustion::Application.load_tasks
 
 namespace :easy_ml do
   task annotate_models: :environment do

@@ -16,6 +16,5 @@ class LastAppTime
   feature name: "Last Application Time",
           description: "Time since the company's last loan application",
           primary_key: "LOAN_APP_ID",
-          batch_size: 10,
-          needs_columns: ["LOAN_APP_ID", "CREATED_AT", "COMPANY_ID"]
+          batch_size: 10
 end

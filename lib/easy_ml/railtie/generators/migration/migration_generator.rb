@@ -15,6 +15,32 @@ module EasyML
           # Define the migration name
           desc "Generates migrations for EasyMLModel"
 
+          # Define the order of migrations
+          MIGRATION_ORDER = %w[
+            create_easy_ml_datasources
+            create_easy_ml_datasets
+            create_easy_ml_columns
+            create_easy_ml_models
+            create_easy_ml_model_files
+            create_easy_ml_tuner_jobs
+            create_easy_ml_retraining_jobs
+            create_easy_ml_settings
+            create_easy_ml_events
+            create_easy_ml_features
+            create_easy_ml_splitters
+            create_easy_ml_splitter_histories
+            create_easy_ml_deploys
+            create_easy_ml_datasource_histories
+            create_easy_ml_dataset_histories
+            create_easy_ml_column_histories
+            create_easy_ml_model_histories
+            create_easy_ml_model_file_histories
+            create_easy_ml_feature_histories
+            create_easy_ml_predictions
+            create_easy_ml_event_contexts
+            add_workflow_status_to_easy_ml_features
+          ].freeze
+
           # Specify the next migration number
           def self.next_migration_number(dirname)
             sleep(1)
@@ -29,169 +55,24 @@ module EasyML
 
           # Generate the migration files using the templates
           def create_migration_files
-            create_easy_ml_datasource_migration
-            create_easy_ml_datasets_migration
-            create_easy_ml_columns_migration
-            create_easy_ml_models_migration
-            create_easy_ml_model_files_migration
-            create_easy_ml_tuner_jobs_migration
-            create_easy_ml_retraining_jobs_migration
-            create_easy_ml_settings_migration
-            create_easy_ml_events_migration
-            create_easy_ml_features_migration
-            create_easy_ml_splitters_migration
-            create_easy_ml_splitter_histories_migration
-            create_easy_ml_deploys
+            # Check for existing migrations first
+            existing_migrations = Dir.glob(Rails.root.join("db/migrate/*_*.rb")).map do |f|
+              File.basename(f).sub(/^\d+_/, "").sub(/\.rb$/, "")
+            end
 
-            create_easy_ml_datasource_histories_migration
-            create_easy_ml_dataset_histories_migration
-            create_easy_ml_column_histories_migration
-            create_easy_ml_model_histories_migration
-            create_easy_ml_model_file_histories_migration
-            create_easy_ml_feature_histories_migration
-            create_easy_ml_predictions_migration
+            # Create migrations in order if they don't exist
+            MIGRATION_ORDER.each do |migration_name|
+              next if existing_migrations.include?(migration_name)
+              install_migration(migration_name)
+            end
           end
 
           private
 
-          # Generate the migration file for EasyMLModel using the template
-          def create_easy_ml_models_migration
+          def install_migration(migration_name)
             migration_template(
-              "create_easy_ml_models.rb.tt",
-              "db/migrate/create_easy_ml_models.rb"
-            )
-          end
-
-          def create_easy_ml_model_files_migration
-            migration_template(
-              "create_easy_ml_model_files.rb.tt",
-              "db/migrate/create_easy_ml_model_files.rb"
-            )
-          end
-
-          def create_easy_ml_datasource_migration
-            migration_template(
-              "create_easy_ml_datasources.rb.tt",
-              "db/migrate/create_easy_ml_datasources.rb"
-            )
-          end
-
-          def create_easy_ml_datasets_migration
-            migration_template(
-              "create_easy_ml_datasets.rb.tt",
-              "db/migrate/create_easy_ml_datasets.rb"
-            )
-          end
-
-          def create_easy_ml_tuner_jobs_migration
-            migration_template(
-              "create_easy_ml_tuner_jobs.rb.tt",
-              "db/migrate/create_easy_ml_tuner_jobs.rb"
-            )
-          end
-
-          def create_easy_ml_retraining_jobs_migration
-            migration_template(
-              "create_easy_ml_retraining_jobs.rb.tt",
-              "db/migrate/create_easy_ml_retraining_jobs.rb"
-            )
-          end
-
-          def create_easy_ml_settings_migration
-            migration_template(
-              "create_easy_ml_settings.rb.tt",
-              "db/migrate/create_easy_ml_settings.rb"
-            )
-          end
-
-          def create_easy_ml_events_migration
-            migration_template(
-              "create_easy_ml_events.rb.tt",
-              "db/migrate/create_easy_ml_events.rb"
-            )
-          end
-
-          def create_easy_ml_columns_migration
-            migration_template(
-              "create_easy_ml_columns.rb.tt",
-              "db/migrate/create_easy_ml_columns.rb"
-            )
-          end
-
-          def create_easy_ml_features_migration
-            migration_template(
-              "create_easy_ml_features.rb.tt",
-              "db/migrate/create_easy_ml_features.rb"
-            )
-          end
-
-          def create_easy_ml_splitters_migration
-            migration_template(
-              "create_easy_ml_splitters.rb.tt",
-              "db/migrate/create_easy_ml_splitters.rb"
-            )
-          end
-
-          def create_easy_ml_splitter_histories_migration
-            migration_template(
-              "create_easy_ml_splitter_histories.rb.tt",
-              "db/migrate/create_easy_ml_splitter_histories.rb"
-            )
-          end
-
-          def create_easy_ml_datasource_histories_migration
-            migration_template(
-              "create_easy_ml_datasource_histories.rb.tt",
-              "db/migrate/create_easy_ml_datasource_histories.rb"
-            )
-          end
-
-          def create_easy_ml_dataset_histories_migration
-            migration_template(
-              "create_easy_ml_dataset_histories.rb.tt",
-              "db/migrate/create_easy_ml_dataset_histories.rb"
-            )
-          end
-
-          def create_easy_ml_column_histories_migration
-            migration_template(
-              "create_easy_ml_column_histories.rb.tt",
-              "db/migrate/create_easy_ml_column_histories.rb"
-            )
-          end
-
-          def create_easy_ml_model_histories_migration
-            migration_template(
-              "create_easy_ml_model_histories.rb.tt",
-              "db/migrate/create_easy_ml_model_histories.rb"
-            )
-          end
-
-          def create_easy_ml_feature_histories_migration
-            migration_template(
-              "create_easy_ml_feature_histories.rb.tt",
-              "db/migrate/create_easy_ml_feature_histories.rb"
-            )
-          end
-
-          def create_easy_ml_model_file_histories_migration
-            migration_template(
-              "create_easy_ml_model_file_histories.rb.tt",
-              "db/migrate/create_easy_ml_model_file_histories.rb"
-            )
-          end
-
-          def create_easy_ml_deploys
-            migration_template(
-              "create_easy_ml_deploys.rb.tt",
-              "db/migrate/create_easy_ml_deploys.rb"
-            )
-          end
-
-          def create_easy_ml_predictions_migration
-            migration_template(
-              "create_easy_ml_predictions.rb.tt",
-              "db/migrate/create_easy_ml_predictions.rb"
+              "#{migration_name}.rb.tt",
+              "db/migrate/#{migration_name}.rb"
             )
           end
 

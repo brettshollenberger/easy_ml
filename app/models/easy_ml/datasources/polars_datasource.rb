@@ -1,6 +1,8 @@
 module EasyML
   module Datasources
     class PolarsDatasource < BaseDatasource
+      include EasyML::DataframeSerialization
+
       validates :df, presence: true
       add_configuration_attributes :df
 
@@ -58,7 +60,7 @@ module EasyML
         return unless df
 
         datasource.configuration = (datasource.configuration || {}).merge(
-          "df" => JSON.parse(df.write_json),
+          "df" => serialize_dataframe(df),
         )
       end
 
@@ -66,23 +68,7 @@ module EasyML
         return unless datasource.configuration&.key?("df")
 
         df_data = datasource.configuration["df"]
-        return unless df_data.present? && df_data.key?("columns")
-
-        columns = df_data["columns"].map do |col|
-          dtype = case col["datatype"]
-            when Hash
-              if col["datatype"]["Datetime"]
-                Polars::Datetime.new(col["datatype"]["Datetime"][0].downcase.to_sym).class
-              else
-                Polars::Utf8
-              end
-            else
-              Polars.const_get(col["datatype"])
-            end
-          Polars::Series.new(col["name"], col["values"], dtype: dtype)
-        end
-
-        datasource.df = Polars::DataFrame.new(columns)
+        datasource.df = deserialize_dataframe(df_data)
       end
     end
   end

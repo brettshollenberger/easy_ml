@@ -1,5 +1,6 @@
 require "aws-sdk"
 require "awesome_print"
+require "rails/all"
 require "inertia_rails"
 require "jsonapi/serializer"
 require "numo/narray"
@@ -64,6 +65,16 @@ module EasyML
         end
         Dir.glob(File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)).each do |file|
           require file
+        end
+      end
+    end
+
+    initializer "easy_ml.check_pending_migrations" do
+      if defined?(Rails::Server)
+        config.after_initialize do
+          if EasyML.pending_migrations?
+            puts "\e[33mWARNING: You have pending EasyML migrations. Run 'rails generate easy_ml:migration' to add them.\e[0m"
+          end
         end
       end
     end

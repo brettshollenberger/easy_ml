@@ -1,9 +1,11 @@
 class CreateEasyMLSettings < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
   def change
-    create_table :easy_ml_settings do |t|
-      t.json :configuration
+    unless table_exists?(:easy_ml_settings)
+      create_table :easy_ml_settings do |t|
+        t.json :configuration
 
-      t.timestamps
+        t.timestamps
+      end
     end
   end
-end 
+end

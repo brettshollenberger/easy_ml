@@ -23,9 +23,7 @@ module EasyML
         model: current_version.model,
         model_history: current_version,
         prediction_type: current_version.model.task,
-        prediction_value: {
-          value: preds.first,
-        }.compact,
+        prediction_value: preds.first,
         raw_input: raw_input,
         normalized_input: df.to_hashes&.first,
       )

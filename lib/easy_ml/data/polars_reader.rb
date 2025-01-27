@@ -196,14 +196,21 @@ module EasyML
           polars_args[:dtypes].merge!(dtypes)
         end
         ext = Pathname.new(file).extname.gsub(/\./, "")
+        date_cols = []
         case ext
         when "csv"
-          filtered_args = filter_polars_args(Polars.method(:read_csv))
-          filtered_args.merge!(infer_schema_length: 1_000_000, null_values: ["\\N", "\\\\N", "NULL"])
+          filtered_args, date_cols = filter_polars_args(Polars.method(:read_csv))
+          filtered_args.merge!(
+            infer_schema_length: 1_000_000,
+            null_values: ["\\N", "\\\\N", "NULL"],
+          )
           df = Polars.read_csv(file, **filtered_args)
         when "parquet"
-          filtered_args = filter_polars_args(Polars.method(:read_parquet))
+          filtered_args, date_cols = filter_polars_args(Polars.method(:read_parquet))
           df = Polars.read_parquet(file, **filtered_args)
+        end
+        date_cols.each do |col|
+          df = EasyML::Data::DateConverter.maybe_convert_date(df, col)
         end
         df
       end
@@ -214,7 +221,13 @@ module EasyML
 
       def filter_polars_args(method)
         supported_params = method.parameters.map { |_, name| name }
-        polars_args.select { |k, _| supported_params.include?(k) }
+        filtered = polars_args.select { |k, _| supported_params.include?(k) }
+
+        # Filter out any datetime columns, and use maybe_convert_date to convert later
+        date_cols = (filtered[:dtypes] || {}).select { |k, v| v.class == Polars::Datetime }.keys
+        filtered[:dtypes] = (filtered[:dtypes] || {}).reject { |k, v| v.class == Polars::Datetime }
+        filtered = filtered.select { |k, _| supported_params.include?(k) }
+        return filtered, date_cols
       end
 
       def csv_files

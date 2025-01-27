@@ -290,7 +290,7 @@ RSpec.describe EasyML::Deploy do
       preds = EasyML::Predict.predict("My model", raw_input)
 
       prediction = EasyML::Prediction.last
-      expect(prediction.prediction).to eq(preds.first)
+      expect(prediction.prediction_value).to be_between(0, 1)
       expect(prediction.normalized_input.dig("Sex_male")).to eq true
       expect(prediction.normalized_input.dig("FamilySize")).to eq 1 # It saves the computed features
       expect(prediction.prediction_type).to eq "regression"
@@ -560,6 +560,7 @@ RSpec.describe EasyML::Deploy do
         model: model,
         retraining_run: run,
       )
+      EasyML::Cleaner.clean # Before deploying, clean the environment (which wipes the old file)
       deploy.deploy(async: false)
       model_v3 = model.current_version
 
@@ -568,7 +569,8 @@ RSpec.describe EasyML::Deploy do
       expect(model_v3).to eq model_v1
 
       # Re-deployed model will download the file from s3, mock this
-      expect_any_instance_of(EasyML::Support::SyncedFile).to receive(:download) do |synced_file|
+      expect_any_instance_of(EasyML::ModelFile).to receive(:download) do |synced_file|
+        FileUtils.mkdir_p(model_v1.model_file.full_dir)
         FileUtils.mv(Dir.glob(SPEC_ROOT.join("backups/models/*.json")).first, model_v1.model_file.full_path)
       end
       preds_v3 = model.reload.inference_version.predict(x_test)

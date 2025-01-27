@@ -24,4 +24,5 @@ module EasyML
   require_relative "easy_ml/feature_store"
   require_relative "easy_ml/core"
   require_relative "easy_ml/predict"
+  require_relative "easy_ml/pending_migrations"
 end

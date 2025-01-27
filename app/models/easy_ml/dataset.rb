@@ -102,13 +102,9 @@ module EasyML
     end
 
     def root_dir
-      persisted = read_attribute(:root_dir)
+      relative_dir = read_attribute(:root_dir) || default_root_dir
 
-      if persisted.present? && !persisted.blank?
-        EasyML::Engine.root_dir.join(persisted).to_s
-      else
-        default_root_dir
-      end
+      EasyML::Engine.root_dir.join(relative_dir).to_s
     end
 
     def destructively_cleanup!
@@ -219,8 +215,11 @@ module EasyML
     end
 
     def after_fit_features
-      features.update_all(needs_fit: false, fit_at: Time.current)
       unlock!
+      reload
+      return if failed?
+
+      features.update_all(needs_fit: false, fit_at: Time.current)
       actually_refresh
     end
 
@@ -281,22 +280,24 @@ module EasyML
     end
 
     def refreshing
-      return false if is_history_class?
-      unlock! unless analyzing?
+      begin
+        return false if is_history_class?
+        unlock! unless analyzing?
 
-      lock_dataset do
-        update(workflow_status: "analyzing")
-        fully_reload
-        yield
-      ensure
-        unlock!
+        lock_dataset do
+          update(workflow_status: "analyzing")
+          fully_reload
+          yield
+        ensure
+          unlock!
+        end
+      rescue => e
+        update(workflow_status: "failed")
+        e.backtrace.grep(/easy_ml/).each do |line|
+          puts line
+        end
+        raise e
       end
-    rescue => e
-      update(workflow_status: "failed")
-      e.backtrace.grep(/easy_ml/).each do |line|
-        puts line
-      end
-      raise e
     end
 
     def unlock!

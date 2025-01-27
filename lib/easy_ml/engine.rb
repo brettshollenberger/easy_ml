@@ -68,6 +68,16 @@ module EasyML
       end
     end
 
+    initializer "easy_ml.check_pending_migrations" do
+      if defined?(Rails::Server)
+        config.after_initialize do
+          if EasyML.pending_migrations?
+            puts "\e[33mWARNING: You have pending EasyML migrations. Run 'rails generate easy_ml:migration' to add them.\e[0m"
+          end
+        end
+      end
+    end
+
     initializer "easy_ml.active_job_config" do
       resque_initializer = File.expand_path("config/initializers/resque.rb", root)
       require resque_initializer if File.exist?(resque_initializer)

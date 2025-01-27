@@ -55,13 +55,24 @@ RSpec.describe "EasyML::Feature Computation" do
       expect(dataset.workflow_status).to eq("failed")
       expect(dataset.events.last.event_type).to eq("error")
       expect(dataset.events.last.message).to include("Intentional failure in feature computation")
+
+      # Verify final states
+      expect(dataset.reload.workflow_status).to eq("error")
+      expect(failing_feature.reload.workflow_status).to eq("error")
+      expect(family_size_feature.reload.workflow_status).to eq("ready")
+
+      # Verify error was saved in EventContext
+      error_event = dataset.event_contexts.last
+      expect(error_event.event_type).to eq("error")
+      expect(error_event.message).to eq("Intentional failure in feature computation")
+      expect(error_event.workflow_status).to eq("error")
     end
   end
 
   describe "feature computation ordering" do
     let(:dataset) { titanic_dataset }
 
-    it "computes features in the correct order based on feature_position", :focus do
+    it "computes features in the correct order based on feature_position" do
       # Create family size plus one feature first but with higher position
       family_size_plus_one_feature = dataset.features.create!(
         name: "FamilySizePlusOne",

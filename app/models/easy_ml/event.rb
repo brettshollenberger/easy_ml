@@ -52,8 +52,8 @@ module EasyML
           error = e
         end
       end
-      create_event(model, "failed", error)
       Rails.logger.error("#{self.class.name} failed: #{error.message}")
+      create_event(model, "failed", error)
     end
 
     def self.format_stacktrace(error)

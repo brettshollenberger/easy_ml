@@ -25,6 +25,7 @@ module EasyML
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
+    attribute :workflow_status, :string
     enum workflow_status: {
       analyzing: "analyzing",
       ready: "ready",

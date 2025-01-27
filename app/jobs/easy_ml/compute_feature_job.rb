@@ -1,5 +1,7 @@
 module EasyML
   class ComputeFeatureJob < BatchJob
+    extend EasyML::DataframeSerialization
+
     @queue = :easy_ml
 
     def self.perform(batch_id, options = {})
@@ -19,21 +21,18 @@ module EasyML
         feature.fit_batch(options.merge!(batch_id: batch_id))
       rescue StandardError => e
         puts "Error computing feature: #{e.message}"
-        feature.update(workflow_status: :error)
-        dataset.update(workflow_status: :error)
-        handle_error(dataset, e)
-        raise e if Rails.env.test?
+        feature.update(workflow_status: :failed)
+        dataset.update(workflow_status: :failed)
+        build_error_with_context(dataset, e, batch_id, feature)
       end
     end
 
-    def self.handle_error(dataset, error)
-      EasyML::EventContext.create!(
-        dataset: dataset,
-        event_type: "error",
-        message: error.message,
-        backtrace: error.backtrace,
-        workflow_status: "error",
-      )
+    def self.build_error_with_context(dataset, error, batch_id, feature)
+      error = EasyML::Event.handle_error(dataset, error)
+      batch = feature.build_batch(batch_id: batch_id)
+
+      # Convert any dataframes in the context to serialized form
+      error.create_context(context: batch)
     end
 
     def self.after_batch_hook(batch_id, *args)

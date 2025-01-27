@@ -23,7 +23,7 @@ RSpec.describe "EasyML::Feature Computation" do
   describe "feature computation with failures" do
     let(:dataset) { titanic_dataset }
 
-    it "aborts all unrun jobs when any feature computation fails", :focus do
+    it "aborts all unrun jobs when any feature computation fails" do
       # Create failing feature first (position 1)
       failing_feature = dataset.features.create!(
         name: "failing_feature",
@@ -60,14 +60,12 @@ RSpec.describe "EasyML::Feature Computation" do
       # Verify final states
       expect(dataset.reload.workflow_status).to eq("failed")
       expect(failing_feature.reload.workflow_status).to eq("failed")
-      binding.pry
       expect(family_size_feature.reload.workflow_status).to eq("ready")
 
       # Verify error was saved in EventContext
-      error_event = dataset.event_contexts.last
-      expect(error_event.event_type).to eq("failed")
-      expect(error_event.message).to eq("Intentional failure in feature computation")
-      expect(error_event.workflow_status).to eq("failed")
+      error_event = dataset.events.last
+      expect(error_event.status).to eq("failed")
+      expect(error_event.context.context).to be_a(Polars::DataFrame)
     end
   end
 

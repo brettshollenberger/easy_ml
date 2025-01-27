@@ -19,30 +19,39 @@ module EasyML
     validates :context, presence: true
     validates :event, presence: true
 
-    before_save :serialize_context
-    after_find :deserialize_context
+    def context=(new_context)
+      write_attribute(:context, serialize_context(new_context))
+      @context = new_context
+    end
+
+    def context
+      @context ||= deserialize_context(read_attribute(:context))
+    end
 
     private
 
-    def serialize_context
-      case format
-      when :json
-        self.context = context.to_json
-      when :yaml
-        self.context = context.to_yaml
-      when :dataframe
-        self.context = serialize_dataframe(context)
+    def serialize_context(new_context)
+      case new_context
+      when Hash
+        self.format = :json
+        new_context.to_json
+      when YAML
+        self.format = :yaml
+        new_context.to_yaml
+      when Polars::DataFrame
+        self.format = :dataframe
+        serialize_dataframe(new_context)
       end
     end
 
-    def deserialize_context
-      case format
+    def deserialize_context(context)
+      case format.to_sym
       when :json
-        self.context = JSON.parse(context)
+        JSON.parse(context)
       when :yaml
-        self.context = YAML.safe_load(context)
+        YAML.safe_load(context)
       when :dataframe
-        self.context = deserialize_dataframe(context)
+        deserialize_dataframe(context)
       end
     end
   end

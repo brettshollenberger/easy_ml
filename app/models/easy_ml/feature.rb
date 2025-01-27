@@ -280,7 +280,6 @@ module EasyML
       else
         "Feature #{feature_class}#fit should return a dataframe, received #{batch_df.class}"
       end
-      binding.pry
       batch_df
     end
 

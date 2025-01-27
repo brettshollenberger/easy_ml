@@ -12,7 +12,7 @@ module EasyML
       dataset = feature.dataset
 
       # Check if any feature has failed before proceeding
-      if dataset.features.any? { |f| f.workflow_status == "faied" }
+      if dataset.features.any? { |f| f.workflow_status == "failed" }
         puts "Aborting feature computation due to previous feature failure"
         return
       end
@@ -21,9 +21,14 @@ module EasyML
         feature.fit_batch(options.merge!(batch_id: batch_id))
       rescue StandardError => e
         puts "Error computing feature: #{e.message}"
-        feature.update(workflow_status: :failed)
-        dataset.update(workflow_status: :failed)
-        build_error_with_context(dataset, e, batch_id, feature)
+        EasyML::Feature.transaction do
+          return if dataset.reload.workflow_status == :failed
+
+          puts "Logging error"
+          feature.update(workflow_status: :failed)
+          dataset.update(workflow_status: :failed)
+          build_error_with_context(dataset, e, batch_id, feature)
+        end
       end
     end
 

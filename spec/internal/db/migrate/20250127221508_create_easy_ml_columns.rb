@@ -1,4 +1,4 @@
-class CreateEasyMLColumns < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLColumns < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_columns)
       create_table :easy_ml_columns do |t|

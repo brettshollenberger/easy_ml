@@ -1,6 +1,6 @@
 require "historiographer/postgres_migration"
 
-class CreateEasyMLModelHistories < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLModelHistories < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_model_histories)
       create_table :easy_ml_model_histories do |t|

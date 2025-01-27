@@ -1,4 +1,4 @@
-class CreateEasyMLDatasets < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLDatasets < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_datasets)
       create_table :easy_ml_datasets do |t|

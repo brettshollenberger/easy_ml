@@ -1,4 +1,4 @@
-class CreateEasyMLTunerJobs < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLTunerJobs < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_tuner_jobs)
       create_table :easy_ml_tuner_jobs do |t|

@@ -1,4 +1,4 @@
-class CreateEasyMLSplitters < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLSplitters < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_splitters)
       create_table :easy_ml_splitters do |t|

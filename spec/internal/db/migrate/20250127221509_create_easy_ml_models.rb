@@ -1,5 +1,5 @@
 # lib/railtie/generators/templates/migration/create_easy_ml_models.rb.tt
-class CreateEasyMLModels < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLModels < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_models)
       create_table :easy_ml_models do |t|

@@ -1,4 +1,4 @@
-class CreateEasyMLPredictions < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLPredictions < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_predictions)
       create_table :easy_ml_predictions do |t|

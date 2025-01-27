@@ -1,4 +1,4 @@
-class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_retraining_jobs)
       create_table :easy_ml_retraining_jobs do |t|

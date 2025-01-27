@@ -1,4 +1,4 @@
-class AddWorkflowStatusToEasyMLFeatures < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class AddWorkflowStatusToEasyMLFeatures < ActiveRecord::Migration[7.2]
   def change
     unless column_exists?(:easy_ml_features, :workflow_status)
       add_column :easy_ml_features, :workflow_status, :string

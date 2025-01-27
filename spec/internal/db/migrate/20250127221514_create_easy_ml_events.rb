@@ -1,4 +1,4 @@
-class CreateEasyMLEvents < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLEvents < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_events)
       create_table :easy_ml_events do |t|

@@ -15,7 +15,8 @@ RSpec.describe "EasyML::Feature Computation" do
   def process_all_jobs
     while Resque.peek(:easy_ml).any?
       job = Resque.reserve(:easy_ml)
-      job.perform
+      worker = Resque::Worker.new(:easy_ml)
+      worker.perform(job)
     end
   end
 
@@ -53,19 +54,20 @@ RSpec.describe "EasyML::Feature Computation" do
       # Verify the results
       dataset.reload
       expect(dataset.workflow_status).to eq("failed")
-      expect(dataset.events.last.event_type).to eq("error")
-      expect(dataset.events.last.message).to include("Intentional failure in feature computation")
+      expect(dataset.events.last.status).to eq("failed")
+      expect(dataset.events.last.stacktrace).to include("Intentional failure in feature computation")
 
       # Verify final states
-      expect(dataset.reload.workflow_status).to eq("error")
-      expect(failing_feature.reload.workflow_status).to eq("error")
+      expect(dataset.reload.workflow_status).to eq("failed")
+      expect(failing_feature.reload.workflow_status).to eq("failed")
+      binding.pry
       expect(family_size_feature.reload.workflow_status).to eq("ready")
 
       # Verify error was saved in EventContext
       error_event = dataset.event_contexts.last
-      expect(error_event.event_type).to eq("error")
+      expect(error_event.event_type).to eq("failed")
       expect(error_event.message).to eq("Intentional failure in feature computation")
-      expect(error_event.workflow_status).to eq("error")
+      expect(error_event.workflow_status).to eq("failed")
     end
   end
 

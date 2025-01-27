@@ -25,13 +25,11 @@ module EasyML
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
-    attribute :workflow_status, :string
     enum workflow_status: {
       analyzing: "analyzing",
       ready: "ready",
       failed: "failed",
     }
-
     class << self
       def compute_sha(feature_class)
         require "digest"
@@ -345,6 +343,7 @@ module EasyML
     def apply_defaults
       self.name ||= self.feature_class.demodulize.titleize
       self.version ||= 1
+      self.workflow_status ||= :ready
     end
 
     def needs_columns

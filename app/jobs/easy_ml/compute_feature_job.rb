@@ -12,7 +12,7 @@ module EasyML
       dataset = feature.dataset
 
       # Check if any feature has failed before proceeding
-      if dataset.features.any? { |f| f.workflow_status == "error" }
+      if dataset.features.any? { |f| f.workflow_status == "faied" }
         puts "Aborting feature computation due to previous feature failure"
         return
       end
@@ -43,6 +43,22 @@ module EasyML
     end
 
     def self.feature_fully_processed?(feature)
+    end
+
+    private
+
+    def self.remove_remaining_batch_jobs(batch_id)
+      # Remove all remaining jobs in the batch
+      while (jobs = Resque.peek(:easy_ml, 0, 1000)).any?
+        jobs.each do |job|
+          if job["args"][0] == batch_id
+            Resque.dequeue(self, *job["args"])
+          end
+        end
+
+        # Break if we've processed all jobs (no more jobs match our batch_id)
+        break unless jobs.any? { |job| job["args"][0] == batch_id }
+      end
     end
   end
 end

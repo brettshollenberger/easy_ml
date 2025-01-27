@@ -29,10 +29,7 @@ RSpec.configure do |config|
   def require_rails_files
     require "combustion"
 
-    Combustion.initialize! :active_record do |config|
-      config.assets = ActiveSupport::OrderedOptions.new
-      config.assets.enabled = false
-    end
+    Combustion.initialize!
     require "rspec/rails"
 
     # Convert Rails.root to Pathname to ensure consistent path handling

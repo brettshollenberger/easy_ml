@@ -1,4 +1,4 @@
-class CreateEasyMLModelFiles < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+class CreateEasyMLModelFiles < ActiveRecord::Migration[7.2]
   def change
     unless table_exists?(:easy_ml_model_files)
       create_table :easy_ml_model_files do |t|

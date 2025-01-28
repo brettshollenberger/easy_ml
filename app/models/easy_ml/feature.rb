@@ -204,6 +204,7 @@ module EasyML
           batch_end: batch_end,
           batch_number: feature_position,
           subbatch_number: idx,
+          parent_batch_id: Random.uuid,
         }
       end
     end
@@ -277,7 +278,7 @@ module EasyML
     def actually_fit_batch(batch_args = {})
       return false unless adapter.respond_to?(:fit)
 
-      if adapter.respond_to?(:fit)
+      if adapter.respond_to?(:batch)
         batch_args.symbolize_keys!
 
         if adapter.respond_to?(:batch)

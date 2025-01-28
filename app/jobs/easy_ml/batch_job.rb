@@ -12,7 +12,14 @@ module EasyML
       # E.g. EasyML::ComputeFeatureBatchJob.enqueue_batch(features.map(&:id))
       #
       def enqueue_batch(args_list, batch_id = default_batch_id)
-        args_list = args_list.map { |arg| arg.is_a?(Array) ? arg : [arg] }
+        args_list = args_list.map do |arg|
+          arg = arg.is_a?(Array) ? arg : [arg]
+          arg.map do |arg|
+            arg.merge!(
+              batch_id: batch_id,
+            )
+          end
+        end
         store_batch_arguments(batch_id, args_list)
 
         args_list.each do |args|
@@ -22,7 +29,21 @@ module EasyML
         batch_id
       end
 
+      def enqueue_ordered_batches(args_list)
+        parent_id = get_parent_batch_id(args_list)
+        store_batch_arguments(parent_id, args_list)
+
+        batch = args_list.first
+        rest = args_list[1..]
+
+        enqueue_batch(batch)
+      end
+
       private
+
+      def get_parent_batch_id(args_list)
+        args_list.dup.flatten.first.dig(:parent_batch_id)
+      end
 
       # Store batch arguments in Redis
       def store_batch_arguments(batch_id, args_list)

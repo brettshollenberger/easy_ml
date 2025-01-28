@@ -14,9 +14,14 @@ RSpec.describe "EasyML::Feature Computation" do
 
   def process_all_jobs
     while Resque.peek(:easy_ml).any?
-      job = Resque.reserve(:easy_ml)
       worker = Resque::Worker.new(:easy_ml)
-      worker.perform(job)
+      worker.register_worker
+
+      while job = worker.reserve
+        worker.process(job)
+      end
+
+      worker.unregister_worker
     end
   end
 

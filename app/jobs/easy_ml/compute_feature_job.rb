@@ -17,13 +17,12 @@ module EasyML
       end
 
       begin
+        feature.update(workflow_status: :analyzing) if feature.workflow_status == :ready
         feature.fit_batch(options.merge!(batch_id: batch_id))
       rescue => e
-        puts "Error computing feature: #{e.message}"
         EasyML::Feature.transaction do
           return if dataset.reload.workflow_status == :failed
 
-          puts "Logging error"
           feature.update(workflow_status: :failed)
           dataset.update(workflow_status: :failed)
           build_error_with_context(dataset, e, batch_id, feature)
@@ -46,6 +45,12 @@ module EasyML
       parent_id = batch_args.pluck(:parent_batch_id).first
 
       feature = EasyML::Feature.find_by(id: feature_ids.first)
+
+      if feature.failed?
+        dataset.features.where(workflow_status: :analyzing).update_all(workflow_status: :ready)
+        return BatchJob.cleanup_batch(parent_id)
+      end
+
       feature.update(workflow_status: :ready, fit_at: Time.current)
 
       if BatchJob.next_batch?(parent_id)

@@ -58,6 +58,10 @@ module EasyML
         Resque.redis.llen("batch:#{parent_id}:remaining")
       end
 
+      def cleanup_batch(parent_id)
+        Resque.redis.del("batch:#{parent_id}:remaining")
+      end
+
       private
 
       def get_parent_batch_id(args_list)

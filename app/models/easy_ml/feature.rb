@@ -214,8 +214,6 @@ module EasyML
     end
 
     def fit(features: [self], async: false)
-      # Sort features by position to ensure they're processed in order
-      features.update_all(workflow_status: :analyzing)
       ordered_features = features.sort_by(&:feature_position)
       jobs = ordered_features.map(&:build_batches)
 

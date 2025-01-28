@@ -166,7 +166,7 @@ RSpec.describe "EasyML::Feature Computation" do
   describe "batch completion ordering" do
     let(:dataset) { titanic_dataset }
 
-    it "completes all batches of a feature before starting the next feature", :focus do
+    it "completes all batches of a feature before starting the next feature" do
       # Create family size plus one feature first but with higher position
       family_size_plus_one_feature = dataset.features.create!(
         name: "FamilySizePlusOne",

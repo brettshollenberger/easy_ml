@@ -5,7 +5,12 @@ module EasyML
     include JSONAPI::Serializer
 
     attribute :prediction do |object|
-      object.prediction_value.symbolize_keys.dig(:value)
+      case object.prediction_value
+      when Hash
+        object.prediction_value.symbolize_keys.dig(:value)
+      when Numeric
+        object.prediction_value
+      end
     end
 
     attributes :id,

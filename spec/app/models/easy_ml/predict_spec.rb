@@ -26,8 +26,8 @@ RSpec.describe EasyML::Predict do
       df, = model.dataset.test(split_ys: true)
       model_preds = model.predict(df)
 
-      orch_preds = described_class.predict(model.name, df)
-      expect(orch_preds).to eq model_preds
+      live_preds = described_class.predict(model.name, df)
+      expect(live_preds.map(&:prediction_value)).to eq model_preds
       expect(model_preds.length).to eq(df.length)
     end
 

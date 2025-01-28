@@ -42,7 +42,7 @@ RSpec.describe EasyML::TunerJob, type: :model do
         EasyML::TunerJob.create!(
           model: model,
           direction: "minimize",
-          config: { "param1" => "value1" }
+          config: { "param1" => "value1" },
         )
       end
 
@@ -51,19 +51,19 @@ RSpec.describe EasyML::TunerJob, type: :model do
           tuner_job: tuner_job,
           value: 0.5,
           hyperparameters: { "param1" => "value1" },
-          trial_number: 1
+          trial_number: 1,
         )
         run2 = EasyML::TunerRun.create!(
           tuner_job: tuner_job,
           value: 0.3,
           hyperparameters: { "param1" => "value1" },
-          trial_number: 2
+          trial_number: 2,
         )
         EasyML::TunerRun.create!(
           tuner_job: tuner_job,
           value: 0.7,
           hyperparameters: { "param1" => "value1" },
-          trial_number: 3
+          trial_number: 3,
         )
 
         expect(tuner_job.best_run).to eq(run2)
@@ -75,7 +75,7 @@ RSpec.describe EasyML::TunerJob, type: :model do
         EasyML::TunerJob.create!(
           model: model,
           direction: "maximize",
-          config: { "param1" => "value1" }
+          config: { "param1" => "value1" },
         )
       end
 
@@ -84,19 +84,19 @@ RSpec.describe EasyML::TunerJob, type: :model do
           tuner_job: tuner_job,
           value: 0.5,
           hyperparameters: { "param1" => "value1" },
-          trial_number: 1
+          trial_number: 1,
         )
         EasyML::TunerRun.create!(
           tuner_job: tuner_job,
           value: 0.3,
           hyperparameters: { "param1" => "value1" },
-          trial_number: 2
+          trial_number: 2,
         )
         run3 = EasyML::TunerRun.create!(
           tuner_job: tuner_job,
           value: 0.7,
           hyperparameters: { "param1" => "value1" },
-          trial_number: 3
+          trial_number: 3,
         )
 
         expect(tuner_job.best_run).to eq(run3)
@@ -108,7 +108,7 @@ RSpec.describe EasyML::TunerJob, type: :model do
         EasyML::TunerJob.create!(
           model: model,
           direction: "minimize",
-          config: { "param1" => "value1" }
+          config: { "param1" => "value1" },
         )
       end
 

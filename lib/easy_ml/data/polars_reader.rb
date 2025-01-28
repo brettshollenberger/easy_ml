@@ -225,7 +225,7 @@ module EasyML
 
         # Filter out any datetime columns, and use maybe_convert_date to convert later
         date_cols = (filtered[:dtypes] || {}).select { |k, v| v.class == Polars::Datetime }.keys
-        filtered[:dtypes] = (filtered[:dtypes] || {}).reject { |k, v| v.class == Polars::Datetime }
+        filtered[:dtypes] = (filtered[:dtypes] || {}).reject { |k, v| v.class == Polars::Datetime }.compact.to_h
         filtered = filtered.select { |k, _| supported_params.include?(k) }
         return filtered, date_cols
       end

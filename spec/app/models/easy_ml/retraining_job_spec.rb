@@ -124,7 +124,7 @@ RSpec.describe EasyML::RetrainingJob do
     let(:job) { described_class.create(valid_attributes) }
 
     it "has many retraining runs" do
-      run = EasyML::RetrainingRun.create!(retraining_job: job, status: "pending")
+      run = EasyML::RetrainingRun.create!(retraining_job: job, status: "pending", model: job.model)
       expect(job.retraining_runs).to include(run)
     end
   end

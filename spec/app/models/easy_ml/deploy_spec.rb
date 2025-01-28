@@ -570,7 +570,7 @@ RSpec.describe EasyML::Deploy do
 
       # Re-deployed model will download the file from s3, mock this
       expect_any_instance_of(EasyML::ModelFile).to receive(:download) do |synced_file|
-        FileUtils.mkdir_p(model_v1.model_file.full_dir)
+        FileUtils.mkdir_p(model_v1.model_file.root_dir)
         FileUtils.mv(Dir.glob(SPEC_ROOT.join("backups/models/*.json")).first, model_v1.model_file.full_path)
       end
       preds_v3 = model.reload.inference_version.predict(x_test)

@@ -32,6 +32,7 @@ class CreateEasyMLRetrainingJobs < ActiveRecord::Migration[<%= ActiveRecord::Mig
         t.index :auto_deploy
         t.index :tuning_enabled
       end
+    end
 
     unless table_exists?(:easy_ml_retraining_runs)
       create_table :easy_ml_retraining_runs do |t|

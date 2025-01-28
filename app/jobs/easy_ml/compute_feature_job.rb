@@ -5,7 +5,6 @@ module EasyML
     @queue = :easy_ml
 
     def self.perform(batch_id, options = {})
-      puts "processing batch_id #{batch_id}"
       options.symbolize_keys!
       feature_id = options.dig(:feature_id)
       feature = EasyML::Feature.find(feature_id)
@@ -18,13 +17,12 @@ module EasyML
       end
 
       begin
+        feature.update(workflow_status: :analyzing) if feature.workflow_status == :ready
         feature.fit_batch(options.merge!(batch_id: batch_id))
       rescue => e
-        puts "Error computing feature: #{e.message}"
         EasyML::Feature.transaction do
           return if dataset.reload.workflow_status == :failed
 
-          puts "Logging error"
           feature.update(workflow_status: :failed)
           dataset.update(workflow_status: :failed)
           build_error_with_context(dataset, e, batch_id, feature)
@@ -42,12 +40,25 @@ module EasyML
 
     def self.after_batch_hook(batch_id, *args)
       puts "After batch!"
-      feature_ids = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys).pluck(:feature_id).uniq
-      dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
-      dataset.after_fit_features
-    end
+      batch_args = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys)
+      feature_ids = batch_args.pluck(:feature_id).uniq
+      parent_id = batch_args.pluck(:parent_batch_id).first
 
-    def self.feature_fully_processed?(feature)
+      feature = EasyML::Feature.find_by(id: feature_ids.first)
+
+      if feature.failed?
+        dataset.features.where(workflow_status: :analyzing).update_all(workflow_status: :ready)
+        return BatchJob.cleanup_batch(parent_id)
+      end
+
+      feature.after_fit
+
+      if BatchJob.next_batch?(parent_id)
+        BatchJob.enqueue_next_batch(self, parent_id)
+      else
+        dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
+        dataset.after_fit_features
+      end
     end
 
     private

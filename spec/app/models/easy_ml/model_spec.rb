@@ -7,7 +7,7 @@ RSpec.describe EasyML::Models do
   let(:datasource) do
     EasyML::Datasource.create(
       name: "Single file",
-      datasource_type: "file"
+      datasource_type: "file",
     )
   end
 
@@ -26,8 +26,8 @@ RSpec.describe EasyML::Models do
         today: today,
         date_col: date_col,
         months_test: months_test,
-        months_valid: months_valid
-      }
+        months_valid: months_valid,
+      },
     }
   end
 
@@ -53,19 +53,19 @@ RSpec.describe EasyML::Models do
                                                                  method: :median,
                                                                  params: {
                                                                    clip: {
-                                                                     min: 0, max: 1_000_000
-                                                                   }
-                                                                 }
-                                                               }
+                                                                     min: 0, max: 1_000_000,
+                                                                   },
+                                                                 },
+                                                               },
                                                              })
       dataset.columns.find_by(name: "loan_purpose").update(preprocessing_steps: {
                                                              training: {
                                                                method: :categorical,
                                                                params: {
                                                                  categorical_min: 2,
-                                                                 one_hot: true
-                                                               }
-                                                             }
+                                                                 one_hot: true,
+                                                               },
+                                                             },
                                                            })
     end
   end
@@ -76,7 +76,7 @@ RSpec.describe EasyML::Models do
       max_depth: 8,
       n_estimators: 1,
       booster: "gbtree",
-      objective: "reg:squarederror"
+      objective: "reg:squarederror",
     }
   end
 
@@ -95,8 +95,8 @@ RSpec.describe EasyML::Models do
         learning_rate: learning_rate,
         max_depth: max_depth,
         objective: objective,
-        n_estimators: 1
-      }
+        n_estimators: 1,
+      },
     }
   end
 
@@ -111,17 +111,17 @@ RSpec.describe EasyML::Models do
                             "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
                             "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
                             "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01]
+                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01],
                           }).with_column(
-                            Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-                          )
+      Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
+    )
   end
 
   let(:polars_datasource) do
     EasyML::Datasource.create!(
       name: "Polars datasource",
       datasource_type: "polars",
-      df: df
+      df: df,
     )
   end
 
@@ -133,8 +133,8 @@ RSpec.describe EasyML::Models do
         today: today,
         date_col: "date",
         months_test: months_test,
-        months_valid: months_valid
-      }
+        months_valid: months_valid,
+      },
     )
     mock_s3_download(single_file_dir)
     mock_s3_upload
@@ -147,19 +147,19 @@ RSpec.describe EasyML::Models do
                                                                  method: :median,
                                                                  params: {
                                                                    clip: {
-                                                                     min: 0, max: 1_000_000
-                                                                   }
-                                                                 }
-                                                               }
+                                                                     min: 0, max: 1_000_000,
+                                                                   },
+                                                                 },
+                                                               },
                                                              })
       dataset.columns.find_by(name: "loan_purpose").update(preprocessing_steps: {
                                                              training: {
                                                                method: :categorical,
                                                                params: {
                                                                  categorical_min: 2,
-                                                                 one_hot: true
-                                                               }
-                                                             }
+                                                                 one_hot: true,
+                                                               },
+                                                             },
                                                            })
     end
   end
@@ -179,15 +179,15 @@ RSpec.describe EasyML::Models do
   def build_model(params)
     Timecop.freeze(incr_time)
     EasyML::Model.new(params.reverse_merge!(
-                        dataset: dataset,
-                        metrics: %w[mean_absolute_error],
-                        task: :regression,
-                        model_type: "xgboost",
-                        hyperparameters: {
-                          objective: "reg:squarederror",
-                          n_estimators: 1
-                        }
-                      )).tap do |model|
+      dataset: dataset,
+      metrics: %w[mean_absolute_error],
+      task: :regression,
+      model_type: "xgboost",
+      hyperparameters: {
+        objective: "reg:squarederror",
+        n_estimators: 1,
+      },
+    )).tap do |model|
       model.fit
       model.save
     end

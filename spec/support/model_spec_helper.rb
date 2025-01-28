@@ -179,10 +179,12 @@ module ModelSpecHelper
     end
 
     base.let(:pretrain_loans_model) do
+      filename = loans_model_file_source.basename.to_s
       model_file = loans_model.send(:get_model_file)
-      model_file.set_path(loans_model_file_source)
-      loans_model.send(:load_model_file)
+      allow(model_file).to receive(:root_dir).and_return(loans_model_file_source.dirname)
+      model_file.assign_attributes(filename: filename)
       model_file.save
+      loans_model.send(:load_model_file)
       loans_model
     end
 

@@ -196,12 +196,15 @@ module EasyML
         max_id = df[primary_key.last].max
       end
 
-      (min_id..max_id).step(batch_size).map do |batch_start|
+      (min_id..max_id).step(batch_size).map.with_index do |batch_start, idx|
         batch_end = [batch_start + batch_size, max_id + 1].min - 1
         {
           feature_id: id,
           batch_start: batch_start,
           batch_end: batch_end,
+          batch_number: feature_position,
+          subbatch_number: idx,
+          parent_batch_id: Random.uuid,
         }
       end
     end
@@ -211,17 +214,16 @@ module EasyML
     end
 
     def fit(features: [self], async: false)
-      # Sort features by position to ensure they're processed in order
-      features.update_all(workflow_status: :analyzing)
       ordered_features = features.sort_by(&:feature_position)
-      jobs = ordered_features.flat_map(&:build_batches)
+      jobs = ordered_features.map(&:build_batches)
 
       if async
-        EasyML::ComputeFeatureJob.enqueue_batch(jobs)
+        EasyML::ComputeFeatureJob.enqueue_ordered_batches(jobs)
       else
-        jobs.each do |job|
+        jobs.flatten.each do |job|
           EasyML::ComputeFeatureJob.perform(nil, job)
         end
+        features.each(&:after_fit) unless features.any?(&:failed?)
       end
     end
 
@@ -393,11 +395,9 @@ module EasyML
       updates = {
         applied_at: Time.current,
         needs_fit: false,
+        workflow_status: :ready,
       }.compact
       update!(updates)
-    end
-
-    def fully_processed?
     end
 
     private

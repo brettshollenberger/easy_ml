@@ -211,10 +211,6 @@ RSpec.describe EasyML::Datasource do
           expect(feature.query.size).to eq 2
         end
 
-        it "updates applied_at timestamp" do
-          expect { feature.fit_batch }.to change { feature.applied_at }.from(nil)
-        end
-
         it "returns the computed batch dataframe" do
           expect(feature.fit_batch).to eq(batch_df)
         end
@@ -433,7 +429,7 @@ RSpec.describe EasyML::Datasource do
           feature.reload.update(needs_fit: true)
           expect(EasyML::Feature.needs_fit).to include(feature)
 
-          feature.fit_batch
+          feature.fit
           expect(EasyML::Feature.needs_fit).to_not include(feature)
         end
       end

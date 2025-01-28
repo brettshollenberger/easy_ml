@@ -33,12 +33,23 @@ module EasyML
         s3_region: s3_region,
         s3_access_key_id: s3_access_key_id,
         s3_secret_access_key: s3_secret_access_key,
-        root_dir: full_dir,
+        root_dir: root_dir,
       )
     end
 
     def root_dir
-      model.root_dir
+      Pathname.new(model.root_dir)
+    end
+
+    def model_root
+      File.expand_path("..", root_dir.to_s)
+    end
+
+    def full_path(filename = nil)
+      filename = self.filename if filename.nil?
+      return nil if filename.nil?
+
+      root_dir.join(filename).to_s
     end
 
     def exist?
@@ -58,33 +69,7 @@ module EasyML
 
     def upload(path)
       synced_file.upload(path)
-      set_path(path)
-    end
-
-    def set_path(path)
-      path = get_full_path(path)
-      basename = Pathname.new(path).basename.to_s
-      unless path.start_with?(full_dir)
-        new_path = File.join(full_dir, basename).to_s
-        FileUtils.mkdir_p(Pathname.new(new_path).dirname.to_s)
-        FileUtils.cp(path, new_path)
-        path = new_path
-      end
-      self.filename = basename
-      self.path = get_relative_path(path)
-    end
-
-    def get_full_path(path)
-      path = path.to_s
-
-      path = Rails.root.join(path) unless path.match?(Regexp.new(Rails.root.to_s))
-      path
-    end
-
-    def get_relative_path(path)
-      path = path.to_s
-      path = path.to_s.split(Rails.root.to_s).last
-      path.to_s.split("/")[0..-2].reject(&:empty?).join("/")
+      update(filename: Pathname.new(path).basename.to_s)
     end
 
     def download
@@ -96,26 +81,6 @@ module EasyML
 
     def sha
       Digest::SHA256.file(full_path).hexdigest
-    end
-
-    def full_path(filename = nil)
-      filename = self.filename if filename.nil?
-      return nil if filename.nil?
-      return nil if relative_dir.nil?
-
-      Rails.root.join(relative_dir, filename).to_s
-    end
-
-    def relative_dir
-      root_dir.to_s.gsub(Regexp.new(Rails.root.to_s), "").gsub(%r{^/}, "")
-    end
-
-    def full_dir
-      Rails.root.join(relative_dir).to_s
-    end
-
-    def model_root
-      File.expand_path("..", full_dir)
     end
 
     def cleanup!

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_01_27_211737) do
+ActiveRecord::Schema[7.2].define(version: 2025_01_28_201736) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -233,6 +233,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_01_27_211737) do
     t.datetime "history_ended_at"
     t.integer "history_user_id"
     t.string "snapshot_id"
+    t.string "workflow_status"
     t.index ["applied_at"], name: "index_easy_ml_feature_histories_on_applied_at"
     t.index ["batch_size"], name: "index_easy_ml_feature_histories_on_batch_size"
     t.index ["dataset_id", "feature_position"], name: "idx_feature_histories_on_dataset_and_position"
@@ -249,6 +250,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_01_27_211737) do
     t.index ["sha"], name: "index_easy_ml_feature_histories_on_sha"
     t.index ["snapshot_id"], name: "index_easy_ml_feature_histories_on_snapshot_id"
     t.index ["version"], name: "index_easy_ml_feature_histories_on_version"
+    t.index ["workflow_status"], name: "index_easy_ml_feature_histories_on_workflow_status"
   end
 
   create_table "easy_ml_features", force: :cascade do |t|
@@ -284,7 +286,6 @@ ActiveRecord::Schema[7.2].define(version: 2025_01_27_211737) do
   create_table "easy_ml_model_file_histories", force: :cascade do |t|
     t.integer "model_file_id", null: false
     t.string "filename", null: false
-    t.string "path", null: false
     t.json "configuration"
     t.string "model_type"
     t.integer "model_id"
@@ -307,7 +308,6 @@ ActiveRecord::Schema[7.2].define(version: 2025_01_27_211737) do
 
   create_table "easy_ml_model_files", force: :cascade do |t|
     t.string "filename", null: false
-    t.string "path", null: false
     t.json "configuration"
     t.string "model_type"
     t.bigint "model_id"

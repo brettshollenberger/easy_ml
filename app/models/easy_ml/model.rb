@@ -250,6 +250,7 @@ module EasyML
       bump_version(force: true)
       path = model_file.full_path(version)
       full_path = adapter.save_model_file(path)
+      puts "saving model to #{full_path}"
       model_file.upload(full_path)
 
       model_file.save
@@ -266,6 +267,7 @@ module EasyML
     end
 
     def cleanup
+      puts "keeping files #{files_to_keep}"
       get_model_file&.cleanup(files_to_keep)
     end
 
@@ -488,13 +490,9 @@ module EasyML
     end
 
     def root_dir
-      persisted = read_attribute(:root_dir)
+      relative_dir = read_attribute(:root_dir) || default_root_dir
 
-      if persisted.present? && !persisted.blank?
-        EasyML::Engine.root_dir.join(persisted).to_s
-      else
-        default_root_dir
-      end
+      EasyML::Engine.root_dir.join(relative_dir).to_s
     end
 
     def default_root_dir

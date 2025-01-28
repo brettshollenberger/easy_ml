@@ -39,6 +39,7 @@ module EasyML
             create_easy_ml_predictions
             create_easy_ml_event_contexts
             add_workflow_status_to_easy_ml_features
+            drop_path_from_easy_ml_model_files
           ].freeze
 
           # Specify the next migration number

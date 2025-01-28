@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { usePage } from '@inertiajs/react'
 import { useInertiaForm } from 'use-inertia-form';
-import { Settings2, Save, AlertCircle, Key, Database, Globe2 } from 'lucide-react';
+import { Settings2, Save, AlertCircle, Key, Globe2, Database } from 'lucide-react';
 import { PluginSettings } from '../components/settings/PluginSettings';
 
 interface Settings {
@@ -9,9 +9,6 @@ interface Settings {
     timezone: string;
     s3_bucket: string;
     s3_region: string;
-    s3_access_key_id: string;
-    s3_secret_access_key: string;
-    wandb_api_key: string;
   }
 }
 
@@ -88,7 +85,6 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
               <select
                 id="timezone"
                 value={formData.settings.timezone}
-                
                 onChange={(e) => setFormData({
                   ...formData,
                   settings: {
@@ -113,7 +109,6 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
           {/* S3 Configuration */}
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
-
               <Database className="w-5 h-5 text-gray-500" />
               <h3 className="text-lg font-medium text-gray-900">S3 Configuration</h3>
             </div>
@@ -162,80 +157,6 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
                 </select>
               </div>
             </div>
-
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="flex gap-2">
-                <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5" />
-                <div>
-                  <h4 className="text-sm font-medium text-blue-900">AWS Credentials</h4>
-                  <p className="mt-1 text-sm text-blue-700">
-                    These credentials will be used as default for all S3 operations. You can override them per datasource.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="accessKeyId" className="block text-sm font-medium text-gray-700 mb-1">
-                  Access Key ID
-                </label>
-                <div className="relative">
-                  <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    id="accessKeyId"
-                    value={formData.settings.s3_access_key_id}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      settings: {
-                        ...formData.settings,
-                        s3_access_key_id: e.target.value
-                      }
-                    })}
-                    className="mt-1 block w-full pl-9 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="AKIA..."
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="secretAccessKey" className="block text-sm font-medium text-gray-700 mb-1">
-                  Secret Access Key
-                </label>
-                <div className="relative">
-                  <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type={showSecretKey ? 'text' : 'password'}
-                    id="secretAccessKey"
-                    value={formData.settings.s3_secret_access_key}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      settings: {
-                        ...formData.settings,
-                        s3_secret_access_key: e.target.value
-                      }
-                    })}
-                    className="mt-1 block w-full pl-9 pr-24 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="Your secret key"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowSecretKey(!showSecretKey)}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 hover:text-gray-700"
-                  >
-                    {showSecretKey ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-200 pt-8">
-            <PluginSettings
-              settings={formData.settings}
-              setData={(settings) => setFormData({ ...settings })}
-            />
           </div>
 
           <div className="pt-6 border-t flex items-center justify-between">

@@ -29,11 +29,10 @@ module EasyML
       EasyML::Configuration.configure do |config|
         config.storage = @settings.storage
         config.timezone = @settings.timezone
-        config.s3_access_key_id = @settings.s3_access_key_id
-        config.s3_secret_access_key = @settings.s3_secret_access_key
         config.s3_bucket = @settings.s3_bucket
         config.s3_region = @settings.s3_region
         config.s3_prefix = @settings.s3_prefix
+        config.wandb_api_key = @settings.wandb_api_key
       end
       flash.now[:notice] = "Settings saved."
       render inertia: "pages/SettingsPage", props: {
@@ -47,8 +46,6 @@ module EasyML
       params.require(:settings).permit(
         :storage,
         :timezone,
-        :s3_access_key_id,
-        :s3_secret_access_key,
         :s3_bucket,
         :s3_region,
         :s3_prefix,

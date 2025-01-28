@@ -52,6 +52,30 @@
                     "name": "ROLLBAR_ACCESS_TOKEN",
                     "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/ROLLBAR_ACCESS_TOKEN",
                 },
+                {
+                    "name": "S3_ACCESS_KEY_ID",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/S3_ACCESS_KEY_ID",
+                },
+                {
+                    "name": "S3_SECRET_ACCESS_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/S3_SECRET_ACCESS_KEY",
+                },
+                {
+                    "name": "WANDB_API_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/WANDB_API_KEY",
+                },
+                {
+                    "name": "S3_ACCESS_KEY_ID",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/S3_ACCESS_KEY_ID",
+                },
+                {
+                    "name": "S3_SECRET_ACCESS_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/S3_SECRET_ACCESS_KEY",
+                },
+                {
+                    "name": "WANDB_API_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/WANDB_API_KEY",
+                },
             ],
             "logConfiguration": {
                 "logDriver": "awslogs",
@@ -105,7 +129,8 @@
                 "exec",
                 "rake",
                 "resque:work",
-                "QUEUE=easy_ml"
+                "QUEUE=easy_ml",
+                "COUNT=20"
             ],
             "entrypoint": [],
             "portMappings": [],
@@ -125,6 +150,18 @@
                 {
                     "name": "ROLLBAR_ACCESS_TOKEN",
                     "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/ROLLBAR_ACCESS_TOKEN",
+                },
+                {
+                    "name": "S3_ACCESS_KEY_ID",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/S3_ACCESS_KEY_ID",
+                },
+                {
+                    "name": "S3_SECRET_ACCESS_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/S3_SECRET_ACCESS_KEY",
+                },
+                {
+                    "name": "WANDB_API_KEY",
+                    "valueFrom": "arn:aws:secretsmanager:AWS_REGION:AWS_ACCOUNT:secret:easy_ml/WANDB_API_KEY",
                 },
             ],
             "logConfiguration": {

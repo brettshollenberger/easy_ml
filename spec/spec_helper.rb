@@ -13,6 +13,8 @@ require "action_view/railtie"
 require "active_job/railtie"
 
 Bundler.require :default, :development
+ENV["S3_ACCESS_KEY_ID"] = "foo"
+ENV["S3_SECRET_ACCESS_KEY"] = "bar"
 
 # Timing instrumentation
 def log_time(label, &block)

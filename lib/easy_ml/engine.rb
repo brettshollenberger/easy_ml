@@ -88,6 +88,17 @@ module EasyML
       end
     end
 
+    initializer "easy_ml.configure_secrets" do
+      EasyML::Configuration.configure do |config|
+        raise "S3_ACCESS_KEY_ID is missing. Set ENV['S3_ACCESS_KEY_ID']" unless ENV["S3_ACCESS_KEY_ID"]
+        raise "S3_SECRET_ACCESS_KEY is missing. Set ENV['S3_SECRET_ACCESS_KEY']" unless ENV["S3_SECRET_ACCESS_KEY"]
+
+        config.s3_access_key_id = ENV["S3_ACCESS_KEY_ID"]
+        config.s3_secret_access_key = ENV["S3_SECRET_ACCESS_KEY"]
+        config.wandb_api_key = ENV["WANDB_API_KEY"] if ENV["WANDB_API_KEY"]
+      end
+    end
+
     initializer "easy_ml.setup_generators" do |app|
       generators_path = EasyML::Engine.root.join("lib/easy_ml/railtie/generators")
       generators_dirs = Dir[File.join(generators_path, "**", "*.rb")]

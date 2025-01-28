@@ -217,10 +217,10 @@ module EasyML
       # Sort features by position to ensure they're processed in order
       features.update_all(workflow_status: :analyzing)
       ordered_features = features.sort_by(&:feature_position)
-      jobs = ordered_features.flat_map(&:build_batches)
+      jobs = ordered_features.map(&:build_batches)
 
       if async
-        EasyML::ComputeFeatureJob.enqueue_batch(jobs)
+        EasyML::ComputeFeatureJob.enqueue_ordered_batches(jobs)
       else
         jobs.each do |job|
           EasyML::ComputeFeatureJob.perform(nil, job)
@@ -278,7 +278,7 @@ module EasyML
     def actually_fit_batch(batch_args = {})
       return false unless adapter.respond_to?(:fit)
 
-      if adapter.respond_to?(:batch)
+      if adapter.respond_to?(:fit)
         batch_args.symbolize_keys!
 
         if adapter.respond_to?(:batch)

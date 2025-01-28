@@ -41,10 +41,19 @@ module EasyML
 
     def self.after_batch_hook(batch_id, *args)
       puts "After batch!"
-      binding.pry
-      feature_ids = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys).pluck(:feature_id).uniq
-      dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
-      dataset.after_fit_features
+      batch_args = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys)
+      feature_ids = batch_args.pluck(:feature_id).uniq
+      parent_id = batch_args.pluck(:parent_batch_id).first
+
+      feature = EasyML::Feature.find_by(id: feature_ids.first)
+      feature.update(workflow_status: :ready, fit_at: Time.current)
+
+      if BatchJob.next_batch?(parent_id)
+        BatchJob.enqueue_next_batch(self, parent_id)
+      else
+        dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
+        dataset.after_fit_features
+      end
     end
 
     private

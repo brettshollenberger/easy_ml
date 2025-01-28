@@ -61,7 +61,7 @@ module EasyML
 
       topline = error.inspect
 
-      stacktrace = error.backtrace.select do |loc|
+      stacktrace = error.stacktrace.select do |loc|
         loc.match?(/easy_ml/)
       end
 

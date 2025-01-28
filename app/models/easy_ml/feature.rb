@@ -196,12 +196,14 @@ module EasyML
         max_id = df[primary_key.last].max
       end
 
-      (min_id..max_id).step(batch_size).map do |batch_start|
+      (min_id..max_id).step(batch_size).map.with_index do |batch_start, idx|
         batch_end = [batch_start + batch_size, max_id + 1].min - 1
         {
           feature_id: id,
           batch_start: batch_start,
           batch_end: batch_end,
+          batch_number: feature_position,
+          subbatch_number: idx,
         }
       end
     end

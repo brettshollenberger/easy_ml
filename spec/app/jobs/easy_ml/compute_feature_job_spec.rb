@@ -157,4 +157,91 @@ RSpec.describe "EasyML::Feature Computation" do
       end
     end
   end
+
+  describe "batch completion ordering" do
+    let(:dataset) { titanic_dataset }
+
+    it "completes all batches of a feature before starting the next feature", :focus do
+      # Create family size plus one feature first but with higher position
+      family_size_plus_one_feature = dataset.features.create!(
+        name: "FamilySizePlusOne",
+        feature_class: "FamilySizePlusOneFeature",
+        needs_fit: true,
+        feature_position: 2,
+      )
+
+      # Create family size feature second but with lower position
+      family_size_feature = dataset.features.create!(
+        name: "FamilySize",
+        feature_class: "FamilySizeFeature",
+        needs_fit: true,
+        feature_position: 1,
+      )
+
+      # Track batch computation order
+      batch_computation_order = []
+
+      features_by_id = EasyML::Feature.all.group_by(&:id).transform_values(&:first)
+      RSpec::Mocks.with_temporary_scope do
+        idx = 0
+        allow_any_instance_of(EasyML::Feature).to receive(:actually_fit_batch).and_wrap_original do |method, batch_args|
+          feature = features_by_id[batch_args[:feature_id]]
+          batch_computation_order << { feature: feature.name, batch_number: batch_args[:batch_number], subbatch_number: batch_args[:subbatch_number], call_order: idx }
+          idx += 1
+          method.call(batch_args)
+        end
+
+        # Fit features asynchronously
+        expect {
+          dataset.refresh!(async: true)
+        }.to change { dataset.reload.workflow_status }.from("ready").to("analyzing")
+
+        # Process all jobs in the queue
+        process_all_jobs
+      end
+
+      # Extract all batch numbers for each feature
+      family_size_batches = batch_computation_order.select { |entry| entry[:feature] == "FamilySize" }.map { |entry| entry[:batch_number] }
+      family_size_plus_one_batches = batch_computation_order.select { |entry| entry[:feature] == "FamilySizePlusOne" }.map { |entry| entry[:batch_number] }
+
+      # Verify that we have multiple batches for each fceature
+      expect(family_size_batches.length).to be > 1, "Expected FamilySize to have multiple batches"
+      expect(family_size_plus_one_batches.length).to be > 1, "Expected FamilySizePlusOne to have multiple batches"
+
+      # Find the position of the last FamilySize batch and first FamilySizePlusOne batch
+      last_family_size_index = batch_computation_order.rindex { |entry| entry[:feature] == "FamilySize" }
+      first_family_size_plus_one_index = batch_computation_order.index { |entry| entry[:feature] == "FamilySizePlusOne" }
+
+      # Verify FamilySizePlusOne starts after FamilySize completes
+      expect(first_family_size_plus_one_index).to be > last_family_size_index,
+        "Expected all FamilySize batches to complete before any FamilySizePlusOne batch begins"
+
+      # Additional verification that no FamilySizePlusOne appears before the last FamilySize
+      early_computations = batch_computation_order[0..last_family_size_index]
+      expect(early_computations.none? { |entry| entry[:feature] == "FamilySizePlusOne" }).to be true
+
+      # Verify the results
+      dataset.reload
+      expect(family_size_feature.reload.workflow_status).to eq("ready")
+      expect(family_size_plus_one_feature.reload.workflow_status).to eq("ready")
+
+      # Verify that FamilySizePlusOne values are correctly computed using FamilySize values
+      passenger_ids = dataset.data["PassengerId"].to_a
+      family_size_values = family_size_feature.query(filter: Polars.col("PassengerId").is_in(passenger_ids))
+      family_size_plus_one_values = family_size_plus_one_feature.query(filter: Polars.col("PassengerId").is_in(passenger_ids))
+
+      family_size_plus_one_values.join(
+        family_size_values,
+        on: "PassengerId",
+      ).select([
+        Polars.col("PassengerId"),
+        Polars.col("FamilySizePlusOne"),
+        Polars.col("FamilySize"),
+      ]).with_column(
+        (Polars.col("FamilySizePlusOne") - Polars.col("FamilySize")).alias("difference")
+      ).select("difference").to_series.to_a.each do |diff|
+        expect(diff).to eq(1)
+      end
+    end
+  end
 end

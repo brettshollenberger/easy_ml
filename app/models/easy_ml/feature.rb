@@ -223,6 +223,7 @@ module EasyML
         jobs.each do |job|
           EasyML::ComputeFeatureJob.perform(nil, job)
         end
+        features.update_all(workflow_status: :ready) unless features.any?(&:failed?)
       end
     end
 

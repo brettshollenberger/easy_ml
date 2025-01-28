@@ -220,10 +220,10 @@ module EasyML
       if async
         EasyML::ComputeFeatureJob.enqueue_ordered_batches(jobs)
       else
-        jobs.each do |job|
+        jobs.flatten.each do |job|
           EasyML::ComputeFeatureJob.perform(nil, job)
         end
-        features.update_all(workflow_status: :ready) unless features.any?(&:failed?)
+        features.each(&:after_fit) unless features.any?(&:failed?)
       end
     end
 
@@ -395,11 +395,9 @@ module EasyML
       updates = {
         applied_at: Time.current,
         needs_fit: false,
+        workflow_status: :ready,
       }.compact
       update!(updates)
-    end
-
-    def fully_processed?
     end
 
     private

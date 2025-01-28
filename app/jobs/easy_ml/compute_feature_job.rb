@@ -51,7 +51,7 @@ module EasyML
         return BatchJob.cleanup_batch(parent_id)
       end
 
-      feature.update(workflow_status: :ready, fit_at: Time.current)
+      feature.after_fit
 
       if BatchJob.next_batch?(parent_id)
         BatchJob.enqueue_next_batch(self, parent_id)

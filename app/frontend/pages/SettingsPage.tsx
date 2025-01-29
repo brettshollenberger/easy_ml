@@ -27,9 +27,6 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
       timezone: initialSettings?.settings?.timezone || 'America/New_York',
       s3_bucket: initialSettings?.settings?.s3_bucket || '',
       s3_region: initialSettings?.settings?.s3_region || 'us-east-1',
-      s3_access_key_id: initialSettings?.settings?.s3_access_key_id || '',
-      s3_secret_access_key: initialSettings?.settings?.s3_secret_access_key || '',
-      wandb_api_key: initialSettings?.settings?.wandb_api_key || ''
     }
   });
 
@@ -176,11 +173,10 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
               <button
                 type="submit"
                 disabled={processing}
-                className={`px-4 py-2 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                  processing 
-                    ? 'bg-blue-400 cursor-not-allowed' 
+                className={`px-4 py-2 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${processing
+                    ? 'bg-blue-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700'
-                }`}
+                  }`}
               >
                 {processing ? 'Saving...' : 'Save Settings'}
               </button>

@@ -8,7 +8,7 @@ if %w[zhong:start].include?(ARGV.first)
       EasyML::CleanJob.perform_later
     end
 
-    every 1.hour, "cleanup" do
+    every 1.hour, "schedule retraining" do
       EasyML::ScheduleRetrainingJob.perform_later
     end
   end

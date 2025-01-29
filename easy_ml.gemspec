@@ -30,6 +30,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "activerecord-import", "~> 1.8.1"
   spec.add_dependency "activesupport"
   spec.add_dependency "awesome_print"
+  spec.add_dependency "dotenv"
   spec.add_dependency "aws-sdk"
   spec.add_dependency "date", "~> 3.4.1"
   spec.add_dependency "historiographer", "~> 4.1.14"

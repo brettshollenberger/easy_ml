@@ -18,10 +18,15 @@ require "resque-batched-job"
 require "rake"
 require "resque/tasks"
 require "zhong"
+require "vite_ruby"
+require "vite_rails"
+require "dotenv"
 
 module EasyML
   class Engine < Rails::Engine
     isolate_namespace EasyML
+
+    Dotenv.load if File.exist?(".env")
 
     def root_dir
       Rails.root.join("easy_ml")
@@ -118,7 +123,10 @@ module EasyML
       end
 
       puts "Running dev proxy"
-      config.app_middleware.insert_before 0, ViteRuby::DevServerProxy, ssl_verify_none: true, vite_ruby: vite_ruby
+      config.app_middleware.insert_before 0,
+        ViteRuby::DevServerProxy,
+        vite_ruby: vite_ruby,
+        ssl_verify_none: true
     else
       config.app_middleware.use(
         Rack::Static,

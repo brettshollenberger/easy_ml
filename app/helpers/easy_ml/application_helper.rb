@@ -2,9 +2,9 @@
 
 module EasyML
   module ApplicationHelper
-    # Override: Returns the engine assets manifest.
-    def easy_ml_manifest
-      ViteRuby.new(root: EasyML::Engine.root).manifest
+    def vite_manifest
+      # ViteRuby.new(root: EasyML::Engine.root).manifest
+      EasyML::Engine.vite_ruby.manifest
     end
 
     def prod_script_tags

@@ -18,16 +18,19 @@ module EasyML::Data
 
     PREPROCESSING_STRATEGIES = {
       float: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "mean", label: "Mean" },
         { value: "median", label: "Median" },
         { value: "constant", label: "Constant Value" },
       ],
       integer: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "mean", label: "Mean" },
         { value: "median", label: "Median" },
         { value: "constant", label: "Constant Value" },
       ],
       boolean: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" },
       ],
@@ -37,14 +40,17 @@ module EasyML::Data
         { value: "today", label: "Current Date" },
       ],
       string: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" },
       ],
       text: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" },
       ],
       categorical: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "categorical", label: "Categorical" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" },
@@ -111,6 +117,19 @@ module EasyML::Data
       allowed_categories = learn_categorical_min(df, preprocessing_steps)
 
       self.statistics = StatisticsLearner.learn_df(df).deep_symbolize_keys
+
+      # Initialize and fit imputers
+      imputers = initialize_imputers(preprocessing_steps[:training])
+      preprocessing_steps[:training].each do |col, conf|
+        next unless conf[:method].to_sym == :ffill
+        imputer = imputers.dig(col, conf[:method])
+        next unless imputer
+
+        # Fit the imputer and merge its statistics
+        imputer.fit(df[col], df)
+        statistics[col] ||= {}
+        statistics[col].merge!(last_value: imputer.statistics[col][:ffill][:value])
+      end
 
       # Merge allowed categories into statistics
       allowed_categories.each do |col, categories|

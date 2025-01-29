@@ -83,6 +83,9 @@ RSpec.describe EasyML::Data::Preprocessor do
       preprocessing_steps: {
         training: {
           method: :ffill,
+          params: {
+            date_column: "created_date",
+          },
         },
       },
     )
@@ -461,6 +464,64 @@ RSpec.describe EasyML::Data::Preprocessor do
     end
   end
 
+  describe "ffill preprocessing" do
+    let(:date_col) { "created_date" }
+
+    it "preprocesses float with ffill" do
+      @dataset.columns.find_by(name: "points").update(
+        preprocessing_steps: {
+          training: {
+            method: :ffill,
+            params: {
+              date_column: date_col,
+            },
+          },
+        },
+      )
+
+      @dataset.refresh
+
+      last_valid_value = @dataset.train.sort(date_col).filter(Polars.col("points").is_not_null)["points"][-1]
+      null_mask = @dataset.raw.read(:all)["points"].is_null
+      expect(@dataset.data[null_mask]["points"].to_a).to all(eq last_valid_value)
+    end
+
+    it "preprocesses integer with ffill" do
+      @dataset.columns.find_by(name: "rev").update(
+        preprocessing_steps: {
+          training: {
+            method: :ffill,
+            params: {
+              date_column: date_col,
+            },
+          },
+        },
+      )
+
+      @dataset.refresh
+      last_valid_value = @dataset.train.sort(date_col).filter(Polars.col("rev").is_not_null)["rev"][-1]
+      null_mask = @dataset.raw.read(:all)["rev"].is_null
+      expect(@dataset.data[null_mask]["rev"].to_a).to all(eq last_valid_value)
+    end
+
+    it "preprocesses string with ffill" do
+      @dataset.columns.find_by(name: "group").update(
+        preprocessing_steps: {
+          training: {
+            method: :ffill,
+            params: {
+              date_column: date_col,
+            },
+          },
+        },
+      )
+
+      @dataset.refresh
+      last_valid_value = @dataset.train.sort(date_col).filter(Polars.col("group").is_not_null)["group"][-1]
+      null_mask = @dataset.raw.read(:all)["group"].is_null
+      expect(@dataset.data[null_mask]["group"].to_a).to all(eq last_valid_value)
+    end
+  end
   describe "edge cases" do
     let(:float_col) { "points" }
 

@@ -609,6 +609,9 @@ RSpec.describe EasyML::Data::Preprocessor do
         preprocessing_steps: {
           training: {
             method: :ffill,
+            params: {
+              date_column: "created_date",
+            },
           },
           inference: {
             method: :today,

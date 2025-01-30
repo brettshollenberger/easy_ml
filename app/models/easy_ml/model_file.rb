@@ -4,7 +4,6 @@
 #
 #  id            :bigint           not null, primary key
 #  filename      :string           not null
-#  path          :string           not null
 #  configuration :json
 #  model_type    :string
 #  model_id      :bigint

@@ -9,6 +9,9 @@ module EasyML
         import_new(col_names, existing_columns)
         update_existing(existing_columns)
         delete_missing(existing_columns)
+        if existing_columns.none? # Totally new dataset
+          dataset.after_create_columns
+        end
       end
     end
 

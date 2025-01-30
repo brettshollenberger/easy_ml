@@ -94,6 +94,7 @@ export interface Dataset {
   needs_refresh: boolean;
   workflow_status: DatasetWorkflowStatus;
   target?: string;
+  date_column?: string;
   num_rows?: number;
   drop_cols?: string[];
   datasource_id: number;

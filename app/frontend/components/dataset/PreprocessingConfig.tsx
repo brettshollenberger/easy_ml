@@ -266,8 +266,13 @@ export function PreprocessingConfig({
     let content;
     if (strategy.method === 'most_frequent' && column.statistics?.raw.most_frequent_value) {
       content = `Most Frequent Value: ${column.statistics.raw.most_frequent_value}`
-    } else if (strategy.method === 'ffill' && column.statistics?.raw.last_value) {
-      content = `Last Value: ${column.statistics.raw.last_value}`
+    } else if (strategy.method === 'ffill') {
+      const lastValue = column.statistics?.raw.last_value;
+      if (lastValue !== undefined && lastValue !== null) {
+        content = `Forward Fill using Last Value: ${lastValue}`;
+      } else {
+        content = 'Set date column & apply preprocessing to see last value';
+      }
     } else if (strategy.method === 'median' && column.statistics?.raw?.median) {
       content = `Median: ${column.statistics.raw.median}`
     } else if (strategy.method === 'mean' && column.statistics?.raw?.mean) {

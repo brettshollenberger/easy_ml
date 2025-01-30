@@ -10,6 +10,7 @@ import {
   Play,
   Loader2,
   Sparkles,
+  Calendar,
 } from "lucide-react";
 import { PreprocessingConfig } from "./PreprocessingConfig";
 import { ColumnList } from "./ColumnList";
@@ -24,6 +25,7 @@ import { router } from "@inertiajs/react";
 
 interface ColumnConfig {
   targetColumn?: string;
+  dateColumn?: string;
 }
 
 interface ColumnConfigModalProps {
@@ -45,9 +47,13 @@ export function ColumnConfigModal({
   const [activeTab, setActiveTab] = useState<"columns" | "features">(
     "columns"
   );
+  const [activeColumnSubTab, setActiveColumnSubTab] = useState<
+    "target" | "date"
+  >("target");
   const [isApplying, setIsApplying] = useState(false);
   const [config, setConfig] = useState<ColumnConfig>({
     targetColumn: dataset.target,
+    dateColumn: dataset.date_column,
   });
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -127,6 +133,15 @@ export function ColumnConfigModal({
     [dataset.columns]
   );
 
+  const dateColumnOptions = useMemo(() => {
+    return dataset.columns
+      .filter((column) => column.datatype === "datetime")
+      .map((column) => ({
+        value: column.name,
+        label: column.name,
+      }));
+  }, [dataset.columns]);
+
   const handleColumnSelect = (columnName: string) => {
     setSelectedColumn(columnName);
   };
@@ -146,10 +161,25 @@ export function ColumnConfigModal({
 
   const setTargetColumn = (columnName: string) => {
     const name = String(columnName);
-    setConfig({ targetColumn: columnName });
+    setConfig({ ...config, targetColumn: columnName });
     const updatedColumns = dataset.columns.map((c) => ({
       ...c,
       is_target: c.name === name,
+    }));
+
+    setDataset({
+      ...dataset,
+      columns: updatedColumns,
+    });
+    setNeedsRefresh(true);
+  };
+
+  const setDateColumn = (columnName: string) => {
+    const name = String(columnName);
+    setConfig((prev) => ({ ...prev, dateColumn: columnName }));
+    const updatedColumns = dataset.columns.map((c) => ({
+      ...c,
+      is_date_column: c.name === name,
     }));
 
     setDataset({
@@ -285,32 +315,25 @@ export function ColumnConfigModal({
         <div className="flex border-b shrink-0">
           <button
             onClick={() => setActiveTab("columns")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 ${
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 ${
               activeTab === "columns"
                 ? "border-blue-500 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Settings2 className="w-4 h-4" />
-              Column Configuration
-            </div>
+            <Settings2 className="w-4 h-4" />
+            Preprocessing
           </button>
           <button
             onClick={() => setActiveTab("features")}
-            className={`px-4 py-2 text-sm font-medium border-b-2 ${
+            className={`flex items-center gap-2 px-4 py-2 border-b-2 ${
               activeTab === "features"
                 ? "border-blue-500 text-blue-600"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            <div className="flex items-center gap-2">
-              <Wand2 className="w-4 h-4" />
-              Features
-              <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-600 rounded-full">
-                {constants.feature_options.length}
-              </span>
-            </div>
+            <Wand2 className="w-4 h-4" />
+            Feature Engineering
           </button>
 
           {needsRefresh && (
@@ -341,20 +364,60 @@ export function ColumnConfigModal({
           <React.Fragment>
             <div className="grid grid-cols-7 flex-1 min-h-0">
               <div className="col-span-3 border-r overflow-hidden flex flex-col">
-                <div className="p-4 border-b shrink-0">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Target Column
-                  </label>
-                  <SearchableSelect
-                    options={dataset.columns.map((column) => ({
-                      value: column.name,
-                      label: column.name,
-                    }))}
-                    value={config.targetColumn || ""}
-                    onChange={(value) =>
-                      value && setTargetColumn(String(value))
-                    }
-                  />
+                <div className="p-4 border-b">
+                  <div className="flex border-b">
+                    <button
+                      onClick={() => setActiveColumnSubTab("target")}
+                      className={`flex items-center gap-2 px-4 py-2 border-b-2 ${
+                        activeColumnSubTab === "target"
+                          ? "border-blue-500 text-blue-600"
+                          : "border-transparent text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      <Target className="w-4 h-4" />
+                      Target Column
+                    </button>
+                    <button
+                      onClick={() => setActiveColumnSubTab("date")}
+                      className={`flex items-center gap-2 px-4 py-2 border-b-2 ${
+                        activeColumnSubTab === "date"
+                          ? "border-blue-500 text-blue-600"
+                          : "border-transparent text-gray-500 hover:text-gray-700"
+                      }`}
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Date Column
+                    </button>
+                  </div>
+
+                  {activeColumnSubTab === "target" ? (
+                    <div className="mt-4">
+                      <SearchableSelect
+                        value={config.targetColumn || ""}
+                        onChange={(value) => setTargetColumn(value)}
+                        options={dataset.columns.map((column) => ({
+                          value: column.name,
+                          label: column.name,
+                        }))}
+                        placeholder="Select target column..."
+                      />
+                    </div>
+                  ) : (
+                    <div className="mt-4">
+                      {dateColumnOptions.length > 0 ? (
+                        <SearchableSelect
+                          options={dateColumnOptions}
+                          value={config.dateColumn}
+                          onChange={setDateColumn}
+                          placeholder="Select a date column..."
+                        />
+                      ) : (
+                        <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-md">
+                          No date columns available
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="shrink-0">
                   <ColumnFilters

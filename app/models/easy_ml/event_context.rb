@@ -5,6 +5,7 @@
 #  id         :bigint           not null, primary key
 #  event_id   :bigint           not null
 #  context    :jsonb            not null
+#  format     :string
 #  created_at :datetime         not null
 #  updated_at :datetime         not null
 #

@@ -16,6 +16,7 @@
 #  statistics          :json
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
+#  is_date_column      :boolean          default(FALSE)
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -29,12 +30,15 @@ module EasyML
     validates :name, uniqueness: { scope: :dataset_id }
 
     before_save :ensure_valid_datatype
+    after_create :set_date_column_if_date_splitter
+    after_save :handle_date_column_change
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
     scope :numeric, -> { where(datatype: %w[float integer]) }
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
+    scope :date_column, -> { where(is_date_column: true) }
 
     def datatype=(dtype)
       write_attribute(:datatype, dtype)
@@ -88,7 +92,25 @@ module EasyML
       dataset.preprocessor.statistics.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
     end
 
+    def date_column?
+      is_date_column
+    end
+
     private
+
+    def set_date_column_if_date_splitter
+      binding.pry
+    end
+
+    def handle_date_column_change
+      return unless saved_change_to_is_date_column? && is_date_column?
+
+      Column.transaction do
+        dataset.columns.where.not(id: id).update_all(is_date_column: false)
+        dataset.learn_statistics
+        dataset.columns.sync
+      end
+    end
 
     def ensure_valid_datatype
       return if datatype.blank?

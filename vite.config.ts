@@ -20,6 +20,7 @@ export default defineConfig({
     postcss: './postcss.config.js', // Use postcss for Tailwind and autoprefixer
   },
   server: {
+    port: 3037,
     hmr: {
       overlay: true, // HMR overlay for errors
     },

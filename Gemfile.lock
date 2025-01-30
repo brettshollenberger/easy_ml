@@ -1,13 +1,14 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc45)
+    easy_ml (0.2.0.pre.rc46)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
       awesome_print
       aws-sdk
       date (~> 3.4.1)
+      dotenv
       historiographer (~> 4.1.14)
       inertia_rails
       jsonapi-serializer
@@ -1747,6 +1748,7 @@ GEM
     database_cleaner-core (2.0.1)
     date (3.4.1)
     diff-lcs (1.5.1)
+    dotenv (3.1.7)
     drb (2.2.1)
     dry-cli (1.2.0)
     erubi (1.13.1)

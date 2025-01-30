@@ -9,28 +9,55 @@ module EasyML::Data
       @verbose = options[:verbose]
     end
 
-    def self.learn(raw, processed)
-      output = { raw: learn_split(raw) }
-      output[:processed] = learn_split(processed) if processed.data.present?
-      output
+    def self.learn(df, dataset = nil)
+      new(df, dataset).learn
     end
 
-    def self.learn_split(split)
+    attr_reader :df, :dataset
+
+    def initialize(df, dataset)
+      @df = df
+      @dataset = dataset
+    end
+
+    def learn
+      learn_split(df)
+    end
+
+    def learn_split(split)
       df = split.read(:all)
       train_df = split.read(:train)
-      all_stats = learn_df(df)
-      train_stats = learn_df(train_df)
+      all_stats = learn_df(df, dataset: dataset)
+      train_stats = learn_df(train_df, dataset: dataset)
 
       all_stats.reduce({}) do |output, (k, _)|
         output.tap do
           output[k] = all_stats[k].slice(:num_rows, :null_count, :unique_count, :counts).merge!(
-            train_stats[k].slice(:mean, :median, :min, :max, :std, :last_value, :most_frequent_value)
+            train_stats[k].slice(:mean, :median, :min, :max, :std, :last_value, :most_frequent_value, :last_known_value)
           )
         end
       end
     end
 
-    def self.learn_df(df)
+    def last_known_value(df, col, date_col)
+      return nil if df.empty? || !df.columns.include?(date_col)
+
+      # Sort by date and get the last non-null value
+      sorted_df = df.sort(date_col, reverse: true)
+      last_value = sorted_df
+        .filter(Polars.col(col).is_not_null)
+        .select(col)
+        .head(1)
+        .item
+
+      last_value
+    end
+
+    def learn_df(df, dataset: nil)
+      self.class.learn_df(df, dataset: dataset)
+    end
+
+    def self.learn_df(df, dataset: nil)
       return if df.nil?
 
       base_stats = describe_to_h(df).deep_symbolize_keys
@@ -45,6 +72,10 @@ module EasyML::Data
           num_rows: series.shape,
           null_count: base_stats[col.to_sym][:null_count].to_i,
         }
+
+        if dataset&.date_column.present?
+          stats[col][:last_value] = last_value(df, col, dataset.date_column.name)
+        end
 
         # Add type-specific statistics
         case field_type
@@ -75,6 +106,10 @@ module EasyML::Data
     def self.id_column?(column)
       col = column.to_s.downcase
       col.match?(/^id$/) || col.match?(/.*_id/)
+    end
+
+    def self.last_value(df, col, date_col)
+      df.filter(Polars.col(col).is_not_null).sort(date_col)[col][-1]
     end
 
     def self.describe_to_h(df)

@@ -18,16 +18,19 @@ module EasyML::Data
 
     PREPROCESSING_STRATEGIES = {
       float: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "mean", label: "Mean" },
         { value: "median", label: "Median" },
         { value: "constant", label: "Constant Value" },
       ],
       integer: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "mean", label: "Mean" },
         { value: "median", label: "Median" },
         { value: "constant", label: "Constant Value" },
       ],
       boolean: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" },
       ],
@@ -37,21 +40,24 @@ module EasyML::Data
         { value: "today", label: "Current Date" },
       ],
       string: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" },
       ],
       text: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" },
       ],
       categorical: [
+        { value: "ffill", label: "Forward Fill" },
         { value: "categorical", label: "Categorical" },
         { value: "most_frequent", label: "Most Frequent" },
         { value: "constant", label: "Constant Value" },
       ],
     }.freeze
 
-    attr_accessor :directory, :verbose, :imputers, :preprocessing_steps
+    attr_accessor :directory, :verbose, :imputers, :preprocessing_steps, :dataset
     attr_reader :statistics
 
     def initialize(options = {})
@@ -59,6 +65,7 @@ module EasyML::Data
       @verbose = options[:verbose]
       @imputers = options[:imputers]
       @preprocessing_steps = options[:preprocessing_steps]
+      @dataset = options[:dataset]
       @statistics = {}
     end
 
@@ -110,7 +117,7 @@ module EasyML::Data
       df = apply_clip(df, preprocessing_steps)
       allowed_categories = learn_categorical_min(df, preprocessing_steps)
 
-      self.statistics = StatisticsLearner.learn_df(df).deep_symbolize_keys
+      self.statistics = StatisticsLearner.learn_df(df, dataset: dataset).deep_symbolize_keys
 
       # Merge allowed categories into statistics
       allowed_categories.each do |col, categories|

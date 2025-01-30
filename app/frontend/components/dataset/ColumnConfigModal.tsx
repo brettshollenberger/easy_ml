@@ -169,7 +169,17 @@ export function ColumnConfigModal({
   };
 
   const setDateColumn = (columnName: string) => {
+    const name = String(columnName);
     setConfig((prev) => ({ ...prev, dateColumn: columnName }));
+    const updatedColumns = dataset.columns.map((c) => ({
+      ...c,
+      is_date_column: c.name === name,
+    }));
+
+    setDataset({
+      ...dataset,
+      columns: updatedColumns,
+    });
     setNeedsRefresh(true);
   };
 

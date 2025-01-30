@@ -57,7 +57,7 @@ module EasyML::Data
       ],
     }.freeze
 
-    attr_accessor :directory, :verbose, :imputers, :preprocessing_steps
+    attr_accessor :directory, :verbose, :imputers, :preprocessing_steps, :dataset
     attr_reader :statistics
 
     def initialize(options = {})
@@ -65,6 +65,7 @@ module EasyML::Data
       @verbose = options[:verbose]
       @imputers = options[:imputers]
       @preprocessing_steps = options[:preprocessing_steps]
+      @dataset = options[:dataset]
       @statistics = {}
     end
 
@@ -116,20 +117,7 @@ module EasyML::Data
       df = apply_clip(df, preprocessing_steps)
       allowed_categories = learn_categorical_min(df, preprocessing_steps)
 
-      self.statistics = StatisticsLearner.learn_df(df).deep_symbolize_keys
-
-      # Initialize and fit imputers
-      imputers = initialize_imputers(preprocessing_steps[:training])
-      preprocessing_steps[:training].each do |col, conf|
-        next unless conf[:method].to_sym == :ffill
-        imputer = imputers.dig(col, conf[:method])
-        next unless imputer
-
-        # Fit the imputer and merge its statistics
-        imputer.fit(df[col], df)
-        statistics[col] ||= {}
-        statistics[col].merge!(last_value: imputer.statistics[col][:ffill][:value])
-      end
+      self.statistics = StatisticsLearner.learn_df(df, dataset: dataset).deep_symbolize_keys
 
       # Merge allowed categories into statistics
       allowed_categories.each do |col, categories|

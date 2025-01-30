@@ -467,20 +467,20 @@ RSpec.describe EasyML::Data::Preprocessor do
   describe "ffill preprocessing" do
     let(:date_col) { "created_date" }
 
+    before do
+      @dataset.columns.find_by(name: date_col).update(is_date_column: true)
+    end
+
     it "preprocesses float with ffill" do
       @dataset.columns.find_by(name: "points").update(
         preprocessing_steps: {
           training: {
             method: :ffill,
-            params: {
-              date_column: date_col,
-            },
           },
         },
       )
 
       @dataset.refresh
-
       last_valid_value = @dataset.train.sort(date_col).filter(Polars.col("points").is_not_null)["points"][-1]
       null_mask = @dataset.raw.read(:all)["points"].is_null
       expect(@dataset.data[null_mask]["points"].to_a).to all(eq last_valid_value)
@@ -491,9 +491,6 @@ RSpec.describe EasyML::Data::Preprocessor do
         preprocessing_steps: {
           training: {
             method: :ffill,
-            params: {
-              date_column: date_col,
-            },
           },
         },
       )
@@ -509,9 +506,6 @@ RSpec.describe EasyML::Data::Preprocessor do
         preprocessing_steps: {
           training: {
             method: :ffill,
-            params: {
-              date_column: date_col,
-            },
           },
         },
       )
@@ -520,6 +514,19 @@ RSpec.describe EasyML::Data::Preprocessor do
       last_valid_value = @dataset.train.sort(date_col).filter(Polars.col("group").is_not_null)["group"][-1]
       null_mask = @dataset.raw.read(:all)["group"].is_null
       expect(@dataset.data[null_mask]["group"].to_a).to all(eq last_valid_value)
+    end
+
+    it "automatically sets date column from DateSplitter" do
+      @dataset.update(splitter_attributes: {
+                        splitter_type: "date",
+                        today: EasyML::Support::EST.parse("2024-10-01"),
+                        date_col: "created_date",
+                        months_test: 2,
+                        months_valid: 2,
+                      })
+
+      expect(@dataset.date_column.name).to eq(date_col)
+      expect(@dataset.columns.find_by(name: date_col).is_date_column).to be true
     end
   end
   describe "edge cases" do

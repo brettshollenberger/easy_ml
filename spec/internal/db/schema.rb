@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_01_28_201736) do
+ActiveRecord::Schema[7.2].define(version: 2025_01_29_230233) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -59,6 +59,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_01_28_201736) do
     t.json "statistics"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "is_date_column", default: false
     t.index ["dataset_id", "name"], name: "index_easy_ml_columns_on_dataset_id_and_name", unique: true
     t.index ["datatype"], name: "index_easy_ml_columns_on_datatype"
     t.index ["drop_if_null"], name: "index_easy_ml_columns_on_drop_if_null"

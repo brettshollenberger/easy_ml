@@ -74,6 +74,7 @@ module EasyML
     end
     before_save :set_root_dir
     before_validation :filter_duplicate_features
+    after_save :apply_date_splitter_config
 
     def self.constants
       {
@@ -336,9 +337,12 @@ module EasyML
     end
 
     def learn_statistics
-      update(
-        statistics: EasyML::Data::StatisticsLearner.learn(raw, processed),
-      )
+      stats = {
+        raw: EasyML::Data::StatisticsLearner.learn(raw, self),
+      }
+      stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self)) if processed.data.present?
+
+      update(statistics: stats)
     end
 
     def process_data
@@ -508,6 +512,10 @@ module EasyML
       @target ||= preloaded_columns.find(&:is_target)&.name
     end
 
+    def date_column
+      @date_column ||= columns.date_column.first
+    end
+
     def drop_cols
       @drop_cols ||= preloaded_columns.select(&:hidden).map(&:name)
     end
@@ -670,10 +678,8 @@ module EasyML
       end
     end
 
-    def fit(xs = nil)
-      xs = raw.train(all_columns: true) if xs.nil?
-
-      preprocessor.fit(xs)
+    def fit
+      preprocessor.fit(raw.train(all_columns: true))
       self.preprocessor_statistics = preprocessor.statistics
     end
 
@@ -710,6 +716,21 @@ module EasyML
         # Reject the feature if it would be a duplicate
         attrs["_destroy"] = "1" if existing_feature_names.include?(attrs["name"])
       end
+    end
+
+    def set_date_column(column_name)
+      return unless column_name.present?
+
+      column = columns.find_by(name: column_name)
+      return unless column&.datatype == "datetime"
+
+      column.set_as_date_column
+    end
+
+    def apply_date_splitter_config
+      return unless splitter.is_a?(EasyML::Splitters::DateSplitter)
+
+      set_date_column(splitter.date_col)
     end
 
     def apply_features(df, features = self.features)
@@ -753,6 +774,7 @@ module EasyML
       EasyML::Data::Preprocessor.new(
         directory: Pathname.new(root_dir).append("preprocessor"),
         preprocessing_steps: preprocessing_steps,
+        dataset: self,
       ).tap do |preprocessor|
         preprocessor.statistics = preprocessor_statistics
       end

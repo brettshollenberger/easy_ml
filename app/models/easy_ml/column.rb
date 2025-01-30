@@ -16,6 +16,7 @@
 #  statistics          :json
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
+#  is_date_column      :boolean          default(FALSE)
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -35,6 +36,7 @@ module EasyML
     scope :numeric, -> { where(datatype: %w[float integer]) }
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
+    scope :date_column, -> { where(is_date_column: true) }
 
     def datatype=(dtype)
       write_attribute(:datatype, dtype)
@@ -86,6 +88,18 @@ module EasyML
       return nil unless one_hot?
 
       dataset.preprocessor.statistics.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
+    end
+
+    def date_column?
+      is_date_column
+    end
+
+    def set_as_date_column
+      return unless datatype == "datetime"
+
+      # Remove date column flag from other columns in the dataset
+      dataset.columns.where.not(id: id).update_all(is_date_column: false)
+      update(is_date_column: true)
     end
 
     private

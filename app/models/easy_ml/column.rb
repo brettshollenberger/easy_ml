@@ -32,6 +32,7 @@ module EasyML
     before_save :ensure_valid_datatype
     after_create :set_date_column_if_date_splitter
     after_save :handle_date_column_change
+    before_save :set_defaults
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -97,6 +98,59 @@ module EasyML
     end
 
     private
+
+    def set_defaults
+      self.preprocessing_steps = set_preprocessing_steps_defaults
+    end
+
+    def set_preprocessing_steps_defaults
+      preprocessing_steps.inject({}) do |h, (type, config)|
+        h.tap do
+          h[type] = set_preprocessing_step_defaults(config)
+        end
+      end
+    end
+
+    ALLOWED_PARAMS = {
+      constant: [:constant],
+      categorical: %i[categorical_min one_hot ordinal_encoding],
+      most_frequent: %i[one_hot ordinal_encoding],
+      mean: [:clip],
+      median: [:clip],
+    }
+
+    REQUIRED_PARAMS = {
+      constant: [:constant],
+      categorical: %i[categorical_min one_hot ordinal_encoding],
+    }
+
+    DEFAULT_PARAMS = {
+      categorical_min: 100,
+      one_hot: true,
+      ordinal_encoding: false,
+      clip: { min: 0, max: 1_000_000_000 },
+    }
+
+    def set_preprocessing_step_defaults(config)
+      config.deep_symbolize_keys!
+      params = config[:params] || {}
+
+      required = REQUIRED_PARAMS.fetch(config[:method], [])
+      allowed = ALLOWED_PARAMS.fetch(config[:method], [])
+
+      missing = required - params.keys
+      extra = params.keys - allowed
+
+      missing.each do |key|
+        params[key] = DEFAULT_PARAMS.fetch(key)
+      end
+
+      extra.each do |key|
+        params.delete(key)
+      end
+
+      config
+    end
 
     def handle_date_column_change
       return unless saved_change_to_is_date_column? && is_date_column?

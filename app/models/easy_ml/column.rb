@@ -129,14 +129,21 @@ module EasyML
       one_hot: true,
       ordinal_encoding: false,
       clip: { min: 0, max: 1_000_000_000 },
+      constant: nil,
     }
+
+    XOR_PARAMS = [{
+      params: [:one_hot, :ordinal_encoding],
+      default: :one_hot,
+    }]
 
     def set_preprocessing_step_defaults(config)
       config.deep_symbolize_keys!
-      params = config[:params] || {}
+      config[:params] ||= {}
+      params = config[:params]
 
-      required = REQUIRED_PARAMS.fetch(config[:method], [])
-      allowed = ALLOWED_PARAMS.fetch(config[:method], [])
+      required = REQUIRED_PARAMS.fetch(config[:method].to_sym, [])
+      allowed = ALLOWED_PARAMS.fetch(config[:method].to_sym, [])
 
       missing = required - params.keys
       extra = params.keys - allowed
@@ -147,6 +154,14 @@ module EasyML
 
       extra.each do |key|
         params.delete(key)
+      end
+
+      # Only set one of one_hot or ordinal_encoding to true,
+      # by default set one_hot to true
+      xor = XOR_PARAMS.find { |rule| rule[:params] & params.keys == rule[:params] }
+      if xor && xor[:params].all? { |param| params[param] }
+        xor[:params].each { |param| params[param] = false }
+        params[xor[:default]] = true
       end
 
       config

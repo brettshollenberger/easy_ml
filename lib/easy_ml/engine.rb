@@ -18,8 +18,6 @@ require "resque-batched-job"
 require "rake"
 require "resque/tasks"
 require "zhong"
-require "vite_ruby"
-require "vite_rails"
 require "dotenv"
 
 module EasyML

@@ -49,7 +49,7 @@ RSpec.describe EasyML::Column, type: :model do
         )
         column.reload
         expect(column.preprocessing_steps.deep_symbolize_keys[:training][:params]).to include(
-          categorical_min: 100,
+          categorical_min: 1,
           one_hot: true,
           ordinal_encoding: false,
         )

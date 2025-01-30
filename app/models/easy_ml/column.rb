@@ -148,9 +148,12 @@ module EasyML
       missing = required - params.keys
       missing.reject! do |param|
         XOR_PARAMS.any? do |rule|
-          return false unless rule[:params].include?(param)
-          missing_param = rule[:params].find { |p| p != param }
-          params[missing_param] == true
+          if rule[:params].include?(param)
+            missing_param = rule[:params].find { |p| p != param }
+            params[missing_param] == true
+          else
+            false
+          end
         end
       end
       extra = params.keys - allowed

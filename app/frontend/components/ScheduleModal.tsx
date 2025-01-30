@@ -44,16 +44,16 @@ interface ScheduleModalProps {
 
 const METRICS = {
   classification: [
-    { value: 'accuracy_score', label: 'Accuracy', description: 'Overall prediction accuracy' },
-    { value: 'precision_score', label: 'Precision', description: 'Ratio of true positives to predicted positives' },
-    { value: 'recall_score', label: 'Recall', description: 'Ratio of true positives to actual positives' },
-    { value: 'f1_score', label: 'F1 Score', description: 'Harmonic mean of precision and recall' }
+    { value: 'accuracy_score', label: 'Accuracy', description: 'Overall prediction accuracy', direction: 'maximize' },
+    { value: 'precision_score', label: 'Precision', description: 'Ratio of true positives to predicted positives', direction: 'maximize' },
+    { value: 'recall_score', label: 'Recall', description: 'Ratio of true positives to actual positives', direction: 'maximize' },
+    { value: 'f1_score', label: 'F1 Score', description: 'Harmonic mean of precision and recall', direction: 'maximize' }
   ],
   regression: [
-    { value: 'mean_absolute_error', label: 'Mean Absolute Error', description: 'Average absolute differences between predicted and actual values' },
-    { value: 'mean_squared_error', label: 'Mean Squared Error', description: 'Average squared differences between predicted and actual values' },
-    { value: 'root_mean_squared_error', label: 'Root Mean Squared Error', description: 'Square root of mean squared error' },
-    { value: 'r2_score', label: 'R² Score', description: 'Proportion of variance in the target that is predictable' }
+    { value: 'mean_absolute_error', label: 'Mean Absolute Error', description: 'Average absolute differences between predicted and actual values', direction: 'minimize' },
+    { value: 'mean_squared_error', label: 'Mean Squared Error', description: 'Average squared differences between predicted and actual values', direction: 'minimize' },
+    { value: 'root_mean_squared_error', label: 'Root Mean Squared Error', description: 'Square root of mean squared error', direction: 'minimize' },
+    { value: 'r2_score', label: 'R² Score', description: 'Proportion of variance in the target that is predictable', direction: 'maximize' }
   ]
 };
 
@@ -609,8 +609,13 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, tunerJobCo
                           <div className="ml-3">
                             <h3 className="text-sm font-medium text-blue-800">Deployment Criteria</h3>
                             <p className="mt-2 text-sm text-blue-700">
-                              The model will be automatically deployed when the {formData.retraining_job_attributes.metric} is{' '}
-                              {formData.retraining_job_attributes.direction === 'minimize' ? 'below' : 'above'} {formData.retraining_job_attributes.threshold}.
+                              {(() => {
+                                const metricsList = METRICS[initialData.task === 'classification' ? 'classification' : 'regression'];
+                                const selectedMetric = metricsList.find(m => m.value === formData.retraining_job_attributes.metric);
+                                const direction = selectedMetric?.direction === 'minimize' ? 'below' : 'above';
+                                
+                                return `The model will be automatically deployed when the ${selectedMetric?.label} is ${direction} ${formData.retraining_job_attributes.threshold}.`;
+                              })()}
                             </p>
                           </div>
                         </div>

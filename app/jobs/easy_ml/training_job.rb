@@ -10,13 +10,14 @@ module EasyML
 
       @last_activity = Time.current
       setup_signal_traps
-      # @monitor_thread = start_monitor_thread
+      @monitor_thread = start_monitor_thread
 
       @model.actually_train do |iteration_info|
         @last_activity = Time.current
       end
     ensure
-      #   @monitor_thread&.exit
+      @monitor_thread&.exit
+      @model.unlock!
     end
 
     private
@@ -42,6 +43,7 @@ module EasyML
       @cleaned_up = true
       @model.last_run.update(status: "failed", error_message: error_message, completed_at: Time.current)
       @model.update(is_training: false)
+      @model.unlock!
     end
 
     def start_monitor_thread

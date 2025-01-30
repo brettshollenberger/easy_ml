@@ -29,6 +29,10 @@ module EasyML
     attributes :id, :name, :description, :target, :num_rows, :status,
                :datasource_id, :preprocessing_steps, :workflow_status, :statistics
 
+    attribute :date_column do |dataset|
+      dataset.date_column&.name
+    end
+
     attribute :splitter do |dataset|
       dataset.splitter
     end

@@ -53,6 +53,7 @@ export function ColumnConfigModal({
   const [isApplying, setIsApplying] = useState(false);
   const [config, setConfig] = useState<ColumnConfig>({
     targetColumn: dataset.target,
+    dateColumn: dataset.date_column,
   });
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -132,8 +133,13 @@ export function ColumnConfigModal({
     [dataset.columns]
   );
 
-  const dateColumns = useMemo(() => {
-    return dataset.columns.filter((column) => column.datatype === "datetime");
+  const dateColumnOptions = useMemo(() => {
+    return dataset.columns
+      .filter((column) => column.datatype === "datetime")
+      .map((column) => ({
+        value: column.name,
+        label: column.name,
+      }));
   }, [dataset.columns]);
 
   const handleColumnSelect = (columnName: string) => {
@@ -398,15 +404,12 @@ export function ColumnConfigModal({
                     </div>
                   ) : (
                     <div className="mt-4">
-                      {dateColumns.length > 0 ? (
+                      {dateColumnOptions.length > 0 ? (
                         <SearchableSelect
-                          value={config.dateColumn || ""}
-                          onChange={(value) => setDateColumn(value)}
-                          options={dateColumns.map((column) => ({
-                            value: column.name,
-                            label: column.name,
-                          }))}
-                          placeholder="Select date column..."
+                          options={dateColumnOptions}
+                          value={config.dateColumn}
+                          onChange={setDateColumn}
+                          placeholder="Select a date column..."
                         />
                       ) : (
                         <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-md">

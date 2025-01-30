@@ -30,6 +30,7 @@ module EasyML
     validates :name, uniqueness: { scope: :dataset_id }
 
     before_save :ensure_valid_datatype
+    after_save :handle_date_column_change
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -94,15 +95,17 @@ module EasyML
       is_date_column
     end
 
-    def set_as_date_column
-      return unless datatype == "datetime"
-
-      # Remove date column flag from other columns in the dataset
-      dataset.columns.where.not(id: id).update_all(is_date_column: false)
-      update(is_date_column: true)
-    end
-
     private
+
+    def handle_date_column_change
+      return unless saved_change_to_is_date_column? && is_date_column?
+
+      Column.transaction do
+        dataset.columns.where.not(id: id).update_all(is_date_column: false)
+        dataset.learn_statistics
+        dataset.columns.sync
+      end
+    end
 
     def ensure_valid_datatype
       return if datatype.blank?

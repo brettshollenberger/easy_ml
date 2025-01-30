@@ -109,7 +109,7 @@ module EasyML::Data
     end
 
     def self.last_value(df, col, date_col)
-      df.sort(by = date_col)[col][-1]
+      df.filter(Polars.col(col).is_not_null).sort(date_col)[col][-1]
     end
 
     def self.describe_to_h(df)

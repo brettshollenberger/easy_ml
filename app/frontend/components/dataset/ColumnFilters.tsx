@@ -54,7 +54,7 @@ export function ColumnFilters({
   };
 
   const columnsWithNulls = columns
-    .filter(col => col.statistics?.processed.null_count && col.statistics.processed.null_count > 0)
+    .filter(col => col.statistics?.processed?.null_count && col.statistics?.processed?.null_count > 0)
     .sort((a, b) => calculateNullPercentage(b) - calculateNullPercentage(a));
 
   const [currentPage, setCurrentPage] = useState(1);

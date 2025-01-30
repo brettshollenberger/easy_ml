@@ -98,10 +98,6 @@ module EasyML
 
     private
 
-    def set_date_column_if_date_splitter
-      binding.pry
-    end
-
     def handle_date_column_change
       return unless saved_change_to_is_date_column? && is_date_column?
 

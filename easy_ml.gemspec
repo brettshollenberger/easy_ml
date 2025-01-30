@@ -45,6 +45,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency "red-optuna"
   spec.add_dependency "resque"
   spec.add_dependency "resque-batched-job"
+  spec.add_dependency "resque-scheduler"
   spec.add_dependency "resque-pool"
   spec.add_dependency "suo"
   spec.add_dependency "wandb", "~> 0.1.13"

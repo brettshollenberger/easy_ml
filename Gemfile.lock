@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc47)
+    easy_ml (0.2.0.pre.rc48)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -22,6 +22,7 @@ PATH
       resque
       resque-batched-job
       resque-pool
+      resque-scheduler
       suo
       wandb (~> 0.1.13)
       xgb (~> 0.9.0)
@@ -1752,6 +1753,8 @@ GEM
     drb (2.2.1)
     dry-cli (1.2.0)
     erubi (1.13.1)
+    et-orbi (1.2.11)
+      tzinfo
     ffi (1.17.1-aarch64-linux-gnu)
     ffi (1.17.1-aarch64-linux-musl)
     ffi (1.17.1-arm64-darwin)
@@ -1759,6 +1762,9 @@ GEM
     ffi (1.17.1-x86_64-linux-gnu)
     ffi (1.17.1-x86_64-linux-musl)
     formatador (1.1.0)
+    fugit (1.11.1)
+      et-orbi (~> 1, >= 1.2.11)
+      raabro (~> 1.4)
     globalid (1.2.1)
       activesupport (>= 6.1)
     guard (2.19.1)
@@ -1872,6 +1878,7 @@ GEM
       date
       stringio
     pycall (1.5.2)
+    raabro (1.4.0)
     racc (1.8.1)
     rack (3.1.8)
     rack-protection (4.1.1)
@@ -1944,6 +1951,11 @@ GEM
     resque-pool (0.7.1)
       rake (>= 10.0, < 14.0)
       resque (>= 1.22, < 3)
+    resque-scheduler (4.11.0)
+      mono_logger (~> 1.0)
+      redis (>= 3.3)
+      resque (>= 1.27)
+      rufus-scheduler (~> 3.2, != 3.3)
     resque_spec (0.18.1)
       resque (>= 1.26.0)
       rspec-core (>= 3.0.0)
@@ -1985,6 +1997,8 @@ GEM
       parser (>= 3.3.1.0)
     ruby-progressbar (1.13.0)
     ruby2_keywords (0.0.5)
+    rufus-scheduler (3.9.2)
+      fugit (~> 1.1, >= 1.11.1)
     securerandom (0.4.1)
     shellany (0.0.1)
     sinatra (4.1.1)

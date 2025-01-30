@@ -67,6 +67,7 @@ module EasyML
     validate :evaluator_must_be_valid
     validate :validate_at_format
     after_initialize :set_direction, unless: :persisted?
+    before_save :set_direction
 
     scope :active, -> { joins(:model).where(active: true) }
 

@@ -74,7 +74,6 @@ module EasyML
     end
     before_save :set_root_dir
     before_validation :filter_duplicate_features
-    after_save :apply_date_splitter_config
 
     def self.constants
       {
@@ -596,7 +595,17 @@ module EasyML
       self
     end
 
+    def after_create_columns
+      apply_date_splitter_config
+    end
+
     private
+
+    def apply_date_splitter_config
+      return unless splitter.date_splitter?
+
+      set_date_column(splitter.date_col)
+    end
 
     def preloaded_features
       @preloaded_features ||= features.includes(:dataset).load
@@ -721,16 +730,7 @@ module EasyML
     def set_date_column(column_name)
       return unless column_name.present?
 
-      column = columns.find_by(name: column_name)
-      return unless column&.datatype == "datetime"
-
-      column.set_as_date_column
-    end
-
-    def apply_date_splitter_config
-      return unless splitter.is_a?(EasyML::Splitters::DateSplitter)
-
-      set_date_column(splitter.date_col)
+      columns.find_by(name: column_name).update(is_date_column: true)
     end
 
     def apply_features(df, features = self.features)

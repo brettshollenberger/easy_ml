@@ -52,6 +52,18 @@ module EasyML
       add_configuration_attributes attribute
     end
 
+    def date_splitter?
+      splitter_type == "date"
+    end
+
+    def random_splitter?
+      splitter_type == "random"
+    end
+
+    def predefined_splitter?
+      splitter_type == "predefined"
+    end
+
     def self.constants
       {
         SPLITTER_TYPES: SPLITTER_TYPES,

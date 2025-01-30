@@ -271,7 +271,7 @@ export function PreprocessingConfig({
       if (lastValue !== undefined && lastValue !== null) {
         content = `Forward Fill using Last Value: ${lastValue}`;
       } else {
-        content = 'Apply preprocessing to see last value';
+        content = 'Set date column & apply preprocessing to see last value';
       }
     } else if (strategy.method === 'median' && column.statistics?.raw?.median) {
       content = `Median: ${column.statistics.raw.median}`

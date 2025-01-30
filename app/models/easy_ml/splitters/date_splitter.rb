@@ -86,6 +86,10 @@ module EasyML
       def today
         to_datetime(@today, default: UTC.today)
       end
+
+      def update_dataset_date_col
+        dataset.apply_date_splitter_config
+      end
     end
   end
 end

@@ -41,6 +41,7 @@ module EasyML
             add_workflow_status_to_easy_ml_features
             drop_path_from_easy_ml_model_files
             add_is_date_column_to_easy_ml_columns
+            create_easy_ml_preprocessing_steps
           ].freeze
 
           # Specify the next migration number

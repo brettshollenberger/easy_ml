@@ -40,13 +40,12 @@ RSpec.describe EasyML::Data::Preprocessor do
     @dataset.columns.find_by(name: "rev").update(is_target: true)
   end
 
-  it "preprocesses mean" do
+  it "preprocesses mean", :focus do
     @dataset.columns.find_by(name: "annual_revenue").update(
-      preprocessing_steps: {
-        training: {
-          method: :mean,
-        },
-      },
+      preprocessing_steps_attributes: [{
+        type: :training,
+        method: :mean,
+      }],
     )
 
     @dataset.refresh

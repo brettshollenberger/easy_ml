@@ -32,6 +32,7 @@ module EasyML
     before_save :ensure_valid_datatype
     after_create :set_date_column_if_date_splitter
     after_save :handle_date_column_change
+    before_save :apply_defaults
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -39,6 +40,15 @@ module EasyML
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
     scope :date_column, -> { where(is_date_column: true) }
+
+    has_many :preprocessing_steps, 
+            class_name: 'EasyML::PreprocessingStep', 
+            dependent: :destroy,
+            inverse_of: :column
+            
+    accepts_nested_attributes_for :preprocessing_steps, 
+                                allow_destroy: true,
+                                reject_if: :reject_preprocessing_steps
 
     def datatype=(dtype)
       write_attribute(:datatype, dtype)
@@ -60,36 +70,40 @@ module EasyML
       write_attribute(:datatype, EasyML::Data::PolarsColumn::POLARS_MAP[type.class.to_s]&.to_s)
     end
 
-    def preprocessing_steps=(steps)
-      return super({}) if steps.blank?
+    # def preprocessing_steps=(steps)
+    #   return super({}) if steps.blank?
 
-      typed_steps = steps.transform_values do |config|
-        next config unless config[:params]&.key?(:constant)
+    #   typed_steps = steps.transform_values do |config|
+    #     next config unless config[:params]&.key?(:constant)
 
-        config.deep_dup.tap do |c|
-          c[:params][:constant] = convert_to_type(c[:params][:constant])
-        end
-      end
+    #     config.deep_dup.tap do |c|
+    #       c[:params][:constant] = convert_to_type(c[:params][:constant])
+    #     end
+    #   end
 
-      super(typed_steps)
-    end
+    #   super(typed_steps)
+    # end
 
-    def preprocessing_steps
-      (read_attribute(:preprocessing_steps) || {}).symbolize_keys
-    end
+    # def preprocessing_steps
+    #   (read_attribute(:preprocessing_steps) || {}).symbolize_keys
+    # end
 
     def one_hot?
-      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :one_hot) == true
+      preprocessing_steps&.one_hot? || false
     end
 
     def ordinal_encoding?
-      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :ordinal_encoding) == true
+      preprocessing_steps&.ordinal_encoding? || false
     end
 
     def allowed_categories
       return nil unless one_hot?
 
-      dataset.preprocessor.statistics.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
+      begin
+        dataset.preprocessor.statistics.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
+      rescue => e
+        binding.pry
+      end
     end
 
     def date_column?
@@ -97,6 +111,27 @@ module EasyML
     end
 
     private
+
+    def apply_defaults
+
+    end
+
+    def preprocessing_steps_defaults
+      preprocessing_steps.reduce({}) do |defaults, (type, configuration)|
+        defaults.tap do
+          defaults[type] = preprocessing_step_defaults(step)
+        end
+      end
+    end
+
+    def preprocessing_step_defaults(step)
+      step = step.symbolize_keys
+      defaults = case step[:method].to_s
+      when "categorical" then {categorical_min: 100, one_hot: true, ordinal_encoding: false}
+      else 
+        {}
+      end
+    end
 
     def handle_date_column_change
       return unless saved_change_to_is_date_column? && is_date_column?
@@ -135,6 +170,13 @@ module EasyML
     rescue ArgumentError, TypeError
       # If conversion fails, return original value
       value
+    end
+
+    def reject_preprocessing_steps(attributes)
+      # Reject if all values except _destroy are blank
+      attributes.except('_destroy').values.all?(&:blank?) ||
+        # Or if method is 'none' and there are no params
+        (attributes['method'] == 'none' && attributes['params'].blank?)
     end
 
     NUMERIC_METHODS = %i[mean median].freeze

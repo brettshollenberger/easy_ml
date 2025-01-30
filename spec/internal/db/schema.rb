@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_01_30_015923) do
+ActiveRecord::Schema[7.2].define(version: 2025_01_30_210131) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -56,7 +56,6 @@ ActiveRecord::Schema[7.2].define(version: 2025_01_30_015923) do
     t.boolean "is_target"
     t.boolean "hidden", default: false
     t.boolean "drop_if_null", default: false
-    t.json "preprocessing_steps"
     t.json "sample_values"
     t.json "statistics"
     t.datetime "created_at", null: false
@@ -403,6 +402,17 @@ ActiveRecord::Schema[7.2].define(version: 2025_01_30_015923) do
     t.index ["created_at"], name: "index_easy_ml_predictions_on_created_at"
     t.index ["model_history_id"], name: "index_easy_ml_predictions_on_model_history_id"
     t.index ["model_id"], name: "index_easy_ml_predictions_on_model_id"
+  end
+
+  create_table "easy_ml_preprocessing_steps", force: :cascade do |t|
+    t.string "method", null: false
+    t.jsonb "params", null: false
+    t.bigint "column_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["column_id"], name: "index_easy_ml_preprocessing_steps_on_column_id"
+    t.index ["created_at"], name: "index_easy_ml_preprocessing_steps_on_created_at"
+    t.index ["method"], name: "index_easy_ml_preprocessing_steps_on_method"
   end
 
   create_table "easy_ml_retraining_jobs", force: :cascade do |t|

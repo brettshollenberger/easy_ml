@@ -176,8 +176,7 @@ RSpec.describe EasyML::Data::Preprocessor do
 
     # expect(@dataset.statistics.dig("raw", "mean"))
     @dataset.refresh
-    values = @dataset.data["group"].value_counts.to_a.map(&:values).to_h
-    expect(values).to match(hash_including({ "other" => 6, "a" => 4 }))
+    expect(@dataset.data.columns.select { |col| col =~ /group_/ }.sort).to eq(["group_a", "group_other"])
   end
 
   # Float tests
@@ -413,6 +412,7 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :categorical,
             params: {
+              categorical_min: 1,
               one_hot: true,
             },
           },
@@ -433,6 +433,7 @@ RSpec.describe EasyML::Data::Preprocessor do
           training: {
             method: :categorical,
             params: {
+              categorical_min: 1,
               ordinal_encoding: true,
             },
           },

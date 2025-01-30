@@ -125,7 +125,7 @@ module EasyML
     }
 
     DEFAULT_PARAMS = {
-      categorical_min: 100,
+      categorical_min: 1,
       one_hot: true,
       ordinal_encoding: false,
       clip: { min: 0, max: 1_000_000_000 },
@@ -140,12 +140,19 @@ module EasyML
     def set_preprocessing_step_defaults(config)
       config.deep_symbolize_keys!
       config[:params] ||= {}
-      params = config[:params]
+      params = config[:params].symbolize_keys
 
       required = REQUIRED_PARAMS.fetch(config[:method].to_sym, [])
       allowed = ALLOWED_PARAMS.fetch(config[:method].to_sym, [])
 
       missing = required - params.keys
+      missing.reject! do |param|
+        XOR_PARAMS.any? do |rule|
+          return false unless rule[:params].include?(param)
+          missing_param = rule[:params].find { |p| p != param }
+          params[missing_param] == true
+        end
+      end
       extra = params.keys - allowed
 
       missing.each do |key|
@@ -164,7 +171,7 @@ module EasyML
         params[xor[:default]] = true
       end
 
-      config
+      config.merge!(params: params)
     end
 
     def handle_date_column_change

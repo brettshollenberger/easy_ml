@@ -156,7 +156,7 @@ module EasyML
         raise "Couldn't find primary key for feature #{feature_class}, check your feature class"
       end
 
-      dataset.raw.data(limit: 1, select: primary_key)[primary_key].to_a.flat_map { |h| h.respond_to?(:values) ? h.values : h }.all? do |value|
+      dataset.raw.data(limit: 1, select: primary_key, all_columns: true)[primary_key].to_a.flat_map { |h| h.respond_to?(:values) ? h.values : h }.all? do |value|
         case value
         when String then value.match?(/\A[-+]?\d+(\.\d+)?\z/)
         else

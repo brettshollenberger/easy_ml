@@ -5,18 +5,18 @@ module EasyML
     @queue = :easy_ml
 
     def self.perform(batch_id, options = {})
-      options.symbolize_keys!
-      feature_id = options.dig(:feature_id)
-      feature = EasyML::Feature.find(feature_id)
-      dataset = feature.dataset
-
-      # Check if any feature has failed before proceeding
-      if dataset.features.any? { |f| f.workflow_status == "failed" }
-        puts "Aborting feature computation due to previous feature failure"
-        return
-      end
-
       begin
+        options.symbolize_keys!
+        feature_id = options.dig(:feature_id)
+        feature = EasyML::Feature.find(feature_id)
+        dataset = feature.dataset
+
+        # Check if any feature has failed before proceeding
+        if dataset.features.any? { |f| f.workflow_status == "failed" }
+          puts "Aborting feature computation due to previous feature failure"
+          return
+        end
+
         feature.update(workflow_status: :analyzing) if feature.workflow_status == :ready
         feature.fit_batch(options.merge!(batch_id: batch_id))
       rescue => e

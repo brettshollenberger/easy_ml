@@ -69,8 +69,8 @@ module EasyML
       if !object.failed? || object.events.empty?
         nil
       else
-        last_event = object.events.order(id: :desc).limit(1).last
-        last_event&.stacktrace if last_event&.status == "failed"
+        last_event = object.events.where(status: :failed).order(id: :desc).limit(1).last
+        last_event&.stacktrace
       end
     end
   end

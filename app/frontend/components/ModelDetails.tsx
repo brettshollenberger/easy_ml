@@ -17,6 +17,16 @@ interface PaginatedRuns {
 
 const ITEMS_PER_PAGE = 3;
 
+const METRIC_MAPPINGS: Record<string, string> = {
+  root_mean_squared_error: 'rmse',
+  mean_absolute_error: 'mae',
+  mean_squared_error: 'mse',
+  r2_score: 'r2',
+  accuracy_score: 'accuracy',
+  precision_score: 'precision',
+  recall_score: 'recall'
+};
+
 export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'dataset'>('overview');
   const [runs, setRuns] = useState<RetrainingRun[]>(model.retraining_runs?.runs || []);
@@ -101,6 +111,10 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
 
   const isCurrentlyDeployed = (run: RetrainingRun) => {
     return run.status === 'deployed';
+  };
+
+  const formatMetricKey = (key: string) => {
+    return METRIC_MAPPINGS[key] || key;
   };
 
   return (
@@ -271,7 +285,7 @@ export function ModelDetails({ model, onBack, rootPath }: ModelDetailsProps) {
                       ).map(([key, value]) => (
                         <div key={key} className="bg-gray-50 rounded-md p-3">
                           <div className="text-sm font-medium text-gray-500">
-                            {key}
+                            {formatMetricKey(key)}
                           </div>
                           <div className="mt-1 flex items-center gap-2">
                             <span className="text-lg font-semibold">

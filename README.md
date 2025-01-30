@@ -442,7 +442,8 @@ bundle exec appraisal install
 
 a. Follow the typical steps
 b. Declare an environment variable: `EASY_ML_DEV=true`, using Figaro, dotenv, or similar to load develoment assets
-c. Run `yarn vite dev` in both the `easy_ml` gem and test app directories
+c. Run `bin/vite dev` in both the `easy_ml` gem and test app directories
+d. If you don't see assets, it's likely your `EASY_ML_DEV` attribute isn't set! Ensure this is loaded early in your application.rb so it's picked up by the engine — if all else fails, try explicitly running `EASY_ML_DEV=true rails s`
 
 1. Building production assets
 
@@ -454,6 +455,15 @@ bin/vite_build
 
 ```bash
 bin/build
+```
+
+1. Adding migrations
+
+Update the migration_generator.rb file to install the new migrations, and run:
+
+```bash
+rake easy_ml:create_test_migrations && bundle exec rake db:drop db:create db:migrate
+rake easy_ml:annotate_models
 ```
 
 1. Ensure you run tests against all supported Rails versions

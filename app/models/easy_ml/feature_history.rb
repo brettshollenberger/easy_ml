@@ -22,6 +22,7 @@
 #  history_ended_at   :datetime
 #  history_user_id    :integer
 #  snapshot_id        :string
+#  workflow_status    :string
 #
 module EasyML
   class FeatureHistory < ActiveRecord::Base

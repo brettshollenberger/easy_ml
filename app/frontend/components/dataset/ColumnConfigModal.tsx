@@ -11,6 +11,10 @@ import {
   Loader2,
   Sparkles,
   Calendar,
+  ChevronDown,
+  ChevronRight,
+  Filter,
+  Database,
 } from "lucide-react";
 import { PreprocessingConfig } from "./PreprocessingConfig";
 import { ColumnList } from "./ColumnList";
@@ -67,6 +71,21 @@ export function ColumnConfigModal({
   const [needsRefresh, setNeedsRefresh] = useState(
     initialDataset.needs_refresh || false
   );
+
+  // Add new state for section expansion
+  const [sectionsExpanded, setSectionsExpanded] = useState({
+    columnViews: true,
+    columnTypes: true,
+    columnList: true
+  });
+
+  // Add toggle section handler
+  const toggleSection = (section: keyof typeof sectionsExpanded) => {
+    setSectionsExpanded(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
 
   const handleSave = useCallback(
     async (data: Dataset) => {
@@ -419,24 +438,109 @@ export function ColumnConfigModal({
                     </div>
                   )}
                 </div>
-                <div className="shrink-0">
-                  <ColumnFilters
-                    types={columnTypes}
-                    activeFilters={activeFilters}
-                    onFilterChange={setActiveFilters}
-                    columnStats={columnStats}
-                    columns={dataset.columns}
-                    colHasPreprocessingSteps={colHasPreprocessingSteps}
-                  />
-                </div>
+                <div className="flex-1 overflow-y-auto">
+                  {/* Column Views Section */}
+                  <div className="border-b">
+                    <button
+                      onClick={() => toggleSection('columnViews')}
+                      className="flex items-center justify-between w-full p-4 hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-5 h-5 text-gray-400" />
+                        <span className="font-medium text-gray-900">Column Views</span>
+                      </div>
+                      {sectionsExpanded.columnViews ? (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {sectionsExpanded.columnViews && (
+                      <div className="px-4 pb-4">
+                        <ColumnFilters
+                          types={columnTypes}
+                          activeFilters={activeFilters}
+                          onFilterChange={setActiveFilters}
+                          columnStats={columnStats}
+                          columns={dataset.columns}
+                          colHasPreprocessingSteps={colHasPreprocessingSteps}
+                        />
+                      </div>
+                    )}
+                  </div>
 
-                <div className="flex-1 overflow-y-auto p-4 min-h-0">
-                  <ColumnList
-                    columns={filteredColumns}
-                    selectedColumn={selectedColumn}
-                    onColumnSelect={handleColumnSelect}
-                    onToggleHidden={toggleHiddenColumn}
-                  />
+                  {/* Column Types Section */}
+                  <div className="border-b">
+                    <button
+                      onClick={() => toggleSection('columnTypes')}
+                      className="flex items-center justify-between w-full p-4 hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Database className="w-5 h-5 text-gray-400" />
+                        <span className="font-medium text-gray-900">Column Types</span>
+                      </div>
+                      {sectionsExpanded.columnTypes ? (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {sectionsExpanded.columnTypes && (
+                      <div className="px-4 pb-4">
+                        <div className="flex flex-wrap gap-2">
+                          {columnTypes.map(type => (
+                            <button
+                              key={type}
+                              onClick={() => {
+                                const newTypes = activeFilters.types.includes(type)
+                                  ? activeFilters.types.filter(t => t !== type)
+                                  : [...activeFilters.types, type];
+                                setActiveFilters({ ...activeFilters, types: newTypes });
+                              }}
+                              className={`px-2 py-1 rounded-md text-xs font-medium ${
+                                activeFilters.types.includes(type)
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              }`}
+                            >
+                              {type}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Column List Section */}
+                  <div>
+                    <button
+                      onClick={() => toggleSection('columnList')}
+                      className="flex items-center justify-between w-full p-4 hover:bg-gray-50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Settings2 className="w-5 h-5 text-gray-400" />
+                        <span className="font-medium text-gray-900">Columns</span>
+                        <span className="text-sm text-gray-500">
+                          ({filteredColumns.length} of {dataset.columns.length})
+                        </span>
+                      </div>
+                      {sectionsExpanded.columnList ? (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-gray-400" />
+                      )}
+                    </button>
+                    {sectionsExpanded.columnList && (
+                      <div className="px-4 pb-4">
+                        <ColumnList
+                          columns={filteredColumns}
+                          selectedColumn={selectedColumn}
+                          onColumnSelect={handleColumnSelect}
+                          onToggleHidden={toggleHiddenColumn}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

@@ -104,29 +104,6 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     constants.objectives[data.model.model_type]?.[data.model.task] || [];
 
   useEffect(() => {
-    // Only set default metrics if none were provided from the backend
-    if (!initialData?.metrics) {
-      const availableMetrics = constants.metrics[data.model.task]?.map(metric => metric.value) || [];
-      setData({
-        ...data,
-        model: {
-          ...data.model,
-          objective: data.model.task === 'classification' ? 'binary:logistic' : 'reg:squarederror',
-          metrics: availableMetrics
-        }
-      });
-    } else {
-      setData({
-        ...data,
-        model: {
-          ...data.model,
-          objective: data.model.task === 'classification' ? 'binary:logistic' : 'reg:squarederror'
-        }
-      });
-    }
-  }, [data.model.task]);
-
-  useEffect(() => {
     if (isDataSet) {
       save();
       setIsDataSet(false); // Reset the flag
@@ -187,10 +164,20 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
     save();
   };
 
-  console.log(data.model)
   const selectedDataset = datasets.find(d => d.id === data.model.dataset_id);
 
   const filteredTunerJobConstants = constants.tuner_job_constants[data.model.model_type] || {};
+
+  const handleTaskChange = (value: string) => {
+    // First update the task
+    setData('model.task', value);
+    
+    // Then force reset metrics to empty array
+    setData('model.metrics', []);
+
+    // Update objective based on new task
+    setData('model.objective', value === 'classification' ? 'binary:logistic' : 'reg:squarederror');
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
@@ -266,8 +253,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
             <SearchableSelect
               options={constants.tasks}
               value={data.model.task}
-              onChange={(value) => setData('model.task', value as string)}
-              placeholder="Select task"
+              onChange={handleTaskChange}
             />
             <ErrorDisplay error={errors.task} />
           </div>
@@ -300,24 +286,21 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
                   type="checkbox"
                   checked={data.model.metrics.includes(metric.value)}
                   onChange={(e) => {
-                    const metrics = e.target.checked
+                    const newMetrics = e.target.checked
                       ? [...data.model.metrics, metric.value]
                       : data.model.metrics.filter(m => m !== metric.value);
-                    setData('model.metrics', metrics);
+                    setData('model.metrics', newMetrics);
                   }}
-                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <div className="ml-3">
-                  <span className="block text-sm font-medium text-gray-900">
-                    {metric.label}
-                  </span>
-                  <span className="block text-xs text-gray-500">
-                    {metric.direction === 'maximize' ? 'Higher is better' : 'Lower is better'}
-                  </span>
+                  <span className="block text-sm font-medium text-gray-900">{metric.label}</span>
+                  <span className="block text-xs text-gray-500">Direction: {metric.direction}</span>
                 </div>
               </label>
             ))}
           </div>
+          <ErrorDisplay error={errors.metrics} />
         </div>
       </div>
 

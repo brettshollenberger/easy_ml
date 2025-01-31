@@ -72,7 +72,7 @@ module EasyML
       else
         errors = model.errors.to_hash(true)
         values = errors.values.flatten
-        flash[:error] = values.join(", ")
+        flash.now[:error] = values.join(", ")
         render inertia: "pages/EditModelPage", props: {
           model: model_to_json(model),
           datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },

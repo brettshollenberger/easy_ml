@@ -110,6 +110,18 @@ module EasyML
       is_date_column
     end
 
+    def lineage
+      [
+        present_in_raw_dataset ? "Raw dataset" : nil,
+        computed_by ? "Computed by #{computed_by}" : nil,
+        preprocessing_steps.present? ? "Preprocessed using #{preprocessing_steps.keys.join(", ")}" : nil,
+      ].compact
+    end
+
+    def present_in_raw_dataset
+      dataset.raw.data&.columns&.include?(name) || false
+    end
+
     private
 
     def set_defaults

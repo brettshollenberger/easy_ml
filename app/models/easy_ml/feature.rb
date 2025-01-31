@@ -165,6 +165,13 @@ module EasyML
       end
     end
 
+    def computes_columns
+      unless adapter.respond_to?(:computes_columns)
+        raise "Feature #{feature_class} must declare which columns it computes using the :computes_columns method"
+      end
+      adapter.computes_columns
+    end
+
     def build_batches
       if batchable?
         batch

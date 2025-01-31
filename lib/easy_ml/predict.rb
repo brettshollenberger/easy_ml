@@ -15,7 +15,11 @@ module EasyML
         df = Polars::DataFrame.new(df)
       end
       raw_input = df.to_hashes
-      df = instance.normalize(model_name, df)
+      begin
+        df = instance.normalize(model_name, df)
+      rescue => e
+        binding.pry
+      end
       normalized_input = df.to_hashes
       preds = instance.predict(model_name, df)
       current_version = instance.get_model(model_name)

@@ -78,10 +78,19 @@ module EasyML
         EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
       end)).to_h
 
+      # Get all features that compute columns
+      features_computing_columns = dataset.features.all.map do |feature|
+        [feature.name, feature.computes_columns]
+      end.compact.to_h
+
       existing_columns.each do |column|
         new_polars_type = polars_types[column.name]
         existing_type = existing_types[column.name]
         schema_type = dataset.schema[column.name]
+
+        # Check if column is computed by any feature
+        computing_feature = features_computing_columns.find { |_, cols| cols.include?(column.name) }&.first
+        is_computed = !computing_feature.nil?
 
         # Keep both datatype and polars_datatype if it's an ordinal encoding case
         if column.ordinal_encoding?
@@ -112,11 +121,13 @@ module EasyML
           datatype: actual_schema_type,
           polars_datatype: actual_type,
           sample_values: sample_values,
+          computed_by: computing_feature,
+          is_computed: is_computed,
         )
       end
       EasyML::Column.import(existing_columns.to_a,
                             { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
-                                                                   sample_values] } })
+                                                                   sample_values computed_by is_computed] } })
     end
 
     def delete_missing(existing_columns)

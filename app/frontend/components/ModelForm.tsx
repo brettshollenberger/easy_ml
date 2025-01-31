@@ -374,6 +374,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
           dataset: selectedDataset,
           retraining_job: data.model.retraining_job_attributes
         }}
+        metrics={constants.metrics}
         tunerJobConstants={filteredTunerJobConstants}
         timezone={constants.timezone}
         retrainingJobConstants={constants.retraining_job_constants}

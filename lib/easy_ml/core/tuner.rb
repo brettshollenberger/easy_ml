@@ -7,7 +7,8 @@ module EasyML
       attr_accessor :model, :dataset, :project_name, :task, :config,
                     :metrics, :objective, :n_trials, :direction, :evaluator,
                     :study, :results, :adapter, :tune_started_at, :x_true, :y_true,
-                    :project_name, :job, :current_run
+                    :project_name, :job, :current_run, :trial_enumerator, :progress_block,
+                    :tuner_job
 
       def initialize(options = {})
         @model = options[:model]
@@ -22,6 +23,7 @@ module EasyML
         @evaluator = options[:evaluator]
         @tune_started_at = EasyML::Support::UTC.now
         @project_name = "#{@model.name}_#{tune_started_at.strftime("%Y_%m_%d_%H_%M_%S")}"
+        prepare
       end
 
       def initialize_adapter
@@ -47,7 +49,7 @@ module EasyML
         EasyML::Configuration.wandb_api_key.present?
       end
 
-      def tune(&progress_block)
+      def prepare
         set_defaults!
         @adapter = initialize_adapter
 
@@ -64,7 +66,7 @@ module EasyML
           wandb_url: wandb_enabled? ? "https://wandb.ai/fundera/#{@project_name}" : nil,
         }.compact
 
-        tuner_job = EasyML::TunerJob.create!(tuner_params)
+        @tuner_job = EasyML::TunerJob.create!(tuner_params)
         @job = tuner_job
         @study = Optuna::Study.new(direction: direction)
         @results = []
@@ -82,18 +84,16 @@ module EasyML
         model.prepare_data unless model.batch_mode
         model.prepare_callbacks(self)
 
-        n_trials.times do |run_number|
-          trial = @study.ask
-          puts "Running trial #{trial.number}"
-          @tuner_run = tuner_job.tuner_runs.new(
-            trial_number: trial.number,
-            status: :running,
-          )
+        # Initialize the trial enumerator
+        @trial_enumerator = n_trials.times.map { @study.ask }.each
+      end
 
-          self.current_run = @tuner_run
+      def tune(&progress_block)
+        @progress_block = progress_block
 
+        n_trials.times do
           begin
-            run_metrics = tune_once(trial, x_true, y_true, adapter, &progress_block)
+            run_metrics = tune_once
             result = calculate_result(run_metrics)
             @results.push(result)
 
@@ -104,7 +104,7 @@ module EasyML
             }.compact
 
             @tuner_run.update!(params)
-            @study.tell(trial, result)
+            @study.tell(@current_trial, result)
           rescue StandardError => e
             @tuner_run.update!(status: :failed, hyperparameters: {})
             puts "Optuna failed with: #{e.message}"
@@ -129,6 +129,25 @@ module EasyML
         raise e
       end
 
+      def tune_once
+        @current_trial = @trial_enumerator.next
+        puts "Running trial #{@current_trial.number}"
+        @tuner_run = job.tuner_runs.new(
+          trial_number: @current_trial.number,
+          status: :running,
+        )
+        self.current_run = @tuner_run
+
+        adapter.run_trial(@current_trial) do |model|
+          model.fit(tuning: true, &progress_block)
+          y_pred = model.predict(x_true)
+          model.metrics = metrics
+          metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
+          puts metrics
+          metrics
+        end
+      end
+
       private
 
       def calculate_result(run_metrics)
@@ -138,17 +157,6 @@ module EasyML
           run_metrics[model.evaluator[:metric].to_sym]
         else
           run_metrics[objective.to_sym]
-        end
-      end
-
-      def tune_once(trial, x_true, y_true, adapter, &progress_block)
-        adapter.run_trial(trial) do |model|
-          model.fit(tuning: true, &progress_block)
-          y_pred = model.predict(x_true)
-          model.metrics = metrics
-          metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
-          puts metrics
-          metrics
         end
       end
 

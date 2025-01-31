@@ -151,8 +151,10 @@ RSpec.describe EasyML::Core::Tuner do
 
     describe "Tuning Job Tracking" do
       it "creates a tuner job" do
+        existing_tuner_job_count = EasyML::TunerJob.count
         tuner = EasyML::Core::Tuner.new(tuner_params)
-        expect { tuner.tune }.to change(EasyML::TunerJob, :count).by(1)
+        new_count = EasyML::TunerJob.count
+        expect(new_count).to eq(existing_tuner_job_count + 1)
 
         job = EasyML::TunerJob.last
         expect(job.config).to include(

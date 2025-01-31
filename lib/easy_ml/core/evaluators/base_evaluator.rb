@@ -14,15 +14,16 @@ module EasyML
           key.split("_").join(" ").titleize
         end
 
-        def to_option
-          EasyML::Option.new(to_h)
+        def description
+          "No description provided"
         end
 
         def to_h
           {
             value: key,
             label: label,
-            direction: direction
+            direction: direction,
+            description: description,
           }
         end
 

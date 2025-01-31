@@ -9,6 +9,10 @@ module EasyML
             (Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)).abs.mean
           end
 
+          def description
+            "Average absolute differences between predicted and actual values"
+          end
+
           def direction
             "minimize"
           end
@@ -19,6 +23,10 @@ module EasyML
 
           def evaluate(y_pred:, y_true:, x_true: nil)
             ((Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)) ** 2).mean
+          end
+
+          def description
+            "Average squared differences between predicted and actual values"
           end
 
           def direction
@@ -33,6 +41,10 @@ module EasyML
             Math.sqrt(((Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)) ** 2).mean)
           end
 
+          def description
+            "Square root of mean squared error"
+          end
+
           def direction
             "minimize"
           end
@@ -40,6 +52,10 @@ module EasyML
 
         class R2Score
           include BaseEvaluator
+
+          def description
+            "Proportion of variance in the target that is predictable"
+          end
 
           def direction
             "maximize"

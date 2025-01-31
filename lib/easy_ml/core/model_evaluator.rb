@@ -16,7 +16,7 @@ module EasyML
           @callbacks || []
         end
 
-        def register(metric_name, evaluator, type, aliases = {})
+        def register(metric_name, evaluator, type, aliases = [])
           @registry ||= {}
           unless evaluator.included_modules.include?(Evaluators::BaseEvaluator)
             evaluator.include(Evaluators::BaseEvaluator)
@@ -63,9 +63,21 @@ module EasyML
         end
 
         def metrics_by_task
-          @registry.group_by { |_key, metric| metric[:type] }.transform_values do |group|
+          @registry.inject({}) do |hash, (k, v)|
+            hash.tap do
+              type = v[:type]
+              unless type.is_a?(Array)
+                type = [type]
+              end
+
+              type.each do |configuration|
+                hash[configuration] ||= []
+                hash[configuration] << v
+              end
+            end
+          end.transform_values do |group|
             group.flat_map do |metric|
-              for_frontend(metric.last.dig(:evaluator))
+              for_frontend(metric.dig(:evaluator))
             end
           end
         end
@@ -75,7 +87,12 @@ module EasyML
             @registry.keys
           else
             @registry.select do |_k, v|
-              v[:type].to_sym == task.to_sym
+              case v[:type]
+              when Array
+                v[:type].map(&:to_sym).include?(task.to_sym)
+              else
+                v[:type].to_sym == task.to_sym
+              end
             end.keys
           end
         end

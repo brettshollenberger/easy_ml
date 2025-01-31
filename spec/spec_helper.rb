@@ -27,15 +27,18 @@ SPEC_ROOT = PROJECT_ROOT.join("spec")
 
 RSpec.configure do |config|
   include ActiveJob::TestHelper
+  @combustion_initialized = false
 
   def require_rails_files
-    require "combustion"
+    unless @combustion_initialized
+      require "combustion"
+      Combustion.initialize!
+      @combustion_initialized = true
+      require "rspec/rails"
 
-    Combustion.initialize!
-    require "rspec/rails"
-
-    # Convert Rails.root to Pathname to ensure consistent path handling
-    Dir[Pathname.new(Rails.root).join("spec/support/**/*.rb").to_s].each { |f| require f }
+      # Convert Rails.root to Pathname to ensure consistent path handling
+      Dir[Pathname.new(Rails.root).join("spec/support/**/*.rb").to_s].each { |f| require f }
+    end
   end
 
   # Only load Rails/Combustion for specs that need it
@@ -83,6 +86,8 @@ RSpec.configure do |config|
 
   config.after(:suite) do
     FileUtils.rm_rf(Rails.root.join("tmp/"))
+    DatabaseCleaner.clean_with(:truncation)
+    EasyML::Cleaner.clean
   end
 
   config.before(:all) do

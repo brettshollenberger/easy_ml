@@ -35,6 +35,7 @@ module EasyML
       root.join("app/models/datasources"),
       root.join("app/models/models"),
       root.join("lib/easy_ml"),
+      root.join("app/evaluators"),
     ]
 
     config.eager_load_paths += [
@@ -43,6 +44,7 @@ module EasyML
       root.join("app/models"),
       root.join("app/models/**/"),
       root.join("lib/easy_ml/**/*"),
+      root.join("app/evaluators"),
     ]
 
     initializer "easy_ml.initializers" do
@@ -67,6 +69,9 @@ module EasyML
           require file
         end
         Dir.glob(File.expand_path("app/models/easy_ml/**/*.rb", EasyML::Engine.root)).each do |file|
+          require file
+        end
+        Dir.glob(File.expand_path("app/evaluators/**/*.rb", EasyML::Engine.root)).each do |file|
           require file
         end
       end

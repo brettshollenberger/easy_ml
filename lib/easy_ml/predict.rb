@@ -76,7 +76,7 @@ module EasyML
     private
 
     def load_model(model_name)
-      current_model = EasyML::Model.find_by!(name: model_name).inference_version
+      current_model = EasyML::Model.find_by!(slug: model_name).inference_version
 
       # Load new model if not loaded or different version
       model_not_loaded = models[model_name].nil?

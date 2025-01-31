@@ -56,6 +56,10 @@ module EasyML
       proxy_association.owner
     end
 
+    def sort_by_required
+      column_list.sort_by { |col| [col.sort_required, col.name] }
+    end
+
     private
 
     def import_new(new_columns, existing_columns)

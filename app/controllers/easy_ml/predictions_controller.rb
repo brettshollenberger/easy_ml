@@ -12,12 +12,12 @@ module EasyML
         return render json: { error: "Input must be a hash" }, status: :not_found
       end
 
-      model_name = params[:model]
-      unless EasyML::Model.find_by(name: model_name).present?
+      slug = params[:model]
+      unless EasyML::Model.find_by(slug: slug).present?
         return render json: { error: "Model not found" }, status: :not_found
       end
 
-      prediction = EasyML::Predict.predict(model_name, input)
+      prediction = EasyML::Predict.predict(slug, input)
 
       render json: { prediction: EasyML::PredictionSerializer.new(prediction).serializable_hash.dig(:data, :attributes) }, status: :ok
     rescue ActiveRecord::RecordNotFound

@@ -454,12 +454,14 @@ module EasyML
 
     def api_fields
       {
-        input: dataset.columns.where(is_computed: false).map(&:to_api).each_with_object({}) do |field, hash|
-          hash[field[:name]] = field.except(:name)
-        end,
-        model: name,
         url: EasyML::Engine.routes.url_helpers.predictions_path,
         method: "POST",
+        data: {
+          model: slug,
+          input: dataset.columns.api_inputs.sort_by_required.map(&:to_api).each_with_object({}) do |field, hash|
+            hash[field[:name]] = field.except(:name)
+          end,
+        },
       }
     end
 

@@ -5,6 +5,7 @@ module EasyML
     @queue = :easy_ml
 
     def self.perform(batch_id, options = {})
+      puts "Performing compute feature job with options #{options}"
       begin
         options.symbolize_keys!
         feature_id = options.dig(:feature_id)

@@ -91,7 +91,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, metrics, t
         day_of_month: initialData.retraining_job?.at?.day_of_month ?? 1
       },
       metric: initialData.retraining_job?.metric || (metrics[initialData.task]?.[0]?.value ?? ''),
-      threshold: initialData.retraining_job?.threshold || (initialData.task === 'classification' ? 0.85 : 0.1),
+      threshold: initialData.retraining_job?.threshold ?? (initialData.task === 'classification' ? 0.85 : 0.1),
       tuner_config: initialData.retraining_job?.tuner_config ? {
         n_trials: initialData.retraining_job.tuner_config.n_trials || 10,
         config: {

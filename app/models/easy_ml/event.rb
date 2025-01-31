@@ -56,14 +56,16 @@ module EasyML
       create_event(model, "failed", error)
     end
 
+    def self.easy_ml_context(stacktrace)
+      stacktrace.select { |loc| loc.match?(/easy_ml/) }
+    end
+
     def self.format_stacktrace(error)
       return nil if error.nil?
 
       topline = error.inspect
 
-      stacktrace = error.backtrace.select do |loc|
-        loc.match?(/easy_ml/)
-      end
+      stacktrace = easy_ml_context(error.backtrace)
 
       %(#{topline}
 

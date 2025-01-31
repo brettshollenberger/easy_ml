@@ -60,7 +60,10 @@ export const SearchableSelect = forwardRef<HTMLButtonElement, SearchableSelectPr
       }
     }, [isOpen]);
 
-    const handleOptionClick = (optionValue: Option['value']) => {
+    const handleOptionClick = (optionValue: Option['value'], e: React.MouseEvent) => {
+      debugger;
+      e.preventDefault();
+      e.stopPropagation();
       onChange(optionValue);
       setIsOpen(false);
       setSearchQuery('');
@@ -86,7 +89,7 @@ export const SearchableSelect = forwardRef<HTMLButtonElement, SearchableSelectPr
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
             />
           </div>
         </div>
@@ -105,11 +108,7 @@ export const SearchableSelect = forwardRef<HTMLButtonElement, SearchableSelectPr
                     className={`w-full text-left px-4 py-2 hover:bg-gray-100 ${
                       option.value === value ? 'bg-blue-50' : ''
                     }`}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleOptionClick(option.value);
-                    }}
+                    onMouseDown={(e) => handleOptionClick(option.value, e)}
                   >
                     <div className="flex items-center justify-between">
                       <span className="block font-medium">
@@ -140,7 +139,6 @@ export const SearchableSelect = forwardRef<HTMLButtonElement, SearchableSelectPr
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            e.stopPropagation();
             setIsOpen(!isOpen);
           }}
           className="w-full bg-white relative border border-gray-300 rounded-md shadow-sm pl-3 pr-10 py-2 text-left cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"

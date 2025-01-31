@@ -97,7 +97,6 @@ RSpec.describe "Custom Evaluators" do
     let(:model) { titanic_model }
 
     it "accepts custom evaluators in tuner initialization" do
-      EasyML::Model.find_by(name: "Titanic").destroy
       model.assign_attributes(evaluator: { metric: :test_weighted_mae, max: 10 })
       model.save
 

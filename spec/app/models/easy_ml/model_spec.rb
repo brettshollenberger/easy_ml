@@ -239,30 +239,34 @@ RSpec.describe EasyML::Models do
 
       # Create preprocessed column
       dataset.columns.find_by(name: "Age").update(
-        preprocessing_steps: { training: { method: "mean", params: { clip: true } } }
+        preprocessing_steps: { training: { method: "mean", params: { clip: true } } },
       )
     end
 
     it "returns API documentation for non-computed columns" do
       api_fields = model.api_fields
 
+      expect(api_fields).to include(
+        model: model.name,
+        url: EasyML::Engine.routes.url_helpers.predictions_path,
+        method: "POST"
+      )
+
+      input_fields = api_fields[:input]
+
       # Should include raw, unprocessed columns
-      passenger_id_field = api_fields.find { |f| f[:name] == "PassengerId" }
-      expect(passenger_id_field).to include(
-        name: "PassengerId",
+      expect(input_fields["PassengerId"]).to include(
         datatype: be_present,
-        required: true
+        required: true,
       )
 
       # Should not include computed columns
-      expect(api_fields.map { |f| f[:name] }).not_to include("FamilySize")
+      expect(input_fields.keys).not_to include("FamilySize")
 
       # Should include preprocessed columns but mark them as not required
-      age_field = api_fields.find { |f| f[:name] == "Age" }
-      expect(age_field).to include(
-        name: "Age",
+      expect(input_fields["Age"]).to include(
         datatype: be_present,
-        required: false
+        required: false,
       )
     end
   end

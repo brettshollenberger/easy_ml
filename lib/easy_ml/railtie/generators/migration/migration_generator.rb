@@ -42,6 +42,7 @@ module EasyML
             drop_path_from_easy_ml_model_files
             add_is_date_column_to_easy_ml_columns
             add_computed_columns_to_easy_ml_columns
+            add_slug_to_easy_ml_models
           ].freeze
 
           # Specify the next migration number

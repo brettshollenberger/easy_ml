@@ -17,6 +17,7 @@
 #  is_training     :boolean
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
+#  slug            :string
 #
 require_relative "models/hyperparameters"
 
@@ -66,6 +67,7 @@ module EasyML
     after_initialize :bump_version, if: -> { new_record? }
     after_initialize :set_defaults, if: -> { new_record? }
     before_save :save_model_file, if: -> { is_fit? && !is_history_class? && model_changed? && !@skip_save_model_file }
+    before_validation :set_slug, if: :name_changed?
 
     VALID_TASKS = %i[regression classification].freeze
 
@@ -91,6 +93,7 @@ module EasyML
                      }
     validates :model_type, inclusion: { in: MODEL_NAMES }
     validates :dataset_id, presence: true
+    validates :slug, presence: true, uniqueness: true
     validate :validate_metrics_allowed
     before_save :set_root_dir
 
@@ -447,8 +450,17 @@ module EasyML
       )
     end
 
+    include Rails.application.routes.mounted_helpers
+
     def api_fields
-      dataset.columns.where(is_computed: false).map(&:to_api)
+      {
+        input: dataset.columns.where(is_computed: false).map(&:to_api).each_with_object({}) do |field, hash|
+          hash[field[:name]] = field.except(:name)
+        end,
+        model: name,
+        url: EasyML::Engine.routes.url_helpers.predictions_path,
+        method: "POST",
+      }
     end
 
     class CannotdeployError < StandardError
@@ -609,6 +621,10 @@ module EasyML
 
       errors.add(:metrics,
                  "don't know how to handle #{"metrics".pluralize(unknown_metrics)} #{unknown_metrics.join(", ")}, use EasyML::Core::ModelEvaluator.register(:name, Evaluator, :regression|:classification)")
+    end
+
+    def set_slug
+      self.slug = name.underscore if name.present?
     end
   end
 end

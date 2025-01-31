@@ -6,7 +6,7 @@ RSpec.describe "Custom Evaluators" do
   include ModelSpecHelper
 
   class TestWeightedMAE < EasyML::Evaluators::Base
-    def calculate(y_pred, y_true)
+    def evaluate(y_pred: [], y_true: [], x_true: nil)
       y_pred = y_pred.to_a
       y_true = y_true.to_a
       weights = compute_weights(y_true)
@@ -75,7 +75,7 @@ RSpec.describe "Custom Evaluators" do
     let(:evaluator) { TestWeightedMAE.new }
 
     it "implements the required interface" do
-      expect(evaluator).to respond_to(:calculate)
+      expect(evaluator).to respond_to(:evaluate)
       expect(evaluator).to respond_to(:direction)
       expect(TestWeightedMAE).to respond_to(:description)
       expect(TestWeightedMAE).to respond_to(:supports_task?)
@@ -87,7 +87,7 @@ RSpec.describe "Custom Evaluators" do
 
       # First prediction is off by 1, second is off by 3
       # and gets double weight, so weighted MAE should be higher
-      score = evaluator.calculate(y_pred, y_true)
+      score = evaluator.evaluate(y_pred: y_pred, y_true: y_true)
 
       expect(score).to be > 496.5 # Regular MAE
     end

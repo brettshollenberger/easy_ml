@@ -1,10 +1,9 @@
-Dir.glob(Rails.root.join("app/evaluators/**/*.rb")).each { |f| require f }
-
 module EasyML
   module Evaluators
     class << self
       def register_all
-        # Register each evaluator class that inherits from Base
+        Dir.glob(Rails.root.join("app/evaluators/**/*.rb")).each { |f| require f }
+
         ObjectSpace.each_object(Class).select { |klass|
           klass < EasyML::Evaluators::Base
         }.each do |evaluator_class|
@@ -17,13 +16,13 @@ module EasyML
       def register_evaluator(evaluator_class)
         # Convert class name to snake_case for the evaluator name
         # e.g., WeightedMAE becomes weighted_mae
-        name = evaluator_class.name.demodulize.underscore
+        name = evaluator_class.name.demodulize.titleize.gsub(/Evaluator/, "").strip
 
         EasyML::Core::ModelEvaluator.register(
           name,
           evaluator_class,
           get_supported_tasks(evaluator_class),
-          aliases: generate_aliases(name),
+          [],
         )
       end
 
@@ -33,12 +32,6 @@ module EasyML
         else
           [:regression, :classification] # Default to supporting both if not specified
         end
-      end
-
-      def generate_aliases(name)
-        # You could add common abbreviations or alternative names here
-        # For example: weighted_mae -> wmae
-        { name => name }
       end
     end
   end

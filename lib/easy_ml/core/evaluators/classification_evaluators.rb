@@ -11,6 +11,10 @@ module EasyML
             y_pred.eq(y_true).count_true.to_f / y_pred.size
           end
 
+          def description
+            "Overall prediction accuracy"
+          end
+
           def direction
             "maximize"
           end
@@ -29,6 +33,10 @@ module EasyML
             true_positives.to_f / predicted_positives
           end
 
+          def description
+            "Ratio of true positives to predicted positives"
+          end
+
           def direction
             "maximize"
           end
@@ -45,6 +53,10 @@ module EasyML
             true_positives.to_f / actual_positives
           end
 
+          def description
+            "Ratio of true positives to actual positives"
+          end
+
           def direction
             "maximize"
           end
@@ -59,6 +71,10 @@ module EasyML
             return 0 unless (precision + recall) > 0
 
             2 * (precision * recall) / (precision + recall)
+          end
+
+          def description
+            "Harmonic mean of precision and recall"
           end
 
           def direction
@@ -104,6 +120,10 @@ module EasyML
             auc
           end
 
+          def description
+            "Area under the ROC curve"
+          end
+
           def direction
             "maximize"
           end
@@ -114,6 +134,10 @@ module EasyML
 
           def evaluate(y_pred:, y_true:, x_true: nil)
             AUC.new.evaluate(y_pred: y_pred, y_true: y_true)
+          end
+
+          def description
+            "Area under the ROC curve"
           end
 
           def direction

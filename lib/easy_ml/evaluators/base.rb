@@ -4,11 +4,7 @@ module EasyML
       include EasyML::Core::Evaluators::BaseEvaluator
 
       def evaluate(y_pred:, y_true:, x_true: nil)
-        calculate(y_pred, y_true)
-      end
-
-      def calculate(y_pred, y_true)
-        raise NotImplementedError, "Subclasses must implement calculate"
+        raise NotImplementedError, "#{self.class} must implement #evaluate"
       end
 
       # Default to minimizing, subclasses can override

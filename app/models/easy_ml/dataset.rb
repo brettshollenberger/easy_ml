@@ -400,6 +400,7 @@ module EasyML
       # since the last time columns were learned, we should re-learn the schema
       learn(delete: false) if idx == 1 && needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
+
       raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
@@ -417,6 +418,8 @@ module EasyML
       end
 
       if columns_with_nulls.any?
+        columns_with_nulls -= columns.one_hots.flat_map(&:virtual_columns)
+        columns_with_nulls += columns.one_hots.map(&:name)
         raise "Null values found in columns: #{columns_with_nulls.join(", ")}"
       end
     end

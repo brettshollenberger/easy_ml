@@ -158,6 +158,7 @@ module EasyML
         model: training_model,
         y_pred: y_pred,
         y_true: y_true,
+        dataset: training_model.dataset.test(all_columns: true),
         evaluator: evaluator,
       )
       metric_value = metrics[metric]

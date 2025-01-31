@@ -6,7 +6,7 @@ RSpec.describe "Custom Evaluators" do
   include ModelSpecHelper
 
   class TestWeightedMAE < EasyML::Evaluators::Base
-    def evaluate(y_pred: [], y_true: [], x_true: nil)
+    def evaluate(y_pred: [], y_true: [], x_true: nil, dataset: nil)
       y_pred = y_pred.to_a
       y_true = y_true.to_a
       weights = compute_weights(y_true)

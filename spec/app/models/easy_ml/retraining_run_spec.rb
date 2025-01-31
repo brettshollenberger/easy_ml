@@ -160,7 +160,7 @@ RSpec.describe EasyML::RetrainingRun do
             "maximize"
           end
 
-          def evaluate(y_pred:, y_true:, x_true:)
+          def evaluate(y_pred:, y_true:, x_true:, dataset:)
             # Simple custom metric for testing
             (y_pred.sum - y_true.sum).abs
           end

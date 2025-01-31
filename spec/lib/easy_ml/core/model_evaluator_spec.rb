@@ -4,16 +4,21 @@ RSpec.describe EasyML::Core::ModelEvaluator do
   let(:y_true) { [3.0, -0.5, 2.0, 7.0] }
   let(:y_pred) { [2.5, 0.0, 2.0, 8.0] }
   let(:x_true) { [1.0, 2.0, 3.0, 4.0] } # For evaluators that might need input features
+  let(:dataset) { Polars::DataFrame.new({ nums: x_true }) }
 
   describe ".evaluate" do
     let(:model) { double("Model", metrics: metrics) }
     let(:metrics) { ["mean_absolute_error"] }
+    before(:each) do
+      allow(model).to receive_message_chain(:dataset, :test).and_return(dataset)
+    end
 
     it "calculates mean absolute error" do
       result = described_class.evaluate(
         model: model,
         y_pred: y_pred,
-        y_true: y_true
+        y_true: y_true,
+        dataset: x_true,
       )
 
       expect(result[:mean_absolute_error]).to be_within(0.01).of(0.5)
@@ -26,7 +31,7 @@ RSpec.describe EasyML::Core::ModelEvaluator do
         result = described_class.evaluate(
           model: model,
           y_pred: y_pred,
-          y_true: y_true
+          y_true: y_true,
         )
 
         expect(result.keys).to match_array(%i[mean_absolute_error mean_squared_error r2_score])
@@ -45,7 +50,7 @@ RSpec.describe EasyML::Core::ModelEvaluator do
         result = described_class.evaluate(
           model: model,
           y_pred: y_pred,
-          y_true: y_true
+          y_true: y_true,
         )
 
         expect(result[:accuracy_score]).to eq(0.8)
@@ -60,7 +65,7 @@ RSpec.describe EasyML::Core::ModelEvaluator do
         class CustomEvaluator
           include EasyML::Core::Evaluators::BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             y_pred.sum / y_true.sum
           end
 
@@ -77,7 +82,7 @@ RSpec.describe EasyML::Core::ModelEvaluator do
           model: model,
           y_pred: y_pred,
           y_true: y_true,
-          evaluator: { metric: :custom_metric, max: 2 }
+          evaluator: { metric: :custom_metric, max: 2 },
         )
 
         expect(result[:custom_metric]).to be_within(0.01).of(1.087)
@@ -88,6 +93,11 @@ RSpec.describe EasyML::Core::ModelEvaluator do
   describe "input handling" do
     let(:metrics) { ["mean_absolute_error"] }
     let(:model) { double("Model", metrics: metrics) }
+    let(:dataset) { Polars::DataFrame.new({ nums: x_true }) }
+
+    before(:each) do
+      allow(model).to receive_message_chain(:dataset, :test).and_return(dataset)
+    end
 
     it "handles Polars DataFrame inputs" do
       df_pred = Polars::DataFrame.new({ "prediction" => y_pred })
@@ -96,7 +106,7 @@ RSpec.describe EasyML::Core::ModelEvaluator do
       result = described_class.evaluate(
         model: model,
         y_pred: df_pred,
-        y_true: df_true
+        y_true: df_true,
       )
 
       expect(result[:mean_absolute_error]).to be_within(0.01).of(0.5)
@@ -107,7 +117,7 @@ RSpec.describe EasyML::Core::ModelEvaluator do
         described_class.evaluate(
           model: model,
           y_pred: [1, 2],
-          y_true: [1, 2, 3]
+          y_true: [1, 2, 3],
         )
       end.to raise_error(ArgumentError, "Different sizes")
     end

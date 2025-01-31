@@ -1,14 +1,18 @@
 module EasyML
   module ColumnList
-    def sync
+    def sync(only_new: false)
       return unless dataset.schema.present?
 
       EasyML::Column.transaction do
         col_names = syncable
         existing_columns = where(name: col_names)
         import_new(col_names, existing_columns)
-        update_existing(existing_columns)
-        delete_missing(existing_columns)
+
+        if !only_new
+          update_existing(existing_columns)
+          delete_missing(existing_columns)
+        end
+
         if existing_columns.none? # Totally new dataset
           dataset.after_create_columns
         end

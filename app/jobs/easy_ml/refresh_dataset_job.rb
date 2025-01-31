@@ -3,6 +3,8 @@ module EasyML
     def perform(id)
       begin
         dataset = EasyML::Dataset.find(id)
+        return if dataset.workflow_status == :analyzing
+
         puts "Refreshing dataset #{dataset.name}"
         puts "Needs refresh? #{dataset.needs_refresh?}"
         unless dataset.needs_refresh?
@@ -12,6 +14,7 @@ module EasyML
         create_event(dataset, "started")
 
         puts "Prepare! #{dataset.name}"
+        dataset.unlock!
         dataset.prepare
         if dataset.features.needs_fit.any?
           dataset.fit_features(async: true)

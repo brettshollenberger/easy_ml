@@ -175,7 +175,6 @@ module EasyML
 
     def actually_refresh
       refreshing do
-        split_data
         process_data
         fully_reload
         learn
@@ -273,10 +272,10 @@ module EasyML
       raw.split_at.present? && raw.split_at < datasource.last_updated_at
     end
 
-    def learn
+    def learn(only_new: false)
       learn_schema
       learn_statistics
-      columns.sync
+      columns.sync(only_new: only_new)
     end
 
     def refreshing
@@ -399,7 +398,7 @@ module EasyML
 
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
-      learn if idx == 0 && needs_learn?(df)
+      learn(only_new: true) if idx == 1 && needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
       raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys

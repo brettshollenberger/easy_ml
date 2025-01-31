@@ -39,6 +39,7 @@ module EasyML
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
     scope :date_column, -> { where(is_date_column: true) }
+    scope :required, -> { where(is_computed: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
 
     def columns
       [name].concat(virtual_columns)

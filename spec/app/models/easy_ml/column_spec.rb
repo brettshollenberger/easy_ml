@@ -140,4 +140,41 @@ RSpec.describe EasyML::Column do
       end
     end
   end
+
+  describe "scopes" do
+    describe ".required" do
+      let(:feature) do
+        dataset.features.create!(
+          name: "FamilySize",
+          feature_class: "FamilySizeFeature",
+          needs_fit: true,
+          feature_position: 1,
+        )
+      end
+
+      before do
+        # Create computed column via feature
+        feature
+        dataset.refresh!
+
+        # Create preprocessed column
+        dataset.columns.find_by(name: "Age").update(
+          preprocessing_steps: { training: { method: "mean", params: { clip: true } } },
+        )
+      end
+
+      it "includes only raw, unprocessed columns" do
+        required_columns = dataset.columns.required
+
+        # Should include raw, unprocessed columns like PassengerId
+        expect(required_columns).to include(dataset.columns.find_by(name: "PassengerId"))
+
+        # Should not include computed columns
+        expect(required_columns).not_to include(dataset.columns.find_by(name: "FamilySize"))
+
+        # Should not include preprocessed columns
+        expect(required_columns).not_to include(dataset.columns.find_by(name: "Age"))
+      end
+    end
+  end
 end

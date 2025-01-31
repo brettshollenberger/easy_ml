@@ -18,6 +18,7 @@ module EasyML
 
         def register(metric_name, evaluator, type, aliases = [])
           @registry ||= {}
+          metric_name = metric_name.to_s.split(" ").join("_").downcase.to_sym
           unless evaluator.included_modules.include?(Evaluators::BaseEvaluator)
             evaluator.include(Evaluators::BaseEvaluator)
           end

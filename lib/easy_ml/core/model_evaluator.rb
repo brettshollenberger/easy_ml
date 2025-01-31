@@ -98,12 +98,20 @@ module EasyML
           end
         end
 
-        def evaluate(model:, y_pred:, y_true:, x_true: nil, evaluator: nil)
+        def evaluate(model:, y_pred:, y_true:, x_true: nil, evaluator: nil, dataset: nil)
           y_pred = normalize_input(y_pred)
           y_true = normalize_input(y_true)
           check_size(y_pred, y_true)
 
           metrics_results = {}
+
+          if x_true.nil?
+            x_true = model.dataset.test
+          end
+
+          if dataset.nil?
+            dataset = model.dataset.test(all_columns: true)
+          end
 
           model.metrics.each do |metric|
             evaluator_class = get(metric.to_sym)
@@ -115,6 +123,7 @@ module EasyML
               y_pred: y_pred,
               y_true: y_true,
               x_true: x_true,
+              dataset: dataset,
             )
           end
 
@@ -124,7 +133,7 @@ module EasyML
             raise "Unknown evaluator: #{evaluator}" unless evaluator_class
 
             evaluator_instance = evaluator_class.new
-            response = evaluator_instance.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
+            response = evaluator_instance.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true, dataset: dataset)
 
             if response.is_a?(Hash)
               metrics_results.merge!(response)
@@ -145,6 +154,9 @@ module EasyML
         def normalize_input(input)
           case input
           when Array
+            if input.first.class == TrueClass || input.first.class == FalseClass
+              input = input.map { |value| value ? 1.0 : 0.0 }
+            end
             Numo::DFloat.cast(input)
           when Polars::DataFrame
             if input.columns.count > 1
@@ -152,7 +164,10 @@ module EasyML
             end
 
             normalize_input(input[input.columns.first])
-          when Polars::Series, Array
+          when Polars::Series
+            if input.dtype == Polars::Boolean
+              input = input.cast(Polars::Int64)
+            end
             Numo::DFloat.cast(input)
           else
             raise ArgumentError, "Don't know how to evaluate model with y_pred type #{input.class}"

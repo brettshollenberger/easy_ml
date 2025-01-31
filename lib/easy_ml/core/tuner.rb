@@ -8,7 +8,7 @@ module EasyML
                     :metrics, :objective, :n_trials, :direction, :evaluator,
                     :study, :results, :adapter, :tune_started_at, :x_true, :y_true,
                     :project_name, :job, :current_run, :trial_enumerator, :progress_block,
-                    :tuner_job
+                    :tuner_job, :dataset
 
       def initialize(options = {})
         @model = options[:model]
@@ -77,6 +77,7 @@ module EasyML
         x_true, y_true = model.dataset.test(split_ys: true)
         self.x_true = x_true
         self.y_true = y_true
+        self.dataset = model.dataset.test(all_columns: true)
         adapter.tune_started_at = tune_started_at
         adapter.y_true = y_true
         adapter.x_true = x_true
@@ -96,14 +97,6 @@ module EasyML
             run_metrics = tune_once
             result = calculate_result(run_metrics)
             @results.push(result)
-
-            params = {
-              hyperparameters: model.hyperparameters.to_h,
-              value: result,
-              status: :success,
-            }.compact
-
-            @tuner_run.update!(params)
             @study.tell(@current_trial, result)
           rescue StandardError => e
             @tuner_run.update!(status: :failed, hyperparameters: {})
@@ -138,14 +131,27 @@ module EasyML
         )
         self.current_run = @tuner_run
 
-        adapter.run_trial(@current_trial) do |model|
-          model.fit(tuning: true, &progress_block)
-          y_pred = model.predict(x_true)
-          model.metrics = metrics
-          metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
-          puts metrics
-          metrics
+        model = adapter.run_trial(@current_trial) do |model|
+          model.tap do
+            model.fit(tuning: true, &progress_block)
+          end
         end
+
+        y_pred = model.predict(x_true)
+        model.metrics = metrics
+        metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true, dataset: dataset)
+        metric = metrics.symbolize_keys.dig(model.evaluator[:metric].to_sym)
+
+        puts metrics
+
+        params = {
+          hyperparameters: model.hyperparameters.to_h,
+          value: metric,
+          status: :success,
+        }.compact
+
+        @tuner_run.update!(params)
+        metrics
       end
 
       private

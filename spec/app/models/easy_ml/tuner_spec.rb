@@ -135,7 +135,7 @@ RSpec.describe EasyML::Core::Tuner do
 
     it "accepts custom evaluator" do
       class CustomEvaluator
-        def evaluate(y_pred: nil, y_true: nil, x_true: nil)
+        def evaluate(y_pred: nil, y_true: nil, x_true: nil, dataset: nil)
           1
         end
       end

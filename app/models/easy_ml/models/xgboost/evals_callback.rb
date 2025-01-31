@@ -32,7 +32,7 @@ module EasyML
           false
         end
 
-        def validation_dataset
+        def test_dataset
           if tuner.present?
             [tuner.x_true, tuner.y_true]
           else
@@ -46,11 +46,12 @@ module EasyML
           log_frequency = 10
           if epoch % log_frequency == 0
             model.adapter.external_model = booster
-            x_true, y_true = validation_dataset
+            x_true, y_true = test_dataset
             @preprocessed ||= model.preprocess(x_true)
             y_pred = model.predict(@preprocessed)
+            dataset = model.dataset.test(all_columns: true)
 
-            metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true)
+            metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true, dataset: dataset)
             Wandb.log(metrics)
           end
 

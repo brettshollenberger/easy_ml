@@ -41,6 +41,18 @@ module EasyML
     scope :datetime, -> { where(datatype: "datetime") }
     scope :date_column, -> { where(is_date_column: true) }
 
+    def columns
+      [name].concat(virtual_columns)
+    end
+
+    def virtual_columns
+      if one_hot?
+        allowed_categories.map { |cat| "#{name}_#{cat}" }
+      else
+        []
+      end
+    end
+
     def datatype=(dtype)
       write_attribute(:datatype, dtype)
       write_attribute(:polars_datatype, dtype)

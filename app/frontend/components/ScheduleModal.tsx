@@ -329,9 +329,9 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, metrics, t
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
-        <div className="flex justify-between items-center p-4 border-b">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center pt-[5vh] z-50">
+      <div className="bg-white rounded-lg w-full max-w-6xl flex flex-col" style={{ maxHeight: '90vh' }}>
+        <div className="flex-none flex justify-between items-center p-4 border-b">
           <h2 className="text-lg font-semibold">Training Configuration</h2>
           <button
             onClick={onClose}
@@ -341,7 +341,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, metrics, t
           </button>
         </div>
 
-        <div className="p-6 grid grid-cols-2 gap-8 max-h-[calc(90vh-8rem)] overflow-y-auto">
+        <div className="flex-1 p-6 grid grid-cols-2 gap-8 overflow-y-auto">
           {/* Left Column */}
           <div className="space-y-8">
             {/* Training Schedule */}
@@ -703,7 +703,7 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, metrics, t
           </div>
         </div>
 
-        <div className="flex justify-end gap-4 p-4 border-t">
+        <div className="flex-none flex justify-end gap-4 p-4 border-t bg-white">
           <button
             onClick={onClose}
             className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-500"

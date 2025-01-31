@@ -14,15 +14,11 @@ module EasyML
           key.split("_").join(" ").titleize
         end
 
-        def to_option
-          EasyML::Option.new(to_h)
-        end
-
         def to_h
           {
             value: key,
             label: label,
-            direction: direction
+            direction: direction,
           }
         end
 

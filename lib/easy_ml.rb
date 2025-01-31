@@ -20,6 +20,7 @@ module EasyML
   require_relative "easy_ml/logging"
   require_relative "easy_ml/data"
   require_relative "easy_ml/data/filter_extensions"
+  require_relative "easy_ml/evaluators"
   require_relative "easy_ml/features"
   require_relative "easy_ml/feature_store"
   require_relative "easy_ml/core"

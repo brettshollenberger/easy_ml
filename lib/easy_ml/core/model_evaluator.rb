@@ -16,7 +16,7 @@ module EasyML
           @callbacks || []
         end
 
-        def register(metric_name, evaluator, type, aliases = {})
+        def register(metric_name, evaluator, type, aliases = [])
           @registry ||= {}
           unless evaluator.included_modules.include?(Evaluators::BaseEvaluator)
             evaluator.include(Evaluators::BaseEvaluator)
@@ -75,7 +75,12 @@ module EasyML
             @registry.keys
           else
             @registry.select do |_k, v|
-              v[:type].to_sym == task.to_sym
+              case v[:type]
+              when Array
+                v[:type].map(&:to_sym).include?(task.to_sym)
+              else
+                v[:type].to_sym == task.to_sym
+              end
             end.keys
           end
         end

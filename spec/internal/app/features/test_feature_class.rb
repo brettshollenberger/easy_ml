@@ -6,6 +6,10 @@ class TestFeatureClass
           primary_key: "ID",
           refresh_every: 1.day
 
+  def computes_columns
+    []
+  end
+
   def transform(df, feature)
     df
   end

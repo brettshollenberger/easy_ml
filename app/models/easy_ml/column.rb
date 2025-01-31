@@ -119,8 +119,21 @@ module EasyML
       ].compact
     end
 
+    def required?
+      !is_computed && (preprocessing_steps.nil? || preprocessing_steps == {})
+    end
+
     def present_in_raw_dataset
       dataset.raw.data&.columns&.include?(name) || false
+    end
+
+    def to_api
+      {
+        name: name,
+        datatype: datatype,
+        description: description,
+        required: required?,
+      }
     end
 
     private

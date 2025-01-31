@@ -218,4 +218,52 @@ RSpec.describe EasyML::Models do
       model.cleanup!
     end
   end
+
+  describe "#api_fields" do
+    let(:dataset) { titanic_dataset }
+    let(:model) { build_model(dataset: dataset) }
+
+    let(:feature) do
+      dataset.features.create!(
+        name: "FamilySize",
+        feature_class: "FamilySizeFeature",
+        needs_fit: true,
+        feature_position: 1,
+      )
+    end
+
+    before do
+      # Create computed column via feature
+      feature
+      dataset.refresh!
+
+      # Create preprocessed column
+      dataset.columns.find_by(name: "Age").update(
+        preprocessing_steps: { training: { method: "mean", params: { clip: true } } }
+      )
+    end
+
+    it "returns API documentation for non-computed columns" do
+      api_fields = model.api_fields
+
+      # Should include raw, unprocessed columns
+      passenger_id_field = api_fields.find { |f| f[:name] == "PassengerId" }
+      expect(passenger_id_field).to include(
+        name: "PassengerId",
+        datatype: be_present,
+        required: true
+      )
+
+      # Should not include computed columns
+      expect(api_fields.map { |f| f[:name] }).not_to include("FamilySize")
+
+      # Should include preprocessed columns but mark them as not required
+      age_field = api_fields.find { |f| f[:name] == "Age" }
+      expect(age_field).to include(
+        name: "Age",
+        datatype: be_present,
+        required: false
+      )
+    end
+  end
 end

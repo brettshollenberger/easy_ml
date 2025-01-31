@@ -1,6 +1,10 @@
 class BadFeature
   include EasyML::Features
 
+  def computes_columns
+    ["bad_feature"]
+  end
+
   def transform(df, feature)
     "not a dataframe" # Intentionally return wrong type
   end

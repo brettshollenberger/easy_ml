@@ -1,6 +1,10 @@
 class ZipFeature
   include EasyML::Features
 
+  def computes_columns
+    ["CITY", "STATE", "POPULATION"]
+  end
+
   def fit(df, feature, options = {})
     zip_df = EasyML::Dataset.find_by(name: "Zips").data
 

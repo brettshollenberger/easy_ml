@@ -447,6 +447,10 @@ module EasyML
       )
     end
 
+    def api_fields
+      dataset.columns.where(is_computed: false).map(&:to_api)
+    end
+
     class CannotdeployError < StandardError
     end
 

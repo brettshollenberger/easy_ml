@@ -1,6 +1,10 @@
 class BatchFeature
   include EasyML::Features
 
+  def computes_columns
+    ["batch_feature"]
+  end
+
   def batch(reader, feature)
     reader.query(select: ["COMPANY_ID"], unique: true)["COMPANY_ID"]
   end

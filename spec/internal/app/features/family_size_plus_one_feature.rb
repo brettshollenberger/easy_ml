@@ -6,6 +6,10 @@ class FamilySizePlusOneFeature
           primary_key: "PassengerId",
           batch_size: 10
 
+  def computes_columns
+    ["FamilySizePlusOne"]
+  end
+
   def fit(df, feature, options = {})
     family_size_feature = EasyML::Feature.find_by_name("FamilySize")
     passenger_ids = df["PassengerId"].to_a

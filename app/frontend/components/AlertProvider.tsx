@@ -38,9 +38,12 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     const id = Math.random().toString(36).substring(7);
     setAlerts(prev => [...prev, { id, type, message }]);
 
-    setTimeout(() => {
-      removeAlert(id);
-    }, numSeconds * 1000);
+    // Only auto-dismiss non-error alerts
+    if (type !== 'error') {
+      setTimeout(() => {
+        removeAlert(id);
+      }, numSeconds * 1000);
+    }
   }, [removeAlert]);
 
   return (

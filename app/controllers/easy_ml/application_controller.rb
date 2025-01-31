@@ -52,7 +52,7 @@ module EasyML
 
       flash_messages << { type: "success", message: flash[:notice] } if flash[:notice]
 
-      flash_messages << { type: "error", message: flash[:alert] } if flash[:alert]
+      flash_messages << { type: "error", message: flash[:error] } if flash[:error]
 
       flash_messages << { type: "info", message: flash[:info] } if flash[:info]
 

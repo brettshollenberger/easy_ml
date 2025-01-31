@@ -70,6 +70,9 @@ module EasyML
         flash[:notice] = "Model was successfully updated."
         redirect_to easy_ml_models_path
       else
+        errors = model.errors.to_hash(true)
+        values = errors.values.flatten
+        flash[:error] = values.join(", ")
         render inertia: "pages/EditModelPage", props: {
           model: model_to_json(model),
           datasets: EasyML::Dataset.all.map { |dataset| dataset_to_json(dataset) },
@@ -99,7 +102,7 @@ module EasyML
         flash[:notice] = "Model was successfully deleted."
         redirect_to easy_ml_models_path
       else
-        flash[:alert] = "Failed to delete the model."
+        flash[:error] = "Failed to delete the model."
         redirect_to easy_ml_models_path
       end
     end

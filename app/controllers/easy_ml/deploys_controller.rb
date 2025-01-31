@@ -13,7 +13,7 @@ module EasyML
       flash[:notice] = "Model deployment has started"
       redirect_to easy_ml_model_path(@deploy.model)
     rescue => e
-      flash[:alert] = "Trouble deploying model: #{e.message}"
+      flash[:error] = "Trouble deploying model: #{e.message}"
       redirect_to easy_ml_model_path(@deploy.model)
     end
   end

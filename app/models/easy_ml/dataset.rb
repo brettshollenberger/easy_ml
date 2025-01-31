@@ -272,10 +272,10 @@ module EasyML
       raw.split_at.present? && raw.split_at < datasource.last_updated_at
     end
 
-    def learn(only_new: false)
+    def learn(delete: true)
       learn_schema
       learn_statistics
-      columns.sync(only_new: only_new)
+      columns.sync(delete: delete)
     end
 
     def refreshing
@@ -398,7 +398,7 @@ module EasyML
 
       # Learn will update columns, so if any features have been added
       # since the last time columns were learned, we should re-learn the schema
-      learn(only_new: true) if idx == 1 && needs_learn?(df)
+      learn(delete: false) if idx == 1 && needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
       raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys
@@ -515,7 +515,7 @@ module EasyML
     end
 
     def drop_cols
-      @drop_cols ||= preloaded_columns.select(&:hidden).map(&:name)
+      @drop_cols ||= preloaded_columns.select(&:hidden).flat_map(&:columns)
     end
 
     def drop_if_null

@@ -30,7 +30,6 @@ module EasyML
     validates :name, uniqueness: { scope: :dataset_id }
 
     before_save :ensure_valid_datatype
-    after_create :set_date_column_if_date_splitter
     after_save :handle_date_column_change
     before_save :set_defaults
 
@@ -40,6 +39,18 @@ module EasyML
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
     scope :date_column, -> { where(is_date_column: true) }
+
+    def columns
+      [name].concat(virtual_columns)
+    end
+
+    def virtual_columns
+      if one_hot?
+        allowed_categories.map { |cat| "#{name}_#{cat}" }
+      else
+        []
+      end
+    end
 
     def datatype=(dtype)
       write_attribute(:datatype, dtype)
@@ -88,9 +99,11 @@ module EasyML
     end
 
     def allowed_categories
-      return nil unless one_hot?
+      return [] unless one_hot?
+      stats = dataset.preprocessor.statistics
+      return [] if stats.nil? || stats.blank?
 
-      dataset.preprocessor.statistics.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
+      stats.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
     end
 
     def date_column?

@@ -354,15 +354,16 @@ module EasyML
       dataset.decode_labels(ys, col: col)
     end
 
-    def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil)
+    def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil, dataset: nil)
       evaluator ||= self.evaluator
       if y_pred.nil?
         inputs = default_evaluation_inputs
         y_pred = inputs[:y_pred]
         y_true = inputs[:y_true]
         x_true = inputs[:x_true]
+        dataset = inputs[:dataset]
       end
-      EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true, evaluator: evaluator)
+      EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true, dataset: dataset, evaluator: evaluator)
     end
 
     def evaluator
@@ -524,11 +525,13 @@ module EasyML
 
     def default_evaluation_inputs
       x_true, y_true = dataset.test(split_ys: true)
+      ds = dataset.test(all_columns: true)
       y_pred = predict(x_true)
       {
         x_true: x_true,
         y_true: y_true,
         y_pred: y_pred,
+        dataset: ds,
       }
     end
 

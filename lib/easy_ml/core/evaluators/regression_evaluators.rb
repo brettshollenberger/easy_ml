@@ -5,7 +5,7 @@ module EasyML
         class MeanAbsoluteError
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             (Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)).abs.mean
           end
 
@@ -21,7 +21,7 @@ module EasyML
         class MeanSquaredError
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             ((Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)) ** 2).mean
           end
 
@@ -37,7 +37,7 @@ module EasyML
         class RootMeanSquaredError
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             Math.sqrt(((Numo::DFloat.cast(y_pred) - Numo::DFloat.cast(y_true)) ** 2).mean)
           end
 
@@ -61,7 +61,7 @@ module EasyML
             "maximize"
           end
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             y_true = Numo::DFloat.cast(y_true)
             y_pred = Numo::DFloat.cast(y_pred)
 

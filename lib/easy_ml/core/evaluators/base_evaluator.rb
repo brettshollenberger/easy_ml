@@ -32,7 +32,7 @@ module EasyML
         end
 
         # Instance methods that evaluators must implement
-        def evaluate(y_pred: nil, y_true: nil, x_true: nil)
+        def evaluate(y_pred: nil, y_true: nil, x_true: nil, dataset: nil)
           raise NotImplementedError, "#{self.class} must implement #evaluate"
         end
 

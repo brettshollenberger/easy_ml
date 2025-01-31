@@ -5,7 +5,7 @@ module EasyML
         class AccuracyScore
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             y_pred = Numo::Int32.cast(y_pred)
             y_true = Numo::Int32.cast(y_true)
             y_pred.eq(y_true).count_true.to_f / y_pred.size
@@ -23,7 +23,7 @@ module EasyML
         class PrecisionScore
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             y_pred = Numo::Int32.cast(y_pred)
             y_true = Numo::Int32.cast(y_true)
             true_positives = (y_pred.eq(1) & y_true.eq(1)).count_true
@@ -45,7 +45,7 @@ module EasyML
         class RecallScore
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             y_pred = Numo::Int32.cast(y_pred)
             y_true = Numo::Int32.cast(y_true)
             true_positives = (y_pred.eq(1) & y_true.eq(1)).count_true
@@ -65,9 +65,9 @@ module EasyML
         class F1Score
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
-            precision = PrecisionScore.new.evaluate(y_pred: y_pred, y_true: y_true)
-            recall = RecallScore.new.evaluate(y_pred: y_pred, y_true: y_true)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
+            precision = PrecisionScore.new.evaluate(y_pred: y_pred, y_true: y_true, dataset: dataset)
+            recall = RecallScore.new.evaluate(y_pred: y_pred, y_true: y_true, dataset: dataset)
             return 0 unless (precision + recall) > 0
 
             2 * (precision * recall) / (precision + recall)
@@ -85,7 +85,7 @@ module EasyML
         class AUC
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
             y_pred = Numo::DFloat.cast(y_pred)
             y_true = Numo::Int32.cast(y_true)
 
@@ -132,8 +132,8 @@ module EasyML
         class ROC_AUC
           include BaseEvaluator
 
-          def evaluate(y_pred:, y_true:, x_true: nil)
-            AUC.new.evaluate(y_pred: y_pred, y_true: y_true)
+          def evaluate(y_pred:, y_true:, x_true: nil, dataset: nil)
+            AUC.new.evaluate(y_pred: y_pred, y_true: y_true, dataset: dataset)
           end
 
           def description

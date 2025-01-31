@@ -542,4 +542,25 @@ RSpec.describe EasyML::Datasource do
       expect(dataset.data[dataset.data["annual_revenue"].is_null].count).to eq 0
     end
   end
+
+  describe "hidden columns" do
+    let(:dataset) do
+      titanic_dataset
+    end
+
+    it "hides one-hot encoded virtual columns when original column is hidden" do
+      # Create a categorical column with one-hot encoding
+      column = dataset.columns.find_by(name: "Embarked")
+      %w(C Q S).each do |value|
+        expect(dataset.data.columns).to include("Embarked_#{value}")
+      end
+      column.update(hidden: true)
+
+      # Load the data
+      dataset.refresh
+      %w(C Q S).each do |value|
+        expect(dataset.data.columns).to_not include("Embarked_#{value}")
+      end
+    end
+  end
 end

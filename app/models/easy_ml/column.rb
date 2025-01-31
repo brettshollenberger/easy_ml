@@ -32,6 +32,7 @@ module EasyML
     before_save :ensure_valid_datatype
     after_create :set_date_column_if_date_splitter
     after_save :handle_date_column_change
+    before_save :set_defaults
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -97,6 +98,84 @@ module EasyML
     end
 
     private
+
+    def set_defaults
+      self.preprocessing_steps = set_preprocessing_steps_defaults
+    end
+
+    def set_preprocessing_steps_defaults
+      preprocessing_steps.inject({}) do |h, (type, config)|
+        h.tap do
+          h[type] = set_preprocessing_step_defaults(config)
+        end
+      end
+    end
+
+    ALLOWED_PARAMS = {
+      constant: [:constant],
+      categorical: %i[categorical_min one_hot ordinal_encoding],
+      most_frequent: %i[one_hot ordinal_encoding],
+      mean: [:clip],
+      median: [:clip],
+    }
+
+    REQUIRED_PARAMS = {
+      constant: [:constant],
+      categorical: %i[categorical_min one_hot ordinal_encoding],
+    }
+
+    DEFAULT_PARAMS = {
+      categorical_min: 1,
+      one_hot: true,
+      ordinal_encoding: false,
+      clip: { min: 0, max: 1_000_000_000 },
+      constant: nil,
+    }
+
+    XOR_PARAMS = [{
+      params: [:one_hot, :ordinal_encoding],
+      default: :one_hot,
+    }]
+
+    def set_preprocessing_step_defaults(config)
+      config.deep_symbolize_keys!
+      config[:params] ||= {}
+      params = config[:params].symbolize_keys
+
+      required = REQUIRED_PARAMS.fetch(config[:method].to_sym, [])
+      allowed = ALLOWED_PARAMS.fetch(config[:method].to_sym, [])
+
+      missing = required - params.keys
+      missing.reject! do |param|
+        XOR_PARAMS.any? do |rule|
+          if rule[:params].include?(param)
+            missing_param = rule[:params].find { |p| p != param }
+            params[missing_param] == true
+          else
+            false
+          end
+        end
+      end
+      extra = params.keys - allowed
+
+      missing.each do |key|
+        params[key] = DEFAULT_PARAMS.fetch(key)
+      end
+
+      extra.each do |key|
+        params.delete(key)
+      end
+
+      # Only set one of one_hot or ordinal_encoding to true,
+      # by default set one_hot to true
+      xor = XOR_PARAMS.find { |rule| rule[:params] & params.keys == rule[:params] }
+      if xor && xor[:params].all? { |param| params[param] }
+        xor[:params].each { |param| params[param] = false }
+        params[xor[:default]] = true
+      end
+
+      config.merge!(params: params)
+    end
 
     def handle_date_column_change
       return unless saved_change_to_is_date_column? && is_date_column?

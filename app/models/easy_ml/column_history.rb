@@ -27,6 +27,6 @@ module EasyML
   class ColumnHistory < ActiveRecord::Base
     self.table_name = "easy_ml_column_histories"
     include Historiographer::History
-    scope :required, -> { where(is_computed: false, hidden: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
+    scope :required, -> { where(is_computed: false, hidden: false, is_target: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
   end
 end

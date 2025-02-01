@@ -61,7 +61,6 @@ export const SearchableSelect = forwardRef<HTMLButtonElement, SearchableSelectPr
     }, [isOpen]);
 
     const handleOptionClick = (optionValue: Option['value'], e: React.MouseEvent) => {
-      debugger;
       e.preventDefault();
       e.stopPropagation();
       onChange(optionValue);

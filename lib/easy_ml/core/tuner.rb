@@ -173,7 +173,7 @@ module EasyML
         end
         raise ArgumentError, "Objectives required for EasyML::Core::Tuner" unless objective.present?
 
-        self.metrics = EasyML::Model.new(task: task).allowed_metrics if metrics.nil? || metrics.empty?
+        self.metrics = EasyML::Model.new(task: task).default_metrics if metrics.nil? || metrics.empty?
       end
     end
   end

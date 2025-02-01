@@ -10,17 +10,18 @@ module EasyML
       @models = {}
     end
 
-    def self.predict(model_name, df, serialize: false)
+    def self.normalize_input(df)
       if df.is_a?(Hash)
         df = Polars::DataFrame.new(df)
       end
+      df
+    end
+
+    def self.predict(model_name, df, serialize: false)
+      df = normalize_input(df)
       raw_input = df.to_hashes
-      df = instance.validate_input(model_name, df)
-      begin
-        df = instance.normalize(model_name, df)
-      rescue => e
-        binding.pry
-      end
+
+      df = instance.normalize(model_name, df)
       normalized_input = df.to_hashes
       preds = instance.predict(model_name, df)
       current_version = instance.get_model(model_name)
@@ -57,8 +58,9 @@ module EasyML
       get_model(model_name).predict(df)
     end
 
-    def validate_input(model_name, df)
-      get_model(model_name).dataset.validate_input(df)
+    def self.validate_input(model_name, df)
+      df = normalize_input(df)
+      instance.get_model(model_name).dataset.validate_input(df)
     end
 
     def normalize(model_name, df)

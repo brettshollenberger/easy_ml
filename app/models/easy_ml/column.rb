@@ -39,8 +39,8 @@ module EasyML
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
     scope :date_column, -> { where(is_date_column: true) }
-    scope :required, -> { where(is_computed: false, hidden: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
-    scope :api_inputs, -> { where(is_computed: false, hidden: false) }
+    scope :required, -> { where(is_computed: false, hidden: false, is_target: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
+    scope :api_inputs, -> { where(is_computed: false, hidden: false, is_target: false) }
 
     def columns
       [name].concat(virtual_columns)
@@ -121,7 +121,7 @@ module EasyML
     end
 
     def required?
-      !is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden
+      is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden && !is_target
     end
 
     def present_in_raw_dataset
@@ -138,7 +138,8 @@ module EasyML
         datatype: datatype,
         description: description,
         required: required?,
-      }
+        allowed_values: allowed_categories.empty? ? nil : allowed_categories,
+      }.compact
     end
 
     private

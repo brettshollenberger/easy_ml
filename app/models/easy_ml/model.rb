@@ -192,6 +192,7 @@ module EasyML
         evaluator: evaluator,
         model: self,
         dataset: dataset,
+        metrics: metrics,
       }.compact
       tuner.merge!(extra_params)
       tuner_instance = EasyML::Core::Tuner.new(tuner)

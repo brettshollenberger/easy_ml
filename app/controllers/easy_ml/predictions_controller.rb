@@ -3,6 +3,11 @@ module EasyML
     skip_before_action :verify_authenticity_token, only: [:create]
 
     def create
+      slug = params[:model]
+      unless EasyML::Model.find_by(slug: slug).inference_version.present?
+        return render json: { error: "Model not found" }, status: :not_found
+      end
+
       unless params.key?(:input)
         return render json: { error: "Must provide key: input" }, status: :not_found
       end
@@ -12,9 +17,9 @@ module EasyML
         return render json: { error: "Input must be a hash" }, status: :not_found
       end
 
-      slug = params[:model]
-      unless EasyML::Model.find_by(slug: slug).present?
-        return render json: { error: "Model not found" }, status: :not_found
+      valid, fields = EasyML::Predict.validate_input(slug, input)
+      unless valid
+        return render json: { error: "Missing required fields: #{fields}" }, status: :not_found
       end
 
       prediction = EasyML::Predict.predict(slug, input)
@@ -22,7 +27,7 @@ module EasyML
       render json: { prediction: EasyML::PredictionSerializer.new(prediction).serializable_hash.dig(:data, :attributes) }, status: :ok
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Model not found" }, status: :not_found
-    rescue StandardError => e
+    rescue => e
       render json: { error: e.message }, status: :unprocessable_entity
     end
   end

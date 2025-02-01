@@ -250,7 +250,7 @@ export function PreprocessingConfig({
     setIsEditingDescription(true);
   };
 
-  let nullCount = (column.statistics?.processed.null_count || column.statistics?.raw.null_count) || 0;
+  let nullCount = (column.statistics?.processed.null_count || column.statistics?.raw?.null_count) || 0;
   const nullPercentage = nullCount && column.statistics?.raw.num_rows
     ? ((nullCount / column.statistics.raw.num_rows) * 100)
     : 0;

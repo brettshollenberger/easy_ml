@@ -80,10 +80,13 @@ module EasyML
           computed_by: computing_feature,
           is_computed: is_computed,
         )
+        next unless column.changed?
+
         column
-      end
+      end.compact
       EasyML::Column.import(updates.to_a, { on_duplicate_key_update: { columns: %i[computed_by is_computed] } })
-      column_list.bulk_record_history(updates, { history_user_id: 1 })
+      cols = EasyML::Column.where(id: updates.map(&:id)).to_a
+      column_list.bulk_record_history(cols, { history_user_id: 1 })
     end
 
     def import_new(new_columns, existing_columns)
@@ -132,9 +135,15 @@ module EasyML
         end
         sample_values = base.send(:data, unique: true, limit: 5, all_columns: true, select: column.name)[column.name].to_a.uniq[0...5]
 
+        if column.is_computed?
+          raw = processed
+        else
+          raw = stats.dig("raw", column.name)
+        end
+
         column.assign_attributes(
           statistics: {
-            raw: stats.dig("raw", column.name),
+            raw: raw,
             processed: processed,
           },
           datatype: actual_schema_type,

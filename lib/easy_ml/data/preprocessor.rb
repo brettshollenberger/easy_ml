@@ -109,7 +109,7 @@ module EasyML::Data
       allowed_categories
     end
 
-    def fit(df)
+    def fit(df, precomputed_stats = {})
       return if df.nil?
       return if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
@@ -117,7 +117,9 @@ module EasyML::Data
       df = apply_clip(df, preprocessing_steps)
       allowed_categories = learn_categorical_min(df, preprocessing_steps)
 
-      self.statistics = StatisticsLearner.learn_df(df, dataset: dataset).deep_symbolize_keys
+      self.statistics = StatisticsLearner.learn_df(df, dataset: dataset).deep_symbolize_keys.merge!(
+        precomputed_stats
+      ).deep_symbolize_keys
 
       # Merge allowed categories into statistics
       allowed_categories.each do |col, categories|

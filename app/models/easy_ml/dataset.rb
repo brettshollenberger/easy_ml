@@ -391,13 +391,15 @@ module EasyML
     end
 
     def validate_input(df)
-      nulls_on_required(df)
+      fields = missing_required_fields(df)
+      return fields.empty?, fields
     end
 
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features, idx: nil)
-      df = apply_features(df, features)
-      df = drop_nulls(df)
       df = apply_missing_features(df, inference: inference)
+      df = drop_nulls(df)
+      df = preprocessor.postprocess(df, inference: inference)
+      df = apply_features(df, features)
       df = preprocessor.postprocess(df, inference: inference)
 
       # Learn will update columns, so if any features have been added
@@ -409,7 +411,7 @@ module EasyML
       df
     end
 
-    def nulls_on_required(df)
+    def missing_required_fields(df)
       desc_df = df.describe
 
       # Get the 'null_count' row
@@ -420,7 +422,11 @@ module EasyML
         null_count_row[col][0].to_i > 0
       end
 
-      required_columns = columns.required
+      # This is a history class, because this only occurs on prediction
+      required_columns = columns.current.required.map(&:name)
+      required_columns.select do |col|
+        columns_with_nulls.include?(col) || df.columns.map(&:to_s).exclude?(col.to_s)
+      end
     end
 
     # Filter data using Polars predicates:
@@ -689,7 +695,8 @@ module EasyML
     end
 
     def fit
-      preprocessor.fit(raw.train(all_columns: true))
+      computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
+      preprocessor.fit(raw.train(all_columns: true), computed_statistics)
       self.preprocessor_statistics = preprocessor.statistics
     end
 

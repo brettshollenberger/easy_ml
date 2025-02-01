@@ -105,7 +105,7 @@ module EasyML
       stats = dataset.preprocessor.statistics
       return [] if stats.nil? || stats.blank?
 
-      stats.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
+      (stats.dup.to_h.dig(name.to_sym, :allowed_categories) || []).sort.concat(["other"])
     end
 
     def date_column?

@@ -1,5 +1,7 @@
 module EasyML
   module ColumnList
+    include Historiographer::Relation
+
     def sync(delete: true)
       return unless dataset.schema.present?
 
@@ -8,6 +10,7 @@ module EasyML
         existing_columns = where(name: col_names)
         import_new(col_names, existing_columns)
         update_existing(existing_columns)
+        set_feature_lineage
 
         if delete
           delete_missing(existing_columns)
@@ -62,6 +65,27 @@ module EasyML
 
     private
 
+    def set_feature_lineage
+      # Get all features that compute columns
+      features_computing_columns = dataset.features.all.map do |feature|
+        [feature.name, feature.computes_columns]
+      end.compact.to_h
+
+      updates = column_list.map do |column|
+        # Check if column is computed by any feature
+        computing_feature = features_computing_columns.find { |_, cols| cols.include?(column.name) }&.first
+        is_computed = !computing_feature.nil?
+
+        column.assign_attributes(
+          computed_by: computing_feature,
+          is_computed: is_computed,
+        )
+        column
+      end
+      EasyML::Column.import(updates.to_a, { on_duplicate_key_update: { columns: %i[computed_by is_computed] } })
+      column_list.bulk_record_history(updates, { history_user_id: 1 })
+    end
+
     def import_new(new_columns, existing_columns)
       new_columns = new_columns - existing_columns.map(&:name)
       cols_to_insert = new_columns.map do |col_name|
@@ -82,19 +106,10 @@ module EasyML
         EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
       end)).to_h
 
-      # Get all features that compute columns
-      features_computing_columns = dataset.features.all.map do |feature|
-        [feature.name, feature.computes_columns]
-      end.compact.to_h
-
       existing_columns.each do |column|
         new_polars_type = polars_types[column.name]
         existing_type = existing_types[column.name]
         schema_type = dataset.schema[column.name]
-
-        # Check if column is computed by any feature
-        computing_feature = features_computing_columns.find { |_, cols| cols.include?(column.name) }&.first
-        is_computed = !computing_feature.nil?
 
         # Keep both datatype and polars_datatype if it's an ordinal encoding case
         if column.ordinal_encoding?
@@ -125,8 +140,6 @@ module EasyML
           datatype: actual_schema_type,
           polars_datatype: actual_type,
           sample_values: sample_values,
-          computed_by: computing_feature,
-          is_computed: is_computed,
         )
       end
       EasyML::Column.import(existing_columns.to_a,

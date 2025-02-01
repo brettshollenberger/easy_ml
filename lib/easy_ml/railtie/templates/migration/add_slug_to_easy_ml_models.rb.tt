@@ -13,5 +13,8 @@ class AddSlugToEasyMLModels < ActiveRecord::Migration[<%= ActiveRecord::Migratio
     end
 
     change_column_null :easy_ml_models, :slug, false
+
+    add_column :easy_ml_model_histories, :slug, :string
+    add_index :easy_ml_model_histories, :slug
   end
 end

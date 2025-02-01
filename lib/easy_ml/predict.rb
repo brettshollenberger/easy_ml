@@ -15,6 +15,7 @@ module EasyML
         df = Polars::DataFrame.new(df)
       end
       raw_input = df.to_hashes
+      df = instance.validate_input(model_name, df)
       begin
         df = instance.normalize(model_name, df)
       rescue => e
@@ -54,6 +55,10 @@ module EasyML
 
     def predict(model_name, df)
       get_model(model_name).predict(df)
+    end
+
+    def validate_input(model_name, df)
+      get_model(model_name).dataset.validate_input(df)
     end
 
     def normalize(model_name, df)

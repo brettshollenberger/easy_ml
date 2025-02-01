@@ -390,6 +390,10 @@ module EasyML
       { differing_columns: differing_columns, differences: differences }
     end
 
+    def validate_input(df)
+      nulls_on_required(df)
+    end
+
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features, idx: nil)
       df = apply_features(df, features)
       df = drop_nulls(df)
@@ -401,12 +405,11 @@ module EasyML
       learn(delete: false) if idx == 1 && needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
 
-      raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
 
-    def raise_on_nulls(df)
+    def nulls_on_required(df)
       desc_df = df.describe
 
       # Get the 'null_count' row
@@ -417,11 +420,7 @@ module EasyML
         null_count_row[col][0].to_i > 0
       end
 
-      if columns_with_nulls.any?
-        columns_with_nulls -= columns.one_hots.flat_map(&:virtual_columns)
-        columns_with_nulls += columns.one_hots.map(&:name)
-        raise "Null values found in columns: #{columns_with_nulls.join(", ")}"
-      end
+      required_columns = columns.required
     end
 
     # Filter data using Polars predicates:

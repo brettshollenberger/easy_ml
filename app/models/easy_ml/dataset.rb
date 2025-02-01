@@ -340,6 +340,10 @@ module EasyML
       }
       stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self)) if processed.data.present?
 
+      columns.select(&:is_computed).each do |col|
+        stats[:raw][col.name] = stats[:processed][col.name]
+      end
+
       update(statistics: stats)
     end
 
@@ -401,12 +405,7 @@ module EasyML
       df = preprocessor.postprocess(df, inference: inference)
       df = apply_features(df, features)
       df = preprocessor.postprocess(df, inference: inference)
-
-      # Learn will update columns, so if any features have been added
-      # since the last time columns were learned, we should re-learn the schema
-      learn(delete: false) if idx == 1 && needs_learn?(df)
       df = apply_column_mask(df, inference: inference) unless all_columns
-
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
@@ -560,10 +559,14 @@ module EasyML
       df[column_mask(df, inference: inference)]
     end
 
-    def apply_missing_features(df, inference: false)
+    def apply_missing_features(df, inference: false, include_one_hots: false)
       return df unless inference
 
       missing_features = (col_order(inference: inference) - df.columns).compact
+      unless include_one_hots
+        missing_features -= columns.one_hots.flat_map(&:virtual_columns) unless include_one_hots
+        missing_features += columns.one_hots.map(&:name) - df.columns
+      end
       df.with_columns(missing_features.map { |f| Polars.lit(nil).alias(f) })
     end
 
@@ -670,6 +673,7 @@ module EasyML
       processed.cleanup
 
       SPLIT_ORDER.each_with_index do |segment, idx|
+        learn(delete: false) if idx == 1 && needs_learn?(segment)
         df = raw.read(segment)
         processed_df = normalize(df, all_columns: true, idx: idx)
         processed.save(segment, processed_df)

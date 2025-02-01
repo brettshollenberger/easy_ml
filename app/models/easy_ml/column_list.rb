@@ -135,15 +135,9 @@ module EasyML
         end
         sample_values = base.send(:data, unique: true, limit: 5, all_columns: true, select: column.name)[column.name].to_a.uniq[0...5]
 
-        if column.is_computed?
-          raw = processed
-        else
-          raw = stats.dig("raw", column.name)
-        end
-
         column.assign_attributes(
           statistics: {
-            raw: raw,
+            raw: stats.dig("raw", column.name),
             processed: processed,
           },
           datatype: actual_schema_type,

@@ -149,7 +149,12 @@ module EasyML
     def delete_missing(col_names)
       raw_cols = dataset.best_segment.train(all_columns: true, limit: 1).columns
       raw_cols = where(name: raw_cols)
-      columns_to_delete = column_list - col_names - raw_cols - one_hots
+      columns_to_delete = column_list.select do |col|
+        col_names.exclude?(col.name) &&
+          one_hots.map(&:name).exclude?(col.name) &&
+          raw_cols.map(&:name).exclude?(col.name) &&
+          dataset.features.flat_map(&:computes_columns).exclude?(col.name)
+      end
       columns_to_delete.each(&:destroy!)
     end
   end

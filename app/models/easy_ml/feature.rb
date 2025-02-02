@@ -246,7 +246,7 @@ module EasyML
 
     # Transform a single batch, used for testing the user's feature implementation
     def transform_batch(df = nil, batch_args = {})
-      if df.present?
+      if df.is_a?(Polars::DataFrame)
         actually_transform_batch(df)
       else
         actually_transform_batch(build_batch(get_batch_args(**batch_args)))
@@ -303,7 +303,7 @@ module EasyML
     end
 
     def actually_transform_batch(df)
-      return nil unless df.present?
+      return nil unless df.is_a?(Polars::DataFrame)
       return df if adapter.respond_to?(:fit) && feature_store.empty?
 
       result = adapter.transform(df, self)

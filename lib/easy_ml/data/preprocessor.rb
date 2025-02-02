@@ -82,7 +82,6 @@ module EasyML::Data
         clip_params = preprocessing_steps.dig(:training, col, :params, :clip)
         next unless clip_params
 
-        binding.pry if !clip_params.is_a?(Hash)
         min = clip_params[:min]
         max = clip_params[:max]
         df[col.to_s] = df[col.to_s].clip(min, max)
@@ -98,10 +97,9 @@ module EasyML::Data
       preprocessing_steps.deep_symbolize_keys!
       df = apply_clip(df, preprocessing_steps)
 
-      self.statistics = StatisticsLearner.learn_df(df, dataset: dataset, type: :raw).deep_symbolize_keys
-      # .merge!(
-      #   precomputed_stats
-      # ).deep_symbolize_keys
+      self.statistics = StatisticsLearner.learn_df(df, dataset: dataset, type: :raw).deep_symbolize_keys.merge!(
+        precomputed_stats
+      ).deep_symbolize_keys
     end
 
     def postprocess(df, inference: false, computed: false)

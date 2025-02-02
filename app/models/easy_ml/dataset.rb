@@ -348,7 +348,9 @@ module EasyML
       stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self, :processed)) if processed.data.present?
 
       columns.select(&:is_computed).each do |col|
-        stats[:raw][col.name] = stats[:processed][col.name]
+        if stats.dig(:processed, col.name)
+          stats[:raw][col.name] = stats[:processed][col.name]
+        end
       end
 
       update(statistics: stats)
@@ -405,11 +407,12 @@ module EasyML
       return fields.empty?, fields
     end
 
-    def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features, idx: nil)
+    def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_missing_features(df, inference: inference)
       df = drop_nulls(df)
       df = preprocessor.postprocess(df, inference: inference)
       df = apply_features(df, features)
+      learn unless inference # After applying features, we need to learn new statistics
       df = preprocessor.postprocess(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
@@ -678,9 +681,9 @@ module EasyML
     def normalize_all
       processed.cleanup
 
-      SPLIT_ORDER.each_with_index do |segment, idx|
+      SPLIT_ORDER.each do |segment|
         df = raw.read(segment)
-        processed_df = normalize(df, all_columns: true, idx: idx)
+        processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
       @normalized = true
@@ -705,9 +708,9 @@ module EasyML
 
     def fit
       # we want to be able to learn statistics for COMPUTED columns... need to think through this better and write failing specs
-      # computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
+      computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
       # binding.pry if computed_statistics.present?
-      preprocessor.fit(raw.train(all_columns: true))
+      preprocessor.fit(raw.train(all_columns: true), computed_statistics)
       update(preprocessor_statistics: preprocessor.statistics)
     end
 

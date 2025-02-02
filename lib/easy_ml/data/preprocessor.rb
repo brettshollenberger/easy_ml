@@ -90,45 +90,17 @@ module EasyML::Data
       df
     end
 
-    def learn_categorical_min(df, preprocessing_steps)
-      preprocessing_steps ||= {}
-      preprocessing_steps.deep_symbolize_keys!
-
-      allowed_categories = {}
-      (preprocessing_steps[:training] || {}).each_key do |col|
-        next unless [
-          preprocessing_steps.dig(:training, col, :params, :ordinal_encoding),
-          preprocessing_steps.dig(:training, col, :params, :one_hot),
-          preprocessing_steps.dig(:training, col, :method).to_sym == :categorical,
-        ].any?
-
-        cat_min = preprocessing_steps.dig(:training, col, :params, :categorical_min) || 1
-        val_counts = df[col].value_counts
-        allowed_categories[col] = val_counts[val_counts["count"] >= cat_min][col].to_a.compact
-      end
-      allowed_categories
-    end
-
     def fit(df, precomputed_stats = {})
       return if df.nil?
       return if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
       preprocessing_steps.deep_symbolize_keys!
       df = apply_clip(df, preprocessing_steps)
-      allowed_categories = learn_categorical_min(df, preprocessing_steps)
 
-      self.statistics = StatisticsLearner.learn_df(df, dataset: dataset).deep_symbolize_keys.merge!(
-        precomputed_stats
-      ).deep_symbolize_keys
-
-      # Merge allowed categories into statistics
-      allowed_categories.each do |col, categories|
-        statistics[col] ||= {}
-        statistics[col][:allowed_categories] = categories
-        statistics[col].merge!(
-          fit_categorical(df[col], preprocessing_steps)
-        )
-      end
+      self.statistics = StatisticsLearner.learn_df(df, dataset: dataset, type: :raw).deep_symbolize_keys
+      # .merge!(
+      #   precomputed_stats
+      # ).deep_symbolize_keys
     end
 
     def postprocess(df, inference: false)
@@ -260,27 +232,6 @@ module EasyML::Data
       df.with_column(
         df[col].map { |v| label_encoder[v.to_s] }.alias(col.to_s)
       )
-    end
-
-    def fit_categorical(series, _preprocessing_steps)
-      value_counts = series.value_counts
-      column_names = value_counts.columns
-      value_column = column_names[0]
-      count_column = column_names[1]
-
-      as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&:to_s)
-      label_encoder = as_hash.keys.sort.each.with_index.reduce({}) do |h, (k, i)|
-        h.tap do
-          h[k] = i
-        end
-      end
-      label_decoder = label_encoder.invert
-
-      {
-        value: as_hash,
-        label_encoder: label_encoder,
-        label_decoder: label_decoder,
-      }
     end
 
     def prepare_for_imputation(df, col)

@@ -175,9 +175,10 @@ module EasyML
 
     def actually_refresh
       refreshing do
+        learn(delete: false) # After syncing datasource, learn new statistics + sync columns
         process_data
         fully_reload
-        learn
+        learn # After processing data, we may have new columns from newly applied features
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
@@ -336,9 +337,9 @@ module EasyML
 
     def learn_statistics
       stats = {
-        raw: EasyML::Data::StatisticsLearner.learn(raw, self),
+        raw: EasyML::Data::StatisticsLearner.learn(raw, self, :raw),
       }
-      stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self)) if processed.data.present?
+      stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self, :processed)) if processed.data.present?
 
       columns.select(&:is_computed).each do |col|
         stats[:raw][col.name] = stats[:processed][col.name]
@@ -348,13 +349,11 @@ module EasyML
     end
 
     def process_data
-      split_data
       fit
       normalize_all
-      # alert_nulls
     end
 
-    def needs_learn?(df)
+    def needs_learn?
       return true if columns_need_refresh?
 
       never_learned = columns.none?
@@ -363,6 +362,7 @@ module EasyML
       new_features = features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
       return true if new_features
 
+      df = raw.query(limit: 1)
       new_cols = df.present? ? (df.columns - columns.map(&:name)) : []
       new_cols = columns.syncable
 
@@ -494,7 +494,7 @@ module EasyML
     end
 
     def preprocessing_steps
-      return if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
+      return {} if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
       return @preprocessing_steps if @preprocessing_steps.present?
 
       training = standardize_preprocessing_steps(:training)
@@ -522,7 +522,7 @@ module EasyML
     end
 
     def drop_cols
-      @drop_cols ||= preloaded_columns.select(&:hidden).flat_map(&:columns)
+      @drop_cols ||= preloaded_columns.select(&:hidden).flat_map(&:aliases)
     end
 
     def drop_if_null
@@ -673,7 +673,6 @@ module EasyML
       processed.cleanup
 
       SPLIT_ORDER.each_with_index do |segment, idx|
-        learn(delete: false) if idx == 1 && needs_learn?(segment)
         df = raw.read(segment)
         processed_df = normalize(df, all_columns: true, idx: idx)
         processed.save(segment, processed_df)
@@ -699,9 +698,10 @@ module EasyML
     end
 
     def fit
-      computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
-      preprocessor.fit(raw.train(all_columns: true), computed_statistics)
-      self.preprocessor_statistics = preprocessor.statistics
+      # computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
+      # binding.pry if computed_statistics.present?
+      preprocessor.fit(raw.train(all_columns: true))
+      update(preprocessor_statistics: preprocessor.statistics)
     end
 
     # log_method :fit, "Learning statistics", verbose: true
@@ -714,7 +714,6 @@ module EasyML
       return unless force || should_split?
 
       cleanup
-      features = self.features.ordered.load
       splitter.split(datasource) do |train_df, valid_df, test_df|
         [:train, :valid, :test].zip([train_df, valid_df, test_df]).each do |segment, df|
           raw.save(segment, df)

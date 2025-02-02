@@ -42,7 +42,7 @@ module EasyML
     scope :required, -> { where(is_computed: false, hidden: false, is_target: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
     scope :api_inputs, -> { where(is_computed: false, hidden: false, is_target: false) }
 
-    def columns
+    def aliases
       [name].concat(virtual_columns)
     end
 
@@ -102,10 +102,13 @@ module EasyML
 
     def allowed_categories
       return [] unless one_hot?
-      stats = dataset.preprocessor.statistics
+      stats = dataset.statistics
       return [] if stats.nil? || stats.blank?
 
-      (stats.dup.to_h.dig(name.to_sym, :allowed_categories) || []).sort.concat(["other"])
+      stats = stats.deep_symbolize_keys
+      stats = stats.dig(:raw)
+
+      (stats.dig(name.to_sym, :allowed_categories) || []).sort.concat(["other"])
     end
 
     def date_column?

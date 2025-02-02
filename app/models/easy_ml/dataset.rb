@@ -412,7 +412,6 @@ module EasyML
       df = drop_nulls(df)
       df = preprocessor.postprocess(df, inference: inference)
       df = apply_features(df, features)
-      binding.pry if inference
       learn unless inference # After applying features, we need to learn new statistics
       df = preprocessor.postprocess(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
@@ -708,9 +707,7 @@ module EasyML
     end
 
     def fit
-      # we want to be able to learn statistics for COMPUTED columns... need to think through this better and write failing specs
       computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
-      # binding.pry if computed_statistics.present?
       preprocessor.fit(raw.train(all_columns: true), computed_statistics)
       update(preprocessor_statistics: preprocessor.statistics)
     end

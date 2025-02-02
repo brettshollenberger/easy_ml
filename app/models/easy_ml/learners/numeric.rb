@@ -24,6 +24,14 @@ module EasyML
         if dataset.date_column.present?
           df.filter(Polars.col(column.name).is_not_null)
             .sort(dataset.date_column.name)[column.name][-1]
+          # sorted_df = df.sort(date_col, reverse: true)
+          # last_value = sorted_df
+          #   .filter(Polars.col(col).is_not_null)
+          #   .select(col)
+          #   .head(1)
+          #   .item
+
+          # last_value
         end
       end
     end

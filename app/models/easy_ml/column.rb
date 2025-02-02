@@ -78,6 +78,8 @@ module EasyML
     end
 
     def polars_datatype
+      return nil if datatype.nil? || datatype.to_s.empty?
+
       read_attribute(:polars_datatype) || get_polars_type(datatype)
     end
 
@@ -88,7 +90,11 @@ module EasyML
     end
 
     def assumed_datatype
-      return nil if raw.data.nil?
+      begin
+        return nil if raw.data.nil?
+      rescue => e
+        binding.pry
+      end
 
       EasyML::Data::PolarsColumn.determine_type(raw.data.to_series)
     end
@@ -107,7 +113,6 @@ module EasyML
           )
         end
       elsif computed_by.present?
-        binding.pry if name == "FamilySize"
         assign_attributes(
           is_computed: false,
           computed_by: nil,

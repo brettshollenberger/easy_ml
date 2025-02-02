@@ -1,11 +1,12 @@
 module EasyML
   module Learners
     class Base
-      attr_accessor :column, :dataset, :dtype
+      attr_accessor :column, :dataset, :dtype, :select
 
       def initialize(column)
         @column = column
         @dataset = column.dataset
+        @select = dataset.date_column.present? ? [dataset.date_column.name] : []
       end
 
       def self.adapter(column)
@@ -54,8 +55,8 @@ module EasyML
       end
 
       def learn_split(split)
-        df = split.data
-        train_df = split.train
+        df = split.data(select: select)
+        train_df = split.train(select: select)
         full_dataset_stats = statistics(df).compact.slice(*full_dataset_columns)
         train_stats = statistics(train_df).compact.slice(*train_columns)
         full_dataset_stats.merge!(train_stats)
@@ -63,13 +64,13 @@ module EasyML
 
       def last_value(df)
         return unless dataset.date_column.present?
-        return nil if df.empty? || !df.columns.include?(date_col)
+        return nil if df.empty? || !df.columns.include?(dataset.date_column.name)
 
         # Sort by date and get the last non-null value
-        sorted_df = df.sort(date_col, reverse: true)
+        sorted_df = df.sort(dataset.date_column.name, reverse: true)
         last_value = sorted_df
-          .filter(Polars.col(col).is_not_null)
-          .select(col)
+          .filter(Polars.col(column.name).is_not_null)
+          .select(column.name)
           .head(1)
           .item
 

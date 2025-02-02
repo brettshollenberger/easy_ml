@@ -22,12 +22,12 @@ module EasyML
     end
 
     def learn
-      each(&:learn)
+      select(&:persisted?).each(&:learn)
     end
 
     def statistics
       stats = { raw: {}, processed: {} }
-      inject(stats) do |h, col|
+      select(&:persisted?).inject(stats) do |h, col|
         h.tap do
           h[:raw][col.name] = col.statistics.dig(:raw)
           h[:processed][col.name] = col.statistics.dig(:processed)
@@ -138,7 +138,7 @@ module EasyML
     end
 
     def delete_missing(col_names)
-      raw_cols = dataset.best_segment.train(all_columns: true, limit: 1).columns
+      raw_cols = dataset.best_segment.data(all_columns: true, limit: 1).columns
       raw_cols = where(name: raw_cols)
       columns_to_delete = column_list.select do |col|
         col_names.exclude?(col.name) &&

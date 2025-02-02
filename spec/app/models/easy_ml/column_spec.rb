@@ -65,7 +65,7 @@ RSpec.describe EasyML::Column do
         col
       end
 
-      it "returns statistics for the column" do
+      it "returns statistics for the column", :focus do
         stats = column.learn
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
@@ -95,7 +95,7 @@ RSpec.describe EasyML::Column do
       end
     end
 
-    context "when column is computed by a feature", :focus do
+    context "when column is computed by a feature" do
       let(:feature) do
         dataset.save
         dataset.features.create!(

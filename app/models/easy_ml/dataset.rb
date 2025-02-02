@@ -142,7 +142,7 @@ module EasyML
 
     def best_segment
       [processed, raw].detect do |segment|
-        segment.send(:train, all_columns: true, limit: 1)&.columns
+        segment.send(:data, all_columns: true, limit: 1)&.columns
       end
     end
 

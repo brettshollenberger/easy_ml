@@ -44,17 +44,22 @@ module EasyML
       private
 
       def select(segment, **kwargs)
-        if (selected == :processed || (selected.nil? && !dataset.needs_refresh?)) && column.one_hot?
-          kwargs.merge!(
-            all_columns: true,
-            select: column.virtual_columns,
-          )
+        return nil if dataset.nil?
+
+        kwargs[:all_columns] = true
+
+        if kwargs.key?(:select)
+          kwargs[:select] = [kwargs[:select]].flatten
         else
-          kwargs.merge!(
-            all_columns: true,
-            select: name,
-          )
+          kwargs[:select] = []
         end
+
+        if (selected == :processed || (selected.nil? && !dataset.needs_refresh?)) && column.one_hot?
+          kwargs[:select] << column.virtual_columns
+        else
+          kwargs[:select] << column.name
+        end
+        kwargs[:select] = kwargs[:select].uniq
 
         if @selected.present?
           dataset.send(@selected).send(segment, **kwargs)

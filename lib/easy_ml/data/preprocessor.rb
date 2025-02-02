@@ -104,7 +104,7 @@ module EasyML::Data
       # ).deep_symbolize_keys
     end
 
-    def postprocess(df, inference: false)
+    def postprocess(df, inference: false, computed: false)
       puts "Postprocessing..." if verbose
       return df if preprocessing_steps.nil? || preprocessing_steps.keys.none?
 
@@ -113,6 +113,11 @@ module EasyML::Data
         else
           preprocessing_steps[:training]
         end
+
+      if computed
+        computed_cols = dataset.columns.computed.map(&:name).map(&:to_sym)
+        steps = steps.deep_dup.slice(*computed_cols)
+      end
 
       df = apply_transformations(df, steps)
 

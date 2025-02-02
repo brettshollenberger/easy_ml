@@ -9,7 +9,7 @@
 #  description         :string
 #  datatype            :string
 #  polars_datatype     :string
-#  is_target           :boolean
+#  is_target           :boolean          default(FALSE)
 #  hidden              :boolean          default(FALSE)
 #  drop_if_null        :boolean          default(FALSE)
 #  preprocessing_steps :json
@@ -22,6 +22,8 @@
 #  history_user_id     :integer
 #  snapshot_id         :string
 #  is_date_column      :boolean          default(FALSE)
+#  computed_by         :string
+#  is_computed         :boolean          default(FALSE)
 #
 module EasyML
   class ColumnHistory < ActiveRecord::Base

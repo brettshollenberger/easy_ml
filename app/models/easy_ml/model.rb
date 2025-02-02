@@ -17,7 +17,7 @@
 #  is_training     :boolean
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
-#  slug            :string
+#  slug            :string           not null
 #
 require_relative "models/hyperparameters"
 

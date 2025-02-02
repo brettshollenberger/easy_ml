@@ -140,6 +140,12 @@ module EasyML
       EasyML::RefreshDatasetJob.perform_later(id)
     end
 
+    def best_segment
+      [processed, raw].detect do |segment|
+        segment.send(:train, all_columns: true, limit: 1)&.columns
+      end
+    end
+
     def raw
       return @raw if @raw && @raw.dataset
 
@@ -177,10 +183,10 @@ module EasyML
       refreshing do
         learn(delete: false) # After syncing datasource, learn new statistics + sync columns
         process_data
-        now = UTC.now
-        update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
         learn # After processing data, we may have new columns from newly applied features
+        now = UTC.now
+        update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
       end
     end
@@ -404,7 +410,7 @@ module EasyML
       df = drop_nulls(df)
       df = preprocessor.postprocess(df, inference: inference)
       df = apply_features(df, features)
-      df = preprocessor.postprocess(df, inference: inference)
+      df = preprocessor.postprocess(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
       df

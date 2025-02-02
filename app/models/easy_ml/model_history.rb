@@ -22,6 +22,7 @@
 #  history_ended_at   :datetime
 #  history_user_id    :integer
 #  snapshot_id        :string
+#  slug               :string
 #
 module EasyML
   class ModelHistory < ActiveRecord::Base

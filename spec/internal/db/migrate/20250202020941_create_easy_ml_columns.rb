@@ -7,7 +7,7 @@ class CreateEasyMLColumns < ActiveRecord::Migration[7.2]
         t.string :description
         t.string :datatype # The symbol representation (e.g., 'float', 'integer')
         t.string :polars_datatype # The full Polars class name (e.g., 'Polars::Float64')
-        t.boolean :is_target, default: false
+        t.boolean :is_target
         t.boolean :hidden, default: false
         t.boolean :drop_if_null, default: false
         t.json :preprocessing_steps

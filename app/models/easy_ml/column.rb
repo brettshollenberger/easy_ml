@@ -8,7 +8,7 @@
 #  description         :string
 #  datatype            :string
 #  polars_datatype     :string
-#  is_target           :boolean
+#  is_target           :boolean          default(FALSE)
 #  hidden              :boolean          default(FALSE)
 #  drop_if_null        :boolean          default(FALSE)
 #  preprocessing_steps :json
@@ -17,6 +17,8 @@
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #  is_date_column      :boolean          default(FALSE)
+#  computed_by         :string
+#  is_computed         :boolean          default(FALSE)
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -41,6 +43,7 @@ module EasyML
     scope :date_column, -> { where(is_date_column: true) }
     scope :required, -> { where(is_computed: false, hidden: false, is_target: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
     scope :api_inputs, -> { where(is_computed: false, hidden: false, is_target: false) }
+    scope :computed, -> { where(is_computed: true) }
 
     def aliases
       [name].concat(virtual_columns)

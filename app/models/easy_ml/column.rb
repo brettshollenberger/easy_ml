@@ -8,7 +8,7 @@
 #  description         :string
 #  datatype            :string
 #  polars_datatype     :string
-#  is_target           :boolean
+#  is_target           :boolean          default(FALSE)
 #  hidden              :boolean          default(FALSE)
 #  drop_if_null        :boolean          default(FALSE)
 #  preprocessing_steps :json
@@ -17,6 +17,8 @@
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #  is_date_column      :boolean          default(FALSE)
+#  computed_by         :string
+#  is_computed         :boolean          default(FALSE)
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -39,8 +41,11 @@ module EasyML
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
     scope :date_column, -> { where(is_date_column: true) }
+    scope :required, -> { where(is_computed: false, hidden: false, is_target: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
+    scope :api_inputs, -> { where(is_computed: false, hidden: false, is_target: false) }
+    scope :computed, -> { where(is_computed: true) }
 
-    def columns
+    def aliases
       [name].concat(virtual_columns)
     end
 
@@ -100,14 +105,47 @@ module EasyML
 
     def allowed_categories
       return [] unless one_hot?
-      stats = dataset.preprocessor.statistics
+      stats = dataset.statistics
       return [] if stats.nil? || stats.blank?
 
-      stats.dup.to_h.dig(name.to_sym, :allowed_categories).sort.concat(["other"])
+      stats = stats.deep_symbolize_keys
+      stats = stats.dig(:raw)
+
+      (stats.dig(name.to_sym, :allowed_categories) || []).sort.concat(["other"])
     end
 
     def date_column?
       is_date_column
+    end
+
+    def lineage
+      [
+        present_in_raw_dataset ? "Raw dataset" : nil,
+        computed_by ? "Computed by #{computed_by}" : nil,
+        preprocessing_steps.present? ? "Preprocessed using #{preprocessing_steps.keys.join(", ")}" : nil,
+      ].compact
+    end
+
+    def required?
+      is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden && !is_target
+    end
+
+    def present_in_raw_dataset
+      dataset.raw.data&.columns&.include?(name) || false
+    end
+
+    def sort_required
+      required? ? 0 : 1
+    end
+
+    def to_api
+      {
+        name: name,
+        datatype: datatype,
+        description: description,
+        required: required?,
+        allowed_values: allowed_categories.empty? ? nil : allowed_categories,
+      }.compact
     end
 
     private

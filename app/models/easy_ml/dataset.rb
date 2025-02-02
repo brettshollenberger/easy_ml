@@ -140,6 +140,12 @@ module EasyML
       EasyML::RefreshDatasetJob.perform_later(id)
     end
 
+    def best_segment
+      [processed, raw].detect do |segment|
+        segment.send(:train, all_columns: true, limit: 1)&.columns
+      end
+    end
+
     def raw
       return @raw if @raw && @raw.dataset
 
@@ -175,9 +181,10 @@ module EasyML
 
     def actually_refresh
       refreshing do
+        learn(delete: false) # After syncing datasource, learn new statistics + sync columns
         process_data
         fully_reload
-        learn
+        learn # After processing data, we may have new columns from newly applied features
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
@@ -336,21 +343,25 @@ module EasyML
 
     def learn_statistics
       stats = {
-        raw: EasyML::Data::StatisticsLearner.learn(raw, self),
+        raw: EasyML::Data::StatisticsLearner.learn(raw, self, :raw),
       }
-      stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self)) if processed.data.present?
+      stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self, :processed)) if processed.data.present?
+
+      columns.select(&:is_computed).each do |col|
+        if stats.dig(:processed, col.name)
+          stats[:raw][col.name] = stats[:processed][col.name]
+        end
+      end
 
       update(statistics: stats)
     end
 
     def process_data
-      split_data
       fit
       normalize_all
-      # alert_nulls
     end
 
-    def needs_learn?(df)
+    def needs_learn?
       return true if columns_need_refresh?
 
       never_learned = columns.none?
@@ -359,6 +370,7 @@ module EasyML
       new_features = features.any? { |f| f.updated_at > columns.maximum(:updated_at) }
       return true if new_features
 
+      df = raw.query(limit: 1)
       new_cols = df.present? ? (df.columns - columns.map(&:name)) : []
       new_cols = columns.syncable
 
@@ -390,22 +402,24 @@ module EasyML
       { differing_columns: differing_columns, differences: differences }
     end
 
-    def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features, idx: nil)
-      df = apply_features(df, features)
-      df = drop_nulls(df)
-      df = apply_missing_features(df, inference: inference)
-      df = preprocessor.postprocess(df, inference: inference)
+    def validate_input(df)
+      fields = missing_required_fields(df)
+      return fields.empty?, fields
+    end
 
-      # Learn will update columns, so if any features have been added
-      # since the last time columns were learned, we should re-learn the schema
-      learn(delete: false) if idx == 1 && needs_learn?(df)
+    def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
+      df = apply_missing_features(df, inference: inference)
+      df = drop_nulls(df)
+      df = preprocessor.postprocess(df, inference: inference)
+      df = apply_features(df, features)
+      learn unless inference # After applying features, we need to learn new statistics
+      df = preprocessor.postprocess(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
-      raise_on_nulls(df) if inference
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
 
-    def raise_on_nulls(df)
+    def missing_required_fields(df)
       desc_df = df.describe
 
       # Get the 'null_count' row
@@ -416,8 +430,10 @@ module EasyML
         null_count_row[col][0].to_i > 0
       end
 
-      if columns_with_nulls.any?
-        raise "Null values found in columns: #{columns_with_nulls.join(", ")}"
+      # This is a history class, because this only occurs on prediction
+      required_columns = columns.current.required.map(&:name)
+      required_columns.select do |col|
+        columns_with_nulls.include?(col) || df.columns.map(&:to_s).exclude?(col.to_s)
       end
     end
 
@@ -487,7 +503,7 @@ module EasyML
     end
 
     def preprocessing_steps
-      return if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
+      return {} if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
       return @preprocessing_steps if @preprocessing_steps.present?
 
       training = standardize_preprocessing_steps(:training)
@@ -515,7 +531,7 @@ module EasyML
     end
 
     def drop_cols
-      @drop_cols ||= preloaded_columns.select(&:hidden).flat_map(&:columns)
+      @drop_cols ||= preloaded_columns.select(&:hidden).flat_map(&:aliases)
     end
 
     def drop_if_null
@@ -552,10 +568,14 @@ module EasyML
       df[column_mask(df, inference: inference)]
     end
 
-    def apply_missing_features(df, inference: false)
+    def apply_missing_features(df, inference: false, include_one_hots: false)
       return df unless inference
 
       missing_features = (col_order(inference: inference) - df.columns).compact
+      unless include_one_hots
+        missing_features -= columns.one_hots.flat_map(&:virtual_columns) unless include_one_hots
+        missing_features += columns.one_hots.map(&:name) - df.columns
+      end
       df.with_columns(missing_features.map { |f| Polars.lit(nil).alias(f) })
     end
 
@@ -661,9 +681,9 @@ module EasyML
     def normalize_all
       processed.cleanup
 
-      SPLIT_ORDER.each_with_index do |segment, idx|
+      SPLIT_ORDER.each do |segment|
         df = raw.read(segment)
-        processed_df = normalize(df, all_columns: true, idx: idx)
+        processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
       @normalized = true
@@ -687,8 +707,9 @@ module EasyML
     end
 
     def fit
-      preprocessor.fit(raw.train(all_columns: true))
-      self.preprocessor_statistics = preprocessor.statistics
+      computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
+      preprocessor.fit(raw.train(all_columns: true), computed_statistics)
+      update(preprocessor_statistics: preprocessor.statistics)
     end
 
     # log_method :fit, "Learning statistics", verbose: true
@@ -701,7 +722,6 @@ module EasyML
       return unless force || should_split?
 
       cleanup
-      features = self.features.ordered.load
       splitter.split(datasource) do |train_df, valid_df, test_df|
         [:train, :valid, :test].zip([train_df, valid_df, test_df]).each do |segment, df|
           raw.save(segment, df)

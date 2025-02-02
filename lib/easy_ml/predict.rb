@@ -10,11 +10,17 @@ module EasyML
       @models = {}
     end
 
-    def self.predict(model_name, df, serialize: false)
+    def self.normalize_input(df)
       if df.is_a?(Hash)
         df = Polars::DataFrame.new(df)
       end
+      df
+    end
+
+    def self.predict(model_name, df, serialize: false)
+      df = normalize_input(df)
       raw_input = df.to_hashes
+
       df = instance.normalize(model_name, df)
       normalized_input = df.to_hashes
       preds = instance.predict(model_name, df)
@@ -52,6 +58,11 @@ module EasyML
       get_model(model_name).predict(df)
     end
 
+    def self.validate_input(model_name, df)
+      df = normalize_input(df)
+      instance.get_model(model_name).dataset.validate_input(df)
+    end
+
     def normalize(model_name, df)
       get_model(model_name).dataset.normalize(df, inference: true)
     end
@@ -72,7 +83,7 @@ module EasyML
     private
 
     def load_model(model_name)
-      current_model = EasyML::Model.find_by!(name: model_name).inference_version
+      current_model = EasyML::Model.find_by!(slug: model_name).inference_version
 
       # Load new model if not loaded or different version
       model_not_loaded = models[model_name].nil?

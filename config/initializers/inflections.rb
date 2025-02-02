@@ -12,6 +12,8 @@ module EasyML
           inflect.acronym "EST"
           inflect.acronym "UTC"
           inflect.acronym "HTML"
+          inflect.acronym "API"
+          inflect.acronym "APIs"
         end
       end
     end

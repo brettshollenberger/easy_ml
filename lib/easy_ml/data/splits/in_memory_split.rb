@@ -41,6 +41,10 @@ module EasyML
           split_features_targets(df, split_ys, target)
         end
 
+        def query(**kwargs)
+          read("all", **kwargs)
+        end
+
         def cleanup
           @data.clear
         end

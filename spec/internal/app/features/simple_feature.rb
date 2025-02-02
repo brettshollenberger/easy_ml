@@ -1,6 +1,10 @@
 class SimpleFeature
   include EasyML::Features
 
+  def computes_columns
+    ["SIMPLE_TIME"]
+  end
+
   def fit(reader, feature)
     df = reader.read(:all, select: ["COMPANY_ID", "CREATED_AT"])
     batch_df = df.with_columns(

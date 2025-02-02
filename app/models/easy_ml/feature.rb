@@ -165,6 +165,13 @@ module EasyML
       end
     end
 
+    def computes_columns
+      unless adapter.respond_to?(:computes_columns)
+        raise "Feature #{feature_class} must declare which columns it computes using the :computes_columns method"
+      end
+      adapter.computes_columns
+    end
+
     def build_batches
       if batchable?
         batch
@@ -239,7 +246,7 @@ module EasyML
 
     # Transform a single batch, used for testing the user's feature implementation
     def transform_batch(df = nil, batch_args = {})
-      if df.present?
+      if df.is_a?(Polars::DataFrame)
         actually_transform_batch(df)
       else
         actually_transform_batch(build_batch(get_batch_args(**batch_args)))
@@ -296,8 +303,8 @@ module EasyML
     end
 
     def actually_transform_batch(df)
-      return nil unless df.present?
-      return df if adapter.respond_to?(:fit) && feature_store.empty?
+      return nil unless df.is_a?(Polars::DataFrame)
+      return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
       result = adapter.transform(df, self)
       update!(applied_at: Time.current)

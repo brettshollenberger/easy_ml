@@ -127,8 +127,10 @@ module EasyML
         )
 
         Rails.logger.info("Downloaded #{object.key} to #{local_file_path}")
-        ungzipped_file_path = ungzip_file(local_file_path)
-        Rails.logger.info("Ungzipped to #{ungzipped_file_path}")
+        if object.key.end_with?(".gz")
+          ungzipped_file_path = ungzip_file(local_file_path)
+          Rails.logger.info("Ungzipped to #{ungzipped_file_path}")
+        end
       rescue Aws::S3::Errors::ServiceError, Net::OpenTimeout, Net::ReadTimeout, StandardError => e
         Rails.logger.error("Failed to process #{object.key}: #{e.message}")
         raise e

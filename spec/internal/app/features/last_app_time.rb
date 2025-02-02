@@ -1,6 +1,10 @@
 class LastAppTime
   include EasyML::Features
 
+  def computes_columns
+    ["LAST_APP_TIME"]
+  end
+
   def fit(df, feature, options = {})
     batch_df = df.with_columns(
       Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")

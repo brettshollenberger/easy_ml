@@ -1,6 +1,10 @@
 class FailingFeature
   include EasyML::Features
 
+  def computes_columns
+    ["failing_feature"]
+  end
+
   def fit(df, feature, options = {})
     raise StandardError, "Intentional failure in feature computation"
   end

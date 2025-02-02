@@ -254,6 +254,10 @@ RSpec.describe EasyML::Datasource do
     class DidConvert
       include EasyML::Features
 
+      def computes_columns
+        ["did_convert"]
+      end
+
       def transform(df, feature)
         df.with_column(
           (Polars.col("rev") > 0).alias("did_convert")
@@ -267,6 +271,10 @@ RSpec.describe EasyML::Datasource do
     class Age
       include EasyML::Features
 
+      def computes_columns
+        ["age"]
+      end
+
       def transform(df, feature)
         df.with_column(
           Polars::Series.new("age", Array.new(df.height) { rand(1..50) })
@@ -279,6 +287,10 @@ RSpec.describe EasyML::Datasource do
 
     class BusinessInception
       include EasyML::Features
+
+      def computes_columns
+        ["business_inception"]
+      end
 
       def transform(df, feature)
         df.with_column(
@@ -295,6 +307,10 @@ RSpec.describe EasyML::Datasource do
     class DaysInBusiness
       include EasyML::Features
 
+      def computes_columns
+        ["business_inception"]
+      end
+
       def transform(df, feature)
         df.with_column(
           (Polars.col("created_date") - Polars.col("business_inception")).dt.days.alias("days_in_business")
@@ -307,6 +323,10 @@ RSpec.describe EasyML::Datasource do
 
     class BadFeature
       include EasyML::Features
+
+      def computes_columns
+        ["bad_feature"]
+      end
 
       def transform(_df, feature)
         "not a dataframe" # Intentionally return wrong type

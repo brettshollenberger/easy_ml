@@ -345,6 +345,96 @@ RSpec.describe EasyML::Data::Preprocessor do
     end
   end
 
+  describe "Preprocessing Computed Features" do
+    class DependentFeature
+      include EasyML::Features
+
+      def computes_columns
+        ["ANNUAL_REV_PLUS_ONE"]
+      end
+
+      def transform(df, feature)
+        df.with_column(
+          Polars.col("annual_revenue").cast(Polars::Float64).add(1).alias("ANNUAL_REV_PLUS_ONE")
+        )
+      end
+
+      feature name: "Dependent Feature",
+              description: "Adds ZIP code data based on ID",
+              primary_key: "id"
+    end
+
+    it "preprocesses columns before sending to apply_features" do
+      @dataset.refresh
+      dependent_feature = @dataset.features.create!(
+        name: "dependent_feature",
+        feature_class: "DependentFeature",
+        needs_fit: true,
+        feature_position: 1,
+      )
+      # If we didn't apply a mean, the feature generation would raise an error
+      @dataset.columns.find_by(name: "annual_revenue").update(
+        preprocessing_steps: {
+          training: {
+            method: :mean,
+          },
+        },
+      )
+      @dataset.refresh
+      expect(@dataset.data["ANNUAL_REV_PLUS_ONE"]).not_to be_nil
+    end
+
+    class UnknownAtRuntimeFeature
+      include EasyML::Features
+
+      def computes_columns
+        ["Unknown"]
+      end
+
+      def transform(df, feature)
+        if df.columns.include?("inference")
+          df
+        else
+          df.with_column(
+            Polars.col("annual_revenue").cast(Polars::Float64).add(1).alias("Unknown")
+          )
+        end
+      end
+
+      feature name: "Unknown",
+              description: "A feature that doesn't exist at runtime"
+    end
+
+    it "allows features to be preprocessed" do
+      @dataset.refresh
+      dependent_feature = @dataset.features.create!(
+        name: "unknown",
+        feature_class: "UnknownAtRuntimeFeature",
+        needs_fit: true,
+        feature_position: 1,
+      )
+      @dataset.columns.find_by(name: "annual_revenue").update(
+        preprocessing_steps: {
+          training: {
+            method: :mean,
+          },
+        },
+      )
+      @dataset.refresh
+      @dataset.columns.find_by(name: "Unknown").update(
+        preprocessing_steps: {
+          training: {
+            method: :mean,
+          },
+        },
+      )
+      @dataset.refresh
+
+      normalized = @dataset.normalize(Polars::DataFrame.new({ inference: [true] }), inference: true)
+      expect(normalized["Unknown"]).to eq(@dataset.statistics.dig("raw", "annual_revenue", "mean"))
+    end
+  end
+
   # Boolean, Datetime, String tests
   describe "other data types preprocessing" do
     before(:each) do

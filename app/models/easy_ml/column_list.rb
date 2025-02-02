@@ -1,5 +1,7 @@
 module EasyML
   module ColumnList
+    include Historiographer::Relation
+
     def sync(delete: true)
       return unless dataset.schema.present?
 
@@ -8,9 +10,10 @@ module EasyML
         existing_columns = where(name: col_names)
         import_new(col_names, existing_columns)
         update_existing(existing_columns)
+        set_feature_lineage
 
         if delete
-          delete_missing(existing_columns)
+          delete_missing(col_names)
         end
 
         if existing_columns.none? # Totally new dataset
@@ -37,14 +40,9 @@ module EasyML
       end
     end
 
-    def virtual_column?(column)
-      false
-    end
-
     def syncable
       dataset.processed_schema.keys.select do |col|
-        !one_hot?(col) &&
-          !virtual_column?(col)
+        !one_hot?(col)
       end
     end
 
@@ -56,7 +54,35 @@ module EasyML
       proxy_association.owner
     end
 
+    def sort_by_required
+      column_list.sort_by { |col| [col.sort_required, col.name] }
+    end
+
     private
+
+    def set_feature_lineage
+      # Get all features that compute columns
+      features_computing_columns = dataset.features.all.map do |feature|
+        [feature.name, feature.computes_columns]
+      end.compact.to_h
+
+      updates = column_list.reload.map do |column|
+        # Check if column is computed by any feature
+        computing_feature = features_computing_columns.find { |_, cols| cols.include?(column.name) }&.first
+        is_computed = !computing_feature.nil?
+
+        column.assign_attributes(
+          computed_by: computing_feature,
+          is_computed: is_computed,
+        )
+        next unless column.changed?
+
+        column
+      end.compact
+      EasyML::Column.import(updates.to_a, { on_duplicate_key_update: { columns: %i[computed_by is_computed] } })
+      cols = EasyML::Column.where(id: updates.map(&:id)).to_a
+      column_list.bulk_record_history(cols, { history_user_id: 1 })
+    end
 
     def import_new(new_columns, existing_columns)
       new_columns = new_columns - existing_columns.map(&:name)
@@ -67,6 +93,7 @@ module EasyML
         )
       end
       EasyML::Column.import(cols_to_insert)
+      column_list.reload
     end
 
     def update_existing(existing_columns)
@@ -116,13 +143,18 @@ module EasyML
       end
       EasyML::Column.import(existing_columns.to_a,
                             { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
-                                                                   sample_values] } })
+                                                                   sample_values computed_by is_computed] } })
     end
 
-    def delete_missing(existing_columns)
-      raw_cols = dataset.raw.train(all_columns: true, limit: 1).columns
+    def delete_missing(col_names)
+      raw_cols = dataset.best_segment.train(all_columns: true, limit: 1).columns
       raw_cols = where(name: raw_cols)
-      columns_to_delete = column_list - existing_columns - raw_cols
+      columns_to_delete = column_list.select do |col|
+        col_names.exclude?(col.name) &&
+          one_hots.map(&:name).exclude?(col.name) &&
+          raw_cols.map(&:name).exclude?(col.name) &&
+          dataset.features.flat_map(&:computes_columns).exclude?(col.name)
+      end
       columns_to_delete.each(&:destroy!)
     end
   end

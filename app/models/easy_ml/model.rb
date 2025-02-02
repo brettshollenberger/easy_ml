@@ -17,6 +17,7 @@
 #  is_training     :boolean
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
+#  slug            :string           not null
 #
 require_relative "models/hyperparameters"
 
@@ -66,6 +67,7 @@ module EasyML
     after_initialize :bump_version, if: -> { new_record? }
     after_initialize :set_defaults, if: -> { new_record? }
     before_save :save_model_file, if: -> { is_fit? && !is_history_class? && model_changed? && !@skip_save_model_file }
+    before_validation :set_slug, if: :name_changed?
 
     VALID_TASKS = %i[regression classification].freeze
 
@@ -91,6 +93,7 @@ module EasyML
                      }
     validates :model_type, inclusion: { in: MODEL_NAMES }
     validates :dataset_id, presence: true
+    validates :slug, presence: true, uniqueness: true
     validate :validate_metrics_allowed
     before_save :set_root_dir
 
@@ -189,6 +192,7 @@ module EasyML
         evaluator: evaluator,
         model: self,
         dataset: dataset,
+        metrics: metrics,
       }.compact
       tuner.merge!(extra_params)
       tuner_instance = EasyML::Core::Tuner.new(tuner)
@@ -307,7 +311,6 @@ module EasyML
 
       dataset.refresh
       adapter.fit(tuning: tuning, x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
-      @is_fit = true
     end
 
     def batch_args
@@ -334,10 +337,7 @@ module EasyML
 
     def fit_in_batches(tuning: false, batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"), &progress_block)
       adapter.fit_in_batches(tuning: tuning, batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir, &progress_block)
-      @is_fit = true
     end
-
-    attr_accessor :is_fit
 
     def is_fit?
       model_file = get_model_file
@@ -445,6 +445,21 @@ module EasyML
       super.merge!(
         hyperparameters: hyperparameters.to_h,
       )
+    end
+
+    include Rails.application.routes.mounted_helpers
+
+    def api_fields
+      {
+        url: EasyML::Engine.routes.url_helpers.predictions_path,
+        method: "POST",
+        data: {
+          model: slug,
+          input: dataset.columns.api_inputs.sort_by_required.map(&:to_api).each_with_object({}) do |field, hash|
+            hash[field[:name]] = field.except(:name)
+          end,
+        },
+      }
     end
 
     class CannotdeployError < StandardError
@@ -605,6 +620,12 @@ module EasyML
 
       errors.add(:metrics,
                  "don't know how to handle #{"metrics".pluralize(unknown_metrics)} #{unknown_metrics.join(", ")}, use EasyML::Core::ModelEvaluator.register(:name, Evaluator, :regression|:classification)")
+    end
+
+    def set_slug
+      if slug.nil? && name.present?
+        self.slug = name.gsub(/\s/, "_").downcase
+      end
     end
   end
 end

@@ -49,12 +49,10 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
         preserveScroll: true, // Keeps the scroll position
         preserveState: true,  // Keeps the form state
         onSuccess: (e) => {
-          debugger;
           console.log("SUCCESS")
           // The page will automatically refresh with new data
         },
         onError: () => {
-          debugger;
           // Handle error case if needed
           console.error('Failed to sync datasource');
         }

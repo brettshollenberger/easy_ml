@@ -74,7 +74,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
       dataset_id: initialData?.dataset_id || '',
       task: initialData?.task || 'classification',
       objective: initialData?.objective || 'binary:logistic',
-      metrics: initialData?.metrics || ['accuracy'],
+      metrics: initialData?.metrics || ['accuracy_score'],
       retraining_job_attributes: initialData?.retraining_job ? {
         id: initialData.retraining_job.id,
         frequency: initialData.retraining_job.frequency,

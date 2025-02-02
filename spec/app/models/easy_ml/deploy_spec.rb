@@ -45,11 +45,11 @@ RSpec.describe EasyML::Deploy do
     end
 
     def transform(df, feature)
-      unless df.columns.include?("PassengerId")
+      if df.shape[0] == 1
         df["PassengerId"] = (1..df.height).to_a
+        df = df.drop("FamilySize") # Drop nulled out version of column
         merge = fit(df, feature)
         df = df.join(merge, on: "PassengerId", how: "left")
-        df.drop("PassengerId")
         return df
       end
 
@@ -127,6 +127,7 @@ RSpec.describe EasyML::Deploy do
   let(:model_config) do
     {
       name: "My model",
+      slug: "my_model",
       model_type: "xgboost",
       task: task,
       dataset: dataset,
@@ -225,6 +226,7 @@ RSpec.describe EasyML::Deploy do
   describe "#deploy" do
     it "uses deployed version for prediction" do
       mock_s3_upload
+      model.unlock!
 
       @time = EasyML::Support::EST.now
       Timecop.freeze(@time)
@@ -287,7 +289,7 @@ RSpec.describe EasyML::Deploy do
         "Fare" => 100,
         "Embarked" => "C",
       }
-      preds = EasyML::Predict.predict("My model", raw_input)
+      preds = EasyML::Predict.predict("my_model", raw_input)
 
       prediction = EasyML::Prediction.last
       expect(prediction.prediction_value).to be_between(0, 1)

@@ -26,7 +26,7 @@ RSpec.describe EasyML::Predict do
       df, = model.dataset.test(split_ys: true)
       model_preds = model.predict(df)
 
-      live_preds = described_class.predict(model.name, df)
+      live_preds = described_class.predict(model.slug, df)
       expect(live_preds.map(&:prediction_value)).to eq model_preds
       expect(model_preds.length).to eq(df.length)
     end
@@ -42,7 +42,7 @@ RSpec.describe EasyML::Predict do
       expect_any_instance_of(EasyML::Models::XGBoost).to receive(:initialize_model).once.and_call_original
 
       3.times do
-        described_class.predict(model.name, df)
+        described_class.predict(model.slug, df)
       end
     end
 
@@ -57,7 +57,7 @@ RSpec.describe EasyML::Predict do
 
       # Predict already ran model loading her
       3.times do
-        described_class.predict(model.name, df)
+        described_class.predict(model.slug, df)
       end
 
       Timecop.freeze(2.hours.from_now)
@@ -77,7 +77,7 @@ RSpec.describe EasyML::Predict do
       # So if Predict runs model loading again here, test passes
       expect_any_instance_of(EasyML::Models::XGBoost).to receive(:initialize_model).once.and_call_original
       3.times do
-        described_class.predict(model.name, df)
+        described_class.predict(model.slug, df)
       end
     end
 

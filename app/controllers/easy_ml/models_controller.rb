@@ -53,6 +53,9 @@ module EasyML
         flash[:notice] = "Model was successfully created."
         redirect_to easy_ml_models_path
       else
+        errors = model.errors.to_hash(true)
+        values = errors.values.flatten
+        flash.now[:error] = values.join(", ")
         render inertia: "pages/NewModelPage", props: {
           datasets: EasyML::Dataset.all.map do |dataset|
             dataset.slice(:id, :name, :num_rows)

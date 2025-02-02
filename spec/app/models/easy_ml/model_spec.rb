@@ -194,6 +194,7 @@ RSpec.describe EasyML::Models do
   end
 
   def incr_time
+    @time ||= EST.now
     @time += 1.second
   end
 
@@ -216,6 +217,57 @@ RSpec.describe EasyML::Models do
       expect(loaded_model.feature_names).to eq model.feature_names
       expect(loaded_model.feature_names).to_not include(dataset.target)
       model.cleanup!
+    end
+  end
+
+  describe "#api_fields" do
+    let(:dataset) { titanic_dataset }
+    let(:model) { build_model(dataset: dataset) }
+
+    let(:feature) do
+      dataset.features.create!(
+        name: "FamilySize",
+        feature_class: "FamilySizeFeature",
+        needs_fit: true,
+        feature_position: 1,
+      )
+    end
+
+    before do
+      # Create computed column via feature
+      feature
+      dataset.refresh!
+
+      # Create preprocessed column
+      dataset.columns.find_by(name: "Age").update(
+        preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } },
+      )
+    end
+
+    it "returns API documentation for non-computed columns" do
+      api_fields = model.api_fields
+
+      expect(api_fields).to include(
+        url: EasyML::Engine.routes.url_helpers.predictions_path,
+        method: "POST",
+      )
+
+      input_fields = api_fields.dig(:data, :input)
+
+      # Should include raw, unprocessed columns
+      expect(input_fields["PassengerId"]).to match(hash_including({
+        datatype: "integer",
+        required: false,
+      }))
+
+      # Should not include computed columns
+      expect(input_fields.keys).not_to include("FamilySize")
+
+      # Should include preprocessed columns but mark them as not required
+      expect(input_fields["Age"]).to include(
+        datatype: be_present,
+        required: false,
+      )
     end
   end
 end

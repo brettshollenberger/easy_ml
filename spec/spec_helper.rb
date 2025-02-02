@@ -86,8 +86,10 @@ RSpec.configure do |config|
 
   config.after(:suite) do
     FileUtils.rm_rf(Rails.root.join("tmp/"))
-    DatabaseCleaner.clean_with(:truncation)
-    EasyML::Cleaner.clean
+    if any_rails_files
+      DatabaseCleaner.clean_with(:truncation)
+      EasyML::Cleaner.clean
+    end
   end
 
   config.before(:all) do

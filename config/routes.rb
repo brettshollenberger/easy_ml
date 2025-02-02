@@ -11,6 +11,9 @@ EasyML::Engine.routes.draw do
   # Predictions API
   resources :predictions, only: [:create]
 
+  # API Documentation
+  get "api", to: "apis#show"
+
   resources :models, as: :easy_ml_models do
     member do
       post :train

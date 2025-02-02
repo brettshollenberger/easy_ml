@@ -245,6 +245,7 @@ module ModelSpecHelper
     base.let(:titanic_model) do
       EasyML::Model.create(
         name: "Titanic",
+        slug: "Titanic",
         dataset: titanic_dataset,
         task: :classification,
         objective: "binary:logistic",

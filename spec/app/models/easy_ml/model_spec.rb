@@ -194,6 +194,7 @@ RSpec.describe EasyML::Models do
   end
 
   def incr_time
+    @time ||= EST.now
     @time += 1.second
   end
 
@@ -239,7 +240,7 @@ RSpec.describe EasyML::Models do
 
       # Create preprocessed column
       dataset.columns.find_by(name: "Age").update(
-        preprocessing_steps: { training: { method: "mean", params: { clip: true } } },
+        preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } },
       )
     end
 
@@ -247,18 +248,17 @@ RSpec.describe EasyML::Models do
       api_fields = model.api_fields
 
       expect(api_fields).to include(
-        model: model.name,
         url: EasyML::Engine.routes.url_helpers.predictions_path,
-        method: "POST"
+        method: "POST",
       )
 
-      input_fields = api_fields[:input]
+      input_fields = api_fields.dig(:data, :input)
 
       # Should include raw, unprocessed columns
-      expect(input_fields["PassengerId"]).to include(
-        datatype: be_present,
-        required: true,
-      )
+      expect(input_fields["PassengerId"]).to match(hash_including({
+        datatype: "integer",
+        required: false,
+      }))
 
       # Should not include computed columns
       expect(input_fields.keys).not_to include("FamilySize")

@@ -412,6 +412,7 @@ module EasyML
       df = drop_nulls(df)
       df = preprocessor.postprocess(df, inference: inference)
       df = apply_features(df, features)
+      binding.pry if inference
       learn unless inference # After applying features, we need to learn new statistics
       df = preprocessor.postprocess(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns

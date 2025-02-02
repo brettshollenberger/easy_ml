@@ -311,7 +311,6 @@ module EasyML
 
       dataset.refresh
       adapter.fit(tuning: tuning, x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
-      @is_fit = true
     end
 
     def batch_args
@@ -338,10 +337,7 @@ module EasyML
 
     def fit_in_batches(tuning: false, batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"), &progress_block)
       adapter.fit_in_batches(tuning: tuning, batch_size: batch_size, batch_overlap: batch_overlap, batch_key: batch_key, checkpoint_dir: checkpoint_dir, &progress_block)
-      @is_fit = true
     end
-
-    attr_accessor :is_fit
 
     def is_fit?
       model_file = get_model_file
@@ -627,7 +623,9 @@ module EasyML
     end
 
     def set_slug
-      self.slug = name.underscore if name.present?
+      if slug.nil? && name.present?
+        self.slug = name.gsub(/\s/, "_").downcase
+      end
     end
   end
 end

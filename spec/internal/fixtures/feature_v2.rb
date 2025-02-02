@@ -1,6 +1,10 @@
 class FeatureV1
   include EasyML::Features
 
+  def computes_columns
+    ["test_feature"]
+  end
+
   def fit(df, feature, options = {})
     df
   end

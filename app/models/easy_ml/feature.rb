@@ -304,7 +304,7 @@ module EasyML
 
     def actually_transform_batch(df)
       return nil unless df.is_a?(Polars::DataFrame)
-      return df if adapter.respond_to?(:fit) && feature_store.empty?
+      return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
       result = adapter.transform(df, self)
       update!(applied_at: Time.current)

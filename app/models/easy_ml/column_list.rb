@@ -10,7 +10,6 @@ module EasyML
         existing_columns = where(name: col_names)
         import_new(col_names, existing_columns)
         update_existing(existing_columns)
-        set_feature_lineage
 
         if delete
           delete_missing(col_names)
@@ -74,37 +73,15 @@ module EasyML
 
     private
 
-    def set_feature_lineage
-      # Get all features that compute columns
-      features_computing_columns = dataset.features.all.map do |feature|
-        [feature.name, feature.computes_columns]
-      end.compact.to_h
-
-      updates = column_list.reload.map do |column|
-        # Check if column is computed by any feature
-        computing_feature = features_computing_columns.find { |_, cols| cols.include?(column.name) }&.first
-        is_computed = !computing_feature.nil?
-
-        column.assign_attributes(
-          computed_by: computing_feature,
-          is_computed: is_computed,
-        )
-        next unless column.changed?
-
-        column
-      end.compact
-      EasyML::Column.import(updates.to_a, { on_duplicate_key_update: { columns: %i[computed_by is_computed] } })
-      cols = EasyML::Column.where(id: updates.map(&:id)).to_a
-      column_list.bulk_record_history(cols, { history_user_id: 1 })
-    end
-
     def import_new(new_columns, existing_columns)
       new_columns = new_columns - existing_columns.map(&:name)
       cols_to_insert = new_columns.map do |col_name|
-        EasyML::Column.new(
+        col = EasyML::Column.new(
           name: col_name,
           dataset_id: dataset.id,
         )
+        col.set_feature_lineage
+        col
       end
       EasyML::Column.import(cols_to_insert)
       column_list.reload

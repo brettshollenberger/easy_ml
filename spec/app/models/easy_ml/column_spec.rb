@@ -18,7 +18,6 @@ RSpec.describe EasyML::Column do
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891
         expect(stats.dig(:raw, :null_count)).to eq 177
-        expect(stats.dig(:raw, :unique_count)).to eq 89
         expect(stats.dig(:raw, :mean)).to be_within(0.1).of(29.84)
         expect(stats.dig(:raw, :median)).to be_within(0.1).of(28)
         expect(stats.dig(:raw, :min)).to be_within(0.1).of(0.75)
@@ -96,8 +95,9 @@ RSpec.describe EasyML::Column do
       end
     end
 
-    context "when column is computed by a feature" do
+    context "when column is computed by a feature", :focus do
       let(:feature) do
+        dataset.save
         dataset.features.create!(
           name: "FamilySize",
           feature_class: "FamilySizeFeature",

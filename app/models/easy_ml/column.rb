@@ -34,6 +34,7 @@ module EasyML
     before_save :ensure_valid_datatype
     after_save :handle_date_column_change
     before_save :set_defaults
+    before_save :set_feature_lineage
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -90,6 +91,28 @@ module EasyML
       return nil if raw.data.nil?
 
       EasyML::Data::PolarsColumn.determine_type(raw.data.to_series)
+    end
+
+    def in_raw_dataset?
+      dataset.raw.data&.columns&.include?(name) || false
+    end
+
+    def set_feature_lineage
+      if dataset.features.computed_column_names.include?(name)
+        if computed_by.nil?
+          computing_feature = dataset.features.detect { |feature| feature.computes_columns.include?(name) }
+          assign_attributes(
+            is_computed: true,
+            computed_by: computing_feature&.name,
+          )
+        end
+      elsif computed_by.present?
+        binding.pry if name == "FamilySize"
+        assign_attributes(
+          is_computed: false,
+          computed_by: nil,
+        )
+      end
     end
 
     def get_polars_type(dtype)

@@ -14,7 +14,11 @@ module EasyML
       end
 
       def raw
-        Selector.new(column, :raw)
+        if column.is_computed? && !column.in_raw_dataset?
+          Selector.new(column, :processed)
+        else
+          Selector.new(column, :raw)
+        end
       end
 
       def processed
@@ -53,7 +57,7 @@ module EasyML
         end
 
         if @selected.present?
-          dataset.send(selected).send(segment, **kwargs)
+          dataset.send(@selected).send(segment, **kwargs)
         else
           dataset.send(segment, **kwargs)
         end

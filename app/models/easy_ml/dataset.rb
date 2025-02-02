@@ -45,7 +45,7 @@ module EasyML
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy, extend: EasyML::ColumnList
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
-    has_many :features, dependent: :destroy, class_name: "EasyML::Feature"
+    has_many :features, dependent: :destroy, class_name: "EasyML::Feature", extend: EasyML::FeatureList
     accepts_nested_attributes_for :features, allow_destroy: true
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy

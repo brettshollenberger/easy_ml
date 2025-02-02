@@ -239,7 +239,7 @@ module ModelSpecHelper
     end
 
     base.let(:titanic_dataset) do
-      make_titanic_dataset("Titanic Extended", { splitter_type: :random })
+      make_titanic_dataset("Titanic Extended", { splitter_type: :random, seed: 42 })
     end
 
     base.let(:titanic_model) do

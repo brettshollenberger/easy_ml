@@ -8,6 +8,60 @@ RSpec.describe EasyML::Column do
     titanic_dataset
   end
 
+  describe "#statistics" do
+    context "Integer column" do
+      let(:column) { dataset.columns.find_by(name: "Age") }
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 891
+        expect(stats.dig(:raw, :null_count)).to eq 177
+        expect(stats.dig(:raw, :unique_count)).to eq 89
+        expect(stats.dig(:raw, :mean)).to be_within(0.1).of(29.84)
+        expect(stats.dig(:raw, :median)).to be_within(0.1).of(28)
+        expect(stats.dig(:raw, :min)).to be_within(0.1).of(0.75)
+        expect(stats.dig(:raw, :max)).to be_within(0.1).of(71)
+        expect(stats.dig(:raw, :std)).to be_within(0.1).of(14.7)
+      end
+    end
+
+    context "Categorical column" do
+      let(:column) { dataset.columns.find_by(name: "Sex") }
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 891
+        expect(stats.dig(:raw, :null_count)).to eq 0
+        expect(stats.dig(:raw, :unique_count)).to eq 2
+        expect(stats.dig(:raw, :most_frequent_value)).to eq "male"
+        expect(stats.dig(:raw, :allowed_categories)).to eq ["female", "male"]
+        expect(stats.dig(:raw, :label_encoder)).to eq({ "female" => 0, "male" => 1 })
+        expect(stats.dig(:raw, :label_decoder)).to eq({ 0 => "female", 1 => "male" })
+      end
+    end
+
+    context "String column" do
+      let(:column) { dataset.columns.find_by(name: "Name") }
+
+      it "returns statistics for the column", :focus do
+        stats = column.learn
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 891
+        expect(stats.dig(:raw, :null_count)).to eq 0
+        expect(stats.dig(:raw, :unique_count)).to eq 2
+        expect(stats.dig(:raw, :most_frequent_value)).to eq "male"
+        expect(stats.dig(:raw, :allowed_categories)).to eq ["female", "male"]
+        expect(stats.dig(:raw, :label_encoder)).to eq({ "female" => 0, "male" => 1 })
+        expect(stats.dig(:raw, :label_decoder)).to eq({ 0 => "female", 1 => "male" })
+      end
+    end
+  end
+
   describe "#lineage" do
     context "when column is in raw dataset" do
       let(:column) { dataset.columns.find_by(name: "Age") }

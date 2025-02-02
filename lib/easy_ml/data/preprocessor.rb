@@ -238,98 +238,98 @@ module EasyML::Data
       )
     end
 
-    def prepare_for_imputation(df, col)
-      df = df.with_column(Polars.col(col).cast(Polars::Float64))
-      df.with_column(Polars.when(Polars.col(col).is_null).then(Float::NAN).otherwise(Polars.col(col)).alias(col))
-    end
+    # def prepare_for_imputation(df, col)
+    #   df = df.with_column(Polars.col(col).cast(Polars::Float64))
+    #   df.with_column(Polars.when(Polars.col(col).is_null).then(Float::NAN).otherwise(Polars.col(col)).alias(col))
+    # end
 
-    def serialize_statistics(stats)
-      stats.deep_transform_values do |value|
-        case value
-        when Time, DateTime
-          { "__type__" => "datetime", "value" => value.iso8601 }
-        when Date
-          { "__type__" => "date", "value" => value.iso8601 }
-        when BigDecimal
-          { "__type__" => "bigdecimal", "value" => value.to_s }
-        when Polars::DataType
-          { "__type__" => "polars_dtype", "value" => value.to_s }
-        when Symbol
-          { "__type__" => "symbol", "value" => value.to_s }
-        else
-          value
-        end
-      end
-    end
+    # def serialize_statistics(stats)
+    #   stats.deep_transform_values do |value|
+    #     case value
+    #     when Time, DateTime
+    #       { "__type__" => "datetime", "value" => value.iso8601 }
+    #     when Date
+    #       { "__type__" => "date", "value" => value.iso8601 }
+    #     when BigDecimal
+    #       { "__type__" => "bigdecimal", "value" => value.to_s }
+    #     when Polars::DataType
+    #       { "__type__" => "polars_dtype", "value" => value.to_s }
+    #     when Symbol
+    #       { "__type__" => "symbol", "value" => value.to_s }
+    #     else
+    #       value
+    #     end
+    #   end
+    # end
 
-    def deserialize_statistics(stats)
-      return nil if stats.nil?
+    # def deserialize_statistics(stats)
+    #   return nil if stats.nil?
 
-      stats.transform_values do |value|
-        recursive_deserialize(value)
-      end
-    end
+    #   stats.transform_values do |value|
+    #     recursive_deserialize(value)
+    #   end
+    # end
 
-    def recursive_deserialize(value)
-      case value
-      when Hash
-        if value["__type__"]
-          deserialize_special_type(value)
-        else
-          value.transform_values { |v| recursive_deserialize(v) }
-        end
-      when Array
-        value.map { |v| recursive_deserialize(v) }
-      else
-        value
-      end
-    end
+    # def recursive_deserialize(value)
+    #   case value
+    #   when Hash
+    #     if value["__type__"]
+    #       deserialize_special_type(value)
+    #     else
+    #       value.transform_values { |v| recursive_deserialize(v) }
+    #     end
+    #   when Array
+    #     value.map { |v| recursive_deserialize(v) }
+    #   else
+    #     value
+    #   end
+    # end
 
-    def deserialize_special_type(value)
-      case value["__type__"]
-      when "datetime"
-        DateTime.parse(value["value"])
-      when "date"
-        Date.parse(value["value"])
-      when "bigdecimal"
-        BigDecimal(value["value"])
-      when "polars_dtype"
-        parse_polars_dtype(value["value"])
-      when "symbol"
-        value["value"].to_sym
-      else
-        value["value"]
-      end
-    end
+    # def deserialize_special_type(value)
+    #   case value["__type__"]
+    #   when "datetime"
+    #     DateTime.parse(value["value"])
+    #   when "date"
+    #     Date.parse(value["value"])
+    #   when "bigdecimal"
+    #     BigDecimal(value["value"])
+    #   when "polars_dtype"
+    #     parse_polars_dtype(value["value"])
+    #   when "symbol"
+    #     value["value"].to_sym
+    #   else
+    #     value["value"]
+    #   end
+    # end
 
-    def parse_polars_dtype(dtype_string)
-      case dtype_string
-      when /^Polars::Datetime/
-        time_unit = dtype_string[/time_unit: "(.*?)"/, 1]
-        time_zone = dtype_string[/time_zone: (.*)?\)/, 1]
-        time_zone = time_zone == "nil" ? nil : time_zone&.delete('"')
-        Polars::Datetime.new(time_unit: time_unit, time_zone: time_zone).class
-      when /^Polars::/
-        Polars.const_get(dtype_string.split("::").last)
-      else
-        raise ArgumentError, "Unknown Polars data type: #{dtype_string}"
-      end
-    end
+    # def parse_polars_dtype(dtype_string)
+    #   case dtype_string
+    #   when /^Polars::Datetime/
+    #     time_unit = dtype_string[/time_unit: "(.*?)"/, 1]
+    #     time_zone = dtype_string[/time_zone: (.*)?\)/, 1]
+    #     time_zone = time_zone == "nil" ? nil : time_zone&.delete('"')
+    #     Polars::Datetime.new(time_unit: time_unit, time_zone: time_zone).class
+    #   when /^Polars::/
+    #     Polars.const_get(dtype_string.split("::").last)
+    #   else
+    #     raise ArgumentError, "Unknown Polars data type: #{dtype_string}"
+    #   end
+    # end
 
-    def cast_to_dtype(value, dtype)
-      case dtype
-      when Polars::Int64
-        value.to_i
-      when Polars::Float64
-        value.to_f
-      when Polars::Boolean
-        !!value
-      when Polars::Utf8
-        value.to_s
-      else
-        value
-      end
-    end
+    # def cast_to_dtype(value, dtype)
+    #   case dtype
+    #   when Polars::Int64
+    #     value.to_i
+    #   when Polars::Float64
+    #     value.to_f
+    #   when Polars::Boolean
+    #     !!value
+    #   when Polars::Utf8
+    #     value.to_s
+    #   else
+    #     value
+    #   end
+    # end
 
     def self.constants
       {

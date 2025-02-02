@@ -57,6 +57,12 @@ module EasyML
       end
     end
 
+    delegate :raw, :processed, to: :data_selector
+
+    def learn
+      write_attribute(:statistics, learner.learn)
+    end
+
     def datatype=(dtype)
       write_attribute(:datatype, dtype)
       write_attribute(:polars_datatype, dtype)
@@ -101,6 +107,16 @@ module EasyML
 
     def ordinal_encoding?
       preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :ordinal_encoding) == true
+    end
+
+    def encoding
+      return :ordinal if ordinal_encoding?
+      return :one_hot if one_hot?
+      nil
+    end
+
+    def categorical_min
+      (preprocessing_steps || {}).deep_symbolize_keys.dig(:training, :params, :categorical_min)
     end
 
     def allowed_categories
@@ -268,5 +284,13 @@ module EasyML
     end
 
     NUMERIC_METHODS = %i[mean median].freeze
+
+    def data_selector
+      @data_selector ||= Column::Selector.new(self)
+    end
+
+    def learner
+      @learner ||= Column::Learner.new(self)
+    end
   end
 end

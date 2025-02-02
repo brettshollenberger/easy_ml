@@ -120,6 +120,7 @@ module EasyML
         end
 
         if column.one_hot?
+          # Started moving this into the categorical learner
           base = dataset.raw
           processed = stats.dig("raw", column.name).dup
           processed["null_count"] = 0

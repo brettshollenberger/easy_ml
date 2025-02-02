@@ -267,6 +267,10 @@ module EasyML
       refresh_reasons.any?
     end
 
+    def processed?
+      !needs_refresh?
+    end
+
     def not_split?
       processed.split_at.nil? || raw.split_at.nil?
     end
@@ -346,6 +350,10 @@ module EasyML
       update(
         statistics: columns.statistics,
       )
+    end
+
+    def statistics
+      read_attribute(:statistics).with_indifferent_access
     end
 
     def process_data
@@ -486,10 +494,6 @@ module EasyML
       result.empty? ? nil : result
     end
 
-    def processed?
-      !should_split?
-    end
-
     def decode_labels(ys, col: nil)
       preprocessor.decode_labels(ys, col: col.nil? ? target : col)
     end
@@ -588,7 +592,7 @@ module EasyML
     end
 
     def upload_remote_files
-      return unless processed?
+      return if !needs_refresh?
 
       processed.upload.tap do
         features.each(&:upload_remote_files)
@@ -691,7 +695,7 @@ module EasyML
     end
 
     def load_data(segment, **kwargs, &block)
-      if processed?
+      if !needs_refresh?
         processed.load_data(segment, **kwargs, &block)
       else
         raw.load_data(segment, **kwargs, &block)
@@ -711,7 +715,7 @@ module EasyML
     end
 
     def split_data(force: false)
-      return unless force || should_split?
+      return unless force || needs_refresh?
 
       cleanup
       splitter.split(datasource) do |train_df, valid_df, test_df|
@@ -719,10 +723,6 @@ module EasyML
           raw.save(segment, df)
         end
       end
-    end
-
-    def should_split?
-      needs_refresh?
     end
 
     def filter_duplicate_features

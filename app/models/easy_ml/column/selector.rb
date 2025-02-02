@@ -3,9 +3,10 @@ module EasyML
     class Selector
       attr_accessor :selected, :dataset, :column
 
-      def initialize(column)
+      def initialize(column, selected = nil)
         @column = column
         @dataset = column.dataset
+        @selected = selected
       end
 
       def name
@@ -13,40 +14,49 @@ module EasyML
       end
 
       def raw
-        @selected = dataset.raw
-        self
+        Selector.new(column, :raw)
       end
 
       def processed
-        @selected = dataset.processed
-        self
+        Selector.new(column, :processed)
       end
 
       def train(**kwargs)
-        base_action(:train, **kwargs)
+        select(:train, **kwargs)
       end
 
       def test(**kwargs)
-        base_action(:test, **kwargs)
+        select(:test, **kwargs)
       end
 
       def valid(**kwargs)
-        base_action(:valid, **kwargs)
+        select(:valid, **kwargs)
       end
 
       def data(**kwargs)
-        base_action(:data, **kwargs)
+        select(:data, **kwargs)
       end
 
       private
 
-      def base_action(segment, **kwargs)
-        kwargs.merge!(
-          all_columns: true,
-          select: name,
-        )
+      def select(segment, **kwargs)
+        if (selected == :processed || (selected.nil? && !dataset.needs_refresh?)) && column.one_hot?
+          kwargs.merge!(
+            all_columns: true,
+            select: column.virtual_columns,
+          )
+        else
+          kwargs.merge!(
+            all_columns: true,
+            select: name,
+          )
+        end
 
-        @selected.send(segment, **kwargs)
+        if @selected.present?
+          dataset.send(selected).send(segment, **kwargs)
+        else
+          dataset.send(segment, **kwargs)
+        end
       end
     end
   end

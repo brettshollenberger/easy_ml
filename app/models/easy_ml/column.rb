@@ -57,7 +57,7 @@ module EasyML
       end
     end
 
-    delegate :raw, :processed, to: :data_selector
+    delegate :raw, :processed, :data, :train, :test, :valid, to: :data_selector
 
     def learn
       write_attribute(:statistics, learner.learn)
@@ -65,11 +65,19 @@ module EasyML
 
     def datatype=(dtype)
       write_attribute(:datatype, dtype)
-      write_attribute(:polars_datatype, dtype)
+      set_polars_datatype
     end
 
     def datatype
       read_attribute(:datatype) || assumed_datatype
+    end
+
+    def set_polars_datatype
+      write_attribute(:polars_datatype, get_polars_type(datatype))
+    end
+
+    def polars_datatype
+      read_attribute(:polars_datatype) || get_polars_type(datatype)
     end
 
     EasyML::Data::PolarsColumn::TYPE_MAP.keys.each do |dtype|
@@ -79,10 +87,14 @@ module EasyML
     end
 
     def assumed_datatype
+      return nil if raw.data.nil?
+
       EasyML::Data::PolarsColumn.determine_type(raw.data.to_series)
     end
 
     def get_polars_type(dtype)
+      return nil if dtype.nil?
+
       EasyML::Data::PolarsColumn::TYPE_MAP[dtype.to_sym]
     end
 

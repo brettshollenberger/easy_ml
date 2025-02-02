@@ -44,7 +44,7 @@ module EasyML
       true
     end
 
-    def should_split?
+    def needs_refresh?
       false
     end
   end

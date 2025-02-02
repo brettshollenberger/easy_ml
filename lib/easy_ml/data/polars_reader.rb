@@ -55,7 +55,10 @@ module EasyML
         return files if any_parquet? && columns.nil?
 
         puts "Converting to Parquet..."
-
+        if columns.all? { |c| c.datatype.nil? }
+          learn_dataset
+          columns = nil
+        end
         csv_files.each do |path|
           df = read_file(path, columns)
           df = cast(df, columns)

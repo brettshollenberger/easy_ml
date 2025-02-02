@@ -111,54 +111,53 @@ module EasyML
     end
 
     def update_existing(existing_columns)
-      stats = dataset.statistics
+      # stats = dataset.statistics
       use_processed = dataset.processed.data(limit: 1).present?
-      cached_sample = use_processed ? dataset.processed.data(limit: 10, all_columns: true) : dataset.raw.data(limit: 10, all_columns: true)
-      existing_types = existing_columns.map(&:name).zip(existing_columns.map(&:datatype)).to_h
-      polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
-        EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
-      end)).to_h
+      # cached_sample = use_processed ? dataset.processed.data(limit: 10, all_columns: true) : dataset.raw.data(limit: 10, all_columns: true)
+      # existing_types = existing_columns.map(&:name).zip(existing_columns.map(&:datatype)).to_h
+      # polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
+      #   EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
+      # end)).to_h
 
       existing_columns.each do |column|
-        new_polars_type = polars_types[column.name]
-        existing_type = existing_types[column.name]
-        schema_type = dataset.schema[column.name]
+        # new_polars_type = polars_types[column.name]
+        # existing_type = existing_types[column.name]
+        # schema_type = dataset.schema[column.name]
 
-        # Keep both datatype and polars_datatype if it's an ordinal encoding case
-        if column.ordinal_encoding?
-          actual_type = existing_type
-          actual_schema_type = existing_type
-        else
-          actual_type = new_polars_type
-          actual_schema_type = schema_type
-        end
+        # # Keep both datatype and polars_datatype if it's an ordinal encoding case
+        # if column.ordinal_encoding?
+        #   actual_type = existing_type
+        #   actual_schema_type = existing_type
+        # else
+        #   actual_type = new_polars_type
+        #   actual_schema_type = schema_type
+        # end
 
         if column.one_hot?
           # Started moving this into the categorical learner
           base = dataset.raw
-          processed = stats.dig("raw", column.name).dup
-          processed["null_count"] = 0
-          actual_schema_type = "categorical"
-          actual_type = "categorical"
+          # processed = stats.dig("raw", column.name).dup
+          # processed["null_count"] = 0
+          # actual_schema_type = "categorical"
+          # actual_type = "categorical"
         else
           base = use_processed ? dataset.processed : dataset.raw
-          processed = stats.dig("processed", column.name)
+          # processed = stats.dig("processed", column.name)
         end
         sample_values = base.send(:data, unique: true, limit: 5, all_columns: true, select: column.name)[column.name].to_a.uniq[0...5]
 
         column.assign_attributes(
-          statistics: {
-            raw: stats.dig("raw", column.name),
-            processed: processed,
-          },
-          datatype: actual_schema_type,
-          polars_datatype: actual_type,
+          # statistics: {
+          #   raw: stats.dig("raw", column.name),
+          #   processed: processed,
+          # },
+          # datatype: actual_schema_type,
+          # polars_datatype: actual_type,
           sample_values: sample_values,
         )
       end
       EasyML::Column.import(existing_columns.to_a,
-                            { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
-                                                                   sample_values computed_by is_computed] } })
+                            { on_duplicate_key_update: { columns: %i[sample_values] } })
     end
 
     def delete_missing(col_names)

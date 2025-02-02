@@ -41,13 +41,12 @@ module EasyML
         {
           num_rows: df.size,
           null_count: df[column.name].null_count,
-          unique_count: df[column.name].n_unique,
           last_value: last_value(df),
         }
       end
 
       def full_dataset_columns
-        %i(num_rows null_count unique_count)
+        %i(num_rows null_count)
       end
 
       def train_columns

@@ -3,7 +3,7 @@ module EasyML
     class Categorical < String
       def train_columns
         super.concat(
-          %i(allowed_categories label_encoder label_decoder)
+          %i(allowed_categories label_encoder label_decoder counts)
         )
       end
 
@@ -17,8 +17,11 @@ module EasyML
       end
 
       def statistics(df)
+        return {} if df.nil?
+
         super(df).merge!({
           allowed_categories: allowed_categories(df),
+          counts: df[column.name].value_counts.to_hash,
         }.merge!(learn_encoder_decoder(df)))
       end
 

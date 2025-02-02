@@ -8,7 +8,7 @@ RSpec.describe EasyML::Column do
     titanic_dataset
   end
 
-  describe "#statistics", :focus do
+  describe "#statistics" do
     context "Integer column" do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
@@ -74,6 +74,12 @@ RSpec.describe EasyML::Column do
         expect(stats.dig(:raw, :null_count)).to eq 0
         expect(stats.dig(:raw, :unique_count)).to eq 9
         expect(stats.dig(:raw, :last_value).strftime("%Y-%m-%d")).to eq "2024-01-01"
+      end
+    end
+
+    context "Entire dataset", :focus do
+      it "learns statistics for the entire dataset" do
+        dataset.learn_statistics
       end
     end
   end

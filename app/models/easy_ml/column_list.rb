@@ -22,6 +22,20 @@ module EasyML
       end
     end
 
+    def learn
+      each(&:learn)
+    end
+
+    def statistics
+      stats = { raw: {}, processed: {} }
+      inject(stats) do |h, col|
+        h.tap do
+          h[:raw][col.name] = col.statistics.dig(:raw)
+          h[:processed][col.name] = col.statistics.dig(:processed)
+        end
+      end.with_indifferent_access
+    end
+
     def one_hots
       column_list.select(&:one_hot?)
     end

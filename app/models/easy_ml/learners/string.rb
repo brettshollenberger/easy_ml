@@ -8,6 +8,8 @@ module EasyML
       end
 
       def statistics(df)
+        return {} if df.nil?
+
         super(df).merge!({
           most_frequent_value: df[column.name].mode.sort.to_a&.first,
         })

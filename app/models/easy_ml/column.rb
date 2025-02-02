@@ -68,6 +68,20 @@ module EasyML
       write_attribute(:polars_datatype, dtype)
     end
 
+    def datatype
+      read_attribute(:datatype) || assumed_datatype
+    end
+
+    EasyML::Data::PolarsColumn::TYPE_MAP.keys.each do |dtype|
+      define_method("#{dtype}?") do
+        datatype.to_s == dtype.to_s
+      end
+    end
+
+    def assumed_datatype
+      EasyML::Data::PolarsColumn.determine_type(raw.data.to_series)
+    end
+
     def get_polars_type(dtype)
       EasyML::Data::PolarsColumn::TYPE_MAP[dtype.to_sym]
     end
@@ -110,13 +124,23 @@ module EasyML
     end
 
     def encoding
+      return nil unless categorical?
       return :ordinal if ordinal_encoding?
-      return :one_hot if one_hot?
-      nil
+      return :one_hot
     end
 
     def categorical_min
-      (preprocessing_steps || {}).deep_symbolize_keys.dig(:training, :params, :categorical_min)
+      return nil unless categorical?
+
+      (preprocessing_steps || {}).deep_symbolize_keys.dig(:training, :params, :categorical_min) || default_categorical_min
+    end
+
+    def default_categorical_min
+      1
+    end
+
+    def statistics
+      read_attribute(:statistics).with_indifferent_access
     end
 
     def allowed_categories

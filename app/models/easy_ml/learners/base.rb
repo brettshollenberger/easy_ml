@@ -14,9 +14,9 @@ module EasyML
         case dtype
         when :float, :integer
           EasyML::Learners::Numeric
-        when :string, :text, :boolean
+        when :string, :text
           EasyML::Learners::String
-        when :categorical
+        when :categorical, :boolean
           EasyML::Learners::Categorical
         when :datetime
           EasyML::Learners::Datetime
@@ -36,17 +36,18 @@ module EasyML
       end
 
       def statistics(df)
+        return {} if df.nil?
+
         {
           num_rows: df.size,
           null_count: df[column.name].null_count,
           unique_count: df[column.name].n_unique,
-          counts: df[column.name].value_counts.to_hash,
           last_value: last_value(df),
         }
       end
 
       def full_dataset_columns
-        %i(num_rows null_count unique_count counts)
+        %i(num_rows null_count unique_count)
       end
 
       def train_columns

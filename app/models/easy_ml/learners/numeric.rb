@@ -8,6 +8,8 @@ module EasyML
       end
 
       def statistics(df)
+        return {} if df.nil?
+
         super(df).merge!({
           mean: df[column.name].mean,
           median: df[column.name].median,

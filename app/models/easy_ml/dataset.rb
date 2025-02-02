@@ -342,18 +342,10 @@ module EasyML
     end
 
     def learn_statistics
-      stats = {
-        raw: EasyML::Data::StatisticsLearner.learn(raw, self, :raw),
-      }
-      stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self, :processed)) if processed.data.present?
-
-      columns.select(&:is_computed).each do |col|
-        if stats.dig(:processed, col.name)
-          stats[:raw][col.name] = stats[:processed][col.name]
-        end
-      end
-
-      update(statistics: stats)
+      columns.learn
+      update(
+        statistics: columns.statistics,
+      )
     end
 
     def process_data

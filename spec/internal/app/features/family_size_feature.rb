@@ -19,7 +19,6 @@ class FamilySizeFeature
 
   def transform(df, feature)
     stored_df = feature.query
-    binding.pry
     df.join(stored_df, on: "PassengerId", how: "left")
   end
 end

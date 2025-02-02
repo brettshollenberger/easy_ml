@@ -3,7 +3,13 @@ module EasyML
     class String < Base
       def train_columns
         super.concat(
-          %i(most_frequent_value unique_count)
+          %i(most_frequent_value)
+        )
+      end
+
+      def full_dataset_columns
+        super.concat(
+          %i(unique_count)
         )
       end
 

@@ -77,12 +77,12 @@ RSpec.describe EasyML::Column do
       end
     end
 
-    context "Entire dataset", :focus do
+    context "Entire dataset" do
       it "learns statistics for the entire dataset" do
         dataset.learn_statistics
         expect(dataset.statistics.dig(:raw, :Age, :mean)).to be_within(0.1).of(29.84)
         expect(dataset.statistics.dig(:processed, :Sex, :unique_count)).to eq(2)
-        expect(dataset.statistics.dig(:processed, :Name, :unique_count)).to eq(891)
+        expect(dataset.statistics.dig(:raw, :Name, :unique_count)).to eq(891)
       end
     end
   end

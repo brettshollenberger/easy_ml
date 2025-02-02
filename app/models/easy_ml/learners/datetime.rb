@@ -1,7 +1,7 @@
 module EasyML
   module Learners
     class Datetime < Base
-      def train_columns
+      def full_dataset_columns
         super.concat(
           %i(unique_count)
         )

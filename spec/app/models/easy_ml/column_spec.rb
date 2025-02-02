@@ -155,15 +155,15 @@ RSpec.describe EasyML::Column do
       before do
         # Create computed column via feature
         feature
-        dataset.refresh!
-
         # Create preprocessed column
         dataset.columns.find_by(name: "Age").update(
-          preprocessing_steps: { training: { method: "mean", params: { clip: true } } },
+          preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } },
         )
+        dataset.refresh
       end
 
       it "includes only raw, unprocessed columns" do
+        # dataset.refresh
         required_columns = dataset.columns.required
 
         # Should include raw, unprocessed columns like PassengerId

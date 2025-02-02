@@ -177,10 +177,10 @@ module EasyML
       refreshing do
         learn(delete: false) # After syncing datasource, learn new statistics + sync columns
         process_data
-        fully_reload
-        learn # After processing data, we may have new columns from newly applied features
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
+        fully_reload
+        learn # After processing data, we may have new columns from newly applied features
         fully_reload
       end
     end
@@ -698,6 +698,7 @@ module EasyML
     end
 
     def fit
+      # we want to be able to learn statistics for COMPUTED columns... need to think through this better and write failing specs
       # computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
       # binding.pry if computed_statistics.present?
       preprocessor.fit(raw.train(all_columns: true))

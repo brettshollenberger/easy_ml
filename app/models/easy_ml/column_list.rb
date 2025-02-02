@@ -13,7 +13,7 @@ module EasyML
         set_feature_lineage
 
         if delete
-          delete_missing(existing_columns)
+          delete_missing(col_names)
         end
 
         if existing_columns.none? # Totally new dataset
@@ -40,14 +40,9 @@ module EasyML
       end
     end
 
-    def virtual_column?(column)
-      false
-    end
-
     def syncable
       dataset.processed_schema.keys.select do |col|
-        !one_hot?(col) &&
-          !virtual_column?(col)
+        !one_hot?(col)
       end
     end
 
@@ -71,7 +66,7 @@ module EasyML
         [feature.name, feature.computes_columns]
       end.compact.to_h
 
-      updates = column_list.map do |column|
+      updates = column_list.reload.map do |column|
         # Check if column is computed by any feature
         computing_feature = features_computing_columns.find { |_, cols| cols.include?(column.name) }&.first
         is_computed = !computing_feature.nil?
@@ -98,6 +93,7 @@ module EasyML
         )
       end
       EasyML::Column.import(cols_to_insert)
+      column_list.reload
     end
 
     def update_existing(existing_columns)
@@ -150,10 +146,10 @@ module EasyML
                                                                    sample_values computed_by is_computed] } })
     end
 
-    def delete_missing(existing_columns)
-      raw_cols = dataset.raw.train(all_columns: true, limit: 1).columns
+    def delete_missing(col_names)
+      raw_cols = dataset.processed.train(all_columns: true, limit: 1).columns
       raw_cols = where(name: raw_cols)
-      columns_to_delete = column_list - existing_columns - raw_cols
+      columns_to_delete = column_list - col_names - raw_cols
       columns_to_delete.each(&:destroy!)
     end
   end

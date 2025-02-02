@@ -82,6 +82,7 @@ module EasyML::Data
         clip_params = preprocessing_steps.dig(:training, col, :params, :clip)
         next unless clip_params
 
+        binding.pry if !clip_params.is_a?(Hash)
         min = clip_params[:min]
         max = clip_params[:max]
         df[col.to_s] = df[col.to_s].clip(min, max)

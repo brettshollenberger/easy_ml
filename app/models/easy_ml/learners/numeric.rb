@@ -1,12 +1,10 @@
 module EasyML
   module Learners
     class Numeric < Base
-      def full_dataset_columns
-        %i(num_rows null_count unique_count counts)
-      end
-
       def train_columns
-        %i(mean median min max std last_value)
+        super.concat(
+          %i(mean median min max std last_value)
+        )
       end
 
       def statistics(df)

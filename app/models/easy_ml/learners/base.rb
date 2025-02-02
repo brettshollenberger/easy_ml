@@ -14,8 +14,12 @@ module EasyML
         case dtype
         when :float, :integer
           EasyML::Learners::Numeric
-        when :string, :categorical, :text
+        when :string, :text, :boolean
+          EasyML::Learners::String
+        when :categorical
           EasyML::Learners::Categorical
+        when :datetime
+          EasyML::Learners::Datetime
         else
           raise "Don't know how to learn from dtype: #{dtype}"
         end
@@ -37,6 +41,7 @@ module EasyML
           null_count: df[column.name].null_count,
           unique_count: df[column.name].n_unique,
           counts: df[column.name].value_counts.to_hash,
+          last_value: last_value(df),
         }
       end
 
@@ -44,12 +49,31 @@ module EasyML
         %i(num_rows null_count unique_count counts)
       end
 
+      def train_columns
+        %i(last_value)
+      end
+
       def learn_split(split)
         df = split.data
         train_df = split.train
-        full_dataset_stats = statistics(df).slice(*full_dataset_columns)
-        train_stats = statistics(train_df).slice(*train_columns)
+        full_dataset_stats = statistics(df).compact.slice(*full_dataset_columns)
+        train_stats = statistics(train_df).compact.slice(*train_columns)
         full_dataset_stats.merge!(train_stats)
+      end
+
+      def last_value(df)
+        return unless dataset.date_column.present?
+        return nil if df.empty? || !df.columns.include?(date_col)
+
+        # Sort by date and get the last non-null value
+        sorted_df = df.sort(date_col, reverse: true)
+        last_value = sorted_df
+          .filter(Polars.col(col).is_not_null)
+          .select(col)
+          .head(1)
+          .item
+
+        last_value
       end
     end
   end

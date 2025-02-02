@@ -8,7 +8,7 @@ RSpec.describe EasyML::Column do
     titanic_dataset
   end
 
-  describe "#statistics" do
+  describe "#statistics", :focus do
     context "Integer column" do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
@@ -47,17 +47,33 @@ RSpec.describe EasyML::Column do
     context "String column" do
       let(:column) { dataset.columns.find_by(name: "Name") }
 
-      it "returns statistics for the column", :focus do
+      it "returns statistics for the column" do
         stats = column.learn
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891
         expect(stats.dig(:raw, :null_count)).to eq 0
-        expect(stats.dig(:raw, :unique_count)).to eq 2
-        expect(stats.dig(:raw, :most_frequent_value)).to eq "male"
-        expect(stats.dig(:raw, :allowed_categories)).to eq ["female", "male"]
-        expect(stats.dig(:raw, :label_encoder)).to eq({ "female" => 0, "male" => 1 })
-        expect(stats.dig(:raw, :label_decoder)).to eq({ 0 => "female", 1 => "male" })
+        expect(stats.dig(:raw, :unique_count)).to eq 891
+        expect(stats.dig(:raw, :most_frequent_value)).to eq "Abbing, Mr. Anthony"
+      end
+    end
+
+    context "Datetime column" do
+      let(:dataset) { loans_dataset }
+      let(:column) do
+        col = dataset.columns.find_by(name: "date")
+        col.update(hidden: false)
+        col
+      end
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 10
+        expect(stats.dig(:raw, :null_count)).to eq 0
+        expect(stats.dig(:raw, :unique_count)).to eq 9
+        expect(stats.dig(:raw, :last_value).strftime("%Y-%m-%d")).to eq "2024-01-01"
       end
     end
   end

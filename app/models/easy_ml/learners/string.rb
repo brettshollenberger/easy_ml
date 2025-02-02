@@ -3,7 +3,7 @@ module EasyML
     class String < Base
       def train_columns
         super.concat(
-          %i(last_known_value allowed_categories label_encoder label_decoder)
+          %i(most_frequent_value)
         )
       end
 

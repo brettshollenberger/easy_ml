@@ -1,8 +1,10 @@
 module EasyML
   module Learners
-    class Categorical < Base
+    class Categorical < String
       def train_columns
-        %i(most_frequent_value last_known_value allowed_categories label_encoder label_decoder)
+        super.concat(
+          %i(allowed_categories label_encoder label_decoder)
+        )
       end
 
       def learn
@@ -16,7 +18,6 @@ module EasyML
 
       def statistics(df)
         super(df).merge!({
-          most_frequent_value: df[column.name].mode.sort.to_a&.first,
           allowed_categories: allowed_categories(df),
         }.merge!(learn_encoder_decoder(df)))
       end

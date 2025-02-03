@@ -100,11 +100,11 @@ module EasyML
     end
 
     def in_raw_dataset?
-      dataset.raw&.data&.columns&.include?(name) || false
+      dataset&.raw&.data&.columns&.include?(name) || false
     end
 
     def computing_feature
-      dataset.features.detect { |feature| feature.computes_columns.include?(name) }
+      dataset&.features&.detect { |feature| feature.computes_columns.include?(name) }
     end
 
     alias_method :feature, :computing_feature

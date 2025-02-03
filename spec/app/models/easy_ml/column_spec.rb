@@ -181,23 +181,6 @@ RSpec.describe EasyML::Column do
     end
 
     context "when column is computed" do
-      let(:feature) do
-        dataset.features.create!(
-          name: "FamilySize",
-          feature_class: "FamilySizeFeature",
-          needs_fit: true,
-          feature_position: 1,
-        )
-      end
-
-      let(:column) do
-        dataset.columns.create!(
-          name: "FamilySize",
-          computed_by: "FamilySize",
-          is_computed: true,
-        )
-      end
-
       it "returns false" do
         expect(column.present_in_raw_dataset).to be false
       end
@@ -205,21 +188,10 @@ RSpec.describe EasyML::Column do
   end
 
   describe "computed columns" do
-    let(:feature) do
-      dataset.features.create!(
-        name: "FamilySize",
-        feature_class: "FamilySizeFeature",
-        needs_fit: true,
-        feature_position: 1,
-      )
-    end
-
     let(:column) do
-      dataset.columns.create!(
-        name: "FamilySize",
-        computed_by: "FamilySize",
-        is_computed: true,
-      )
+      feature
+      dataset.refresh
+      dataset.columns.find_by(name: "FamilySize")
     end
 
     it "is marked as computed" do

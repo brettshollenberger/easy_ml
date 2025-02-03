@@ -35,6 +35,7 @@ module EasyML
     after_save :handle_date_column_change
     before_save :set_defaults
     before_save :set_feature_lineage
+    before_save :set_polars_datatype
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -95,14 +96,34 @@ module EasyML
       read_attribute(:datatype) || assumed_datatype
     end
 
+    def raw_dtype
+      raw.data.to_series.dtype
+    end
+
     def set_polars_datatype
-      write_attribute(:polars_datatype, get_polars_type(datatype))
+      raw_type = raw_dtype
+      user_type = get_polars_type(datatype)
+
+      if raw_type == user_type
+        # A raw type of Polars::Datetime might have extra information like timezone, so prefer the raw type
+        write_attribute(:polars_datatype, raw_type.to_s)
+      else
+        # If a user specified type doesn't match the raw type, use the user type
+        write_attribute(:polars_datatype, user_type.to_s)
+      end
     end
 
     def polars_datatype
-      return nil if datatype.nil? || datatype.to_s.empty?
-
-      read_attribute(:polars_datatype) || get_polars_type(datatype)
+      begin
+        raw_attr = read_attribute(:polars_datatype)
+        if raw_attr.nil?
+          get_polars_type(datatype)
+        else
+          EasyML::Data::PolarsColumn.parse_polars_dtype(raw_attr)
+        end
+      rescue => e
+        get_polars_type(datatype)
+      end
     end
 
     EasyML::Data::PolarsColumn::TYPE_MAP.keys.each do |dtype|

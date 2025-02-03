@@ -63,7 +63,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(@dataset.data[null_mask].count).to eq 4
   end
 
-  it "preprocesses median", :focus do
+  it "preprocesses median" do
     @dataset.columns.find_by(name: "annual_revenue").update(
       preprocessing_steps: {
         training: {
@@ -82,7 +82,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(@dataset.data[null_mask].count).to eq 4
   end
 
-  it "preprocesses ffill" do
+  it "preprocesses ffill", :focus do
     @dataset.columns.find_by(name: "created_date").update(
       preprocessing_steps: {
         training: {

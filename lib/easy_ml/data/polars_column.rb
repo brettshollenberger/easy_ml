@@ -20,6 +20,20 @@ module EasyML
           POLARS_MAP.dig(polars_type.class.to_s)
         end
 
+        def parse_polars_dtype(dtype_string)
+          case dtype_string
+          when /^Polars::Datetime/
+            time_unit = dtype_string[/time_unit: "(.*?)"/, 1]
+            time_zone = dtype_string[/time_zone: (.*)?\)/, 1]
+            time_zone = time_zone == "nil" ? nil : time_zone&.delete('"')
+            Polars::Datetime.new(time_unit, time_zone)
+          when /^Polars::/
+            Polars.const_get(dtype_string.split("::").last)
+          else
+            raise ArgumentError, "Unknown Polars data type: #{dtype_string}"
+          end
+        end
+
         def sym_to_polars(symbol)
           TYPE_MAP.dig(symbol)
         end

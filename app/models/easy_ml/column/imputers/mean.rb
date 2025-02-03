@@ -2,6 +2,8 @@ module EasyML
   class Column
     class Imputers
       class Mean < Base
+        method_applies :mean
+
         def transform(df)
           return df unless mean.present?
 
@@ -9,10 +11,6 @@ module EasyML
             Polars.col(column.name).fill_null(mean).alias(column.name)
           )
           df
-        end
-
-        def applies?
-          method.to_sym == :mean
         end
 
         def mean

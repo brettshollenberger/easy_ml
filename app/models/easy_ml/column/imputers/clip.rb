@@ -4,15 +4,13 @@ module EasyML
       class Clip < Base
         attr_accessor :column, :dataset, :preprocessing_step
 
+        param_applies :clip
+
         def transform(df)
           df = df.with_column(
             Polars.col(column.name).clip(min, max).alias(column.name)
           )
           df
-        end
-
-        def applies?
-          params.key?(:clip)
         end
 
         def min

@@ -4,15 +4,15 @@ module EasyML
       class Imputer
         attr_accessor :dataset, :column, :preprocessing_step
 
-        ADAPTERS = [
-          Clip,
-          Mean,
-        ].freeze
+        ADAPTERS = EasyML::Column::Imputers.constants.without(:NullImputer, :Base, :Imputer).map do |klass|
+          "EasyML::Column::Imputers::#{klass}".constantize
+        end.freeze
 
         def initialize(column, preprocessing_step)
           @column = column
           @dataset = column.dataset
           @preprocessing_step = preprocessing_step.with_indifferent_access
+          validate_preprocessing_step!
         end
 
         def adapters
@@ -48,12 +48,35 @@ module EasyML
           EasyML::Column::Imputers::Clip.new(column, preprocessing_step).transform(df)
         end
 
-        def mean(df)
-          return df unless adapters.map(&:class).include?(Mean)
+        private
 
-          EasyML::Column::Imputers::Mean.new(column, preprocessing_step).transform(df)
+        def validate_preprocessing_step!
+          validate_params!
+          validate_method!
+        end
+
+        def validate_params!
+          return unless preprocessing_step[:params]
+
+          preprocessing_step[:params].keys.each do |param|
+            unless Imputers.supported_params.include?(param.to_sym)
+              raise ArgumentError, "Unsupported preprocessing parameter '#{param}'. Supported parameters are: #{Imputers.supported_params.join(", ")}"
+            end
+          end
+        end
+
+        def validate_method!
+          return unless preprocessing_step[:method]
+
+          unless Imputers.supported_methods.include?(preprocessing_step[:method].to_sym)
+            raise ArgumentError, "Unsupported preprocessing method '#{preprocessing_step[:method]}'. Supported methods are: #{Imputers.supported_methods.join(", ")}"
+          end
         end
       end
     end
   end
 end
+
+require_relative "clip"
+require_relative "mean"
+require_relative "median"

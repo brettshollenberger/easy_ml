@@ -3,9 +3,27 @@ module EasyML
     class Imputers
       attr_accessor :dataset, :column
 
+      def self.supported_params
+        @supported_params ||= []
+      end
+
+      def self.supported_methods
+        @supported_methods ||= []
+      end
+
       def initialize(column)
         @column = column
         @dataset = column.dataset
+      end
+
+      class << self
+        def supported_params
+          @supported_params ||= []
+        end
+
+        def supported_methods
+          @supported_methods ||= []
+        end
       end
 
       def imputers

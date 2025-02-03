@@ -181,6 +181,12 @@ RSpec.describe EasyML::Column do
     end
 
     context "when column is computed" do
+      let(:column) do
+        feature
+        dataset.refresh
+        dataset.columns.find_by(name: "FamilySize")
+      end
+
       it "returns false" do
         expect(column.present_in_raw_dataset).to be false
       end

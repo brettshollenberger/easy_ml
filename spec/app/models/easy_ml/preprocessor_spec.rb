@@ -82,7 +82,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(@dataset.data[null_mask].count).to eq 4
   end
 
-  it "preprocesses ffill", :focus do
+  it "preprocesses ffill" do
     @dataset.columns.find_by(name: "created_date").update(
       preprocessing_steps: {
         training: {
@@ -105,7 +105,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(@dataset.data[null_mask].count).to eq 2
   end
 
-  it "preprocesses most frequent" do
+  it "preprocesses most frequent", :focus do
     @dataset.columns.find_by(name: "group").update(
       preprocessing_steps: {
         training: {

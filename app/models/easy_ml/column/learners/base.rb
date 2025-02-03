@@ -52,6 +52,7 @@ module EasyML
             num_rows: df.size,
             null_count: df[column.name].null_count || 0,
             last_value: last_value(df),
+            most_frequent_value: df[column.name].mode.sort.to_a&.first,
           }
         end
 
@@ -60,7 +61,7 @@ module EasyML
         end
 
         def train_columns
-          %i(last_value)
+          %i(last_value most_frequent_value)
         end
 
         def learn_split(split)

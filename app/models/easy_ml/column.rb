@@ -90,23 +90,28 @@ module EasyML
     end
 
     def assumed_datatype
-      begin
-        return nil if raw.data.nil?
-      rescue => e
-        binding.pry
+      if in_raw_dataset?
+        EasyML::Data::PolarsColumn.determine_type(raw.data.to_series)
+      else
+        if is_computed && computing_feature&.fit_at.present? || computing_feature&.applied_at.present?
+          EasyML::Data::PolarsColumn.determine_type(processed.data.to_series)
+        end
       end
-
-      EasyML::Data::PolarsColumn.determine_type(raw.data.to_series)
     end
 
     def in_raw_dataset?
-      dataset.raw.data&.columns&.include?(name) || false
+      dataset.raw&.data&.columns&.include?(name) || false
     end
+
+    def computing_feature
+      dataset.features.detect { |feature| feature.computes_columns.include?(name) }
+    end
+
+    alias_method :feature, :computing_feature
 
     def set_feature_lineage
       if dataset.features.computed_column_names.include?(name)
         if computed_by.nil?
-          computing_feature = dataset.features.detect { |feature| feature.computes_columns.include?(name) }
           assign_attributes(
             is_computed: true,
             computed_by: computing_feature&.name,
@@ -170,7 +175,7 @@ module EasyML
     end
 
     def categorical_min
-      return nil unless categorical?
+      return default_categorical_min unless categorical?
 
       (preprocessing_steps || {}).deep_symbolize_keys.dig(:training, :params, :categorical_min) || default_categorical_min
     end

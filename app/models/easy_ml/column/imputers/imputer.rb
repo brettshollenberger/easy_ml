@@ -4,9 +4,17 @@ module EasyML
       class Imputer
         attr_accessor :dataset, :column, :preprocessing_step
 
-        ADAPTERS = EasyML::Column::Imputers.constants.without(:NullImputer, :Base, :Imputer).map do |klass|
-          "EasyML::Column::Imputers::#{klass}".constantize
-        end.freeze
+        ADAPTERS = [
+          Clip,
+          Mean,
+          Median,
+          Constant,
+          Ffill,
+          Categorical,
+          MostFrequent,
+          OneHotEncoder,
+          OrdinalEncoder,
+        ]
 
         def initialize(column, preprocessing_step)
           @column = column

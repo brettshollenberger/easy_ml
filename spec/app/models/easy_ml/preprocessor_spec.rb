@@ -125,7 +125,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(@dataset.data[null_mask].count).to eq 2
   end
 
-  it "preprocesses constant", :focus do
+  it "preprocesses constant" do
     @dataset.columns.find_by(name: "group").update(
       preprocessing_steps: {
         training: {
@@ -166,7 +166,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(@dataset.data["annual_revenue"].to_a).to all(eq 10)
   end
 
-  it "preprocesses categorical with min" do
+  it "preprocesses categorical with min", :focus do
     @dataset.columns.find_by(name: "group").update(
       preprocessing_steps: {
         training: {

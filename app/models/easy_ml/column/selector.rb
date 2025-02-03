@@ -66,7 +66,7 @@ module EasyML
         else
           kwargs[:select] << column.name
         end
-        kwargs[:select] = kwargs[:select].uniq
+        kwargs[:select] = kwargs[:select].flatten.uniq
 
         if @selected.present?
           result = dataset.send(@selected).send(segment, **kwargs)

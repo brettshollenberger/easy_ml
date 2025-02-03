@@ -12,7 +12,7 @@ module EasyML
           types(type).each_with_object({}) do |type, h|
             h[type] = case type
               when :raw then learn_split(column.raw)
-              when :processed then learn_split(column.processed).merge!(null_count: 0)
+              when :processed then learn_split(column.raw).merge!(null_count: 0)
               end
           end
         end

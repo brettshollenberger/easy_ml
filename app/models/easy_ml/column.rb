@@ -42,9 +42,15 @@ module EasyML
     scope :categorical, -> { where(datatype: %w[categorical string boolean]) }
     scope :datetime, -> { where(datatype: "datetime") }
     scope :date_column, -> { where(is_date_column: true) }
-    scope :required, -> { where(is_computed: false, hidden: false, is_target: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
+    scope :not_preprocessed, -> { where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
+    scope :preprocessed, -> { where("preprocessing_steps IS NOT NULL AND preprocessing_steps::text != '{}'::text") }
+    scope :required, -> { raw.visible.not_target.not_preprocessed }
+    scope :optional, -> { required.not }
+    scope :target, -> { where(is_target: true) }
+    scope :not_target, -> { where(is_target: false) }
     scope :api_inputs, -> { where(is_computed: false, hidden: false, is_target: false) }
     scope :computed, -> { where(is_computed: true) }
+    scope :raw, -> { where(is_computed: false) }
 
     def aliases
       [name].concat(virtual_columns)
@@ -58,10 +64,26 @@ module EasyML
       end
     end
 
-    delegate :raw, :processed, :data, :train, :test, :valid, to: :data_selector
+    delegate :raw, :processed, :data, :train, :test, :valid, :clipped, to: :data_selector
+    delegate :clip, to: :imputers
 
-    def learn
-      write_attribute(:statistics, learner.learn)
+    def learn(type: :all)
+      write_attribute(:statistics, (read_attribute(:statistics) || {}).merge!(learner.learn(type: type)))
+    end
+
+    def postprocess(df, inference: false, computed: false)
+      imputer = inference ? imputers.inference : imputers.training
+
+      df = imputer.transform(df)
+      df
+    end
+
+    def imputers
+      @imputers ||= Column::Imputers.new(self)
+    end
+
+    def preprocessed?
+      !preprocessing_steps.blank?
     end
 
     def datatype=(dtype)

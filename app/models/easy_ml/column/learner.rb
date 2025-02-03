@@ -9,7 +9,7 @@ module EasyML
       end
 
       def learner
-        @learner ||= EasyML::Learners::Base.adapter(column).new(column)
+        @learner ||= EasyML::Column::Learners::Base.adapter(column).new(column)
       end
 
       delegate :learn, to: :learner

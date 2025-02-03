@@ -150,7 +150,7 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       before do
-        column.update(preprocessing_steps: { training: { method: "mean", params: { clip: true } } })
+        column.update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } })
       end
 
       it "includes preprocessing steps in lineage" do
@@ -172,7 +172,7 @@ RSpec.describe EasyML::Column do
         feature
         dataset.columns.create!(
           name: "FamilySize",
-          preprocessing_steps: { training: { method: "mean", params: { clip: true } } },
+          preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } },
         )
       end
 

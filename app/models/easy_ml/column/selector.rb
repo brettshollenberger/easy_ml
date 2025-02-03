@@ -1,12 +1,13 @@
 module EasyML
   class Column
     class Selector
-      attr_accessor :selected, :dataset, :column
+      attr_accessor :selected, :dataset, :column, :transform
 
-      def initialize(column, selected = nil)
+      def initialize(column, selected = nil, &block)
         @column = column
         @dataset = column.dataset
         @selected = selected
+        @transform = block
       end
 
       def name
@@ -18,6 +19,12 @@ module EasyML
           Selector.new(column, :processed)
         else
           Selector.new(column, :raw)
+        end
+      end
+
+      def clipped
+        Selector.new(column, :raw) do |df|
+          column.imputers.training.clip(df)
         end
       end
 
@@ -62,10 +69,16 @@ module EasyML
         kwargs[:select] = kwargs[:select].uniq
 
         if @selected.present?
-          dataset.send(@selected).send(segment, **kwargs)
+          result = dataset.send(@selected).send(segment, **kwargs)
         else
-          dataset.send(segment, **kwargs)
+          result = dataset.send(segment, **kwargs)
         end
+
+        if transform
+          result = transform.call(result)
+        end
+
+        result
       end
     end
   end

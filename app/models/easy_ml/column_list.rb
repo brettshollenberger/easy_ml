@@ -21,8 +21,24 @@ module EasyML
       end
     end
 
-    def learn
-      select(&:persisted?).each(&:learn)
+    def postprocess(df, inference: false, computed: false)
+      if computed
+        cols = column_list.computed
+      else
+        cols = column_list.raw
+      end
+
+      by_name = cols.index_by(&:name)
+      df.columns.each do |col|
+        column = by_name[col]
+        df = column.postprocess(df, inference: inference, computed: computed) if column
+      end
+
+      df
+    end
+
+    def learn(type: :raw)
+      select(&:persisted?).each { |col| col.learn(type: type) }
     end
 
     def statistics

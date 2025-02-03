@@ -345,8 +345,8 @@ module EasyML
       write_attribute(:schema, schema)
     end
 
-    def learn_statistics
-      columns.learn
+    def learn_statistics(type: :all)
+      columns.learn(type: type)
       update(
         statistics: columns.statistics,
       )
@@ -410,10 +410,10 @@ module EasyML
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_missing_features(df, inference: inference)
       df = drop_nulls(df)
-      df = preprocessor.postprocess(df, inference: inference)
+      df = columns.postprocess(df, inference: inference)
       df = apply_features(df, features)
       learn unless inference # After applying features, we need to learn new statistics
-      df = preprocessor.postprocess(df, inference: inference, computed: true)
+      df = columns.postprocess(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
@@ -682,6 +682,7 @@ module EasyML
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
+      learn_statistics(type: :processed)
       @normalized = true
     end
 
@@ -703,9 +704,10 @@ module EasyML
     end
 
     def fit
-      computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
-      preprocessor.fit(raw.train(all_columns: true), computed_statistics)
-      update(preprocessor_statistics: preprocessor.statistics)
+      # computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
+      # preprocessor.fit(raw.train(all_columns: true), computed_statistics)
+      # update(preprocessor_statistics: preprocessor.statistics)
+      learn_statistics(type: :raw)
     end
 
     # log_method :fit, "Learning statistics", verbose: true

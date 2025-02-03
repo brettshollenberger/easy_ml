@@ -41,13 +41,17 @@ RSpec.describe EasyML::Data::Preprocessor do
   end
 
   it "preprocesses mean" do
-    @dataset.columns.find_by(name: "annual_revenue").update(
+    column = @dataset.columns.find_by(name: "annual_revenue")
+    column.update(
       preprocessing_steps: {
         training: {
           method: :mean,
         },
       },
     )
+
+    column.reload
+    column.send(:imputers)
 
     @dataset.refresh
 
@@ -137,7 +141,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(@dataset.data["group"][-2..-1].to_a).to all(eq "c")
   end
 
-  it "preprocesses mean with clipping" do
+  it "preprocesses mean with clipping", :focus do
     @dataset.columns.find_by(name: "annual_revenue").update(
       preprocessing_steps: {
         training: {
@@ -157,7 +161,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     mean_raw = @dataset.statistics.dig("raw", "annual_revenue", "mean")
     mean_processed = @dataset.statistics.dig("processed", "annual_revenue", "mean")
     expect(mean_raw).to be > mean_processed
-    expect(mean_raw).to eq @dataset.raw.read(:train)["annual_revenue"].mean
+    expect(mean_raw).to eq @dataset.columns.find_by(name: "annual_revenue").raw.data.mean
     expect(mean_processed).to eq 10
     expect(@dataset.data["annual_revenue"].to_a).to all(eq 10)
   end

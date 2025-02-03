@@ -10,7 +10,7 @@ module EasyML
       end
 
       def self.adapter(column)
-        dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data.to_series)
+        dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
 
         case dtype
         when :float, :integer
@@ -21,12 +21,11 @@ module EasyML
           EasyML::Learners::Categorical
         when :datetime
           EasyML::Learners::Datetime
+        when :null
+          EasyML::Learners::Base
         else
           raise "Don't know how to learn from dtype: #{dtype}"
         end
-        # return {} if series.dtype == Polars::Null
-        # field_type =
-
       end
 
       def learn
@@ -41,7 +40,7 @@ module EasyML
 
         {
           num_rows: df.size,
-          null_count: df[column.name].null_count,
+          null_count: df[column.name].null_count || 0,
           last_value: last_value(df),
         }
       end

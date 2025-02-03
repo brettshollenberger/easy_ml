@@ -47,6 +47,13 @@ module ModelSpecHelper
     base.let(:months_test) { 2 }
     base.let(:months_valid) { 2 }
     base.let(:today) { EasyML::Support::EST.parse("2024-06-01") }
+    base.let(:df_with_null_col) do
+      Polars::DataFrame.new({
+        "id" => [1],
+        "null_col" => [nil],
+        "rev" => [100],
+      })
+    end
     base.let(:df) do
       Polars::DataFrame.new({
                               "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -66,6 +73,10 @@ module ModelSpecHelper
 
     base.let(:datasource) do
       EasyML::Datasource.create(name: "Polars Datasource", datasource_type: "polars", df: df)
+    end
+
+    base.let(:null_datasource) do
+      EasyML::Datasource.create(name: "Polars Datasource", datasource_type: "polars", df: df_with_null_col)
     end
 
     base.let(:loans_datasource) do
@@ -103,6 +114,15 @@ module ModelSpecHelper
       )
     end
 
+    base.let(:null_dataset_config) do
+      base_dataset_config.merge!(
+        datasource: null_datasource,
+        splitter_attributes: {
+          splitter_type: "random",
+        },
+      )
+    end
+
     base.let(:loans_dataset_config) do
       base_dataset_config.merge!(
         datasource: loans_datasource,
@@ -111,6 +131,10 @@ module ModelSpecHelper
 
     base.let(:dataset) do
       make_dataset(dataset_config, nil)
+    end
+
+    base.let(:null_dataset) do
+      make_dataset(null_dataset_config, nil)
     end
 
     base.let(:loans_dataset) do
@@ -252,16 +276,6 @@ module ModelSpecHelper
         hyperparameters: { n_estimators: 1 },
       )
     end
-
-    # base.before(:each) do
-    #   dataset.cleanup
-    #   dataset.refresh!
-    # end
-
-    # base.after(:each) do
-    #   dataset.cleanup
-    #   model.cleanup!
-    # end
   end
 
   def build_model(params)

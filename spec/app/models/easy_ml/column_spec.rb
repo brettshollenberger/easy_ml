@@ -104,6 +104,20 @@ RSpec.describe EasyML::Column do
       end
     end
 
+    context "Null column" do
+      let(:dataset) { null_dataset }
+      let(:column) { dataset.columns.find_by(name: "null_col") }
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 1
+        expect(stats.dig(:raw, :null_count)).to eq 1
+        expect(stats.dig(:raw, :last_value)).to be_nil
+      end
+    end
+
     context "Entire dataset" do
       it "learns statistics for the entire dataset" do
         dataset.learn_statistics

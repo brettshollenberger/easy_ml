@@ -22,16 +22,14 @@ module EasyML
 
       def last_value(df)
         if dataset.date_column.present?
-          df.filter(Polars.col(column.name).is_not_null)
-            .sort(dataset.date_column.name)[column.name][-1]
-          # sorted_df = df.sort(date_col, reverse: true)
-          # last_value = sorted_df
-          #   .filter(Polars.col(col).is_not_null)
-          #   .select(col)
-          #   .head(1)
-          #   .item
+          sorted_df = df.sort(dataset.date_column.name, reverse: true)
+          last_value = sorted_df
+            .filter(Polars.col(column.name).is_not_null)
+            .select(column.name)
+            .head(1)
+            .item
 
-          # last_value
+          last_value
         end
       end
     end

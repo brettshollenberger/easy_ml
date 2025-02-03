@@ -12,6 +12,7 @@ module EasyML
         string: Polars::String,
         text: Polars::String,
         categorical: Polars::Categorical,
+        null: Polars::Null,
       }
       POLARS_MAP = TYPE_MAP.invert.stringify_keys
       class << self
@@ -50,6 +51,8 @@ module EasyML
               :boolean
             when Polars::Utf8
               determine_string_type(series)
+            when Polars::Null
+              :null
             else
               :categorical
             end

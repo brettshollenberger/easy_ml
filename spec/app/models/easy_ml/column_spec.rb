@@ -8,6 +8,34 @@ RSpec.describe EasyML::Column do
     titanic_dataset
   end
 
+  let(:feature) do
+    dataset.save
+    dataset.features.create!(
+      name: "FamilySize",
+      feature_class: "FamilySizeFeature",
+      needs_fit: true,
+      feature_position: 1,
+    )
+  end
+
+  describe "Datatype & PolarsDatatype" do
+    let(:column) { dataset.columns.find_by(name: "Age") }
+
+    it "returns correct datatype" do
+      expect(column.datatype).to eq(:float)
+    end
+
+    it "returns correct PolarsDatatype" do
+      expect(column.polars_datatype).to eq(Polars::Float64)
+    end
+
+    it "returns correct datatype for features" do
+      feature
+      dataset.refresh
+      expect(dataset.columns.find_by(name: "FamilySize").datatype).to eq(:integer)
+    end
+  end
+
   describe "#statistics" do
     context "Integer column" do
       let(:column) { dataset.columns.find_by(name: "Age") }
@@ -65,7 +93,7 @@ RSpec.describe EasyML::Column do
         col
       end
 
-      it "returns statistics for the column", :focus do
+      it "returns statistics for the column" do
         stats = column.learn
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
@@ -96,16 +124,6 @@ RSpec.describe EasyML::Column do
     end
 
     context "when column is computed by a feature" do
-      let(:feature) do
-        dataset.save
-        dataset.features.create!(
-          name: "FamilySize",
-          feature_class: "FamilySizeFeature",
-          needs_fit: true,
-          feature_position: 1,
-        )
-      end
-
       it "includes computation source in lineage" do
         feature
         dataset.refresh!
@@ -137,10 +155,9 @@ RSpec.describe EasyML::Column do
       end
 
       let(:column) do
+        feature
         dataset.columns.create!(
           name: "FamilySize",
-          computed_by: "FamilySize",
-          is_computed: true,
           preprocessing_steps: { training: { method: "mean", params: { clip: true } } },
         )
       end

@@ -408,16 +408,8 @@ RSpec.describe EasyML::Data::Preprocessor do
 
   # Boolean, Datetime, String tests
   describe "other data types preprocessing" do
-    before(:each) do
-      @df_with_bool = @df.with_column(
-        Polars.lit([true, false, true, false, nil, true, false, true, nil, nil]).alias("bool_col")
-      )
-      @datasource.update(df: @df_with_bool)
-      dataset.refresh
-    end
-
     it "preprocesses boolean with most frequent" do
-      dataset.columns.find_by(name: "bool_col").update(
+      dataset.columns.find_by(name: "is_cool").update(
         preprocessing_steps: {
           training: {
             method: :most_frequent,
@@ -426,13 +418,13 @@ RSpec.describe EasyML::Data::Preprocessor do
       )
 
       dataset.refresh
-      most_frequent = dataset.statistics.dig("raw", "bool_col", "most_frequent_value")
-      null_mask = dataset.raw.read(:all)["bool_col"].is_null
-      expect(dataset.data[null_mask]["bool_col"].to_a).to all(eq most_frequent)
+      most_frequent = dataset.statistics.dig("raw", "is_cool", "most_frequent_value")
+      null_mask = dataset.raw.read(:all)["is_cool"].is_null
+      expect(dataset.data[null_mask]["is_cool"].to_a).to all(eq most_frequent)
     end
 
     it "preprocesses boolean with constant" do
-      dataset.columns.find_by(name: "bool_col").update(
+      dataset.columns.find_by(name: "is_cool").update(
         preprocessing_steps: {
           training: {
             method: :constant,
@@ -444,8 +436,8 @@ RSpec.describe EasyML::Data::Preprocessor do
       )
 
       dataset.refresh
-      null_mask = dataset.raw.read(:all)["bool_col"].is_null
-      expect(dataset.data[null_mask]["bool_col"].to_a).to all(eq true)
+      null_mask = dataset.raw.read(:all)["is_cool"].is_null
+      expect(dataset.data[null_mask]["is_cool"].to_a).to all(eq true)
     end
 
     it "preprocesses datetime with today" do
@@ -615,12 +607,8 @@ RSpec.describe EasyML::Data::Preprocessor do
     end
 
     it "preprocesses constant with different type (bool -> string)" do
-      @df_with_bool = @df.with_column(
-        Polars.lit([true, false, true, false, nil, true, false, true, nil, nil]).alias("bool_col")
-      )
-      @datasource.update(df: @df_with_bool)
       dataset.refresh
-      dataset.columns.find_by(name: "bool_col").update(
+      dataset.columns.find_by(name: "is_cool").update(
         preprocessing_steps: {
           training: {
             method: :constant,
@@ -631,11 +619,11 @@ RSpec.describe EasyML::Data::Preprocessor do
         },
       )
 
-      expect(dataset.data["bool_col"].dtype).to eq Polars::Boolean
+      expect(dataset.data["is_cool"].dtype).to eq Polars::Boolean
       dataset.refresh
-      null_mask = dataset.raw.read(:all)["bool_col"].is_null
-      expect(dataset.data[null_mask]["bool_col"].to_a).to all(eq true)
-      expect(dataset.data["bool_col"].dtype).to eq Polars::Boolean
+      null_mask = dataset.raw.read(:all)["is_cool"].is_null
+      expect(dataset.data[null_mask]["is_cool"].to_a).to all(eq true)
+      expect(dataset.data["is_cool"].dtype).to eq Polars::Boolean
     end
 
     it "allows change of constant value" do

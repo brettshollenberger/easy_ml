@@ -47,7 +47,7 @@ module EasyML
 
         def learn(type: :all)
           types(type).each_with_object({}) do |t, h|
-            h[type] = learn_split(column.send(t))
+            h[t] = learn_split(column.send(t))
           end
         end
 

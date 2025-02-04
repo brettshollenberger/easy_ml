@@ -103,8 +103,10 @@ RSpec.describe EasyML::Data::Preprocessor do
       },
     )
 
+    null_mask = dataset.raw.data["group"].is_null
     dataset.refresh
-    expect(dataset.data["group"][-2..-1].to_a).to all(eq "c")
+    expect(dataset.data[null_mask]["group"].to_a).to all(eq "c")
+    expect(dataset.data[null_mask].count).to eq 2
   end
 
   it "preprocesses mean with clipping" do

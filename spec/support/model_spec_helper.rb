@@ -26,6 +26,10 @@ module ModelSpecHelper
       SPEC_ROOT.join("internal/easy_ml/datasources/loans")
     end
 
+    base.let(:simple_dir) do
+      SPEC_ROOT.join("internal/easy_ml/datasources/simple")
+    end
+
     base.let(:preprocessing_steps) do
       {
         training: {
@@ -83,6 +87,10 @@ module ModelSpecHelper
       EasyML::Datasource.create(name: "Loans", datasource_type: "file")
     end
 
+    base.let(:simple_datasource) do
+      EasyML::Datasource.create(name: "Simple", datasource_type: "file")
+    end
+
     base.let(:single_file_datasource) do
       EasyML::Datasource.create(name: "Single File", datasource_type: "file")
     end
@@ -129,6 +137,19 @@ module ModelSpecHelper
       )
     end
 
+    base.let(:simple_dataset_config) do
+      base_dataset_config.merge!(
+        datasource: simple_datasource,
+        splitter_attributes: {
+          splitter_type: "date",
+          today: EasyML::Support::EST.parse("2024-10-01"),
+          date_col: "created_date",
+          months_test: 2,
+          months_valid: 2,
+        },
+      )
+    end
+
     base.let(:dataset) do
       make_dataset(dataset_config, nil)
     end
@@ -139,6 +160,10 @@ module ModelSpecHelper
 
     base.let(:loans_dataset) do
       make_dataset(loans_dataset_config, loans_dir)
+    end
+
+    base.let(:simple_dataset) do
+      make_dataset(simple_dataset_config, simple_dir)
     end
 
     def make_dataset(config, datasource_location = nil)

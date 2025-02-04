@@ -16,6 +16,7 @@ module EasyML
 
         df = self.df.clone
         df = df.filter(filter) if filter
+        select = df.columns & ([select] || []).flatten
         df = df.select(select) if select.present?
         df = df.unique if unique
         drop_cols &= df.columns

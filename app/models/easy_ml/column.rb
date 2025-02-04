@@ -97,7 +97,7 @@ module EasyML
     end
 
     def raw_dtype
-      raw.data.to_series.dtype
+      raw&.data&.to_series&.dtype
     end
 
     def set_polars_datatype
@@ -248,7 +248,7 @@ module EasyML
 
     def lineage
       [
-        present_in_raw_dataset ? "Raw dataset" : nil,
+        in_raw_dataset? ? "Raw dataset" : nil,
         computed_by ? "Computed by #{computed_by}" : nil,
         preprocessing_steps.present? ? "Preprocessed using #{preprocessing_steps.keys.join(", ")}" : nil,
       ].compact
@@ -256,10 +256,6 @@ module EasyML
 
     def required?
       is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden && !is_target
-    end
-
-    def present_in_raw_dataset
-      dataset.raw.data&.columns&.include?(name) || false
     end
 
     def sort_required

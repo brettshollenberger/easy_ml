@@ -29,19 +29,25 @@ module EasyML
           end
         end
 
+        TYPES_ALL = %i(raw clipped processed)
+        TYPES_RAW = %i(raw clipped)
+        TYPES_PROCESSED = %i(processed)
+
         def types(type = :all)
+          return TYPES_PROCESSED if !column.in_raw_dataset?
+
           case type
-          when :all then [:raw, :clipped, :processed]
-          when :raw then [:raw, :clipped]
-          when :processed then [:processed]
+          when :all then TYPES_ALL
+          when :raw then TYPES_RAW
+          when :processed then TYPES_PROCESSED
           else
-            [:raw, :clipped, :processed]
+            TYPES_ALL
           end
         end
 
         def learn(type: :all)
-          types(type).each_with_object({}) do |type, h|
-            h[type] = learn_split(column.send(type))
+          types(type).each_with_object({}) do |t, h|
+            h[type] = learn_split(column.send(t))
           end
         end
 

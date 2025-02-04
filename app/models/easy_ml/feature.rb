@@ -81,6 +81,7 @@ module EasyML
             where(id: fittable.map(&:id))
           end
     scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
+    scope :ready_to_apply, -> { where.not(id: needs_fit.map(&:id)) }
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha

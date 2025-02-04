@@ -230,6 +230,8 @@ RSpec.describe EasyML::Datasource do
 
         expect(non_computed_features_learned_at).to eq(original_time)
         expect(computed_features_learned_at).to eq(even_later_time)
+
+        Timecop.return
       end
 
       context "When underlying datasource changes, statistics are re-learned" do
@@ -327,6 +329,8 @@ RSpec.describe EasyML::Datasource do
           dataset.refresh
 
           expect(dataset.columns.needs_learn).to be_empty
+
+          Timecop.return
         end
       end
     end

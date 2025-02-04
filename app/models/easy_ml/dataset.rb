@@ -351,7 +351,7 @@ module EasyML
     def learn_statistics(type: :raw)
       columns.learn(type: type)
       update(
-        statistics: columns.statistics,
+        statistics: columns.reload.statistics,
       )
     end
 
@@ -744,6 +744,7 @@ module EasyML
     end
 
     def apply_features(df, features = self.features)
+      features = features.ready_to_apply
       if features.nil? || features.empty?
         df
       else

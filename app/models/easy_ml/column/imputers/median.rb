@@ -14,7 +14,7 @@ module EasyML
         end
 
         def median
-          column.statistics.dig(:clipped, :median) || column.statistics.dig(:raw, :median)
+          statistics(:median)
         end
       end
     end

@@ -30,7 +30,7 @@ module EasyML
         end
 
         def label_encoder
-          @label_encoder ||= column.statistics.dig(:raw, :label_encoder).stringify_keys
+          @label_encoder ||= statistics(:label_encoder).stringify_keys
         end
 
         def other_value

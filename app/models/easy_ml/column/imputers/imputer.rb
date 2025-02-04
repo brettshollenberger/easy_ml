@@ -23,6 +23,10 @@ module EasyML
           validate_preprocessing_step!
         end
 
+        def inspect
+          "#<#{self.class.name} adapters=#{adapters.map(&:inspect).join(", ")}>"
+        end
+
         def adapters
           @adapters ||= ADAPTERS.map { |klass| klass.new(column, preprocessing_step) }.select(&:applies?)
         end

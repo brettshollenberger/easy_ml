@@ -11,7 +11,11 @@ module EasyML
         end
 
         def self.adapter(column)
-          dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
+          begin
+            dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
+          rescue => e
+            binding.pry
+          end
 
           case dtype
           when :float, :integer

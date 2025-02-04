@@ -14,7 +14,7 @@ module EasyML
         end
 
         def mean
-          column.statistics.dig(:clipped, :mean) || column.statistics.dig(:raw, :mean)
+          statistics(:mean)
         end
       end
     end

@@ -33,6 +33,14 @@ module EasyML
           @preprocessing_step.dig(:method)
         end
 
+        def statistics(*args)
+          if column.is_computed
+            column.statistics.dig(:processed, *args)
+          else
+            column.statistics.dig(:clipped, *args) || column.statistics.dig(:raw, *args)
+          end
+        end
+
         def anything?
           true
         end

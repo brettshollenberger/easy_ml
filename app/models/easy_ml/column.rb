@@ -69,11 +69,13 @@ module EasyML
     delegate :clip, to: :imputers
 
     def learn(type: :all)
+      return if (!in_raw_dataset? && type != :processed)
+
       write_attribute(:statistics, (read_attribute(:statistics) || {}).merge!(learner.learn(type: type)))
     end
 
     def postprocess(df, inference: false, computed: false)
-      imputer = inference ? imputers.inference : imputers.training
+      imputer = inference && imputers.inference.anything? ? imputers.inference : imputers.training
 
       df = imputer.transform(df)
       df
@@ -132,11 +134,18 @@ module EasyML
       end
     end
 
+    def datasource_raw
+      dataset.datasource.query(select: name)
+    end
+
     def assumed_datatype
       if in_raw_dataset?
-        EasyML::Data::PolarsColumn.determine_type(raw.data.to_series)
+        series = (raw.data || datasource_raw).to_series
+        EasyML::Data::PolarsColumn.determine_type(series)
       else
         if is_computed && computing_feature&.fit_at.present? || computing_feature&.applied_at.present?
+          return nil if processed.data.nil?
+
           EasyML::Data::PolarsColumn.determine_type(processed.data.to_series)
         end
       end
@@ -228,7 +237,7 @@ module EasyML
     end
 
     def statistics
-      read_attribute(:statistics).with_indifferent_access
+      (read_attribute(:statistics) || {}).with_indifferent_access
     end
 
     def allowed_categories
@@ -237,7 +246,8 @@ module EasyML
       return [] if stats.nil? || stats.blank?
 
       stats = stats.deep_symbolize_keys
-      stats = stats.dig(:raw)
+      type = is_computed ? :processed : :raw
+      stats = stats.dig(type)
 
       (stats.dig(name.to_sym, :allowed_categories) || []).sort.concat(["other"])
     end

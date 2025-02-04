@@ -17,7 +17,7 @@ module EasyML
         end
 
         def last_value
-          column.statistics.dig(:clipped, :last_value) || column.statistics.dig(:raw, :last_value)
+          statistics(:last_value)
         end
       end
     end

@@ -181,10 +181,10 @@ module EasyML
 
     def actually_refresh
       refreshing do
-        learn(delete: false) # After syncing datasource, learn new statistics + sync columns
+        learn(delete: false, type: :raw) # After syncing datasource, learn new statistics + sync columns
         process_data
         fully_reload
-        learn # After processing data, we may have new columns from newly applied features
+        learn(type: :processed) # After processing data, we may have new columns from newly applied features
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
@@ -283,9 +283,9 @@ module EasyML
       raw.split_at.present? && raw.split_at < datasource.last_updated_at
     end
 
-    def learn(delete: true)
+    def learn(delete: true, type: :raw)
       learn_schema
-      learn_statistics
+      learn_statistics(type: type)
       columns.sync(delete: delete)
     end
 

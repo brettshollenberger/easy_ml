@@ -14,7 +14,7 @@ module EasyML
         end
 
         def most_frequent
-          column.statistics.dig(:clipped, :most_frequent_value) || column.statistics.dig(:raw, :most_frequent_value)
+          statistics(:most_frequent_value)
         end
       end
     end

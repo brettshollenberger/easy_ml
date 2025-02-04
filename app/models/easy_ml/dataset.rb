@@ -169,17 +169,18 @@ module EasyML
       cleanup
       refresh_datasource!
       split_data
+      process_data
     end
 
     def prepare
       refresh_datasource
       split_data
+      process_data
     end
 
     def actually_refresh
       refreshing do
         learn(delete: false) # After syncing datasource, learn new statistics + sync columns
-        puts "Actually refresh"
         process_data
         fully_reload
         learn
@@ -348,7 +349,6 @@ module EasyML
     end
 
     def learn_statistics(type: :raw)
-      puts "learn statistics"
       columns.learn(type: type)
       update(
         statistics: columns.statistics,

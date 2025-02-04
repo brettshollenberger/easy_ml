@@ -149,6 +149,13 @@ RSpec.describe EasyML::Datasource do
     end
 
     context "does column need learn?" do
+      it "when column has never previously been learned" do
+        dataset.prepare
+        dataset.learn
+        expect(EasyML::Column.needs_learn.count).to eq(EasyML::Column.count)
+        expect(EasyML::Column.needs_learn.count).to be > 0
+      end
+
       it "when column, feature, and sha have not changed" do
         dataset.refresh
         expect(EasyML::Column.datasource_changed).to be_empty
@@ -158,7 +165,7 @@ RSpec.describe EasyML::Datasource do
         expect(EasyML::Column.needs_learn).to be_empty
       end
 
-      it "when column changed" do
+      it "when column changed, statistics are re-learned" do
         dataset.refresh
         column = dataset.columns.first
         column.update(is_target: true)
@@ -180,7 +187,7 @@ RSpec.describe EasyML::Datasource do
         load File.join(Rails.root, "fixtures/did_convert_v2.rb")
       end
 
-      it "when feature added/changed, the new feature is learned", :focus do
+      it "when feature added/changed, the new feature is learned" do
         original_time = UTC.now
         Timecop.freeze(original_time)
         dataset.refresh
@@ -225,7 +232,7 @@ RSpec.describe EasyML::Datasource do
         expect(computed_features_learned_at).to eq(even_later_time)
       end
 
-      context "When underlying datasource changes" do
+      context "When underlying datasource changes, statistics are re-learned" do
         let(:day_1_dir) do
           titanic_core_dir
         end

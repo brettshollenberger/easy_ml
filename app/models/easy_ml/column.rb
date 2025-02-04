@@ -102,7 +102,11 @@ module EasyML
     end
 
     def raw_dtype
-      raw&.data&.to_series&.dtype
+      if in_raw_dataset?
+        raw&.data&.to_series&.dtype
+      elsif already_computed?
+        processed&.data&.to_series&.dtype
+      end
     end
 
     def set_polars_datatype
@@ -141,16 +145,18 @@ module EasyML
       dataset.datasource.query(select: name)
     end
 
+    def already_computed?
+      is_computed && computing_feature&.fit_at.present? || computing_feature&.applied_at.present?
+    end
+
     def assumed_datatype
       if in_raw_dataset?
         series = (raw.data || datasource_raw).to_series
         EasyML::Data::PolarsColumn.determine_type(series)
-      else
-        if is_computed && computing_feature&.fit_at.present? || computing_feature&.applied_at.present?
-          return nil if processed.data.nil?
+      elsif already_computed?
+        return nil if processed.data.nil?
 
-          EasyML::Data::PolarsColumn.determine_type(processed.data.to_series)
-        end
+        EasyML::Data::PolarsColumn.determine_type(processed.data.to_series)
       end
     end
 

@@ -30,6 +30,10 @@ module ModelSpecHelper
       SPEC_ROOT.join("internal/easy_ml/datasources/simple")
     end
 
+    base.let(:null_dir) do
+      SPEC_ROOT.join("internal/easy_ml/datasources/null")
+    end
+
     base.let(:preprocessing_steps) do
       {
         training: {
@@ -154,16 +158,16 @@ module ModelSpecHelper
       make_dataset(dataset_config, nil)
     end
 
-    base.let(:null_dataset) do
-      make_dataset(null_dataset_config, nil)
-    end
-
     base.let(:loans_dataset) do
       make_dataset(loans_dataset_config, loans_dir)
     end
 
     base.let(:simple_dataset) do
       make_dataset(simple_dataset_config, simple_dir)
+    end
+
+    base.let(:null_dataset) do
+      make_dataset(null_dataset_config, null_dir)
     end
 
     def make_dataset(config, datasource_location = nil)

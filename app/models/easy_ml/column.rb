@@ -60,6 +60,7 @@ module EasyML
             sha_changed
               .or(feature_changed)
               .or(column_changed)
+              .or(never_learned)
           }
 
     scope :sha_changed, -> {
@@ -90,6 +91,13 @@ module EasyML
           .where(Dataset.arel_table[:refreshed_at].lt(arel_table[:updated_at]))
       }
 
+    scope :never_learned, -> {
+            left_joins(dataset: :datasource)
+              .left_joins(:feature)
+              .where(arel_table[:learned_at].eq(nil))
+              .where(Datasource.arel_table[:sha].not_eq(nil))
+          }
+
     def display_attributes
       attributes.except(:statistics)
     end
@@ -115,9 +123,10 @@ module EasyML
     def learn(type: :all)
       return if (!in_raw_dataset? && type != :computed)
 
+      puts "Learning column!"
       set_sample_values
       assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(learner.learn(type: type).symbolize_keys))
-      assign_attributes(learned_at: UTC.now)
+      assign_attributes(learned_at: UTC.now, last_datasource_sha: dataset.last_datasource_sha)
     end
 
     def set_sample_values

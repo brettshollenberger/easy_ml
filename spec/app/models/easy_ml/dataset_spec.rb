@@ -168,14 +168,11 @@ RSpec.describe EasyML::Datasource do
         expect(EasyML::Column.needs_learn.map(&:id)).to include(column.id)
       end
 
-      it "when feature changed", :focus do
+      it "when feature added, the new feature is learned" do
         original_time = UTC.now
         Timecop.freeze(original_time)
         dataset.refresh
 
-        10.times do
-          puts "FREEZING AT LATER TIME!!!"
-        end
         later_time = original_time + 3.days
         Timecop.freeze(later_time)
         dataset.features.create(
@@ -184,11 +181,114 @@ RSpec.describe EasyML::Datasource do
         dataset.refresh
 
         computed_features, non_computed_features = dataset.columns.partition(&:is_computed?)
+        computed_features_learned_at = computed_features.map(&:learned_at).uniq.first
+        non_computed_features_learned_at = non_computed_features.map(&:learned_at).uniq.first
+
+        expect(non_computed_features_learned_at).to eq(original_time)
+        expect(computed_features_learned_at).to eq(later_time)
 
         expect(EasyML::Column.sha_changed).to be_empty
         expect(EasyML::Column.feature_changed).to be_empty
         expect(EasyML::Column.column_changed.map(&:id)).to be_empty
         expect(EasyML::Column.needs_learn.map(&:id)).to be_empty
+      end
+
+      context "When underlying datasource changes" do
+        let(:day_1_dir) do
+          titanic_core_dir
+        end
+
+        let(:day_2_dir) do
+          titanic_extended_dir
+        end
+
+        let(:datasource) do
+          EasyML::Datasource.create(
+            name: "Titanic Core",
+            datasource_type: "s3",
+            s3_bucket: "titanic",
+          )
+        end
+
+        let(:target) { "Survived" }
+        let(:dataset_config) do
+          {
+            name: "Titanic Dataset",
+            datasource: datasource,
+            splitter_attributes: {
+              splitter_type: "random",
+            },
+          }
+        end
+        let(:dataset) do
+          titanic_core_dataset
+        end
+
+        let(:hidden_cols) do
+          %w[Name Ticket Cabin]
+        end
+
+        let(:dataset) do
+          mock_s3_download(day_1_dir)
+          mock_s3_upload
+
+          EasyML::Features::Registry.register(FamilySizeFeature)
+          EasyML::Dataset.create(**dataset_config).tap do |dataset|
+            family_size_feature = EasyML::Feature.create!(
+              dataset: dataset,
+              feature_class: FamilySizeFeature.to_s,
+              name: "Family Size",
+            )
+            dataset.refresh
+            dataset.columns.find_by(name: target).update(is_target: true)
+            dataset.columns.where(name: hidden_cols).update_all(hidden: true)
+            dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
+                                                          training: {
+                                                            method: :categorical,
+                                                            params: {
+                                                              one_hot: true,
+                                                            },
+                                                          },
+                                                        })
+            dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
+                                                               training: {
+                                                                 method: :categorical,
+                                                                 params: {
+                                                                   one_hot: true,
+                                                                 },
+                                                               },
+                                                             })
+            dataset.columns.find_by(name: "Age").update(preprocessing_steps: {
+                                                          training: {
+                                                            method: :median,
+                                                          },
+                                                        })
+            dataset.refresh
+          end
+        end
+
+        it "needs refresh when underlying datasource changes", :focus do
+          original_time = UTC.now
+          Timecop.freeze(original_time)
+          dataset
+
+          expect(dataset.columns.needs_learn).to be_empty
+
+          later_time = original_time + 3.days
+          Timecop.freeze(later_time)
+
+          # By default, we read from the directory with the name provided,
+          # so this will switch us to using a bigger dataset
+          datasource.name = "Titanic Extended"
+          datasource.save
+          mock_s3_download(day_2_dir) # Download a DIFFERENT version of the dataset
+          datasource.refresh!
+
+          expect(dataset.columns.needs_learn.count).to eq dataset.columns.count
+          dataset.refresh
+
+          expect(dataset.columns.needs_learn).to be_empty
+        end
       end
     end
 

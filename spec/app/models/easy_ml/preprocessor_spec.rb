@@ -178,7 +178,6 @@ RSpec.describe EasyML::Data::Preprocessor do
       },
     )
 
-    # expect(@dataset.statistics.dig("raw", "mean"))
     @dataset.refresh
     expect(@dataset.data.columns.select { |col| col =~ /group_/ }.sort).to eq(["group_a", "group_other"])
   end
@@ -521,7 +520,7 @@ RSpec.describe EasyML::Data::Preprocessor do
       expect(@dataset.columns.map(&:name)).to include("group")
     end
 
-    it "preprocesses categorical with ordinal encoding", :focus do
+    it "preprocesses categorical with ordinal encoding" do
       @dataset.columns.find_by(name: "group").update(
         preprocessing_steps: {
           training: {

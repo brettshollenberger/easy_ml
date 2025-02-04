@@ -6,7 +6,7 @@ module EasyML
           def param_applies(p)
             Imputers.supported_params << p
             define_method(:applies?) do
-              params.symbolize_keys&.key?(p.to_sym)
+              params.symbolize_keys&.key?(p.to_sym) && params.symbolize_keys.dig(p.to_sym) != false
             end
           end
 
@@ -36,6 +36,15 @@ module EasyML
         def anything?
           true
         end
+
+        def inspect
+          params_str = params ? params.map { |k, v| "#{k}: #{v}" }.join(", ") : "none"
+          method_str = method ? method : "none"
+
+          "#<#{self.class.name} method=#{method_str.inspect} params={#{params_str}}>"
+        end
+
+        alias_method :to_s, :inspect
 
         def transform(df)
           raise "Method not implemented"

@@ -69,8 +69,12 @@ module EasyML
         kwargs[:select] = kwargs[:select].flatten.uniq
 
         if @selected.present?
+          available_columns = dataset.send(@selected).send(segment, limit: 1, all_columns: true)&.columns || []
+          kwargs[:select] = available_columns & kwargs[:select]
           result = dataset.send(@selected).send(segment, **kwargs)
         else
+          available_columns = dataset.send(segment, limit: 1, all_columns: true)&.columns || []
+          kwargs[:select] = available_columns & kwargs[:select]
           result = dataset.send(segment, **kwargs)
         end
 

@@ -142,14 +142,17 @@ module EasyML
     end
 
     def set_sample_values
-      use_processed = !one_hot? && processed.data(limit: 1).present?
+      use_processed = !one_hot? && processed.data(limit: 1).present? && in_raw_dataset?
 
       base = use_processed ? processed : raw
-      sample_values = base.data(limit: 5, unique: true)[name].to_a.uniq[0...5]
-      assign_attributes(sample_values: sample_values)
+      sample_values = base.data(limit: 5, unique: true)
+      if sample_values.columns.include?(name)
+        sample_values = sample_values[name].to_a.uniq[0...5]
+        assign_attributes(sample_values: sample_values)
+      end
     end
 
-    def postprocess(df, inference: false, computed: false)
+    def transform(df, inference: false, computed: false)
       imputer = inference && imputers.inference.anything? ? imputers.inference : imputers.training
 
       df = imputer.transform(df)

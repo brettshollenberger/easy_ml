@@ -413,9 +413,9 @@ module EasyML
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_missing_features(df, inference: inference)
       df = drop_nulls(df)
-      df = columns.postprocess(df, inference: inference)
+      df = columns.transform(df, inference: inference)
       df = apply_features(df, features)
-      df = columns.postprocess(df, inference: inference, computed: true)
+      df = columns.transform(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
       df

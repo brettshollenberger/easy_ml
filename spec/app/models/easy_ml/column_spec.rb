@@ -42,6 +42,7 @@ RSpec.describe EasyML::Column do
 
       it "returns statistics for the column" do
         stats = column.learn
+        stats = column.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891
@@ -59,6 +60,7 @@ RSpec.describe EasyML::Column do
 
       it "returns statistics for the column" do
         stats = column.learn
+        stats = column.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891
@@ -66,8 +68,34 @@ RSpec.describe EasyML::Column do
         expect(stats.dig(:raw, :unique_count)).to eq 2
         expect(stats.dig(:raw, :most_frequent_value)).to eq "male"
         expect(stats.dig(:raw, :allowed_categories)).to eq ["female", "male"]
-        expect(stats.dig(:raw, :label_encoder)).to eq({ "female" => 0, "male" => 1 })
-        expect(stats.dig(:raw, :label_decoder)).to eq({ 0 => "female", 1 => "male" })
+      end
+
+      it "ordinal encodes" do
+        column.update(preprocessing_steps: {
+                        training: {
+                          method: :categorical,
+                          params: {
+                            ordinal_encoding: true,
+                          },
+                        },
+                      })
+        stats = column.learn
+        stats = column.statistics
+        expect(column.decode_labels([0, 1])).to eq(["female", "male"])
+      end
+
+      it "one_hot encodes" do
+        column.update(preprocessing_steps: {
+                        training: {
+                          method: :categorical,
+                          params: {
+                            one_hot: true,
+                          },
+                        },
+                      })
+        column.learn
+        expect(column.raw.data.columns.sort).to eq(["Sex"])
+        expect(column.processed.data.columns.sort).to eq(["Sex_female", "Sex_male", "Sex_other"])
       end
     end
 
@@ -76,6 +104,7 @@ RSpec.describe EasyML::Column do
 
       it "returns statistics for the column" do
         stats = column.learn
+        stats = column.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891
@@ -95,12 +124,15 @@ RSpec.describe EasyML::Column do
 
       it "returns statistics for the column" do
         stats = column.learn
+        stats = column.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 10
         expect(stats.dig(:raw, :null_count)).to eq 0
         expect(stats.dig(:raw, :unique_count)).to eq 9
-        expect(stats.dig(:raw, :last_value).strftime("%Y-%m-%d")).to eq "2024-01-01"
+        expect(
+          DateTime.parse(stats.dig(:raw, :last_value)).strftime("%Y-%m-%d")
+        ).to eq "2024-01-01"
       end
     end
 
@@ -110,6 +142,7 @@ RSpec.describe EasyML::Column do
 
       it "returns statistics for the column" do
         stats = column.learn
+        stats = column.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 1

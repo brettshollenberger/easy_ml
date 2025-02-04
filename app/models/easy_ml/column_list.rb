@@ -22,6 +22,8 @@ module EasyML
     end
 
     def postprocess(df, inference: false, computed: false)
+      return df if df.nil?
+
       if computed
         cols = column_list.computed
       else

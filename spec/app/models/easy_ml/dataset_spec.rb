@@ -308,7 +308,7 @@ RSpec.describe EasyML::Datasource do
       include EasyML::Features
 
       def computes_columns
-        ["business_inception"]
+        ["days_in_business"]
       end
 
       def transform(df, feature)
@@ -450,7 +450,7 @@ RSpec.describe EasyML::Datasource do
             dataset.columns.find_by(name: "rev").update!(is_target: true)
           end
 
-          expect(dataset).to be_needs_refresh
+          expect(dataset.reload).to be_needs_refresh
         end
 
         it "returns true when features have been updated" do

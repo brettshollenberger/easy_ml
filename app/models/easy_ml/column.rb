@@ -53,6 +53,14 @@ module EasyML
     scope :computed, -> { where(is_computed: true) }
     scope :raw, -> { where(is_computed: false) }
 
+    def display_attributes
+      attributes.except(:statistics)
+    end
+
+    def inspect
+      "#<#{self.class.name} #{display_attributes.map { |k, v| "#{k}: #{v}" }.join(", ")}>"
+    end
+
     def aliases
       [name].concat(virtual_columns)
     end
@@ -252,15 +260,14 @@ module EasyML
     end
 
     def allowed_categories
-      return [] unless categorical?
-      stats = dataset.statistics
+      stats = statistics
       return [] if stats.nil? || stats.blank?
 
       stats = stats.deep_symbolize_keys
-      type = is_computed ? :processed : :raw
+      type = is_computed? ? :processed : :raw
       stats = stats.dig(type)
 
-      (stats.dig(name.to_sym, :allowed_categories) || []).sort.concat(["other"])
+      (stats.dig(:allowed_categories) || []).sort.concat(["other"])
     end
 
     def date_column?

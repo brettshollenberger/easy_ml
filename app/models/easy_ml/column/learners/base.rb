@@ -11,7 +11,11 @@ module EasyML
         end
 
         def self.adapter(column)
-          dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
+          begin
+            dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
+          rescue => e
+            raise "Unable to find column #{column.name}. If this column is computed by a feature, you forgot to declare computes_columns"
+          end
 
           case dtype
           when :float, :integer
@@ -20,7 +24,7 @@ module EasyML
             EasyML::Column::Learners::String
           when :categorical
             EasyML::Column::Learners::Categorical
-          when :datetime
+          when :datetime, :date
             EasyML::Column::Learners::Datetime
           when :boolean
             EasyML::Column::Learners::Base

@@ -232,7 +232,7 @@ module EasyML
     end
 
     def allowed_categories
-      return [] unless one_hot?
+      return [] unless categorical?
       stats = dataset.statistics
       return [] if stats.nil? || stats.blank?
 

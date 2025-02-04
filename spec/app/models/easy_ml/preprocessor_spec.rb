@@ -166,7 +166,7 @@ RSpec.describe EasyML::Data::Preprocessor do
     expect(@dataset.data["annual_revenue"].to_a).to all(eq 10)
   end
 
-  it "preprocesses categorical with min", :focus do
+  it "preprocesses categorical with min" do
     @dataset.columns.find_by(name: "group").update(
       preprocessing_steps: {
         training: {
@@ -521,7 +521,7 @@ RSpec.describe EasyML::Data::Preprocessor do
       expect(@dataset.columns.map(&:name)).to include("group")
     end
 
-    it "preprocesses categorical with ordinal encoding" do
+    it "preprocesses categorical with ordinal encoding", :focus do
       @dataset.columns.find_by(name: "group").update(
         preprocessing_steps: {
           training: {
@@ -536,7 +536,7 @@ RSpec.describe EasyML::Data::Preprocessor do
 
       @dataset.refresh
       expect(@dataset.data["group"].to_a.uniq.sort).to all(be_a(Integer))
-      expect(@dataset.columns.find_by(name: "group").datatype).to eq "text"
+      expect(@dataset.columns.find_by(name: "group").datatype).to eq :categorical
     end
 
     it "preprocesses categorical with min count and one_hot encoding" do

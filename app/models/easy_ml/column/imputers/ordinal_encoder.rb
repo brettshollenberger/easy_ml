@@ -5,17 +5,40 @@ module EasyML
         param_applies :ordinal_encoding
 
         def transform(df)
-          return df unless ordinal_encoding?
+          return df unless label_encoder.present?
 
-          binding.pry
           df = df.with_column(
-            Polars.col(column.name).fill_null(1).alias(column.name)
+            Polars.when(Polars.col(column.name).is_in(allowed_categories))
+              .then(Polars.col(column.name))
+              .otherwise(Polars.lit("other"))
+              .alias(column.name)
           )
+
+          df = df.with_column(
+            df[column.name].map { |v| label_encoder[v.to_s] || other_value }.alias(column.name)
+          )
+
           df
         end
 
-        def ordinal_encoding?
-          params.dig(:ordinal_encoding)
+        def categories
+          label_encoder.keys
+        end
+
+        def values
+          label_encoder.values
+        end
+
+        def label_encoder
+          @label_encoder ||= column.statistics.dig(:raw, :label_encoder).stringify_keys
+        end
+
+        def other_value
+          label_encoder.values.max + 1
+        end
+
+        def allowed_categories
+          column.allowed_categories.sort
         end
       end
     end

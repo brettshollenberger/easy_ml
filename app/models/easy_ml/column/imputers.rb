@@ -3,6 +3,61 @@ module EasyML
     class Imputers
       attr_accessor :dataset, :column
 
+      ALLOWED_PARAMS = {
+        constant: [:constant],
+        categorical: %i[categorical_min one_hot ordinal_encoding],
+        most_frequent: %i[one_hot ordinal_encoding],
+        mean: [:clip],
+        median: [:clip],
+      }
+
+      PREPROCESSING_STRATEGIES = {
+        float: [
+          { value: "ffill", label: "Forward Fill" },
+          { value: "mean", label: "Mean" },
+          { value: "median", label: "Median" },
+          { value: "constant", label: "Constant Value" },
+        ],
+        integer: [
+          { value: "ffill", label: "Forward Fill" },
+          { value: "mean", label: "Mean" },
+          { value: "median", label: "Median" },
+          { value: "constant", label: "Constant Value" },
+        ],
+        boolean: [
+          { value: "ffill", label: "Forward Fill" },
+          { value: "most_frequent", label: "Most Frequent" },
+          { value: "constant", label: "Constant Value" },
+        ],
+        datetime: [
+          { value: "ffill", label: "Forward Fill" },
+          { value: "constant", label: "Constant Value" },
+          { value: "today", label: "Current Date" },
+        ],
+        string: [
+          { value: "ffill", label: "Forward Fill" },
+          { value: "most_frequent", label: "Most Frequent" },
+          { value: "constant", label: "Constant Value" },
+        ],
+        text: [
+          { value: "ffill", label: "Forward Fill" },
+          { value: "most_frequent", label: "Most Frequent" },
+          { value: "constant", label: "Constant Value" },
+        ],
+        categorical: [
+          { value: "ffill", label: "Forward Fill" },
+          { value: "categorical", label: "Categorical" },
+          { value: "most_frequent", label: "Most Frequent" },
+          { value: "constant", label: "Constant Value" },
+        ],
+      }.freeze
+
+      def self.constants
+        {
+          preprocessing_strategies: PREPROCESSING_STRATEGIES,
+        }
+      end
+
       def self.supported_params
         @supported_params ||= []
       end

@@ -66,7 +66,6 @@ module EasyML
     end
 
     delegate :raw, :processed, :data, :train, :test, :valid, :clipped, to: :data_selector
-    delegate :clip, to: :imputers
 
     def learn(type: :all)
       return if (!in_raw_dataset? && type != :processed)
@@ -83,6 +82,10 @@ module EasyML
 
     def imputers
       @imputers ||= Column::Imputers.new(self)
+    end
+
+    def decode_labels(df)
+      imputers.training.decode_labels(df)
     end
 
     def preprocessed?

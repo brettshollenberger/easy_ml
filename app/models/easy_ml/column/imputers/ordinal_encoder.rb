@@ -21,6 +21,17 @@ module EasyML
           df
         end
 
+        def decode_labels(df)
+          if df.is_a?(Array)
+            return df.map { |v| label_decoder[v.to_s] || "other" }
+          end
+
+          df = df.with_column(
+            df[column.name].map { |v| label_decoder[v.to_s] || "other" }.alias(column.name)
+          )
+          df
+        end
+
         def categories
           label_encoder.keys
         end
@@ -31,6 +42,10 @@ module EasyML
 
         def label_encoder
           @label_encoder ||= statistics(:label_encoder).stringify_keys
+        end
+
+        def label_decoder
+          @label_decoder ||= statistics(:label_decoder).stringify_keys
         end
 
         def other_value

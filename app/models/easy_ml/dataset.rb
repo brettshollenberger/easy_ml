@@ -80,7 +80,7 @@ module EasyML
         column_types: EasyML::Data::PolarsColumn::TYPE_MAP.keys.map do |type|
           { value: type.to_s, label: type.to_s.titleize }
         end,
-        preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies],
+        preprocessing_strategies: EasyML::Column::Imputers.constants[:preprocessing_strategies],
         feature_options: EasyML::Features::Registry.list_flat,
         splitter_constants: EasyML::Splitter.constants,
       }
@@ -495,7 +495,10 @@ module EasyML
     end
 
     def decode_labels(ys, col: nil)
-      preprocessor.decode_labels(ys, col: col.nil? ? target : col)
+      if col.nil?
+        col = target
+      end
+      columns.find_by(name: col).decode_labels(ys)
     end
 
     def preprocessing_steps
@@ -781,16 +784,6 @@ module EasyML
       columns.map(&:name).zip(columns.map do |col|
         col.preprocessing_steps&.dig(type)
       end).to_h.compact.reject { |_k, v| v["method"] == "none" }
-    end
-
-    def initialize_preprocessor
-      EasyML::Data::Preprocessor.new(
-        directory: Pathname.new(root_dir).append("preprocessor"),
-        preprocessing_steps: preprocessing_steps,
-        dataset: self,
-      ).tap do |preprocessor|
-        preprocessor.statistics = preprocessor_statistics
-      end
     end
 
     def fully_reload

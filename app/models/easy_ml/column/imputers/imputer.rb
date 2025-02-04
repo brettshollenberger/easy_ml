@@ -61,6 +61,12 @@ module EasyML
           EasyML::Column::Imputers::Clip.new(column, preprocessing_step).transform(df)
         end
 
+        def decode_labels(df)
+          return df unless adapters.map(&:class).include?(OrdinalEncoder)
+
+          EasyML::Column::Imputers::OrdinalEncoder.new(column, preprocessing_step).decode_labels(df)
+        end
+
         private
 
         def validate_preprocessing_step!

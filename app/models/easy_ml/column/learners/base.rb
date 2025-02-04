@@ -37,15 +37,15 @@ module EasyML
 
         TYPES_ALL = %i(raw clipped processed)
         TYPES_RAW = %i(raw clipped)
-        TYPES_PROCESSED = %i(processed)
+        TYPES_COMPUTED = %i(processed)
 
         def types(type = :all)
-          return TYPES_PROCESSED if !column.in_raw_dataset?
+          return TYPES_COMPUTED if !column.in_raw_dataset?
 
           case type
           when :all then TYPES_ALL
           when :raw then TYPES_RAW
-          when :processed then TYPES_PROCESSED
+          when :computed then TYPES_COMPUTED
           else
             TYPES_ALL
           end

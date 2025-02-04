@@ -9,7 +9,7 @@ module EasyML
         col_names = syncable
         existing_columns = where(name: col_names)
         import_new(col_names, existing_columns)
-        update_existing(existing_columns)
+        # update_existing(existing_columns)
 
         if delete
           delete_missing(col_names)
@@ -40,7 +40,11 @@ module EasyML
     end
 
     def learn(type: :raw)
-      select(&:persisted?).each { |col| col.learn(type: type) }
+      puts "ColumnList#learn"
+      scope = type == :raw ? :raw : :computed
+      cols_to_learn = column_list.reload.send(scope).needs_learn.select(&:persisted?)
+      cols_to_learn.each { |col| col.learn(type: type) }
+      EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[statistics learned_at sample_values] })
     end
 
     def statistics
@@ -98,61 +102,11 @@ module EasyML
           name: col_name,
           dataset_id: dataset.id,
         )
-        col.set_feature_lineage
         col
       end
       EasyML::Column.import(cols_to_insert)
-      column_list.reload
-    end
-
-    def update_existing(existing_columns)
-      # stats = dataset.statistics
-      use_processed = dataset.processed.data(limit: 1).present?
-      # cached_sample = use_processed ? dataset.processed.data(limit: 10, all_columns: true) : dataset.raw.data(limit: 10, all_columns: true)
-      # existing_types = existing_columns.map(&:name).zip(existing_columns.map(&:datatype)).to_h
-      # polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
-      #   EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
-      # end)).to_h
-
-      existing_columns.each do |column|
-        # new_polars_type = polars_types[column.name]
-        # existing_type = existing_types[column.name]
-        # schema_type = dataset.schema[column.name]
-
-        # # Keep both datatype and polars_datatype if it's an ordinal encoding case
-        # if column.ordinal_encoding?
-        #   actual_type = existing_type
-        #   actual_schema_type = existing_type
-        # else
-        #   actual_type = new_polars_type
-        #   actual_schema_type = schema_type
-        # end
-
-        if column.one_hot?
-          # Started moving this into the categorical learner
-          base = dataset.raw
-          # processed = stats.dig("raw", column.name).dup
-          # processed["null_count"] = 0
-          # actual_schema_type = "categorical"
-          # actual_type = "categorical"
-        else
-          base = use_processed ? dataset.processed : dataset.raw
-          # processed = stats.dig("processed", column.name)
-        end
-        sample_values = base.send(:data, unique: true, limit: 5, all_columns: true, select: column.name)[column.name].to_a.uniq[0...5]
-
-        column.assign_attributes(
-          # statistics: {
-          #   raw: stats.dig("raw", column.name),
-          #   processed: processed,
-          # },
-          # datatype: actual_schema_type,
-          # polars_datatype: actual_type,
-          sample_values: sample_values,
-        )
-      end
-      EasyML::Column.import(existing_columns.to_a,
-                            { on_duplicate_key_update: { columns: %i[sample_values] } })
+      column_list.reload.where(name: new_columns).each(&:set_feature_lineage)
+      column_list
     end
 
     def delete_missing(col_names)

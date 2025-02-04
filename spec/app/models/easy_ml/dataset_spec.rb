@@ -140,6 +140,58 @@ RSpec.describe EasyML::Datasource do
   describe "needs_refresh?" do
     let(:datasource) { single_file_datasource }
 
+    context "Tracking last datasource sha" do
+      it "tracks last datasource sha" do
+        dataset.refresh
+        expect(dataset.datasource.sha).to be_present
+        expect(dataset.last_datasource_sha).to eq(dataset.datasource.sha)
+      end
+    end
+
+    context "does column need learn?" do
+      it "when column, feature, and sha have not changed" do
+        dataset.refresh
+        expect(EasyML::Column.sha_changed).to be_empty
+        expect(EasyML::Column.feature_changed).to be_empty
+        expect(EasyML::Column.column_changed).to be_empty
+        expect(EasyML::Column.needs_learn).to be_empty
+      end
+
+      it "when column changed" do
+        dataset.refresh
+        column = dataset.columns.first
+        column.update(is_target: true)
+
+        expect(EasyML::Column.sha_changed).to be_empty
+        expect(EasyML::Column.feature_changed).to be_empty
+        expect(EasyML::Column.column_changed.map(&:id)).to include(column.id)
+        expect(EasyML::Column.needs_learn.map(&:id)).to include(column.id)
+      end
+
+      it "when feature changed", :focus do
+        original_time = UTC.now
+        Timecop.freeze(original_time)
+        dataset.refresh
+
+        10.times do
+          puts "FREEZING AT LATER TIME!!!"
+        end
+        later_time = original_time + 3.days
+        Timecop.freeze(later_time)
+        dataset.features.create(
+          feature_class: DidConvert,
+        )
+        dataset.refresh
+
+        computed_features, non_computed_features = dataset.columns.partition(&:is_computed?)
+
+        expect(EasyML::Column.sha_changed).to be_empty
+        expect(EasyML::Column.feature_changed).to be_empty
+        expect(EasyML::Column.column_changed.map(&:id)).to be_empty
+        expect(EasyML::Column.needs_learn.map(&:id)).to be_empty
+      end
+    end
+
     context "when dataset is not split" do
       it "needs refresh until split" do
         mock_s3_download(single_file_dir)

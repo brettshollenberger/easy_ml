@@ -24,6 +24,9 @@
 #  is_date_column      :boolean          default(FALSE)
 #  computed_by         :string
 #  is_computed         :boolean          default(FALSE)
+#  feature_id          :bigint
+#  learned_at          :datetime
+#  last_datasource_sha :string
 #
 module EasyML
   class ColumnHistory < ActiveRecord::Base

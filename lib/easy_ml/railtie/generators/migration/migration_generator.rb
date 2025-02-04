@@ -45,6 +45,8 @@ module EasyML
             add_slug_to_easy_ml_models
             add_default_to_is_target
             remove_preprocessor_statistics_from_easy_ml_datasets
+            add_learned_at_to_easy_ml_columns
+            add_sha_to_datasources_datasets_and_columns
           ].freeze
 
           # Specify the next migration number

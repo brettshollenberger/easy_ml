@@ -169,7 +169,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
           expect(evaluation_metrics[:f1_score]).to be_between(0, 1)
         end
 
-        it "decodes labels", :focus do
+        it "decodes labels" do
           dataset.refresh
           x_test, = dataset.test(split_ys: true)
           model.metrics = %w[accuracy_score precision_score recall_score f1_score]

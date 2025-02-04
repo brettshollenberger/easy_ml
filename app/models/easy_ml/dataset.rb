@@ -2,22 +2,23 @@
 #
 # Table name: easy_ml_datasets
 #
-#  id              :bigint           not null, primary key
-#  name            :string           not null
-#  description     :string
-#  dataset_type    :string
-#  status          :string
-#  version         :string
-#  datasource_id   :bigint
-#  root_dir        :string
-#  configuration   :json
-#  num_rows        :bigint
-#  workflow_status :string
-#  statistics      :json
-#  schema          :json
-#  refreshed_at    :datetime
-#  created_at      :datetime         not null
-#  updated_at      :datetime         not null
+#  id                  :bigint           not null, primary key
+#  name                :string           not null
+#  description         :string
+#  dataset_type        :string
+#  status              :string
+#  version             :string
+#  datasource_id       :bigint
+#  root_dir            :string
+#  configuration       :json
+#  num_rows            :bigint
+#  workflow_status     :string
+#  statistics          :json
+#  schema              :json
+#  refreshed_at        :datetime
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  last_datasource_sha :string
 #
 module EasyML
   class Dataset < ActiveRecord::Base
@@ -118,13 +119,6 @@ module EasyML
       processed.data(limit: 1)&.schema || raw.data(limit: 1)&.schema
     end
 
-    def refresh_datatypes
-      return unless columns_need_refresh?
-
-      cleanup
-      datasource.reread(columns)
-    end
-
     def num_rows
       if datasource&.num_rows.nil?
         datasource.after_sync
@@ -167,6 +161,10 @@ module EasyML
       save
     end
 
+    def refreshed_datasource?
+      last_datasource_sha_changed?
+    end
+
     def prepare!
       cleanup
       refresh_datasource!
@@ -180,10 +178,12 @@ module EasyML
 
     def actually_refresh
       refreshing do
-        learn(delete: false, type: :raw) # After syncing datasource, learn new statistics + sync columns
+        learn(delete: false) # After syncing datasource, learn new statistics + sync columns
+        puts "Actually refresh"
         process_data
         fully_reload
-        learn(type: :processed) # After processing data, we may have new columns from newly applied features
+        learn
+        learn_statistics(type: :computed) # After processing data, we may have new columns from newly applied features
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
@@ -200,6 +200,7 @@ module EasyML
 
     def refresh(async: false)
       return refresh_async if async
+      puts "Refresh"
 
       refreshing do
         prepare
@@ -258,6 +259,7 @@ module EasyML
         "Columns need refresh" => columns_need_refresh?,
         "Features need refresh" => features_need_fit?,
         "Datasource needs refresh" => datasource_needs_refresh?,
+        "Datasource sha changed" => refreshed_datasource?,
         "Datasource was refreshed" => datasource_was_refreshed?,
       }.select { |k, v| v }.map { |k, v| k }
     end
@@ -282,9 +284,8 @@ module EasyML
       raw.split_at.present? && raw.split_at < datasource.last_updated_at
     end
 
-    def learn(delete: true, type: :raw)
+    def learn(delete: true)
       learn_schema
-      learn_statistics(type: type)
       columns.sync(delete: delete)
     end
 
@@ -346,7 +347,8 @@ module EasyML
       write_attribute(:schema, schema)
     end
 
-    def learn_statistics(type: :all)
+    def learn_statistics(type: :raw)
+      puts "learn statistics"
       columns.learn(type: type)
       update(
         statistics: columns.statistics,
@@ -413,7 +415,6 @@ module EasyML
       df = drop_nulls(df)
       df = columns.postprocess(df, inference: inference)
       df = apply_features(df, features)
-      learn unless inference # After applying features, we need to learn new statistics
       df = columns.postprocess(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
@@ -661,13 +662,16 @@ module EasyML
 
     def refresh_datasource
       datasource.reload.refresh
-      refresh_datatypes
-      initialize_splits
+      after_refresh_datasource
     end
 
     def refresh_datasource!
       datasource.reload.refresh!
-      refresh_datatypes
+      after_refresh_datasource
+    end
+
+    def after_refresh_datasource
+      update(last_datasource_sha: datasource.sha)
       initialize_splits
     end
 
@@ -679,7 +683,6 @@ module EasyML
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
-      learn_statistics(type: :processed)
       @normalized = true
     end
 

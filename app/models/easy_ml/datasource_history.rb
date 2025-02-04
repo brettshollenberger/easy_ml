@@ -15,6 +15,7 @@
 #  history_ended_at   :datetime
 #  history_user_id    :integer
 #  snapshot_id        :string
+#  sha                :string
 #
 module EasyML
   class DatasourceHistory < ActiveRecord::Base

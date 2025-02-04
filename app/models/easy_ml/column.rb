@@ -19,6 +19,9 @@
 #  is_date_column      :boolean          default(FALSE)
 #  computed_by         :string
 #  is_computed         :boolean          default(FALSE)
+#  feature_id          :bigint
+#  learned_at          :datetime
+#  last_datasource_sha :string
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -27,6 +30,7 @@ module EasyML
     historiographer_mode :snapshot_only
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
+    belongs_to :feature, class_name: "EasyML::Feature", optional: true
 
     validates :name, presence: true
     validates :name, uniqueness: { scope: :dataset_id }
@@ -52,6 +56,39 @@ module EasyML
     scope :api_inputs, -> { where(is_computed: false, hidden: false, is_target: false) }
     scope :computed, -> { where(is_computed: true) }
     scope :raw, -> { where(is_computed: false) }
+    scope :needs_learn, -> {
+            sha_changed
+              .or(feature_changed)
+              .or(column_changed)
+          }
+
+    scope :sha_changed, -> {
+            left_joins(dataset: :datasource)
+              .left_joins(:feature)
+              .where(
+                arel_table[:last_datasource_sha].not_eq(
+                  Datasource.arel_table[:sha]
+                )
+              )
+          }
+
+    scope :feature_changed, -> {
+            left_joins(dataset: :datasource)
+              .left_joins(:feature)
+              .where(
+                Feature.arel_table[:applied_at].gt(
+                  Arel.sql("COALESCE(#{arel_table.name}.learned_at, '1970-01-01')")
+                ).and(
+                  arel_table[:feature_id].not_eq(nil)
+                )
+              )
+          }
+
+    scope :column_changed, -> {
+        left_joins(dataset: :datasource)
+          .left_joins(:feature)
+          .where(Dataset.arel_table[:refreshed_at].lt(arel_table[:updated_at]))
+      }
 
     def display_attributes
       attributes.except(:statistics)
@@ -76,9 +113,19 @@ module EasyML
     delegate :raw, :processed, :data, :train, :test, :valid, :clipped, to: :data_selector
 
     def learn(type: :all)
-      return if (!in_raw_dataset? && type != :processed)
+      return if (!in_raw_dataset? && type != :computed)
 
-      write_attribute(:statistics, (read_attribute(:statistics) || {}).symbolize_keys.merge!(learner.learn(type: type).symbolize_keys))
+      set_sample_values
+      assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(learner.learn(type: type).symbolize_keys))
+      assign_attributes(learned_at: UTC.now)
+    end
+
+    def set_sample_values
+      use_processed = !one_hot? && processed.data(limit: 1).present?
+
+      base = use_processed ? processed : raw
+      sample_values = base.data(limit: 5, unique: true)[name].to_a.uniq[0...5]
+      assign_attributes(sample_values: sample_values)
     end
 
     def postprocess(df, inference: false, computed: false)
@@ -175,7 +222,11 @@ module EasyML
     end
 
     def computing_feature
-      dataset&.features&.detect { |feature| feature.computes_columns.include?(name) }
+      dataset&.features&.detect { |feature| feature.computes_columns.include?(name) }.tap do |computing_feature|
+        if computing_feature.present? && feature_id != computing_feature.id
+          update(feature_id: computing_feature.id)
+        end
+      end
     end
 
     alias_method :feature, :computing_feature

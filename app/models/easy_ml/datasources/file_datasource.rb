@@ -1,7 +1,7 @@
 module EasyML
   module Datasources
     class FileDatasource < BaseDatasource
-      delegate :query, :convert_to_parquet, to: :reader
+      delegate :query, :convert_to_parquet, :sha, to: :reader
 
       def after_sync
         reader.normalize

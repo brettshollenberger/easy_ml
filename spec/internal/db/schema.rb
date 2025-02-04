@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_04_034600) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -91,7 +91,6 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.integer "num_rows"
     t.string "workflow_status"
     t.json "statistics"
-    t.json "preprocessor_statistics"
     t.json "schema"
     t.datetime "refreshed_at"
     t.datetime "created_at", null: false
@@ -127,7 +126,6 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.bigint "num_rows"
     t.string "workflow_status"
     t.json "statistics"
-    t.json "preprocessor_statistics"
     t.json "schema"
     t.datetime "refreshed_at"
     t.datetime "created_at", null: false

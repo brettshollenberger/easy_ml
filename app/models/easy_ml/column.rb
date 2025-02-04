@@ -70,7 +70,7 @@ module EasyML
     def learn(type: :all)
       return if (!in_raw_dataset? && type != :processed)
 
-      write_attribute(:statistics, (read_attribute(:statistics) || {}).merge!(learner.learn(type: type)))
+      write_attribute(:statistics, (read_attribute(:statistics) || {}).symbolize_keys.merge!(learner.learn(type: type).symbolize_keys))
     end
 
     def postprocess(df, inference: false, computed: false)
@@ -155,7 +155,9 @@ module EasyML
     end
 
     def in_raw_dataset?
-      dataset&.raw&.data&.columns&.include?(name) || false
+      return false if dataset&.raw&.data.nil?
+
+      dataset.raw.data(all_columns: true)&.columns&.include?(name) || false
     end
 
     def computing_feature

@@ -185,12 +185,12 @@ RSpec.describe EasyML::Column do
     end
   end
 
-  describe "#present_in_raw_dataset" do
+  describe "#in_raw_dataset?" do
     context "when column exists in raw dataset" do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       it "returns true" do
-        expect(column.present_in_raw_dataset).to be true
+        expect(column.in_raw_dataset?).to be true
       end
     end
 
@@ -202,7 +202,7 @@ RSpec.describe EasyML::Column do
       end
 
       it "returns false" do
-        expect(column.present_in_raw_dataset).to be false
+        expect(column.in_raw_dataset?).to be false
       end
     end
   end

@@ -22,8 +22,10 @@ module EasyML
             EasyML::Column::Learners::Categorical
           when :datetime
             EasyML::Column::Learners::Datetime
-          when :null, :boolean
+          when :boolean
             EasyML::Column::Learners::Base
+          when :null
+            EasyML::Column::Learners::Null
           else
             raise "Don't know how to learn from dtype: #{dtype}"
           end

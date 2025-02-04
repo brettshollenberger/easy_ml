@@ -55,7 +55,7 @@ module EasyML
         return files if any_parquet? && columns.nil?
 
         puts "Converting to Parquet..."
-        if columns.all? { |c| c.datatype.nil? }
+        if columns.nil? || columns.all? { |c| c.datatype.nil? }
           learn_dataset
           columns = nil
         end

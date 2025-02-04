@@ -11,22 +11,18 @@ module EasyML
         end
 
         def self.adapter(column)
-          begin
-            dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
-          rescue => e
-            binding.pry
-          end
+          dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
 
           case dtype
           when :float, :integer
             EasyML::Column::Learners::Numeric
           when :string, :text
             EasyML::Column::Learners::String
-          when :categorical, :boolean
+          when :categorical
             EasyML::Column::Learners::Categorical
           when :datetime
             EasyML::Column::Learners::Datetime
-          when :null
+          when :null, :boolean
             EasyML::Column::Learners::Base
           else
             raise "Don't know how to learn from dtype: #{dtype}"

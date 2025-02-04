@@ -151,7 +151,8 @@ RSpec.describe EasyML::Datasource do
     context "does column need learn?" do
       it "when column, feature, and sha have not changed" do
         dataset.refresh
-        expect(EasyML::Column.sha_changed).to be_empty
+        expect(EasyML::Column.datasource_changed).to be_empty
+        expect(EasyML::Column.feature_applied).to be_empty
         expect(EasyML::Column.feature_changed).to be_empty
         expect(EasyML::Column.column_changed).to be_empty
         expect(EasyML::Column.needs_learn).to be_empty
@@ -162,13 +163,24 @@ RSpec.describe EasyML::Datasource do
         column = dataset.columns.first
         column.update(is_target: true)
 
-        expect(EasyML::Column.sha_changed).to be_empty
+        expect(EasyML::Column.datasource_changed).to be_empty
+        expect(EasyML::Column.feature_applied).to be_empty
         expect(EasyML::Column.feature_changed).to be_empty
         expect(EasyML::Column.column_changed.map(&:id)).to include(column.id)
         expect(EasyML::Column.needs_learn.map(&:id)).to include(column.id)
+
+        dataset.columns.each do |col|
+          expect(col.statistics).to have_key(:raw), "#{col.name} does not have raw statistics"
+          expect(col.statistics).to have_key(:processed), "#{col.name} does not have processed statistics"
+          expect(col.statistics).to have_key(:clipped), "#{col.name} does not have clipped statistics"
+        end
       end
 
-      it "when feature added, the new feature is learned" do
+      def change_feature_definition
+        load File.join(Rails.root, "fixtures/did_convert_v2.rb")
+      end
+
+      it "when feature added/changed, the new feature is learned", :focus do
         original_time = UTC.now
         Timecop.freeze(original_time)
         dataset.refresh
@@ -187,10 +199,30 @@ RSpec.describe EasyML::Datasource do
         expect(non_computed_features_learned_at).to eq(original_time)
         expect(computed_features_learned_at).to eq(later_time)
 
-        expect(EasyML::Column.sha_changed).to be_empty
+        expect(EasyML::Column.datasource_changed).to be_empty
+        expect(EasyML::Column.feature_applied).to be_empty
         expect(EasyML::Column.feature_changed).to be_empty
         expect(EasyML::Column.column_changed.map(&:id)).to be_empty
         expect(EasyML::Column.needs_learn.map(&:id)).to be_empty
+
+        even_later_time = later_time + 3.days
+        Timecop.freeze(even_later_time)
+
+        expect(EasyML::Column.needs_learn).to be_empty
+        change_feature_definition
+
+        expect(EasyML::Column.needs_learn.map(&:id)).to include(computed_features.first.id)
+        expect(EasyML::Column.needs_learn.count).to eq 1
+
+        dataset.refresh
+        expect(EasyML::Column.needs_learn).to be_empty
+
+        computed_features, non_computed_features = dataset.columns.partition(&:is_computed?)
+        computed_features_learned_at = computed_features.map(&:learned_at).uniq.first
+        non_computed_features_learned_at = non_computed_features.map(&:learned_at).uniq.first
+
+        expect(non_computed_features_learned_at).to eq(original_time)
+        expect(computed_features_learned_at).to eq(even_later_time)
       end
 
       context "When underlying datasource changes" do
@@ -267,7 +299,7 @@ RSpec.describe EasyML::Datasource do
           end
         end
 
-        it "needs refresh when underlying datasource changes", :focus do
+        it "needs refresh when underlying datasource changes" do
           original_time = UTC.now
           Timecop.freeze(original_time)
           dataset

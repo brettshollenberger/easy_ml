@@ -30,6 +30,10 @@ module EasyML
         datasource.updated_at
       end
 
+      def sha
+        nil
+      end
+
       def data
         df
       end

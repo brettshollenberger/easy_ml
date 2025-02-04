@@ -72,7 +72,7 @@ module EasyML
       end
 
       # Combine all conditions with OR
-      where(id: where(needs_fit: true).or(where(conditions.join(" OR "))).select { |f| f.adapter.respond_to?(:fit) }.map(&:id))
+      where(id: where(needs_fit: true).or(where(conditions.join(" OR "))).map(&:id))
     }
     scope :never_applied, -> { where(applied_at: nil) }
     scope :never_fit, -> do

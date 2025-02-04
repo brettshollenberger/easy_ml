@@ -21,6 +21,7 @@
 #  is_computed         :boolean          default(FALSE)
 #  feature_id          :bigint
 #  learned_at          :datetime
+#  is_learning         :boolean          default(FALSE)
 #  last_datasource_sha :string
 #
 module EasyML
@@ -57,13 +58,15 @@ module EasyML
     scope :computed, -> { where(is_computed: true) }
     scope :raw, -> { where(is_computed: false) }
     scope :needs_learn, -> {
-            sha_changed
+            datasource_changed
+              .or(feature_applied)
               .or(feature_changed)
               .or(column_changed)
               .or(never_learned)
+              .or(is_learning)
           }
 
-    scope :sha_changed, -> {
+    scope :datasource_changed, -> {
             left_joins(dataset: :datasource)
               .left_joins(:feature)
               .where(
@@ -74,6 +77,10 @@ module EasyML
           }
 
     scope :feature_changed, -> {
+            where(feature_id: Feature.has_changes.map(&:id))
+          }
+
+    scope :feature_applied, -> {
             left_joins(dataset: :datasource)
               .left_joins(:feature)
               .where(
@@ -97,6 +104,7 @@ module EasyML
               .where(arel_table[:learned_at].eq(nil))
               .where(Datasource.arel_table[:sha].not_eq(nil))
           }
+    scope :is_learning, -> { where(is_learning: true) }
 
     def display_attributes
       attributes.except(:statistics)
@@ -121,12 +129,16 @@ module EasyML
     delegate :raw, :processed, :data, :train, :test, :valid, :clipped, to: :data_selector
 
     def learn(type: :all)
-      return if (!in_raw_dataset? && type != :computed)
+      return if (!in_raw_dataset? && type != :processed)
 
-      puts "Learning column!"
       set_sample_values
       assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(learner.learn(type: type).symbolize_keys))
-      assign_attributes(learned_at: UTC.now, last_datasource_sha: dataset.last_datasource_sha)
+      assign_attributes(
+        learned_at: UTC.now,
+        last_datasource_sha: dataset.last_datasource_sha,
+        last_feature_sha: feature&.sha,
+        is_learning: type == :raw,
+      )
     end
 
     def set_sample_values

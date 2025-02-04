@@ -26,7 +26,9 @@
 #  is_computed         :boolean          default(FALSE)
 #  feature_id          :bigint
 #  learned_at          :datetime
+#  is_learning         :boolean          default(FALSE)
 #  last_datasource_sha :string
+#  last_feature_sha    :string
 #
 module EasyML
   class ColumnHistory < ActiveRecord::Base

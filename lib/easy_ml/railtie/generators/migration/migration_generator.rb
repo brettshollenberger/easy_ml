@@ -47,6 +47,7 @@ module EasyML
             remove_preprocessor_statistics_from_easy_ml_datasets
             add_learned_at_to_easy_ml_columns
             add_sha_to_datasources_datasets_and_columns
+            add_last_feature_sha_to_columns
           ].freeze
 
           # Specify the next migration number

@@ -40,11 +40,9 @@ module EasyML
     end
 
     def learn(type: :raw)
-      puts "ColumnList#learn"
-      scope = type == :raw ? :raw : :computed
-      cols_to_learn = column_list.reload.send(scope).needs_learn.select(&:persisted?)
+      cols_to_learn = column_list.reload.needs_learn.select(&:persisted?)
       cols_to_learn.each { |col| col.learn(type: type) }
-      EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[statistics learned_at sample_values last_datasource_sha] })
+      EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[statistics learned_at sample_values last_datasource_sha is_learning] })
     end
 
     def statistics

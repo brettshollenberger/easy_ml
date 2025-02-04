@@ -183,7 +183,7 @@ module EasyML
         process_data
         fully_reload
         learn
-        learn_statistics(type: :computed) # After processing data, we may have new columns from newly applied features
+        learn_statistics(type: :processed) # After processing data, we may have new columns from newly applied features
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload

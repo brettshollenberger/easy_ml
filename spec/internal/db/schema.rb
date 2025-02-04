@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_04_163629) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_04_204657) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -38,7 +38,9 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_04_163629) do
     t.boolean "is_computed", default: false
     t.bigint "feature_id"
     t.datetime "learned_at", precision: nil
+    t.boolean "is_learning", default: false
     t.string "last_datasource_sha"
+    t.string "last_feature_sha"
     t.index ["column_id"], name: "index_easy_ml_column_histories_on_column_id"
     t.index ["computed_by"], name: "index_easy_ml_column_histories_on_computed_by"
     t.index ["dataset_id", "name"], name: "index_easy_ml_column_histories_on_dataset_id_and_name"
@@ -51,8 +53,10 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_04_163629) do
     t.index ["history_user_id"], name: "index_easy_ml_column_histories_on_history_user_id"
     t.index ["is_computed"], name: "index_easy_ml_column_histories_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_column_histories_on_is_date_column"
+    t.index ["is_learning"], name: "index_easy_ml_column_histories_on_is_learning"
     t.index ["is_target"], name: "index_easy_ml_column_histories_on_is_target"
     t.index ["last_datasource_sha"], name: "index_easy_ml_column_histories_on_last_datasource_sha"
+    t.index ["last_feature_sha"], name: "index_easy_ml_column_histories_on_last_feature_sha"
     t.index ["learned_at"], name: "index_easy_ml_column_histories_on_learned_at"
     t.index ["snapshot_id"], name: "index_easy_ml_column_histories_on_snapshot_id"
   end
@@ -76,7 +80,9 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_04_163629) do
     t.boolean "is_computed", default: false
     t.bigint "feature_id"
     t.datetime "learned_at", precision: nil
+    t.boolean "is_learning", default: false
     t.string "last_datasource_sha"
+    t.string "last_feature_sha"
     t.index ["computed_by"], name: "index_easy_ml_columns_on_computed_by"
     t.index ["dataset_id", "name"], name: "index_easy_ml_columns_on_dataset_id_and_name", unique: true
     t.index ["datatype"], name: "index_easy_ml_columns_on_datatype"
@@ -85,8 +91,10 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_04_163629) do
     t.index ["hidden"], name: "index_easy_ml_columns_on_hidden"
     t.index ["is_computed"], name: "index_easy_ml_columns_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_columns_on_is_date_column"
+    t.index ["is_learning"], name: "index_easy_ml_columns_on_is_learning"
     t.index ["is_target"], name: "index_easy_ml_columns_on_is_target"
     t.index ["last_datasource_sha"], name: "index_easy_ml_columns_on_last_datasource_sha"
+    t.index ["last_feature_sha"], name: "index_easy_ml_columns_on_last_feature_sha"
     t.index ["learned_at"], name: "index_easy_ml_columns_on_learned_at"
   end
 

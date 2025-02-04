@@ -1,7 +1,7 @@
 require "spec_helper"
 require "support/model_spec_helper"
 
-RSpec.describe EasyML::Data::Preprocessor do
+RSpec.describe EasyML::Column::Imputers do
   include ModelSpecHelper
 
   let(:dataset) { simple_dataset }

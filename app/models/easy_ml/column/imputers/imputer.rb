@@ -4,7 +4,7 @@ module EasyML
       class Imputer
         attr_accessor :dataset, :column, :preprocessing_step
 
-        ADAPTERS = [
+        ORDERED_ADAPTERS = [
           Clip,
           Mean,
           Median,
@@ -12,6 +12,7 @@ module EasyML
           Ffill,
           Categorical,
           MostFrequent,
+          Today,
           OneHotEncoder,
           OrdinalEncoder,
         ]
@@ -28,7 +29,7 @@ module EasyML
         end
 
         def adapters
-          @adapters ||= ADAPTERS.map { |klass| klass.new(column, preprocessing_step) }.select(&:applies?)
+          @adapters ||= ORDERED_ADAPTERS.map { |klass| klass.new(column, preprocessing_step) }.select(&:applies?)
         end
 
         def imputers

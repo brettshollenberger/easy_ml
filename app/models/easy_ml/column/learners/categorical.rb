@@ -32,8 +32,8 @@ module EasyML
           value_column = column_names[0]
           count_column = column_names[1]
 
-          as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&:to_s)
-          label_encoder = as_hash.keys.sort.each.with_index.reduce({}) do |h, (k, i)|
+          as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&column.method(:cast))
+          label_encoder = as_hash.keys.sort_by(&column.method(:sort_by)).each.with_index.reduce({}) do |h, (k, i)|
             h.tap do
               h[k] = i
             end
@@ -49,7 +49,7 @@ module EasyML
 
         def allowed_categories(df)
           val_counts = df[column.name].value_counts
-          val_counts[val_counts["count"] >= column.categorical_min][column.name].to_a.compact.sort
+          val_counts[val_counts["count"] >= column.categorical_min][column.name].to_a.compact.sort_by(&column.method(:sort_by))
         end
       end
     end

@@ -154,11 +154,23 @@ module ModelSpecHelper
       make_dataset(null_dataset_config, null_dir)
     end
 
+    base.let(:features) do
+      []
+    end
+
     def make_dataset(config, datasource_location = nil)
       mock_s3_download(datasource_location) if datasource_location
       mock_s3_upload
 
       dataset = EasyML::Dataset.create(**config)
+
+      features.each do |feature|
+        dataset.features.create(
+          name: feature.new.computes_columns.first,
+          feature_class: feature,
+          dataset: dataset,
+        )
+      end
       dataset.refresh
 
       dataset.columns.find_by(name: target).update(is_target: true)

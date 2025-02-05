@@ -27,7 +27,7 @@ module EasyML
           when :datetime, :date
             EasyML::Column::Learners::Datetime
           when :boolean
-            EasyML::Column::Learners::Base
+            EasyML::Column::Learners::Boolean
           when :null
             EasyML::Column::Learners::Null
           else

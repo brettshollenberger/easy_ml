@@ -131,6 +131,9 @@ module EasyML
     def learn(type: :all)
       return if (!in_raw_dataset? && type != :processed)
 
+      if !in_raw_dataset? && read_attribute(:datatype).nil?
+        assign_attributes(datatype: processed.data.to_series.dtype)
+      end
       set_sample_values
       assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(learner.learn(type: type).symbolize_keys))
       assign_attributes(
@@ -172,6 +175,9 @@ module EasyML
     end
 
     def datatype=(dtype)
+      if dtype.is_a?(Polars::DataType)
+        dtype = EasyML::Data::PolarsColumn.polars_to_sym(dtype)
+      end
       write_attribute(:datatype, dtype)
       set_polars_datatype
     end
@@ -342,7 +348,19 @@ module EasyML
       type = is_computed? ? :processed : :raw
       stats = stats.dig(type)
 
-      (stats.dig(:allowed_categories) || []).sort.concat(["other"])
+      # Can we LEARN dtype during LEARN phase... for computed columns to deal with this ish man
+      sorted = (stats.dig(:allowed_categories) || []).sort_by(&method(:sort_by))
+      sorted.concat(["other"]) if categorical?
+      sorted
+    end
+
+    def sort_by(value)
+      case datatype.to_sym
+      when :boolean
+        value == true ? 1 : 0
+      else
+        value
+      end
     end
 
     def date_column?
@@ -486,6 +504,8 @@ module EasyML
         ActiveModel::Type::Boolean.new.cast(value)
       when :datetime
         value.is_a?(String) ? Time.parse(value) : value
+      when :categorical
+        value
       else
         value.to_s
       end
@@ -493,6 +513,8 @@ module EasyML
       # If conversion fails, return original value
       value
     end
+
+    alias_method :cast, :convert_to_type
 
     NUMERIC_METHODS = %i[mean median].freeze
 

@@ -184,7 +184,7 @@ module EasyML
         process_data
         fully_reload
         learn
-        learn_statistics(type: :processed) # After processing data, we may have new columns from newly applied features
+        learn_statistics(type: :processed) # After processing data, we learn any new statistics
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
@@ -347,8 +347,8 @@ module EasyML
       write_attribute(:schema, schema)
     end
 
-    def learn_statistics(type: :raw)
-      columns.learn(type: type)
+    def learn_statistics(type: :raw, computed: false)
+      columns.learn(type: type, computed: computed)
       update(
         statistics: columns.reload.statistics,
       )
@@ -414,7 +414,7 @@ module EasyML
       df = drop_nulls(df)
       df = columns.transform(df, inference: inference)
       df = apply_features(df, features)
-      df = columns.transform(df, inference: inference, computed: true)
+      df = columns.reload.transform(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
@@ -679,10 +679,20 @@ module EasyML
 
       SPLIT_ORDER.each do |segment|
         df = raw.read(segment)
+        learn_computed_columns(df) if segment == :train
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
       @normalized = true
+    end
+
+    def learn_computed_columns(df)
+      df = df.clone
+      df = apply_features(df)
+      processed.save(:train, df)
+      learn(delete: false)
+      learn_statistics(type: :processed, computed: true)
+      processed.cleanup
     end
 
     def drop_nulls(df)

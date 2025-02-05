@@ -39,10 +39,21 @@ module EasyML
       df
     end
 
-    def learn(type: :raw)
-      cols_to_learn = column_list.reload.needs_learn.select(&:persisted?)
+    def learn(type: :raw, computed: false)
+      cols_to_learn = column_list.reload.needs_learn
+      cols_to_learn = cols_to_learn.computed if computed
+      cols_to_learn = cols_to_learn.select(&:persisted?)
       cols_to_learn.each { |col| col.learn(type: type) }
-      EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[statistics learned_at sample_values last_datasource_sha is_learning] })
+      EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
+                                             statistics
+                                             learned_at
+                                             sample_values
+                                             last_datasource_sha
+                                             is_learning
+                                             datatype
+                                             polars_datatype
+                                           ] })
+      reload
     end
 
     def statistics

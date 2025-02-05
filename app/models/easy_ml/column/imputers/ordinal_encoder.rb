@@ -7,12 +7,17 @@ module EasyML
         def transform(df)
           return df unless label_encoder.present?
 
-          df = df.with_column(
-            Polars.when(Polars.col(column.name).is_in(allowed_categories))
-              .then(Polars.col(column.name))
-              .otherwise(Polars.lit("other"))
-              .alias(column.name)
-          )
+          case column.datatype
+          when :categorical
+            df = df.with_column(
+              Polars.when(Polars.col(column.name).is_in(allowed_categories))
+                .then(Polars.col(column.name))
+                .otherwise(Polars.lit("other"))
+                .alias(column.name)
+            )
+          when :boolean
+            # no-op
+          end
 
           df = df.with_column(
             df[column.name].map { |v| label_encoder[v.to_s] || other_value }.alias(column.name)
@@ -41,7 +46,11 @@ module EasyML
         end
 
         def label_encoder
-          @label_encoder ||= statistics(:label_encoder).stringify_keys
+          begin
+            @label_encoder ||= statistics(:label_encoder).stringify_keys
+          rescue => e
+            binding.pry
+          end
         end
 
         def label_decoder
@@ -53,7 +62,7 @@ module EasyML
         end
 
         def allowed_categories
-          column.allowed_categories.sort
+          column.allowed_categories
         end
       end
     end

@@ -201,7 +201,6 @@ module EasyML
 
     def refresh(async: false)
       return refresh_async if async
-      puts "Refresh"
 
       refreshing do
         prepare

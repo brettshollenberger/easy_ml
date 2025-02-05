@@ -57,30 +57,29 @@ module EasyML
           end
         end
 
-        def statistics(df)
+        def full_dataset_statistics(df)
           return {} if df.nil?
 
           {
             num_rows: df.size,
             null_count: df[column.name].null_count || 0,
+          }
+        end
+
+        def train_statistics(df)
+          return {} if df.nil?
+
+          {
             last_value: last_value(df),
             most_frequent_value: df[column.name].mode.sort.to_a&.first,
           }
         end
 
-        def full_dataset_columns
-          %i(num_rows null_count)
-        end
-
-        def train_columns
-          %i(last_value most_frequent_value)
-        end
-
         def learn_split(split)
           df = split.data(select: select)
           train_df = split.train(select: select)
-          full_dataset_stats = statistics(df).compact.slice(*full_dataset_columns)
-          train_stats = statistics(train_df).compact.slice(*train_columns)
+          full_dataset_stats = full_dataset_statistics(df)
+          train_stats = train_statistics(train_df)
           full_dataset_stats.merge!(train_stats)
         end
 

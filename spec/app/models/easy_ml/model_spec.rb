@@ -244,7 +244,7 @@ RSpec.describe EasyML::Models do
       )
     end
 
-    it "returns API documentation for non-computed columns" do
+    it "returns API documentation for non-computed columns", :focus do
       api_fields = model.api_fields
 
       expect(api_fields).to include(

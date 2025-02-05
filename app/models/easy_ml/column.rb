@@ -2,27 +2,29 @@
 #
 # Table name: easy_ml_columns
 #
-#  id                  :bigint           not null, primary key
-#  dataset_id          :bigint           not null
-#  name                :string           not null
-#  description         :string
-#  datatype            :string
-#  polars_datatype     :string
-#  is_target           :boolean          default(FALSE)
-#  hidden              :boolean          default(FALSE)
-#  drop_if_null        :boolean          default(FALSE)
-#  preprocessing_steps :json
-#  sample_values       :json
-#  statistics          :json
-#  created_at          :datetime         not null
-#  updated_at          :datetime         not null
-#  is_date_column      :boolean          default(FALSE)
-#  computed_by         :string
-#  is_computed         :boolean          default(FALSE)
-#  feature_id          :bigint
-#  learned_at          :datetime
-#  is_learning         :boolean          default(FALSE)
-#  last_datasource_sha :string
+#  id                       :bigint           not null, primary key
+#  dataset_id               :bigint           not null
+#  name                     :string           not null
+#  description              :string
+#  datatype                 :string
+#  polars_datatype          :string
+#  is_target                :boolean          default(FALSE)
+#  hidden                   :boolean          default(FALSE)
+#  drop_if_null             :boolean          default(FALSE)
+#  preprocessing_steps      :json
+#  sample_values            :json
+#  statistics               :json
+#  created_at               :datetime         not null
+#  updated_at               :datetime         not null
+#  is_date_column           :boolean          default(FALSE)
+#  computed_by              :string
+#  is_computed              :boolean          default(FALSE)
+#  feature_id               :bigint
+#  learned_at               :datetime
+#  is_learning              :boolean          default(FALSE)
+#  last_datasource_sha      :string
+#  last_feature_sha         :string
+#  configuration_changed_at :datetime
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -144,6 +146,12 @@ module EasyML
       )
     end
 
+    def set_configuration_changed_at
+      if preprocessing_steps_changed? || datatype_changed?
+        self.configuration_changed_at = Time.now
+      end
+    end
+
     def set_sample_values
       use_processed = !one_hot? && processed.data(limit: 1).present? && in_raw_dataset?
 
@@ -187,10 +195,12 @@ module EasyML
     end
 
     def raw_dtype
+      return @raw_dtype if @raw_dtype
+
       if in_raw_dataset?
-        raw&.data&.to_series&.dtype
+        @raw_dtype = raw&.data&.to_series&.dtype
       elsif already_computed?
-        processed&.data&.to_series&.dtype
+        @raw_dtype = processed&.data&.to_series&.dtype
       end
     end
 
@@ -235,13 +245,15 @@ module EasyML
     end
 
     def assumed_datatype
+      return @assumed_datatype if @assumed_datatype
+
       if in_raw_dataset?
         series = (raw.data || datasource_raw).to_series
-        EasyML::Data::PolarsColumn.determine_type(series)
+        @assumed_datatype = EasyML::Data::PolarsColumn.determine_type(series)
       elsif already_computed?
         return nil if processed.data.nil?
 
-        EasyML::Data::PolarsColumn.determine_type(processed.data.to_series)
+        @assumed_datatype = EasyML::Data::PolarsColumn.determine_type(processed.data.to_series)
       end
     end
 

@@ -2,13 +2,7 @@ module EasyML
   class Column
     module Learners
       class Numeric < Base
-        def train_columns
-          super.concat(
-            %i(mean median min max std last_value)
-          )
-        end
-
-        def statistics(df)
+        def train_statistics(df)
           return {} if df.nil?
 
           super(df).merge!({

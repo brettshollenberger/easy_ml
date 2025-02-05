@@ -2,13 +2,7 @@ module EasyML
   class Column
     module Learners
       class Datetime < Base
-        def full_dataset_columns
-          super.concat(
-            %i(unique_count)
-          )
-        end
-
-        def statistics(df)
+        def full_dataset_statistics(df)
           return {} if df.nil?
 
           super(df).merge!({

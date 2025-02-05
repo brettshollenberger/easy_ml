@@ -2,12 +2,6 @@ module EasyML
   class Column
     module Learners
       class Categorical < String
-        def train_columns
-          super.concat(
-            %i(allowed_categories label_encoder label_decoder counts)
-          )
-        end
-
         def learn(type)
           types(type).each_with_object({}) do |type, h|
             h[type] = case type
@@ -17,7 +11,7 @@ module EasyML
           end
         end
 
-        def statistics(df)
+        def train_statistics(df)
           return {} if df.nil?
 
           super(df).merge!({

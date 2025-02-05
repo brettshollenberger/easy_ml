@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_04_204657) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_05_225531) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -41,8 +41,10 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_04_204657) do
     t.boolean "is_learning", default: false
     t.string "last_datasource_sha"
     t.string "last_feature_sha"
+    t.datetime "configuration_changed_at", precision: nil
     t.index ["column_id"], name: "index_easy_ml_column_histories_on_column_id"
     t.index ["computed_by"], name: "index_easy_ml_column_histories_on_computed_by"
+    t.index ["configuration_changed_at"], name: "index_easy_ml_column_histories_on_configuration_changed_at"
     t.index ["dataset_id", "name"], name: "index_easy_ml_column_histories_on_dataset_id_and_name"
     t.index ["datatype"], name: "index_easy_ml_column_histories_on_datatype"
     t.index ["drop_if_null"], name: "index_easy_ml_column_histories_on_drop_if_null"
@@ -83,7 +85,9 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_04_204657) do
     t.boolean "is_learning", default: false
     t.string "last_datasource_sha"
     t.string "last_feature_sha"
+    t.datetime "configuration_changed_at", precision: nil
     t.index ["computed_by"], name: "index_easy_ml_columns_on_computed_by"
+    t.index ["configuration_changed_at"], name: "index_easy_ml_columns_on_configuration_changed_at"
     t.index ["dataset_id", "name"], name: "index_easy_ml_columns_on_dataset_id_and_name", unique: true
     t.index ["datatype"], name: "index_easy_ml_columns_on_datatype"
     t.index ["drop_if_null"], name: "index_easy_ml_columns_on_drop_if_null"

@@ -244,7 +244,7 @@ RSpec.describe EasyML::Models do
       )
     end
 
-    it "returns API documentation for non-computed columns", :focus do
+    it "returns API documentation for non-computed columns" do
       api_fields = model.api_fields
 
       expect(api_fields).to include(
@@ -253,10 +253,9 @@ RSpec.describe EasyML::Models do
       )
 
       input_fields = api_fields.dig(:data, :input)
-
       # Should include raw, unprocessed columns
       expect(input_fields["PassengerId"]).to match(hash_including({
-        datatype: "integer",
+        datatype: :integer,
         required: false,
       }))
 

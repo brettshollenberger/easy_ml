@@ -130,6 +130,10 @@ module EasyML
 
     delegate :raw, :processed, :data, :train, :test, :valid, :clipped, to: :data_selector
 
+    def empty?
+      data.blank?
+    end
+
     def learn(type: :all)
       return if (!in_raw_dataset? && type != :processed)
 
@@ -191,7 +195,7 @@ module EasyML
     end
 
     def datatype
-      read_attribute(:datatype) || assumed_datatype
+      read_attribute(:datatype) || write_attribute(:datatype, assumed_datatype)
     end
 
     def raw_dtype
@@ -362,7 +366,7 @@ module EasyML
 
       # Can we LEARN dtype during LEARN phase... for computed columns to deal with this ish man
       sorted = (stats.dig(:allowed_categories) || []).sort_by(&method(:sort_by))
-      sorted.concat(["other"]) if categorical?
+      sorted = sorted.concat(["other"]) if categorical?
       sorted
     end
 

@@ -32,7 +32,7 @@ RSpec.describe EasyML::Column do
     it "returns correct datatype for features" do
       feature
       dataset.refresh
-      expect(dataset.columns.find_by(name: "FamilySize").datatype).to eq(:integer)
+      expect(dataset.columns.find_by(name: "FamilySize").datatype.to_sym).to eq(:integer)
     end
   end
 

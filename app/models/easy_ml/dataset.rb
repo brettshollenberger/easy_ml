@@ -687,6 +687,8 @@ module EasyML
     end
 
     def learn_computed_columns(df)
+      return unless features.ready_to_apply.any?
+
       df = df.clone
       df = apply_features(df)
       processed.save(:train, df)

@@ -50,7 +50,8 @@ module EasyML
 
       private
 
-      def select(segment, **kwargs)
+      def select(segment, **orig_kwargs)
+        kwargs = orig_kwargs.clone
         return nil if dataset.nil?
 
         kwargs[:all_columns] = true
@@ -71,10 +72,12 @@ module EasyML
         if @selected.present?
           available_columns = dataset.send(@selected).send(segment, limit: 1, all_columns: true)&.columns || []
           kwargs[:select] = available_columns & kwargs[:select]
+          return Polars::DataFrame.new if kwargs[:select].empty?
           result = dataset.send(@selected).send(segment, **kwargs)
         else
           available_columns = dataset.send(segment, limit: 1, all_columns: true)&.columns || []
           kwargs[:select] = available_columns & kwargs[:select]
+          return Polars::DataFrame.new if kwargs[:select].empty?
           result = dataset.send(segment, **kwargs)
         end
 

@@ -33,7 +33,7 @@ module EasyML
           count_column = column_names[1]
 
           as_hash = value_counts.select([value_column, count_column]).rows.to_a.to_h.transform_keys(&column.method(:cast))
-          label_encoder = as_hash.keys.sort_by(&column.method(:sort_by)).each.with_index.reduce({}) do |h, (k, i)|
+          label_encoder = as_hash.keys.compact.sort_by(&column.method(:sort_by)).each.with_index.reduce({}) do |h, (k, i)|
             h.tap do
               h[k] = i
             end

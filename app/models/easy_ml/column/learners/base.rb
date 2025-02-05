@@ -12,12 +12,12 @@ module EasyML
 
         def self.adapter(column)
           begin
-            dtype = EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
+            dtype = column.datatype || EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
           rescue => e
             raise "Unable to find column #{column.name}. If this column is computed by a feature, you forgot to declare computes_columns"
           end
 
-          case dtype
+          case dtype.to_sym
           when :float, :integer
             EasyML::Column::Learners::Numeric
           when :string, :text

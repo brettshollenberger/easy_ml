@@ -20,7 +20,7 @@ module EasyML
           end
 
           df = df.with_column(
-            df[column.name].map { |v| label_encoder[v.to_s] || other_value }.alias(column.name)
+            df[column.name].map { |v| label_encoder[column.cast(v)] || other_value }.alias(column.name)
           )
 
           df
@@ -28,11 +28,11 @@ module EasyML
 
         def decode_labels(df)
           if df.is_a?(Array)
-            return df.map { |v| label_decoder[v.to_s] || "other" }
+            return df.map { |v| label_decoder[v.to_i] }
           end
 
           df = df.with_column(
-            df[column.name].map { |v| label_decoder[v.to_s] || "other" }.alias(column.name)
+            df[column.name].map { |v| label_decoder[v.to_i] }.alias(column.name)
           )
           df
         end
@@ -45,16 +45,20 @@ module EasyML
           label_encoder.values
         end
 
+        def cast_encoder(encoder)
+          encoder.transform_keys { |k| column.cast(k) }
+        end
+
+        def cast_decoder(decoder)
+          decoder.transform_keys { |k| k.to_i }
+        end
+
         def label_encoder
-          begin
-            @label_encoder ||= statistics(:label_encoder).stringify_keys
-          rescue => e
-            binding.pry
-          end
+          @label_encoder ||= cast_encoder(statistics(:label_encoder))
         end
 
         def label_decoder
-          @label_decoder ||= statistics(:label_decoder).stringify_keys
+          @label_decoder ||= cast_decoder(statistics(:label_decoder))
         end
 
         def other_value

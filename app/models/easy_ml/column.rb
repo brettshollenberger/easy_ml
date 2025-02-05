@@ -301,7 +301,7 @@ module EasyML
         next config unless config[:params]&.key?(:constant)
 
         config.deep_dup.tap do |c|
-          c[:params][:constant] = convert_to_type(c[:params][:constant])
+          c[:params][:constant] = cast(c[:params][:constant])
         end
       end
 
@@ -391,6 +391,28 @@ module EasyML
         required: required?,
         allowed_values: allowed_categories.empty? ? nil : allowed_categories,
       }.compact
+    end
+
+    def cast(value)
+      return value if value.nil?
+
+      case datatype&.to_sym
+      when :float
+        Float(value)
+      when :integer
+        Integer(value)
+      when :boolean
+        ActiveModel::Type::Boolean.new.cast(value)
+      when :datetime
+        value.is_a?(String) ? Time.parse(value) : value
+      when :categorical
+        value
+      else
+        value.to_s
+      end
+    rescue ArgumentError, TypeError
+      # If conversion fails, return original value
+      value
     end
 
     private
@@ -491,30 +513,6 @@ module EasyML
       errors.add(:datatype, "must be one of: #{EasyML::Data::PolarsColumn::TYPE_MAP.keys.join(", ")}")
       throw :abort
     end
-
-    def convert_to_type(value)
-      return value if value.nil?
-
-      case datatype&.to_sym
-      when :float
-        Float(value)
-      when :integer
-        Integer(value)
-      when :boolean
-        ActiveModel::Type::Boolean.new.cast(value)
-      when :datetime
-        value.is_a?(String) ? Time.parse(value) : value
-      when :categorical
-        value
-      else
-        value.to_s
-      end
-    rescue ArgumentError, TypeError
-      # If conversion fails, return original value
-      value
-    end
-
-    alias_method :cast, :convert_to_type
 
     NUMERIC_METHODS = %i[mean median].freeze
 

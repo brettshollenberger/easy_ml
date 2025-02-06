@@ -4,7 +4,7 @@
 
 ~~You can't do machine learning in Ruby.~~
 
-Deploy models in minutes.
+Deploy models in minutes, not months.
 
 ## What is EasyML?
 

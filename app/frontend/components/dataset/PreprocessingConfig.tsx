@@ -728,25 +728,30 @@ export function PreprocessingConfig({
             {column.lineage.map((step, index) => (
               <div key={index} className="flex items-start gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  step.includes('Raw dataset')
-                    ? 'bg-gray-100'
-                    : step.includes('Computed by')
+                  step.key === 'raw_dataset' 
+                    ? 'bg-gray-100' 
+                    : step.key === 'computed_by_feature'
                     ? 'bg-purple-100'
                     : 'bg-blue-100'
                 }`}>
-                  {step.includes('Raw dataset') ? (
+                  {step.key === 'raw_dataset' ? (
                     <Database className="w-4 h-4 text-gray-600" />
-                  ) : step.includes('Computed by') ? (
+                  ) : step.key === 'computed_by_feature' ? (
                     <Calculator className="w-4 h-4 text-purple-600" />
                   ) : (
-                    <Wrench className="w-4 h-4 text-blue-600" />
+                    <Settings2 className="w-4 h-4 text-blue-600" />
                   )}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-gray-900">
-                      {step}
+                      {step.description}
                     </p>
+                    {step.timestamp && (
+                      <span className="text-xs text-gray-500">
+                        {new Date(step.timestamp).toLocaleString()}
+                      </span>
+                    )}
                   </div>
                   {index < column.lineage.length - 1 && (
                     <div className="ml-4 mt-2 mb-2 w-0.5 h-4 bg-gray-200" />

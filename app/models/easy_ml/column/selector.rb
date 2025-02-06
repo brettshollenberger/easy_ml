@@ -45,7 +45,11 @@ module EasyML
       end
 
       def data(**kwargs)
-        select(:data, **kwargs)
+        if column.is_computed?
+          Selector.new(column, :processed).send(:select, :data, **kwargs)
+        else
+          select(:data, **kwargs)
+        end
       end
 
       private

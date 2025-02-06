@@ -115,7 +115,7 @@ module EasyML
       end
       EasyML::Column.import(cols_to_insert)
       column_list.reload.where(name: new_columns).each(&:set_feature_lineage)
-      column_list
+      column_list.reload
     end
 
     def delete_missing(col_names)

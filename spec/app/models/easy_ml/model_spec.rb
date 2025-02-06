@@ -255,7 +255,7 @@ RSpec.describe EasyML::Models do
       input_fields = api_fields.dig(:data, :input)
       # Should include raw, unprocessed columns
       expect(input_fields.dig("PassengerId", :datatype).to_sym).to eq :integer
-      expect(input_fields.dig("PassengerId", :required)).to eq false
+      expect(input_fields.dig("PassengerId", :required)).to eq true
 
       # Should not include computed columns
       expect(input_fields.keys).not_to include("FamilySize")

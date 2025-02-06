@@ -281,7 +281,7 @@ module EasyML
           check: -> { columns_need_refresh? },
         },
         features_need_fit: {
-          name: "Features need fit",
+          name: "Features need refresh",
           check: -> { features_need_fit? },
         },
         datasource_needs_refresh: {

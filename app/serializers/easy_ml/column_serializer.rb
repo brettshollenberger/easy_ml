@@ -19,6 +19,11 @@
 #
 module EasyML
   class ColumnSerializer
+    class SmallSerializer
+      include JSONAPI::Serializer
+      attributes :id, :name
+    end
+
     include JSONAPI::Serializer
 
     attributes :id, :name, :description, :dataset_id, :datatype, :polars_datatype, :preprocessing_steps,

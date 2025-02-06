@@ -24,6 +24,19 @@ require_relative "./column_serializer"
 #
 module EasyML
   class DatasetSerializer
+    class SmallSerializer
+      include JSONAPI::Serializer
+
+      attributes :id, :name, :description, :target, :num_rows, :status,
+                 :datasource_id, :preprocessing_steps, :workflow_status, :statistics
+
+      attribute :columns do |dataset|
+        dataset.columns.order(:id).map do |column|
+          ColumnSerializer::SmallSerializer.new(column).serializable_hash.dig(:data, :attributes)
+        end
+      end
+    end
+
     include JSONAPI::Serializer
 
     attributes :id, :name, :description, :target, :num_rows, :status,

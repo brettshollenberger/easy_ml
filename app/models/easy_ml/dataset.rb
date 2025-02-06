@@ -532,11 +532,11 @@ module EasyML
       if col.nil?
         col = target
       end
-      columns.find_by(name: col).decode_labels(ys)
+      preloaded_columns.find_by(name: col).decode_labels(ys)
     end
 
     def preprocessing_steps
-      return {} if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
+      return {} if preloaded_columns.nil? || (preloaded_columns.respond_to?(:empty?) && preloaded_columns.empty?)
       return @preprocessing_steps if @preprocessing_steps.present?
 
       training = standardize_preprocessing_steps(:training)
@@ -553,7 +553,7 @@ module EasyML
     end
 
     def date_column
-      @date_column ||= columns.date_column.first
+      @date_column ||= preloaded_columns.find(&:is_date_column?)
     end
 
     def drop_cols

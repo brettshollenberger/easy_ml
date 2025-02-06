@@ -23,10 +23,10 @@
 module EasyML
   class DatasetsController < ApplicationController
     def index
-      datasets = Dataset.all.order(id: :desc).includes(:datasource, :features, :columns)
+      datasets = Dataset.all.order(id: :desc)
 
       render inertia: "pages/DatasetsPage", props: {
-        datasets: datasets.map { |dataset| dataset_to_json(dataset) },
+        datasets: datasets.map { |dataset| dataset_to_json_small(dataset) },
         constants: Dataset.constants,
       }
     end

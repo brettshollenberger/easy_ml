@@ -20,7 +20,6 @@ module EasyML
           end
         end
 
-        cattr_accessor :supported_params, :supported_methods
         attr_accessor :column, :preprocessing_step
 
         def initialize(column, preprocessing_step)

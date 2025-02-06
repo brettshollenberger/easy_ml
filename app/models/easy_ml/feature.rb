@@ -55,6 +55,7 @@ module EasyML
     end
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
+    has_many :columns, class_name: "EasyML::Column", dependent: :destroy
 
     validates :feature_class, presence: true
     validates :feature_position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
@@ -224,8 +225,11 @@ module EasyML
     def fit(features: [self], async: false)
       ordered_features = features.sort_by(&:feature_position)
       jobs = ordered_features.map(&:build_batches)
+      job_count = jobs.dup.flatten.size
 
-      if async
+      # This is very important! For whatever reason, Resque BatchJob does not properly
+      # handle batch finished callbacks for batch size = 1
+      if async && job_count > 1
         EasyML::ComputeFeatureJob.enqueue_ordered_batches(jobs)
       else
         jobs.flatten.each do |job|

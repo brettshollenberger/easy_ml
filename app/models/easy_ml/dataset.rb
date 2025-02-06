@@ -746,7 +746,7 @@ module EasyML
       needs_refresh = kwargs.key?(:refresh) ? kwargs[:refresh] : needs_refresh?
       kwargs.delete(:refresh)
 
-      if needs_refresh
+      if !needs_refresh
         processed.load_data(segment, **kwargs, &block)
       else
         raw.load_data(segment, **kwargs, &block)

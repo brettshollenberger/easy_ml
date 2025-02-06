@@ -355,7 +355,7 @@ module EasyML
     end
 
     def statistics
-      read_attribute(:statistics).with_indifferent_access
+      (read_attribute(:statistics) || {}).with_indifferent_access
     end
 
     def process_data

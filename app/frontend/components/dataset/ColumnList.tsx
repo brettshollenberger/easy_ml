@@ -1,7 +1,8 @@
 import React from 'react';
-import { Settings2, AlertCircle, Target, EyeOff, Eye } from 'lucide-react';
+import { Settings2, AlertCircle, Target, EyeOff, Eye, Calculator } from 'lucide-react';
 import type { Column } from '../../types';
 import { usePage } from "@inertiajs/react";
+import { Badge } from '@/components/ui/badge';
 
 interface ColumnListProps {
   columns: Column[];
@@ -44,6 +45,17 @@ export function ColumnList({
               <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
                 {column.datatype}
               </span>
+              {column.required && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  required
+                </Badge>
+              )}
+              {column.is_computed && (
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                  <Calculator className="w-3 h-3 mr-1" />
+                  computed
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {!column.is_target && (

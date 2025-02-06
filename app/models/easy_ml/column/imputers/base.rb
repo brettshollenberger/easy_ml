@@ -16,6 +16,10 @@ module EasyML
               method.to_sym == m.to_sym
             end
           end
+
+          def description
+            "Unknown preprocessing method"
+          end
         end
 
         attr_accessor :column, :preprocessing_step
@@ -56,6 +60,10 @@ module EasyML
 
         def transform(df)
           raise "Method not implemented"
+        end
+
+        def description
+          self.class.description
         end
       end
     end

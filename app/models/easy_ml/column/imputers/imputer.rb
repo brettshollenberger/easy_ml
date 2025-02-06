@@ -43,6 +43,10 @@ module EasyML
           end
         end
 
+        def description
+          adapters.map(&:description).compact.join(", ")
+        end
+
         def anything?
           adapters.any?
         end
@@ -95,7 +99,3 @@ module EasyML
     end
   end
 end
-
-require_relative "clip"
-require_relative "mean"
-require_relative "median"

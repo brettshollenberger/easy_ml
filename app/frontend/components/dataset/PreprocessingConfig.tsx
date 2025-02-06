@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, Wrench, ArrowRight, Pencil, Trash2, Database } from 'lucide-react';
+import { Settings2, Wrench, ArrowRight, Pencil, Trash2, Database, Calculator, GitBranch } from 'lucide-react';
 import type { Dataset, Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
 import { Badge } from "@/components/ui/badge";
 
@@ -332,26 +332,39 @@ export function PreprocessingConfig({
             </div>
           </div>
           <div className="flex items-center gap-4 flex-shrink-0">
-            {column.is_target ? (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
-                Target Column
-              </span>
-            ) : (
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={column.drop_if_null}
-                    onChange={onToggleDropIfNull}
-                    className="rounded border-gray-300 text-red-600 focus:ring-red-500"
-                  />
-                  <span className="flex items-center gap-1 text-gray-700">
-                    <Trash2 className="w-4 h-4 text-gray-400" />
-                    Drop if null
-                  </span>
-                </label>
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {column.required && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  Required
+                </Badge>
+              )}
+              {column.is_computed && (
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800">
+                  <Calculator className="w-3 h-3 mr-1" />
+                  Computed
+                </Badge>
+              )}
+              {column.is_target ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                  Target Column
+                </span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={column.drop_if_null}
+                      onChange={onToggleDropIfNull}
+                      className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    />
+                    <span className="flex items-center gap-1 text-gray-700">
+                      <Trash2 className="w-4 h-4 text-gray-400" />
+                      Drop if null
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -704,6 +717,46 @@ export function PreprocessingConfig({
         </div>
       </div>
 
+      {/* Column Lineage Section */}
+      {column.lineage && column.lineage.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+            <GitBranch className="w-5 h-5 text-gray-500" />
+            Column Lineage
+          </h3>
+          <div className="space-y-4">
+            {column.lineage.map((step, index) => (
+              <div key={index} className="flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  step.includes('Raw dataset')
+                    ? 'bg-gray-100'
+                    : step.includes('Computed by')
+                    ? 'bg-purple-100'
+                    : 'bg-blue-100'
+                }`}>
+                  {step.includes('Raw dataset') ? (
+                    <Database className="w-4 h-4 text-gray-600" />
+                  ) : step.includes('Computed by') ? (
+                    <Calculator className="w-4 h-4 text-purple-600" />
+                  ) : (
+                    <Wrench className="w-4 h-4 text-blue-600" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-900">
+                      {step}
+                    </p>
+                  </div>
+                  {index < column.lineage.length - 1 && (
+                    <div className="ml-4 mt-2 mb-2 w-0.5 h-4 bg-gray-200" />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

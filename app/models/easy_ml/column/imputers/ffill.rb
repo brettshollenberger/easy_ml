@@ -4,6 +4,10 @@ module EasyML
       class Ffill < Base
         method_applies :ffill
 
+        def self.description
+          "Forward fill imputation"
+        end
+
         def transform(df)
           return df unless last_value.present?
 

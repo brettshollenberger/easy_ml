@@ -385,9 +385,9 @@ module EasyML
 
     def lineage
       [
-        in_raw_dataset? ? "Raw dataset" : nil,
+        in_raw_dataset? ? "Present in raw dataset" : nil,
         computed_by ? "Computed by #{computed_by}" : nil,
-        preprocessing_steps.present? ? "Preprocessed using #{preprocessing_steps.keys.join(", ")}" : nil,
+        preprocessing_steps.present? ? "Preprocessed using #{imputers.preprocessing_descriptions.join(", ")}" : nil,
       ].compact
     end
 

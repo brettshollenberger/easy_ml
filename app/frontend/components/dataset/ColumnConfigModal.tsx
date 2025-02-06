@@ -58,7 +58,7 @@ export function ColumnConfigModal({
   const [selectedColumn, setSelectedColumn] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<{
-    view: "all" | "training" | "hidden" | "preprocessed" | "nulls";
+    view: "all" | "training" | "hidden" | "preprocessed" | "nulls" | "computed" | "required";
     types: string[];
   }>({
     view: "all",
@@ -103,6 +103,10 @@ export function ColumnConfigModal({
             return colHasPreprocessingSteps(column);
           case "nulls":
             return (column.statistics?.processed?.null_count || 0) > 0;
+          case "computed":
+            return column.is_computed;
+          case "required":
+            return column.required;
           default:
             return true;
         }
@@ -124,6 +128,8 @@ export function ColumnConfigModal({
       withNulls: dataset.columns.filter(
         (c) => (c.statistics?.processed?.null_count || 0) > 0
       ).length,
+      computed: dataset.columns.filter((c) => c.is_computed === true).length,
+      required: dataset.columns.filter((c) => c.required === true).length,
     }),
     [dataset.columns, filteredColumns]
   );

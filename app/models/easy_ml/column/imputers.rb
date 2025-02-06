@@ -102,6 +102,12 @@ module EasyML
         @inference ||= imputer_group(:inference)
       end
 
+      def preprocessing_descriptions
+        return [] if column.preprocessing_steps.blank?
+
+        [training.description].compact
+      end
+
       private
 
       def imputer_group(key)

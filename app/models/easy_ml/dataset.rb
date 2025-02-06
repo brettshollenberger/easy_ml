@@ -820,10 +820,6 @@ module EasyML
 
           result = feature.transform_batch(acc_df)
 
-          unless result.is_a?(Polars::DataFrame)
-            raise "Feature '#{feature.name}' must return a Polars::DataFrame, got #{result.class}"
-          end
-
           result
         end
       end

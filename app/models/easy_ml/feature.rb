@@ -316,6 +316,7 @@ module EasyML
 
       df_len_was = df.shape[0]
       result = adapter.transform(df, self)
+      raise "Feature '#{name}' must return a Polars::DataFrame, got #{result.class}" unless result.is_a?(Polars::DataFrame)
       df_len_now = result.shape[0]
       raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if df_len_now != df_len_was
       update!(applied_at: Time.current)

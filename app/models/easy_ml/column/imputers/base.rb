@@ -36,7 +36,7 @@ module EasyML
         end
 
         def param_applies?
-          params.keys.any? { |p| imputers_own_params.include?(p.to_sym) }
+          params.keys.any? { |p| imputers_own_params.include?(p.to_sym) && params[p] != false }
         end
 
         def imputers_own_methods

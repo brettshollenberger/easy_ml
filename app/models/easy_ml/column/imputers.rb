@@ -58,6 +58,14 @@ module EasyML
         }
       end
 
+      def self.params_by_class
+        @params_by_class ||= {}
+      end
+
+      def self.methods_by_class
+        @methods_by_class ||= {}
+      end
+
       def self.supported_params
         @supported_params ||= []
       end
@@ -100,6 +108,12 @@ module EasyML
 
       def inference
         @inference ||= imputer_group(:inference)
+      end
+
+      def preprocessing_descriptions
+        return [] if column.preprocessing_steps.blank?
+
+        [training.description].compact
       end
 
       private

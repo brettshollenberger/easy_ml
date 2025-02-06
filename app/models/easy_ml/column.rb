@@ -384,15 +384,11 @@ module EasyML
     end
 
     def lineage
-      [
-        in_raw_dataset? ? "Raw dataset" : nil,
-        computed_by ? "Computed by #{computed_by}" : nil,
-        preprocessing_steps.present? ? "Preprocessed using #{preprocessing_steps.keys.join(", ")}" : nil,
-      ].compact
+      @lineage ||= EasyML::Column::Lineage.new(self).lineage
     end
 
     def required?
-      is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden && !is_target
+      !is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden && !is_target
     end
 
     def sort_required

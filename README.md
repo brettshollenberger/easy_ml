@@ -4,7 +4,7 @@
 
 ~~You can't do machine learning in Ruby.~~
 
-Deploy models in minutes.
+Deploy models in minutes, not months.
 
 ## What is EasyML?
 
@@ -202,6 +202,61 @@ EasyML offers a variety of preprocessing features to prepare your data for machi
 
 The Feature Store is a powerful component of EasyML that helps you manage, compute, and serve features for your machine learning models. Here's how to use it effectively:
 
+1. Use `fit` for pre-computing features. This ensures that features are computed only once and stored for future use, including serving features in the online model.
+
+2. Use `transform` to read features from the feature store and decorate the input dataframe with new columns OR to compute features that can be computed using other columns.
+
+### A Simple Feature
+
+For example, a simple feature that computes `FamilySize` based on `NumSiblings` and `NumParents`, can use just the `transform` method:
+
+```ruby
+class FamilySizeFeature
+  include EasyML::Features
+
+  def transform(df, feature)
+    df.with_columns(
+      (Polars.col("NumSiblings") + Polars.col("NumParents")).alias("FamilySize")
+    )
+  end
+
+  feature name: "FamilySize",
+          description: "Size of the family"
+end
+```
+
+### Pre-Computing A Feature
+
+On the other hand, when you need to perform expensive pre-computation of a feature, you can use the `fit` method to store the result for future use, and `transform` to read it out:
+
+```ruby
+class ExpensiveFeature
+  include EasyML::Features
+
+  def fit(df, feature)
+    # expensive computation
+    # whatever gets returned from here will be stored in the feature store
+  end
+
+  def transform(df, feature)
+    # read from feature store using feature.query
+    feature_df = feature.query(filter: Polars.col("company_id").is_in(df["company_id"]))
+
+    # Return the original dataframe with the new columns
+    df.join(
+      feature_df,
+      on: "company_id",
+      how: "left"
+    )
+  end
+
+  feature name: "Expensive Feature",
+          description: "A feature that takes a long time to compute",
+          primary_key: :company_id,
+          batch_size: 1_000 # Will split data into jobs of 1000 company_ids
+end
+```
+
 ### Setting Up Features
 
 1. Create a `features` directory in your application:
@@ -225,28 +280,29 @@ class MyFeature
 end
 ```
 
-### Feature Types and Configurations
+#### Defining Primary Keys & Batching
 
-#### Simple Transform-Only Features
+When you have a primary key, it serves two functions:
 
-For features that can be computed using only the input columns:
+1. **Batch Key**: The primary key is used to divide data into batches for efficient processing. The batch size refers to the number of primary keys in each batch. So if you have a regular, monotonically increasing primary key, you can set the batch size to 1_000_000, for example.
+
+However, if your primary key refers to groups of records (e.g. group orders by customer*id), you should consider setting the batch size to a smaller value (e.g. 100 average orders per customer * batch*size of 1_000 customer_ids = 100 * 1_000 = 100_000). Base your batch sizes on real-world data to ensure efficient processing.
+
+2. **Data Partitioning**: If you have a typical, numeric primary key, it will also be used to partition data in the feature store. This can help with efficient look-up during feature serving / the online API.
 
 ```ruby
-class DidConvert
-  include EasyML::Features
-
-  def transform(df, feature)
-    df.with_column(
-      (Polars.col("rev") > 0).alias("did_convert")
-    )
-  end
-
-  feature name: "did_convert",
-          description: "Boolean indicating if conversion occurred"
+feature name: "Order size by customer",
+        description: "Average order size per customer",
+        primary_key: :customer_id,
+        batch_size: 1_000 # Assuming we have 100 average orders per customer, this creates batches of ~100k records
 end
 ```
 
-#### Batch Processing Features
+### Gotchas
+
+- Your `transform` methods must return the same number of rows as the input dataframe. Your `fit` method can pre-compute any number of rows, but the `transform` method is exclusively used for adding columns.
+
+#### Real World Example
 
 For features that require processing large datasets in chunks:
 
@@ -389,6 +445,28 @@ end
 1. Use transform-only features when all required columns will be available on the inference dataset
 1. Use `cache_for` to save processing time during development
 1. Only query necessary columns using the reader
+
+## Using the Rails Models
+
+A few helpful methods to help you understand the internal workings of the library:
+
+```ruby
+d = EasyML::Dataset.find_by(name: "My Dataset")
+d.raw.data # Returns the raw data as a Polars::DataFrame
+d.processed.data # Returns the processed data as a Polars::DataFrame
+d.processed.data(limit: 1, filter: Polars.col("Id").eq(1), select: ["column1", "column2"]) # You can limit, filter, and select directly on the processed data, which lazily queries the dataset
+d.columns # Returns the columns as an array of EasyML::Column
+d.refresh # Refreshes the dataset, if necessary
+d.refresh! # Forces a refresh of the dataset
+```
+
+```ruby
+column = d.columns.first
+column.raw.data # Returns the raw data as a Polars::DataFrame
+column.processed.data # Returns the processed data as a Polars::DataFrame
+column.processed.data.filter(Polars.col("Id").eq(1)) # You can run Polars expressions directly
+column.processed.data(select: ["otherColumn"])
+```
 
 ## Installation
 

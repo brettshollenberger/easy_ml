@@ -6,6 +6,10 @@ module EasyML
 
         param_applies :clip
 
+        def self.description
+          "Clip"
+        end
+
         def transform(df)
           df = df.with_column(
             Polars.col(column.name).clip(min, max).alias(column.name)

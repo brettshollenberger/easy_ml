@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { Filter, Database, Wrench, Eye, EyeOff, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Filter, Database, Wrench, Eye, EyeOff, AlertTriangle, ChevronLeft, ChevronRight, Calculator, Target } from 'lucide-react';
 import type { Column } from '../../types';
 
 const ITEMS_PER_PAGE = 5;
 interface ColumnFiltersProps {
   types: string[];
   activeFilters: {
-    view: 'all' | 'training' | 'hidden' | 'preprocessed' | 'nulls';
+    view: 'all' | 'training' | 'hidden' | 'preprocessed' | 'nulls' | 'computed' | 'required';
     types: string[];
   };
   onFilterChange: (filters: {
-    view: 'all' | 'training' | 'hidden' | 'preprocessed' | 'nulls';
+    view: 'all' | 'training' | 'hidden' | 'preprocessed' | 'nulls' | 'computed' | 'required';
     types: string[];
   }) => void;
   columnStats: {
@@ -20,6 +20,8 @@ interface ColumnFiltersProps {
     hidden: number;
     withPreprocessing: number;
     withNulls: number;
+    computed: number;
+    required: number;
   };
   colHasPreprocessingSteps: (col: Column) => boolean;
   columns: Column[];
@@ -43,6 +45,10 @@ export function ColumnFilters({
         return `${columnStats.withPreprocessing} columns`;
       case 'nulls':
         return `${columnStats.withNulls} columns`;
+      case 'computed':
+        return `${columnStats.computed} columns`;
+      case 'required':
+        return `${columnStats.required} columns`;
       default:
         return `${columnStats.total} columns`;
     }
@@ -156,6 +162,34 @@ export function ColumnFilters({
             Has Nulls
             <span className="text-xs text-gray-500 ml-1">
               ({getViewStats('nulls')})
+            </span>
+          </button>
+          <button
+            onClick={() => onFilterChange({ ...activeFilters, view: 'computed' })}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium ${
+              activeFilters.view === 'computed'
+                ? 'bg-purple-100 text-purple-900'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Calculator className="w-4 h-4" />
+            Computed
+            <span className="text-xs text-gray-500 ml-1">
+              ({getViewStats('computed')})
+            </span>
+          </button>
+          <button
+            onClick={() => onFilterChange({ ...activeFilters, view: 'required' })}
+            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium ${
+              activeFilters.view === 'required'
+                ? 'bg-blue-100 text-blue-900'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <Target className="w-4 h-4" />
+            Required
+            <span className="text-xs text-gray-500 ml-1">
+              ({getViewStats('required')})
             </span>
           </button>
         </div>

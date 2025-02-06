@@ -23,6 +23,10 @@ module EasyML
       SettingsSerializer.new(settings).serializable_hash.dig(:data, :attributes)
     end
 
+    def dataset_to_json_small(dataset)
+      DatasetSerializer::SmallSerializer.new(dataset).serializable_hash.dig(:data, :attributes)
+    end
+
     def dataset_to_json(dataset)
       DatasetSerializer.new(dataset).serializable_hash.dig(:data, :attributes)
     end

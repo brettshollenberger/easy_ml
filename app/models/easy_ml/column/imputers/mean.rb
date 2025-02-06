@@ -4,9 +4,14 @@ module EasyML
       class Mean < Base
         method_applies :mean
 
+        def self.description
+          "Mean imputation"
+        end
+
         def transform(df)
           return df unless mean.present?
 
+          mean = statistics(:mean)
           df = df.with_column(
             Polars.col(column.name).fill_null(mean).alias(column.name)
           )

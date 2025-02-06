@@ -24,6 +24,27 @@ require_relative "./column_serializer"
 #
 module EasyML
   class DatasetSerializer
+    class SmallSerializer
+      include JSONAPI::Serializer
+
+      attributes :id, :name, :description, :target, :num_rows, :status,
+                 :datasource_id, :preprocessing_steps, :workflow_status, :statistics
+
+      attribute :columns do |dataset|
+        dataset.columns.order(:id).map do |column|
+          ColumnSerializer::SmallSerializer.new(column).serializable_hash.dig(:data, :attributes)
+        end
+      end
+      attribute :stacktrace do |object|
+        if !object.failed? || object.events.empty?
+          nil
+        else
+          last_event = object.events.where(status: :failed).order(id: :desc).limit(1).last
+          last_event&.stacktrace
+        end
+      end
+    end
+
     include JSONAPI::Serializer
 
     attributes :id, :name, :description, :target, :num_rows, :status,
@@ -47,7 +68,7 @@ module EasyML
       if dataset.workflow_status.to_sym == :analyzing
         nil
       else
-        dataset.data(limit: 10, all_columns: true)&.to_hashes
+        dataset.data(limit: 10, all_columns: true, refresh: false)&.to_hashes || dataset.raw.data(limit: 10, all_columns: true).to_hashes
       end
     end
 
@@ -62,7 +83,7 @@ module EasyML
     end
 
     attribute :needs_refresh do |dataset|
-      dataset.needs_refresh?
+      dataset.needs_refresh?(exclude: [:datasource_needs_refresh])
     end
 
     attribute :stacktrace do |object|

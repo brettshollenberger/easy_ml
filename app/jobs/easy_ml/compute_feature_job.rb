@@ -13,7 +13,6 @@ module EasyML
 
         # Check if any feature has failed before proceeding
         if dataset.features.any? { |f| f.workflow_status == "failed" }
-          puts "Aborting feature computation due to previous feature failure"
           return
         end
 
@@ -39,7 +38,6 @@ module EasyML
     end
 
     def self.after_batch_hook(batch_id, *args)
-      puts "After batch!"
       batch_args = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys)
       feature_ids = batch_args.pluck(:feature_id).uniq
       parent_id = batch_args.pluck(:parent_batch_id).first

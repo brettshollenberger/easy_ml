@@ -4,6 +4,10 @@ module EasyML
       class OrdinalEncoder < Base
         param_applies :ordinal_encoding
 
+        def self.description
+          "Ordinal encoder"
+        end
+
         def transform(df)
           return df unless label_encoder.present?
 

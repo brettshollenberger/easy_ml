@@ -4,19 +4,6 @@ module EasyML
       class Imputer
         attr_accessor :dataset, :column, :preprocessing_step
 
-        ORDERED_ADAPTERS = [
-          Clip,
-          Mean,
-          Median,
-          Constant,
-          Ffill,
-          Categorical,
-          MostFrequent,
-          Today,
-          OneHotEncoder,
-          OrdinalEncoder,
-        ]
-
         def initialize(column, preprocessing_step)
           @column = column
           @dataset = column.dataset
@@ -28,8 +15,23 @@ module EasyML
           "#<#{self.class.name} adapters=#{adapters.map(&:inspect).join(", ")}>"
         end
 
+        def ordered_adapters
+          [
+            Clip,
+            Mean,
+            Median,
+            Constant,
+            Ffill,
+            Categorical,
+            MostFrequent,
+            Today,
+            OneHotEncoder,
+            OrdinalEncoder,
+          ]
+        end
+
         def adapters
-          @adapters ||= ORDERED_ADAPTERS.map { |klass| klass.new(column, preprocessing_step) }.select(&:applies?)
+          @adapters ||= ordered_adapters.map { |klass| klass.new(column, preprocessing_step) }.select(&:applies?)
         end
 
         def imputers
@@ -41,6 +43,10 @@ module EasyML
               preprocessing_step: column.preprocessing_steps[key],
             )
           end
+        end
+
+        def description
+          adapters.map(&:description).compact.join(", ")
         end
 
         def anything?
@@ -95,7 +101,3 @@ module EasyML
     end
   end
 end
-
-require_relative "clip"
-require_relative "mean"
-require_relative "median"

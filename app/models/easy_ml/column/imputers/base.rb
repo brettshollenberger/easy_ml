@@ -5,16 +5,18 @@ module EasyML
         class << self
           def param_applies(p)
             Imputers.supported_params << p
-            define_method(:applies?) do
-              params.symbolize_keys&.key?(p.to_sym) && params.symbolize_keys.dig(p.to_sym) != false
-            end
+            Imputers.params_by_class[self] ||= []
+            Imputers.params_by_class[self] << p.to_sym
           end
 
           def method_applies(m)
-            Imputers.supported_methods << m
-            define_method(:applies?) do
-              method.to_sym == m.to_sym
-            end
+            Imputers.supported_methods << m.to_sym
+            Imputers.methods_by_class[self] ||= []
+            Imputers.methods_by_class[self] << m.to_sym
+          end
+
+          def description
+            "Unknown preprocessing method"
           end
         end
 
@@ -23,6 +25,26 @@ module EasyML
         def initialize(column, preprocessing_step)
           @column = column
           @preprocessing_step = preprocessing_step.with_indifferent_access
+        end
+
+        def applies?
+          method_applies? || param_applies?
+        end
+
+        def method_applies?
+          imputers_own_methods.include?(method.to_sym)
+        end
+
+        def param_applies?
+          params.keys.any? { |p| imputers_own_params.include?(p.to_sym) && params[p] != false }
+        end
+
+        def imputers_own_methods
+          Imputers.methods_by_class[self.class] || []
+        end
+
+        def imputers_own_params
+          Imputers.params_by_class[self.class] || []
         end
 
         def params
@@ -56,6 +78,10 @@ module EasyML
 
         def transform(df)
           raise "Method not implemented"
+        end
+
+        def description
+          self.class.description
         end
       end
     end

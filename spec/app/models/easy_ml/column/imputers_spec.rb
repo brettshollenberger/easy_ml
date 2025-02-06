@@ -17,8 +17,6 @@ RSpec.describe EasyML::Column::Imputers do
     )
 
     column.reload
-    column.send(:imputers)
-
     dataset.refresh
 
     statistics_mean = dataset.statistics.dig("raw", "annual_revenue", "mean")

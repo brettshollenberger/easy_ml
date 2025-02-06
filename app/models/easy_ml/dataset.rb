@@ -165,7 +165,12 @@ module EasyML
       last_datasource_sha_changed?
     end
 
+    def prepare_features
+      features.update_all(workflow_status: "ready")
+    end
+
     def prepare!
+      prepare_features
       cleanup
       refresh_datasource!
       split_data
@@ -173,6 +178,7 @@ module EasyML
     end
 
     def prepare
+      prepare_features
       refresh_datasource
       split_data
       process_data
@@ -252,20 +258,53 @@ module EasyML
       features_need_fit.any?
     end
 
-    def refresh_reasons
+    # Some of these are expensive to calculate, so we only want to include
+    # them in the refresh reasons if they are actually needed.
+    #
+    # During dataset_serializer for instance, we don't want to check s3,
+    # we only do that during background jobs.
+    #
+    # So yes this is an annoying way to structure a method, but it's helpful for performance
+    #
+    def refresh_reasons(exclude: [])
       {
-        "Not split" => not_split?,
-        "Refreshed at is nil" => refreshed_at.nil?,
-        "Columns need refresh" => columns_need_refresh?,
-        "Features need refresh" => features_need_fit?,
-        "Datasource needs refresh" => datasource_needs_refresh?,
-        "Datasource sha changed" => refreshed_datasource?,
-        "Datasource was refreshed" => datasource_was_refreshed?,
-      }.select { |k, v| v }.map { |k, v| k }
+        not_split: {
+          name: "Not split",
+          check: -> { not_split? },
+        },
+        refreshed_at_is_nil: {
+          name: "Refreshed at is nil",
+          check: -> { refreshed_at.nil? },
+        },
+        columns_need_refresh: {
+          name: "Columns need refresh",
+          check: -> { columns_need_refresh? },
+        },
+        features_need_fit: {
+          name: "Features need refresh",
+          check: -> { features_need_fit? },
+        },
+        datasource_needs_refresh: {
+          name: "Datasource needs refresh",
+          check: -> { datasource_needs_refresh? },
+        },
+        refreshed_datasource: {
+          name: "Refreshed datasource",
+          check: -> { refreshed_datasource? },
+        },
+        datasource_was_refreshed: {
+          name: "Datasource was refreshed",
+          check: -> { datasource_was_refreshed? },
+        },
+      }.except(*exclude).select do |k, config|
+        config[:check].call
+      end.map do |k, config|
+        config[:name]
+      end
     end
 
-    def needs_refresh?
-      refresh_reasons.any?
+    def needs_refresh?(exclude: [])
+      refresh_reasons(exclude: exclude).any?
     end
 
     def processed?
@@ -355,7 +394,7 @@ module EasyML
     end
 
     def statistics
-      read_attribute(:statistics).with_indifferent_access
+      (read_attribute(:statistics) || {}).with_indifferent_access
     end
 
     def process_data
@@ -499,11 +538,11 @@ module EasyML
       if col.nil?
         col = target
       end
-      columns.find_by(name: col).decode_labels(ys)
+      preloaded_columns.find_by(name: col).decode_labels(ys)
     end
 
     def preprocessing_steps
-      return {} if columns.nil? || (columns.respond_to?(:empty?) && columns.empty?)
+      return {} if preloaded_columns.nil? || (preloaded_columns.respond_to?(:empty?) && preloaded_columns.empty?)
       return @preprocessing_steps if @preprocessing_steps.present?
 
       training = standardize_preprocessing_steps(:training)
@@ -520,7 +559,7 @@ module EasyML
     end
 
     def date_column
-      @date_column ||= columns.date_column.first
+      @date_column ||= preloaded_columns.find(&:is_date_column?)
     end
 
     def drop_cols
@@ -706,8 +745,12 @@ module EasyML
       df.drop_nulls(subset: drop)
     end
 
+    # Pass refresh: false for frontend views so we don't query S3 during web requests
     def load_data(segment, **kwargs, &block)
-      if !needs_refresh?
+      needs_refresh = kwargs.key?(:refresh) ? kwargs[:refresh] : needs_refresh?
+      kwargs.delete(:refresh)
+
+      if !needs_refresh
         processed.load_data(segment, **kwargs, &block)
       else
         raw.load_data(segment, **kwargs, &block)
@@ -776,10 +819,6 @@ module EasyML
           feature.instance_variable_set(:@current_sha, shas[feature.feature_class])
 
           result = feature.transform_batch(acc_df)
-
-          unless result.is_a?(Polars::DataFrame)
-            raise "Feature '#{feature.name}' must return a Polars::DataFrame, got #{result.class}"
-          end
 
           result
         end

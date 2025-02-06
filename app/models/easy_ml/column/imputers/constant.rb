@@ -5,6 +5,10 @@ module EasyML
         method_applies :constant
         param_applies :constant
 
+        def self.description
+          "Constant value imputation"
+        end
+
         def transform(df)
           return df unless constant.present?
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings2, AlertCircle, Target, EyeOff, Eye } from 'lucide-react';
+import { Settings2, AlertCircle, Target, EyeOff, Eye, Calculator, Star } from 'lucide-react';
 import type { Column } from '../../types';
 import { usePage } from "@inertiajs/react";
 
@@ -79,11 +79,23 @@ export function ColumnList({
               </p>
             )}
             <div className="flex flex-wrap gap-2">
+              {column.required && (
+                <div className="flex items-center gap-1 text-blue-600">
+                  <Star className="w-3 h-3" />
+                  <span className="text-xs">required</span>
+                </div>
+              )}
+              {column.is_computed && (
+                <div className="flex items-center gap-1 text-purple-600">
+                  <Calculator className="w-3 h-3" />
+                  <span className="text-xs">computed</span>
+                </div>
+              )}
               {column.preprocessing_steps && column.preprocessing_steps?.training &&
                column.preprocessing_steps?.training?.method !== 'none' && (
                 <div className="flex items-center gap-1 text-blue-600">
                   <AlertCircle className="w-3 h-3" />
-                  <span className="text-xs">Preprocessing configured</span>
+                  <span className="text-xs">preprocessing configured</span>
                 </div>
               )}
               {column.hidden && (

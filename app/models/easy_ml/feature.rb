@@ -55,6 +55,7 @@ module EasyML
     end
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
+    has_many :columns, class_name: "EasyML::Column", dependent: :destroy
 
     validates :feature_class, presence: true
     validates :feature_position, presence: true, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
@@ -224,8 +225,11 @@ module EasyML
     def fit(features: [self], async: false)
       ordered_features = features.sort_by(&:feature_position)
       jobs = ordered_features.map(&:build_batches)
+      job_count = jobs.dup.flatten.size
 
-      if async
+      # This is very important! For whatever reason, Resque BatchJob does not properly
+      # handle batch finished callbacks for batch size = 1
+      if async && job_count > 1
         EasyML::ComputeFeatureJob.enqueue_ordered_batches(jobs)
       else
         jobs.flatten.each do |job|
@@ -241,7 +245,8 @@ module EasyML
       if batch_args.key?(:batch_start)
         actually_fit_batch(batch_args)
       else
-        actually_fit_batch(get_batch_args(**batch_args))
+        batch_args = get_batch_args(**batch_args)
+        actually_fit_batch(batch_args)
       end
     end
 
@@ -289,12 +294,14 @@ module EasyML
         batch_args.symbolize_keys!
 
         if adapter.respond_to?(:batch)
-          batch_df = adapter.fit(dataset.raw, self, batch_args)
+          df = dataset.raw
         else
           df = build_batch(batch_args)
-          batch_df = adapter.fit(df, self, batch_args)
         end
       end
+      return if df.blank?
+
+      batch_df = adapter.fit(df, self, batch_args)
       if batch_df.present?
         store(batch_df)
       else
@@ -307,7 +314,11 @@ module EasyML
       return nil unless df.is_a?(Polars::DataFrame)
       return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
+      df_len_was = df.shape[0]
       result = adapter.transform(df, self)
+      raise "Feature '#{name}' must return a Polars::DataFrame, got #{result.class}" unless result.is_a?(Polars::DataFrame)
+      df_len_now = result.shape[0]
+      raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if df_len_now != df_len_was
       update!(applied_at: Time.current)
       result
     end
@@ -385,8 +396,8 @@ module EasyML
       feature_store.list_partitions
     end
 
-    def query(filter: nil)
-      feature_store.query(filter: filter)
+    def query(**kwargs)
+      feature_store.query(**kwargs)
     end
 
     def store(df)

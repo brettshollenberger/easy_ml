@@ -446,6 +446,28 @@ end
 1. Use `cache_for` to save processing time during development
 1. Only query necessary columns using the reader
 
+## Using the Rails Models
+
+A few helpful methods to help you understand the internal workings of the library:
+
+```ruby
+d = EasyML::Dataset.find_by(name: "My Dataset")
+d.raw.data # Returns the raw data as a Polars::DataFrame
+d.processed.data # Returns the processed data as a Polars::DataFrame
+d.processed.data(limit: 1, filter: Polars.col("Id").eq(1), select: ["column1", "column2"]) # You can limit, filter, and select directly on the processed data, which lazily queries the dataset
+d.columns # Returns the columns as an array of EasyML::Column
+d.refresh # Refreshes the dataset, if necessary
+d.refresh! # Forces a refresh of the dataset
+```
+
+```ruby
+column = d.columns.first
+column.raw.data # Returns the raw data as a Polars::DataFrame
+column.processed.data # Returns the processed data as a Polars::DataFrame
+column.processed.data.filter(Polars.col("Id").eq(1)) # You can run Polars expressions directly
+column.processed.data(select: ["otherColumn"])
+```
+
 ## Installation
 
 Install necessary Python dependencies

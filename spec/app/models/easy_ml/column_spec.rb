@@ -22,7 +22,7 @@ RSpec.describe EasyML::Column do
     let(:column) { dataset.columns.find_by(name: "Age") }
 
     it "returns correct datatype" do
-      expect(column.datatype).to eq(:float)
+      expect(column.datatype.to_sym).to eq(:float)
     end
 
     it "returns correct PolarsDatatype" do

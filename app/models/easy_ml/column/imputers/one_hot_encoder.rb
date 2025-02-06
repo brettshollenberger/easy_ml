@@ -4,6 +4,10 @@ module EasyML
       class OneHotEncoder < Base
         param_applies :one_hot
 
+        def self.description
+          "One-hot encoder"
+        end
+
         def transform(df)
           return df unless allowed_categories.present?
 

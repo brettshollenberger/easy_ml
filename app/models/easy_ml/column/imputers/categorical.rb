@@ -5,6 +5,10 @@ module EasyML
         method_applies :categorical
         param_applies :categorical_min
 
+        def self.description
+          "Categorical imputation"
+        end
+
         def transform(df)
           return df unless allowed_categories.present?
 

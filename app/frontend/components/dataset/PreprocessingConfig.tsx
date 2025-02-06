@@ -273,9 +273,9 @@ export function PreprocessingConfig({
       } else {
         content = 'Set date column & apply preprocessing to see last value';
       }
-    } else if (strategy.method === 'median' && column.statistics?.raw?.median) {
+    } else if (strategy.method === 'median' && column.statistics?.raw?.median !== undefined && column.statistics?.raw?.median !== null) {
       content = `Median: ${column.statistics.raw.median}`
-    } else if (strategy.method === 'mean' && column.statistics?.raw?.mean) {
+    } else if (strategy.method === 'mean' && column.statistics?.raw?.mean !== undefined && column.statistics?.raw?.mean !== null) {
       content = `Mean: ${column.statistics.raw.mean}`
     } else {
       return null;

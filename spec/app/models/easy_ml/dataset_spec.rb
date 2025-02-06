@@ -140,6 +140,201 @@ RSpec.describe EasyML::Datasource do
   describe "needs_refresh?" do
     let(:datasource) { single_file_datasource }
 
+    context "Tracking last datasource sha" do
+      it "tracks last datasource sha" do
+        dataset.refresh
+        expect(dataset.datasource.sha).to be_present
+        expect(dataset.last_datasource_sha).to eq(dataset.datasource.sha)
+      end
+    end
+
+    context "does column need learn?" do
+      it "when column has never previously been learned" do
+        dataset.prepare
+        dataset.learn
+        expect(EasyML::Column.needs_learn.count).to eq(EasyML::Column.count)
+        expect(EasyML::Column.needs_learn.count).to be > 0
+      end
+
+      it "when column, feature, and sha have not changed" do
+        dataset.refresh
+        expect(EasyML::Column.datasource_changed).to be_empty
+        expect(EasyML::Column.feature_applied).to be_empty
+        expect(EasyML::Column.feature_changed).to be_empty
+        expect(EasyML::Column.column_changed).to be_empty
+        expect(EasyML::Column.needs_learn).to be_empty
+      end
+
+      it "when column changed, statistics are re-learned" do
+        dataset.refresh
+        column = dataset.columns.first
+        column.update(is_target: true)
+
+        expect(EasyML::Column.datasource_changed).to be_empty
+        expect(EasyML::Column.feature_applied).to be_empty
+        expect(EasyML::Column.feature_changed).to be_empty
+        expect(EasyML::Column.column_changed.map(&:id)).to include(column.id)
+        expect(EasyML::Column.needs_learn.map(&:id)).to include(column.id)
+
+        dataset.columns.each do |col|
+          expect(col.statistics).to have_key(:raw), "#{col.name} does not have raw statistics"
+          expect(col.statistics).to have_key(:processed), "#{col.name} does not have processed statistics"
+          expect(col.statistics).to have_key(:clipped), "#{col.name} does not have clipped statistics"
+        end
+      end
+
+      def change_feature_definition
+        load File.join(Rails.root, "fixtures/did_convert_v2.rb")
+      end
+
+      it "when feature added/changed, the new feature is learned" do
+        original_time = UTC.now
+        Timecop.freeze(original_time)
+        dataset.refresh
+
+        later_time = original_time + 3.days
+        Timecop.freeze(later_time)
+        dataset.features.create(
+          feature_class: DidConvert,
+        )
+        dataset.refresh
+
+        computed_features, non_computed_features = dataset.columns.partition(&:is_computed?)
+        computed_features_learned_at = computed_features.map(&:learned_at).uniq.first
+        non_computed_features_learned_at = non_computed_features.map(&:learned_at).uniq.first
+
+        expect(non_computed_features_learned_at).to eq(original_time)
+        expect(computed_features_learned_at).to eq(later_time)
+
+        expect(EasyML::Column.datasource_changed).to be_empty
+        expect(EasyML::Column.feature_applied).to be_empty
+        expect(EasyML::Column.feature_changed).to be_empty
+        expect(EasyML::Column.column_changed.map(&:id)).to be_empty
+        expect(EasyML::Column.needs_learn.map(&:id)).to be_empty
+
+        even_later_time = later_time + 3.days
+        Timecop.freeze(even_later_time)
+
+        expect(EasyML::Column.needs_learn).to be_empty
+        change_feature_definition
+
+        expect(EasyML::Column.needs_learn.map(&:id)).to include(computed_features.first.id)
+        expect(EasyML::Column.needs_learn.count).to eq 1
+
+        dataset.refresh
+        expect(EasyML::Column.needs_learn).to be_empty
+
+        computed_features, non_computed_features = dataset.columns.partition(&:is_computed?)
+        computed_features_learned_at = computed_features.map(&:learned_at).uniq.first
+        non_computed_features_learned_at = non_computed_features.map(&:learned_at).uniq.first
+
+        expect(non_computed_features_learned_at).to eq(original_time)
+        expect(computed_features_learned_at).to eq(even_later_time)
+
+        Timecop.return
+      end
+
+      context "When underlying datasource changes, statistics are re-learned" do
+        let(:day_1_dir) do
+          titanic_core_dir
+        end
+
+        let(:day_2_dir) do
+          titanic_extended_dir
+        end
+
+        let(:datasource) do
+          EasyML::Datasource.create(
+            name: "Titanic Core",
+            datasource_type: "s3",
+            s3_bucket: "titanic",
+          )
+        end
+
+        let(:target) { "Survived" }
+        let(:dataset_config) do
+          {
+            name: "Titanic Dataset",
+            datasource: datasource,
+            splitter_attributes: {
+              splitter_type: "random",
+            },
+          }
+        end
+        let(:dataset) do
+          titanic_core_dataset
+        end
+
+        let(:hidden_cols) do
+          %w[Name Ticket Cabin]
+        end
+
+        let(:dataset) do
+          mock_s3_download(day_1_dir)
+          mock_s3_upload
+
+          EasyML::Features::Registry.register(FamilySizeFeature)
+          EasyML::Dataset.create(**dataset_config).tap do |dataset|
+            family_size_feature = EasyML::Feature.create!(
+              dataset: dataset,
+              feature_class: FamilySizeFeature.to_s,
+              name: "Family Size",
+            )
+            dataset.refresh
+            dataset.columns.find_by(name: target).update(is_target: true)
+            dataset.columns.where(name: hidden_cols).update_all(hidden: true)
+            dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
+                                                          training: {
+                                                            method: :categorical,
+                                                            params: {
+                                                              one_hot: true,
+                                                            },
+                                                          },
+                                                        })
+            dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
+                                                               training: {
+                                                                 method: :categorical,
+                                                                 params: {
+                                                                   one_hot: true,
+                                                                 },
+                                                               },
+                                                             })
+            dataset.columns.find_by(name: "Age").update(preprocessing_steps: {
+                                                          training: {
+                                                            method: :median,
+                                                          },
+                                                        })
+            dataset.refresh
+          end
+        end
+
+        it "needs refresh when underlying datasource changes" do
+          original_time = UTC.now
+          Timecop.freeze(original_time)
+          dataset
+
+          expect(dataset.columns.needs_learn).to be_empty
+
+          later_time = original_time + 3.days
+          Timecop.freeze(later_time)
+
+          # By default, we read from the directory with the name provided,
+          # so this will switch us to using a bigger dataset
+          datasource.name = "Titanic Extended"
+          datasource.save
+          mock_s3_download(day_2_dir) # Download a DIFFERENT version of the dataset
+          datasource.refresh!
+
+          expect(dataset.columns.needs_learn.count).to eq dataset.columns.count
+          dataset.refresh
+
+          expect(dataset.columns.needs_learn).to be_empty
+
+          Timecop.return
+        end
+      end
+    end
+
     context "when dataset is not split" do
       it "needs refresh until split" do
         mock_s3_download(single_file_dir)
@@ -308,7 +503,7 @@ RSpec.describe EasyML::Datasource do
       include EasyML::Features
 
       def computes_columns
-        ["business_inception"]
+        ["days_in_business"]
       end
 
       def transform(df, feature)
@@ -450,7 +645,7 @@ RSpec.describe EasyML::Datasource do
             dataset.columns.find_by(name: "rev").update!(is_target: true)
           end
 
-          expect(dataset).to be_needs_refresh
+          expect(dataset.reload).to be_needs_refresh
         end
 
         it "returns true when features have been updated" do

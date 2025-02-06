@@ -31,6 +31,18 @@ module EasyML
 
     after_find :download_remote_files
     scope :ordered, -> { order(feature_position: :asc) }
+    scope :ready_to_apply, -> { where.not(id: needs_fit.map(&:id)) }
+    scope :has_changes, lambda {
+      none
+    }
+    scope :never_applied, -> { where(applied_at: nil) }
+    scope :never_fit, -> do
+            fittable = where(fit_at: nil)
+            fittable = fittable.select { |f| f.adapter.respond_to?(:fit) }
+            where(id: fittable.map(&:id))
+          end
+    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
+    scope :ready_to_apply, -> { where.not(id: needs_fit.map(&:id)) }
 
     def download_remote_files
       feature_store&.download

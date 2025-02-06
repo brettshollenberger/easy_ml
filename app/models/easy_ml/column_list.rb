@@ -9,8 +9,7 @@ module EasyML
         col_names = syncable
         existing_columns = where(name: col_names)
         import_new(col_names, existing_columns)
-        update_existing(existing_columns)
-        set_feature_lineage
+        # update_existing(existing_columns)
 
         if delete
           delete_missing(col_names)
@@ -20,6 +19,51 @@ module EasyML
           dataset.after_create_columns
         end
       end
+    end
+
+    def transform(df, inference: false, computed: false)
+      return df if df.nil?
+
+      if computed
+        cols = column_list.computed
+      else
+        cols = column_list.raw
+      end
+
+      by_name = cols.index_by(&:name)
+      df.columns.each do |col|
+        column = by_name[col]
+        df = column.transform(df, inference: inference, computed: computed) if column
+      end
+
+      df
+    end
+
+    def learn(type: :raw, computed: false)
+      cols_to_learn = column_list.reload.needs_learn
+      cols_to_learn = cols_to_learn.computed if computed
+      cols_to_learn = cols_to_learn.select(&:persisted?).reject(&:empty?)
+      cols_to_learn.each { |col| col.learn(type: type) }
+      EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
+                                             statistics
+                                             learned_at
+                                             sample_values
+                                             last_datasource_sha
+                                             is_learning
+                                             datatype
+                                             polars_datatype
+                                           ] })
+      reload
+    end
+
+    def statistics
+      stats = { raw: {}, processed: {} }
+      select(&:persisted?).inject(stats) do |h, col|
+        h.tap do
+          h[:raw][col.name] = col.statistics.dig(:raw)
+          h[:processed][col.name] = col.statistics.dig(:processed)
+        end
+      end.with_indifferent_access
     end
 
     def one_hots
@@ -60,94 +104,22 @@ module EasyML
 
     private
 
-    def set_feature_lineage
-      # Get all features that compute columns
-      features_computing_columns = dataset.features.all.map do |feature|
-        [feature.name, feature.computes_columns]
-      end.compact.to_h
-
-      updates = column_list.reload.map do |column|
-        # Check if column is computed by any feature
-        computing_feature = features_computing_columns.find { |_, cols| cols.include?(column.name) }&.first
-        is_computed = !computing_feature.nil?
-
-        column.assign_attributes(
-          computed_by: computing_feature,
-          is_computed: is_computed,
-        )
-        next unless column.changed?
-
-        column
-      end.compact
-      EasyML::Column.import(updates.to_a, { on_duplicate_key_update: { columns: %i[computed_by is_computed] } })
-      cols = EasyML::Column.where(id: updates.map(&:id)).to_a
-      column_list.bulk_record_history(cols, { history_user_id: 1 })
-    end
-
     def import_new(new_columns, existing_columns)
       new_columns = new_columns - existing_columns.map(&:name)
       cols_to_insert = new_columns.map do |col_name|
-        EasyML::Column.new(
+        col = EasyML::Column.new(
           name: col_name,
           dataset_id: dataset.id,
         )
+        col
       end
       EasyML::Column.import(cols_to_insert)
+      column_list.reload.where(name: new_columns).each(&:set_feature_lineage)
       column_list.reload
     end
 
-    def update_existing(existing_columns)
-      stats = dataset.statistics
-      use_processed = dataset.processed.data(limit: 1).present?
-      cached_sample = use_processed ? dataset.processed.data(limit: 10, all_columns: true) : dataset.raw.data(limit: 10, all_columns: true)
-      existing_types = existing_columns.map(&:name).zip(existing_columns.map(&:datatype)).to_h
-      polars_types = cached_sample.columns.zip((cached_sample.dtypes.map do |dtype|
-        EasyML::Data::PolarsColumn.polars_to_sym(dtype).to_s
-      end)).to_h
-
-      existing_columns.each do |column|
-        new_polars_type = polars_types[column.name]
-        existing_type = existing_types[column.name]
-        schema_type = dataset.schema[column.name]
-
-        # Keep both datatype and polars_datatype if it's an ordinal encoding case
-        if column.ordinal_encoding?
-          actual_type = existing_type
-          actual_schema_type = existing_type
-        else
-          actual_type = new_polars_type
-          actual_schema_type = schema_type
-        end
-
-        if column.one_hot?
-          base = dataset.raw
-          processed = stats.dig("raw", column.name).dup
-          processed["null_count"] = 0
-          actual_schema_type = "categorical"
-          actual_type = "categorical"
-        else
-          base = use_processed ? dataset.processed : dataset.raw
-          processed = stats.dig("processed", column.name)
-        end
-        sample_values = base.send(:data, unique: true, limit: 5, all_columns: true, select: column.name)[column.name].to_a.uniq[0...5]
-
-        column.assign_attributes(
-          statistics: {
-            raw: stats.dig("raw", column.name),
-            processed: processed,
-          },
-          datatype: actual_schema_type,
-          polars_datatype: actual_type,
-          sample_values: sample_values,
-        )
-      end
-      EasyML::Column.import(existing_columns.to_a,
-                            { on_duplicate_key_update: { columns: %i[statistics datatype polars_datatype
-                                                                   sample_values computed_by is_computed] } })
-    end
-
     def delete_missing(col_names)
-      raw_cols = dataset.best_segment.train(all_columns: true, limit: 1).columns
+      raw_cols = dataset.best_segment.data(all_columns: true, limit: 1).columns
       raw_cols = where(name: raw_cols)
       columns_to_delete = column_list.select do |col|
         col_names.exclude?(col.name) &&

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_05_225531) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -36,18 +36,30 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.boolean "is_date_column", default: false
     t.string "computed_by"
     t.boolean "is_computed", default: false
+    t.bigint "feature_id"
+    t.datetime "learned_at", precision: nil
+    t.boolean "is_learning", default: false
+    t.string "last_datasource_sha"
+    t.string "last_feature_sha"
+    t.datetime "configuration_changed_at", precision: nil
     t.index ["column_id"], name: "index_easy_ml_column_histories_on_column_id"
     t.index ["computed_by"], name: "index_easy_ml_column_histories_on_computed_by"
+    t.index ["configuration_changed_at"], name: "index_easy_ml_column_histories_on_configuration_changed_at"
     t.index ["dataset_id", "name"], name: "index_easy_ml_column_histories_on_dataset_id_and_name"
     t.index ["datatype"], name: "index_easy_ml_column_histories_on_datatype"
     t.index ["drop_if_null"], name: "index_easy_ml_column_histories_on_drop_if_null"
+    t.index ["feature_id"], name: "index_easy_ml_column_histories_on_feature_id"
     t.index ["hidden"], name: "index_easy_ml_column_histories_on_hidden"
     t.index ["history_ended_at"], name: "index_easy_ml_column_histories_on_history_ended_at"
     t.index ["history_started_at"], name: "index_easy_ml_column_histories_on_history_started_at"
     t.index ["history_user_id"], name: "index_easy_ml_column_histories_on_history_user_id"
     t.index ["is_computed"], name: "index_easy_ml_column_histories_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_column_histories_on_is_date_column"
+    t.index ["is_learning"], name: "index_easy_ml_column_histories_on_is_learning"
     t.index ["is_target"], name: "index_easy_ml_column_histories_on_is_target"
+    t.index ["last_datasource_sha"], name: "index_easy_ml_column_histories_on_last_datasource_sha"
+    t.index ["last_feature_sha"], name: "index_easy_ml_column_histories_on_last_feature_sha"
+    t.index ["learned_at"], name: "index_easy_ml_column_histories_on_learned_at"
     t.index ["snapshot_id"], name: "index_easy_ml_column_histories_on_snapshot_id"
   end
 
@@ -68,14 +80,26 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.boolean "is_date_column", default: false
     t.string "computed_by"
     t.boolean "is_computed", default: false
+    t.bigint "feature_id"
+    t.datetime "learned_at", precision: nil
+    t.boolean "is_learning", default: false
+    t.string "last_datasource_sha"
+    t.string "last_feature_sha"
+    t.datetime "configuration_changed_at", precision: nil
     t.index ["computed_by"], name: "index_easy_ml_columns_on_computed_by"
+    t.index ["configuration_changed_at"], name: "index_easy_ml_columns_on_configuration_changed_at"
     t.index ["dataset_id", "name"], name: "index_easy_ml_columns_on_dataset_id_and_name", unique: true
     t.index ["datatype"], name: "index_easy_ml_columns_on_datatype"
     t.index ["drop_if_null"], name: "index_easy_ml_columns_on_drop_if_null"
+    t.index ["feature_id"], name: "index_easy_ml_columns_on_feature_id"
     t.index ["hidden"], name: "index_easy_ml_columns_on_hidden"
     t.index ["is_computed"], name: "index_easy_ml_columns_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_columns_on_is_date_column"
+    t.index ["is_learning"], name: "index_easy_ml_columns_on_is_learning"
     t.index ["is_target"], name: "index_easy_ml_columns_on_is_target"
+    t.index ["last_datasource_sha"], name: "index_easy_ml_columns_on_last_datasource_sha"
+    t.index ["last_feature_sha"], name: "index_easy_ml_columns_on_last_feature_sha"
+    t.index ["learned_at"], name: "index_easy_ml_columns_on_learned_at"
   end
 
   create_table "easy_ml_dataset_histories", force: :cascade do |t|
@@ -91,7 +115,6 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.integer "num_rows"
     t.string "workflow_status"
     t.json "statistics"
-    t.json "preprocessor_statistics"
     t.json "schema"
     t.datetime "refreshed_at"
     t.datetime "created_at", null: false
@@ -100,6 +123,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.datetime "history_ended_at"
     t.integer "history_user_id"
     t.string "snapshot_id"
+    t.string "last_datasource_sha"
     t.index ["created_at"], name: "index_easy_ml_dataset_histories_on_created_at"
     t.index ["dataset_id"], name: "index_easy_ml_dataset_histories_on_dataset_id"
     t.index ["dataset_type"], name: "index_easy_ml_dataset_histories_on_dataset_type"
@@ -107,6 +131,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.index ["history_ended_at"], name: "index_easy_ml_dataset_histories_on_history_ended_at"
     t.index ["history_started_at"], name: "index_easy_ml_dataset_histories_on_history_started_at"
     t.index ["history_user_id"], name: "index_easy_ml_dataset_histories_on_history_user_id"
+    t.index ["last_datasource_sha"], name: "index_easy_ml_dataset_histories_on_last_datasource_sha"
     t.index ["name", "status"], name: "index_easy_ml_dataset_histories_on_name_and_status"
     t.index ["name"], name: "index_easy_ml_dataset_histories_on_name"
     t.index ["refreshed_at"], name: "index_easy_ml_dataset_histories_on_refreshed_at"
@@ -127,14 +152,15 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.bigint "num_rows"
     t.string "workflow_status"
     t.json "statistics"
-    t.json "preprocessor_statistics"
     t.json "schema"
     t.datetime "refreshed_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "last_datasource_sha"
     t.index ["created_at"], name: "index_easy_ml_datasets_on_created_at"
     t.index ["dataset_type"], name: "index_easy_ml_datasets_on_dataset_type"
     t.index ["datasource_id"], name: "index_easy_ml_datasets_on_datasource_id"
+    t.index ["last_datasource_sha"], name: "index_easy_ml_datasets_on_last_datasource_sha"
     t.index ["name", "status"], name: "index_easy_ml_datasets_on_name_and_status"
     t.index ["name"], name: "index_easy_ml_datasets_on_name"
     t.index ["refreshed_at"], name: "index_easy_ml_datasets_on_refreshed_at"
@@ -155,6 +181,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.datetime "history_ended_at"
     t.integer "history_user_id"
     t.string "snapshot_id"
+    t.string "sha"
     t.index ["created_at"], name: "index_easy_ml_datasource_histories_on_created_at"
     t.index ["datasource_id"], name: "index_easy_ml_datasource_histories_on_datasource_id"
     t.index ["datasource_type"], name: "index_easy_ml_datasource_histories_on_datasource_type"
@@ -162,6 +189,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.index ["history_started_at"], name: "index_easy_ml_datasource_histories_on_history_started_at"
     t.index ["history_user_id"], name: "index_easy_ml_datasource_histories_on_history_user_id"
     t.index ["refreshed_at"], name: "index_easy_ml_datasource_histories_on_refreshed_at"
+    t.index ["sha"], name: "index_easy_ml_datasource_histories_on_sha"
     t.index ["snapshot_id"], name: "index_easy_ml_datasource_histories_on_snapshot_id"
   end
 
@@ -173,9 +201,11 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_02_021005) do
     t.datetime "refreshed_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "sha"
     t.index ["created_at"], name: "index_easy_ml_datasources_on_created_at"
     t.index ["datasource_type"], name: "index_easy_ml_datasources_on_datasource_type"
     t.index ["refreshed_at"], name: "index_easy_ml_datasources_on_refreshed_at"
+    t.index ["sha"], name: "index_easy_ml_datasources_on_sha"
   end
 
   create_table "easy_ml_deploys", force: :cascade do |t|

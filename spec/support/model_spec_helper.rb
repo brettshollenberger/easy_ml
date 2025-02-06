@@ -26,6 +26,14 @@ module ModelSpecHelper
       SPEC_ROOT.join("internal/easy_ml/datasources/loans")
     end
 
+    base.let(:simple_dir) do
+      SPEC_ROOT.join("internal/easy_ml/datasources/simple")
+    end
+
+    base.let(:null_dir) do
+      SPEC_ROOT.join("internal/easy_ml/datasources/null")
+    end
+
     base.let(:preprocessing_steps) do
       {
         training: {
@@ -47,29 +55,28 @@ module ModelSpecHelper
     base.let(:months_test) { 2 }
     base.let(:months_valid) { 2 }
     base.let(:today) { EasyML::Support::EST.parse("2024-06-01") }
-    base.let(:df) do
+    base.let(:df_with_null_col) do
       Polars::DataFrame.new({
-                              "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                              "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
-                                                  "Business G", "Business H", "Business I", "Business J"],
-                              "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
-                              "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
-                                                   marketing equipment marketing],
-                              "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
-                              "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
-                              "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                           2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01],
-                            }).with_column(
-        Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-      )
+        "id" => [1],
+        "null_col" => [nil],
+        "rev" => [100],
+      })
     end
 
     base.let(:datasource) do
-      EasyML::Datasource.create(name: "Polars Datasource", datasource_type: "polars", df: df)
+      loans_datasource
+    end
+
+    base.let(:null_datasource) do
+      EasyML::Datasource.create(name: "Polars Datasource", datasource_type: "polars", df: df_with_null_col)
     end
 
     base.let(:loans_datasource) do
       EasyML::Datasource.create(name: "Loans", datasource_type: "file")
+    end
+
+    base.let(:simple_datasource) do
+      EasyML::Datasource.create(name: "Simple", datasource_type: "file")
     end
 
     base.let(:single_file_datasource) do
@@ -103,18 +110,52 @@ module ModelSpecHelper
       )
     end
 
+    base.let(:null_dataset_config) do
+      base_dataset_config.merge!(
+        datasource: null_datasource,
+        splitter_attributes: {
+          splitter_type: "random",
+        },
+      )
+    end
+
     base.let(:loans_dataset_config) do
       base_dataset_config.merge!(
         datasource: loans_datasource,
       )
     end
 
+    base.let(:simple_dataset_config) do
+      base_dataset_config.merge!(
+        datasource: simple_datasource,
+        splitter_attributes: {
+          splitter_type: "date",
+          today: EasyML::Support::EST.parse("2024-10-01"),
+          date_col: "created_date",
+          months_test: 2,
+          months_valid: 2,
+        },
+      )
+    end
+
     base.let(:dataset) do
-      make_dataset(dataset_config, nil)
+      make_dataset(dataset_config, loans_dir)
     end
 
     base.let(:loans_dataset) do
       make_dataset(loans_dataset_config, loans_dir)
+    end
+
+    base.let(:simple_dataset) do
+      make_dataset(simple_dataset_config, simple_dir)
+    end
+
+    base.let(:null_dataset) do
+      make_dataset(null_dataset_config, null_dir)
+    end
+
+    base.let(:features) do
+      []
     end
 
     def make_dataset(config, datasource_location = nil)
@@ -122,6 +163,14 @@ module ModelSpecHelper
       mock_s3_upload
 
       dataset = EasyML::Dataset.create(**config)
+
+      features.each do |feature|
+        dataset.features.create(
+          name: feature.new.computes_columns.first,
+          feature_class: feature,
+          dataset: dataset,
+        )
+      end
       dataset.refresh
 
       dataset.columns.find_by(name: target).update(is_target: true)
@@ -239,7 +288,7 @@ module ModelSpecHelper
     end
 
     base.let(:titanic_dataset) do
-      make_titanic_dataset("Titanic Extended", { splitter_type: :random })
+      make_titanic_dataset("Titanic Extended", { splitter_type: :random, seed: 42 })
     end
 
     base.let(:titanic_model) do
@@ -252,16 +301,6 @@ module ModelSpecHelper
         hyperparameters: { n_estimators: 1 },
       )
     end
-
-    # base.before(:each) do
-    #   dataset.cleanup
-    #   dataset.refresh!
-    # end
-
-    # base.after(:each) do
-    #   dataset.cleanup
-    #   model.cleanup!
-    # end
   end
 
   def build_model(params)

@@ -23,7 +23,7 @@ module EasyML
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
-                          unique: nil)
+                          unique: nil, sort: nil, descending: false)
           return nil if @data.keys.none?
 
           df = if segment.to_s == "all"
@@ -33,10 +33,8 @@ module EasyML
             end
           return nil if df.nil?
 
-          df = df.filter(filter) if filter.present?
-          drop_cols &= df.columns
-          df = df.drop(drop_cols) unless drop_cols.empty?
-          df = df.unique if unique
+          df = EasyML::Data::PolarsInMemory.query(df, drop_cols: drop_cols, filter: filter, limit: limit, select: select,
+                                                      unique: unique, sort: sort, descending: descending)
 
           split_features_targets(df, split_ys, target)
         end

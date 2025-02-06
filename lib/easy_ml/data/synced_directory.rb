@@ -18,7 +18,7 @@ module EasyML
         @polars_args = options.dig(:polars_args)
       end
 
-      delegate :query, :data, :all_files, :files, to: :reader
+      delegate :query, :data, :all_files, :files, :sha, to: :reader
 
       def before_sync
         return unless should_sync?

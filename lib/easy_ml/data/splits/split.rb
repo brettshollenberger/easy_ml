@@ -10,7 +10,11 @@ module EasyML
         end
 
         def load_data(segment, **kwargs)
-          drop_cols = dataset.drop_columns(all_columns: kwargs[:all_columns] || false)
+          if kwargs.key?(:all_columns) && kwargs[:all_columns] == true
+            drop_cols = []
+          else
+            drop_cols = dataset.columns.where(hidden: true).flat_map(&:aliases)
+          end
           kwargs.delete(:all_columns)
           kwargs = kwargs.merge!(drop_cols: drop_cols, target: dataset.target)
           read(segment, **kwargs)

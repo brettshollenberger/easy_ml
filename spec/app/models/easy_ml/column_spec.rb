@@ -8,6 +8,159 @@ RSpec.describe EasyML::Column do
     titanic_dataset
   end
 
+  let(:feature) do
+    dataset.save
+    dataset.features.create!(
+      name: "FamilySize",
+      feature_class: "FamilySizeFeature",
+      needs_fit: true,
+      feature_position: 1,
+    )
+  end
+
+  describe "Datatype & PolarsDatatype" do
+    let(:column) { dataset.columns.find_by(name: "Age") }
+
+    it "returns correct datatype" do
+      expect(column.datatype.to_sym).to eq(:float)
+    end
+
+    it "returns correct PolarsDatatype" do
+      expect(column.polars_datatype).to eq(Polars::Float64)
+    end
+
+    it "returns correct datatype for features" do
+      feature
+      dataset.refresh
+      expect(dataset.columns.find_by(name: "FamilySize").datatype.to_sym).to eq(:integer)
+    end
+  end
+
+  describe "#statistics" do
+    context "Integer column" do
+      let(:column) { dataset.columns.find_by(name: "Age") }
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        stats = column.statistics
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 891
+        expect(stats.dig(:raw, :null_count)).to eq 177
+        expect(stats.dig(:raw, :mean)).to be_within(0.1).of(29.84)
+        expect(stats.dig(:raw, :median)).to be_within(0.1).of(28)
+        expect(stats.dig(:raw, :min)).to be_within(0.1).of(0.75)
+        expect(stats.dig(:raw, :max)).to be_within(0.1).of(71)
+        expect(stats.dig(:raw, :std)).to be_within(0.1).of(14.7)
+      end
+    end
+
+    context "Categorical column" do
+      let(:column) { dataset.columns.find_by(name: "Sex") }
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        stats = column.statistics
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 891
+        expect(stats.dig(:raw, :null_count)).to eq 0
+        expect(stats.dig(:raw, :unique_count)).to eq 2
+        expect(stats.dig(:raw, :most_frequent_value)).to eq "male"
+        expect(stats.dig(:raw, :allowed_categories)).to eq ["female", "male"]
+      end
+
+      it "ordinal encodes" do
+        column.update(preprocessing_steps: {
+                        training: {
+                          method: :categorical,
+                          params: {
+                            ordinal_encoding: true,
+                          },
+                        },
+                      })
+        stats = column.learn
+        stats = column.statistics
+        expect(column.decode_labels([0, 1])).to eq(["female", "male"])
+      end
+
+      it "one_hot encodes" do
+        column.update(preprocessing_steps: {
+                        training: {
+                          method: :categorical,
+                          params: {
+                            one_hot: true,
+                          },
+                        },
+                      })
+        column.learn
+        expect(column.raw.data.columns.sort).to eq(["Sex"])
+        expect(column.processed.data.columns.sort).to eq(["Sex_female", "Sex_male", "Sex_other"])
+      end
+    end
+
+    context "String column" do
+      let(:column) { dataset.columns.find_by(name: "Name") }
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        stats = column.statistics
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 891
+        expect(stats.dig(:raw, :null_count)).to eq 0
+        expect(stats.dig(:raw, :unique_count)).to eq 891
+        expect(stats.dig(:raw, :most_frequent_value)).to eq "Abbing, Mr. Anthony"
+      end
+    end
+
+    context "Datetime column" do
+      let(:dataset) { loans_dataset }
+      let(:column) do
+        col = dataset.columns.find_by(name: "date")
+        col.update(hidden: false)
+        col
+      end
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        stats = column.statistics
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 10
+        expect(stats.dig(:raw, :null_count)).to eq 0
+        expect(stats.dig(:raw, :unique_count)).to eq 9
+        expect(
+          DateTime.parse(stats.dig(:raw, :last_value)).strftime("%Y-%m-%d")
+        ).to eq "2024-01-01"
+      end
+    end
+
+    context "Null column" do
+      let(:dataset) { null_dataset }
+      let(:column) { dataset.columns.find_by(name: "null_col") }
+
+      it "returns statistics for the column" do
+        stats = column.learn
+        stats = column.statistics
+        expect(stats.key?(:raw)).to be true
+        expect(stats.key?(:processed)).to be true
+        expect(stats.dig(:raw, :num_rows)).to eq 1
+        expect(stats.dig(:raw, :null_count)).to eq 1
+        expect(stats.dig(:raw, :last_value)).to be_nil
+      end
+    end
+
+    context "Entire dataset" do
+      it "learns statistics for the entire dataset" do
+        dataset.learn_statistics
+        expect(dataset.statistics.dig(:raw, :Age, :mean)).to be_within(0.1).of(29.84)
+        expect(dataset.statistics.dig(:processed, :Sex, :unique_count)).to eq(2)
+        expect(dataset.statistics.dig(:raw, :Name, :unique_count)).to eq(891)
+      end
+    end
+  end
+
   describe "#lineage" do
     context "when column is in raw dataset" do
       let(:column) { dataset.columns.find_by(name: "Age") }
@@ -18,15 +171,6 @@ RSpec.describe EasyML::Column do
     end
 
     context "when column is computed by a feature" do
-      let(:feature) do
-        dataset.features.create!(
-          name: "FamilySize",
-          feature_class: "FamilySizeFeature",
-          needs_fit: true,
-          feature_position: 1,
-        )
-      end
-
       it "includes computation source in lineage" do
         feature
         dataset.refresh!
@@ -39,7 +183,7 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       before do
-        column.update(preprocessing_steps: { training: { method: "mean", params: { clip: true } } })
+        column.update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } })
       end
 
       it "includes preprocessing steps in lineage" do
@@ -58,11 +202,10 @@ RSpec.describe EasyML::Column do
       end
 
       let(:column) do
+        feature
         dataset.columns.create!(
           name: "FamilySize",
-          computed_by: "FamilySize",
-          is_computed: true,
-          preprocessing_steps: { training: { method: "mean", params: { clip: true } } },
+          preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } },
         )
       end
 
@@ -75,55 +218,33 @@ RSpec.describe EasyML::Column do
     end
   end
 
-  describe "#present_in_raw_dataset" do
+  describe "#in_raw_dataset?" do
     context "when column exists in raw dataset" do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       it "returns true" do
-        expect(column.present_in_raw_dataset).to be true
+        expect(column.in_raw_dataset?).to be true
       end
     end
 
     context "when column is computed" do
-      let(:feature) do
-        dataset.features.create!(
-          name: "FamilySize",
-          feature_class: "FamilySizeFeature",
-          needs_fit: true,
-          feature_position: 1,
-        )
-      end
-
       let(:column) do
-        dataset.columns.create!(
-          name: "FamilySize",
-          computed_by: "FamilySize",
-          is_computed: true,
-        )
+        feature
+        dataset.refresh
+        dataset.columns.find_by(name: "FamilySize")
       end
 
       it "returns false" do
-        expect(column.present_in_raw_dataset).to be false
+        expect(column.in_raw_dataset?).to be false
       end
     end
   end
 
   describe "computed columns" do
-    let(:feature) do
-      dataset.features.create!(
-        name: "FamilySize",
-        feature_class: "FamilySizeFeature",
-        needs_fit: true,
-        feature_position: 1,
-      )
-    end
-
     let(:column) do
-      dataset.columns.create!(
-        name: "FamilySize",
-        computed_by: "FamilySize",
-        is_computed: true,
-      )
+      feature
+      dataset.refresh
+      dataset.columns.find_by(name: "FamilySize")
     end
 
     it "is marked as computed" do

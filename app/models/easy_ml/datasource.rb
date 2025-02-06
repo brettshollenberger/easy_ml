@@ -10,6 +10,7 @@
 #  refreshed_at    :datetime
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
+#  sha             :string
 #
 module EasyML
   class Datasource < ActiveRecord::Base
@@ -119,11 +120,13 @@ module EasyML
       self.num_rows = data.shape[0]
       self.is_syncing = false
       self.refreshed_at = Time.now
+      self.sha = adapter.sha
       save
     end
 
     def refresh
       unless adapter.needs_refresh?
+        update(sha: adapter.sha) if sha.nil?
         update!(is_syncing: false)
         return
       end

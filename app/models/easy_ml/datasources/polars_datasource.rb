@@ -6,18 +6,8 @@ module EasyML
       validates :df, presence: true
       add_configuration_attributes :df
 
-      def query(drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false)
-        return if df.nil?
-
-        df = self.df.clone
-        df = df.filter(filter) if filter
-        df = df.select(select) if select.present?
-        df = df.unique if unique
-        drop_cols &= df.columns
-        df = df.drop(drop_cols) unless drop_cols.empty?
-        df = df.sort(sort, reverse: descending) if sort
-        df = df.limit(limit) if limit
-        df
+      def query(**kwargs)
+        EasyML::Data::PolarsInMemory.query(df, **kwargs)
       end
 
       def in_batches(of: 10_000)
@@ -38,6 +28,10 @@ module EasyML
 
       def last_updated_at
         datasource.updated_at
+      end
+
+      def sha
+        nil
       end
 
       def data

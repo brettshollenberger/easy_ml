@@ -1,24 +1,24 @@
-# == Schetuma Information
+# == Schema Information
 #
 # Table name: easy_ml_datasets
 #
-#  id                      :bigint           not null, primary key
-#  name                    :string           not null
-#  description             :string
-#  dataset_type            :string
-#  status                  :string
-#  version                 :string
-#  datasource_id           :bigint
-#  root_dir                :string
-#  configuration           :json
-#  num_rows                :bigint
-#  workflow_status         :string
-#  statistics              :json
-#  preprocessor_statistics :json
-#  schema                  :json
-#  refreshed_at            :datetime
-#  created_at              :datetime         not null
-#  updated_at              :datetime         not null
+#  id                  :bigint           not null, primary key
+#  name                :string           not null
+#  description         :string
+#  dataset_type        :string
+#  status              :string
+#  version             :string
+#  datasource_id       :bigint
+#  root_dir            :string
+#  configuration       :json
+#  num_rows            :bigint
+#  workflow_status     :string
+#  statistics          :json
+#  schema              :json
+#  refreshed_at        :datetime
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  last_datasource_sha :string
 #
 module EasyML
   class Dataset < ActiveRecord::Base
@@ -45,7 +45,7 @@ module EasyML
     has_many :columns, class_name: "EasyML::Column", dependent: :destroy, extend: EasyML::ColumnList
     accepts_nested_attributes_for :columns, allow_destroy: true, update_only: true
 
-    has_many :features, dependent: :destroy, class_name: "EasyML::Feature"
+    has_many :features, dependent: :destroy, class_name: "EasyML::Feature", extend: EasyML::FeatureList
     accepts_nested_attributes_for :features, allow_destroy: true
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
@@ -80,7 +80,7 @@ module EasyML
         column_types: EasyML::Data::PolarsColumn::TYPE_MAP.keys.map do |type|
           { value: type.to_s, label: type.to_s.titleize }
         end,
-        preprocessing_strategies: EasyML::Data::Preprocessor.constants[:preprocessing_strategies],
+        preprocessing_strategies: EasyML::Column::Imputers.constants[:preprocessing_strategies],
         feature_options: EasyML::Features::Registry.list_flat,
         splitter_constants: EasyML::Splitter.constants,
       }
@@ -119,13 +119,6 @@ module EasyML
       processed.data(limit: 1)&.schema || raw.data(limit: 1)&.schema
     end
 
-    def refresh_datatypes
-      return unless columns_need_refresh?
-
-      cleanup
-      datasource.reread(columns)
-    end
-
     def num_rows
       if datasource&.num_rows.nil?
         datasource.after_sync
@@ -142,7 +135,7 @@ module EasyML
 
     def best_segment
       [processed, raw].detect do |segment|
-        segment.send(:train, all_columns: true, limit: 1)&.columns
+        segment.send(:data, all_columns: true, limit: 1)&.columns
       end
     end
 
@@ -168,15 +161,21 @@ module EasyML
       save
     end
 
+    def refreshed_datasource?
+      last_datasource_sha_changed?
+    end
+
     def prepare!
       cleanup
       refresh_datasource!
       split_data
+      process_data
     end
 
     def prepare
       refresh_datasource
       split_data
+      process_data
     end
 
     def actually_refresh
@@ -184,7 +183,8 @@ module EasyML
         learn(delete: false) # After syncing datasource, learn new statistics + sync columns
         process_data
         fully_reload
-        learn # After processing data, we may have new columns from newly applied features
+        learn
+        learn_statistics(type: :processed) # After processing data, we learn any new statistics
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
@@ -259,12 +259,17 @@ module EasyML
         "Columns need refresh" => columns_need_refresh?,
         "Features need refresh" => features_need_fit?,
         "Datasource needs refresh" => datasource_needs_refresh?,
+        "Datasource sha changed" => refreshed_datasource?,
         "Datasource was refreshed" => datasource_was_refreshed?,
       }.select { |k, v| v }.map { |k, v| k }
     end
 
     def needs_refresh?
       refresh_reasons.any?
+    end
+
+    def processed?
+      !needs_refresh?
     end
 
     def not_split?
@@ -281,7 +286,6 @@ module EasyML
 
     def learn(delete: true)
       learn_schema
-      learn_statistics
       columns.sync(delete: delete)
     end
 
@@ -333,6 +337,8 @@ module EasyML
 
     def learn_schema
       data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
+      return nil if data.nil?
+
       schema = data.schema.reduce({}) do |h, (k, v)|
         h.tap do
           h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
@@ -341,19 +347,15 @@ module EasyML
       write_attribute(:schema, schema)
     end
 
-    def learn_statistics
-      stats = {
-        raw: EasyML::Data::StatisticsLearner.learn(raw, self, :raw),
-      }
-      stats.merge!(processed: EasyML::Data::StatisticsLearner.learn(processed, self, :processed)) if processed.data.present?
+    def learn_statistics(type: :raw, computed: false)
+      columns.learn(type: type, computed: computed)
+      update(
+        statistics: columns.reload.statistics,
+      )
+    end
 
-      columns.select(&:is_computed).each do |col|
-        if stats.dig(:processed, col.name)
-          stats[:raw][col.name] = stats[:processed][col.name]
-        end
-      end
-
-      update(statistics: stats)
+    def statistics
+      read_attribute(:statistics).with_indifferent_access
     end
 
     def process_data
@@ -410,10 +412,9 @@ module EasyML
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_missing_features(df, inference: inference)
       df = drop_nulls(df)
-      df = preprocessor.postprocess(df, inference: inference)
+      df = columns.transform(df, inference: inference)
       df = apply_features(df, features)
-      learn unless inference # After applying features, we need to learn new statistics
-      df = preprocessor.postprocess(df, inference: inference, computed: true)
+      df = columns.transform(df, inference: inference, computed: true)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
@@ -494,12 +495,11 @@ module EasyML
       result.empty? ? nil : result
     end
 
-    def processed?
-      !should_split?
-    end
-
     def decode_labels(ys, col: nil)
-      preprocessor.decode_labels(ys, col: col.nil? ? target : col)
+      if col.nil?
+        col = target
+      end
+      columns.find_by(name: col).decode_labels(ys)
     end
 
     def preprocessing_steps
@@ -513,13 +513,6 @@ module EasyML
         training: training,
         inference: inference,
       }.compact.deep_symbolize_keys
-    end
-
-    def preprocessor
-      @preprocessor ||= initialize_preprocessor
-      return @preprocessor if @preprocessor.preprocessing_steps == preprocessing_steps
-
-      @preprocessor = initialize_preprocessor
     end
 
     def target
@@ -596,7 +589,7 @@ module EasyML
     end
 
     def upload_remote_files
-      return unless processed?
+      return if !needs_refresh?
 
       processed.upload.tap do
         features.each(&:upload_remote_files)
@@ -668,13 +661,16 @@ module EasyML
 
     def refresh_datasource
       datasource.reload.refresh
-      refresh_datatypes
-      initialize_splits
+      after_refresh_datasource
     end
 
     def refresh_datasource!
       datasource.reload.refresh!
-      refresh_datatypes
+      after_refresh_datasource
+    end
+
+    def after_refresh_datasource
+      update(last_datasource_sha: datasource.sha)
       initialize_splits
     end
 
@@ -683,10 +679,22 @@ module EasyML
 
       SPLIT_ORDER.each do |segment|
         df = raw.read(segment)
+        learn_computed_columns(df) if segment == :train
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
       @normalized = true
+    end
+
+    def learn_computed_columns(df)
+      return unless features.ready_to_apply.any?
+
+      df = df.clone
+      df = apply_features(df)
+      processed.save(:train, df)
+      learn(delete: false)
+      learn_statistics(type: :processed, computed: true)
+      processed.cleanup
     end
 
     def drop_nulls(df)
@@ -699,7 +707,7 @@ module EasyML
     end
 
     def load_data(segment, **kwargs, &block)
-      if processed?
+      if !needs_refresh?
         processed.load_data(segment, **kwargs, &block)
       else
         raw.load_data(segment, **kwargs, &block)
@@ -707,9 +715,7 @@ module EasyML
     end
 
     def fit
-      computed_statistics = columns.where(is_computed: true).reduce({}) { |h, c| h.tap { h[c.name] = c.statistics.dig("processed") } }
-      preprocessor.fit(raw.train(all_columns: true), computed_statistics)
-      update(preprocessor_statistics: preprocessor.statistics)
+      learn_statistics(type: :raw)
     end
 
     # log_method :fit, "Learning statistics", verbose: true
@@ -719,7 +725,7 @@ module EasyML
     end
 
     def split_data(force: false)
-      return unless force || should_split?
+      return unless force || needs_refresh?
 
       cleanup
       splitter.split(datasource) do |train_df, valid_df, test_df|
@@ -727,10 +733,6 @@ module EasyML
           raw.save(segment, df)
         end
       end
-    end
-
-    def should_split?
-      needs_refresh?
     end
 
     def filter_duplicate_features
@@ -753,6 +755,7 @@ module EasyML
     end
 
     def apply_features(df, features = self.features)
+      features = features.ready_to_apply
       if features.nil? || features.empty?
         df
       else
@@ -787,16 +790,6 @@ module EasyML
       columns.map(&:name).zip(columns.map do |col|
         col.preprocessing_steps&.dig(type)
       end).to_h.compact.reject { |_k, v| v["method"] == "none" }
-    end
-
-    def initialize_preprocessor
-      EasyML::Data::Preprocessor.new(
-        directory: Pathname.new(root_dir).append("preprocessor"),
-        preprocessing_steps: preprocessing_steps,
-        dataset: self,
-      ).tap do |preprocessor|
-        preprocessor.statistics = preprocessor_statistics
-      end
     end
 
     def fully_reload

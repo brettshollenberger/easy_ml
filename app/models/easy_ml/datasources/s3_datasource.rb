@@ -17,7 +17,7 @@ module EasyML
       add_configuration_attributes :s3_bucket, :s3_prefix, :s3_region, :cache_for
 
       delegate :query, :data, :s3_access_key_id, :s3_secret_access_key, :before_sync, :after_sync, :clean,
-               to: :synced_directory
+               :sha, to: :synced_directory
 
       def in_batches(&block)
         synced_directory.in_batches(&block)

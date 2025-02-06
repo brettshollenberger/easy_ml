@@ -118,14 +118,8 @@ RSpec.describe "EasyML::Models::XGBoost" do
         let(:target) do
           :did_convert
         end
-        let(:df) do
-          super().with_columns([
-                                 Polars::Series.new("state", %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL]),
-                                 Polars::Series.new("did_convert",
-                                                    %w[converts not_converts converts converts converts not_converts
-                                                       not_converts converts converts not_converts]),
-                                 Polars::Series.new("passive_rev", [0, 30, 0, 0, 0, 50, 60, 0, 0, 70]),
-                               ])
+        let(:features) do
+          [DidConvert]
         end
         let(:preprocessing_steps) do
           {
@@ -177,7 +171,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
           preds_orig = model.predict(x_test)
           preds = model.decode_labels(preds_orig)
           expect(preds_orig).to eq([0, 0])
-          expect(preds).to eq(%w[converts converts])
+          expect(preds).to eq([false, false])
         end
       end
     end

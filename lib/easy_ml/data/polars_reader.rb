@@ -12,6 +12,22 @@ module EasyML
         @schema = options[:schema]
       end
 
+      def sha
+        files = parquet_files.sort
+
+        file_hashes = files.map do |file|
+          meta = Polars.read_parquet_schema(file)
+          row_count = Polars.scan_parquet(file).select(Polars.col("*").count).collect[0, 0]
+
+          Digest::SHA256.hexdigest([
+            meta.to_json,
+            row_count.to_s,
+          ].join("|"))
+        end
+
+        Digest::SHA256.hexdigest(file_hashes.join)
+      end
+
       def schema=(value)
         @schema = value
         polars_args[:dtypes] = value
@@ -55,7 +71,10 @@ module EasyML
         return files if any_parquet? && columns.nil?
 
         puts "Converting to Parquet..."
-
+        if columns.nil? || columns.all? { |c| c.datatype.nil? }
+          learn_dataset
+          columns = nil
+        end
         csv_files.each do |path|
           df = read_file(path, columns)
           df = cast(df, columns)

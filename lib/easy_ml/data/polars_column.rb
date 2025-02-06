@@ -12,11 +12,26 @@ module EasyML
         string: Polars::String,
         text: Polars::String,
         categorical: Polars::Categorical,
+        null: Polars::Null,
       }
       POLARS_MAP = TYPE_MAP.invert.stringify_keys
       class << self
         def polars_to_sym(polars_type)
           POLARS_MAP.dig(polars_type.class.to_s)
+        end
+
+        def parse_polars_dtype(dtype_string)
+          case dtype_string
+          when /^Polars::Datetime/
+            time_unit = dtype_string[/time_unit: "(.*?)"/, 1]
+            time_zone = dtype_string[/time_zone: (.*)?\)/, 1]
+            time_zone = time_zone == "nil" ? nil : time_zone&.delete('"')
+            Polars::Datetime.new(time_unit, time_zone)
+          when /^Polars::/
+            Polars.const_get(dtype_string.split("::").last)
+          else
+            raise ArgumentError, "Unknown Polars data type: #{dtype_string}"
+          end
         end
 
         def sym_to_polars(symbol)
@@ -50,6 +65,8 @@ module EasyML
               :boolean
             when Polars::Utf8
               determine_string_type(series)
+            when Polars::Null
+              :null
             else
               :categorical
             end

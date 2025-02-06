@@ -4,12 +4,8 @@ require "support/model_spec_helper"
 RSpec.describe EasyML::Core::Tuner do
   include ModelSpecHelper
 
-  let(:datasource) do
-    EasyML::Datasource.create(
-      name: "Polars Datasource",
-      datasource_type: "polars",
-      df: df,
-    )
+  let(:dataset) do
+    loans_dataset
   end
 
   let(:model) do

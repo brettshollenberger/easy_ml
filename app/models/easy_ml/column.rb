@@ -388,7 +388,7 @@ module EasyML
     end
 
     def required?
-      is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden && !is_target
+      !is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden && !is_target
     end
 
     def sort_required

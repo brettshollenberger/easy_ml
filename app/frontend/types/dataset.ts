@@ -84,6 +84,9 @@ export interface Column {
   sample_values: {};
   statistics?: Statistics;
   preprocessing_steps?: PreprocessingSteps;
+  lineage?: Array<{ key: string }>;
+  required?: boolean;
+  is_computed?: boolean;
 }
 
 export interface Dataset {

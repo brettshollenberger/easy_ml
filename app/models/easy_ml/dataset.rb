@@ -166,6 +166,7 @@ module EasyML
     end
 
     def prepare!
+      features.update_all(workflow_status: "ready")
       cleanup
       refresh_datasource!
       split_data
@@ -173,6 +174,7 @@ module EasyML
     end
 
     def prepare
+      features.update_all(workflow_status: "ready")
       refresh_datasource
       split_data
       process_data

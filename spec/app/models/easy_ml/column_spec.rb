@@ -166,7 +166,7 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       it "includes 'Raw dataset' in lineage" do
-        expect(column.lineage).to include("Raw dataset")
+        expect(column.lineage.map { |l| l[:key] }).to include(:raw_dataset)
       end
     end
 
@@ -175,7 +175,8 @@ RSpec.describe EasyML::Column do
         feature
         dataset.refresh!
         column = dataset.columns.find_by(name: "FamilySize")
-        expect(column.lineage).to include("Computed by FamilySize")
+        expect(column.lineage.map { |l| l[:key] }).to include(:computed_by_feature)
+        expect(column.lineage.map { |l| l[:description] }).to include("Computed by FamilySize")
       end
     end
 
@@ -187,7 +188,7 @@ RSpec.describe EasyML::Column do
       end
 
       it "includes preprocessing steps in lineage" do
-        expect(column.lineage).to include("Preprocessed using training")
+        expect(column.lineage.map { |l| l[:key] }).to include(:preprocessed)
       end
     end
 

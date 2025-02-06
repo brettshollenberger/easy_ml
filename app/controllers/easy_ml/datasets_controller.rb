@@ -76,6 +76,37 @@ module EasyML
         column_attrs[:preprocessing_steps] = nil if column_attrs.dig(:preprocessing_steps, :training, :method) == "none"
       end
 
+      # Handle feature ID assignment for existing features
+      if dataset_params[:features_attributes].present?
+        # Clean up any feature IDs that don't exist anymore
+        feature_ids = dataset_params[:features_attributes].map { |attrs| attrs[:id] }.compact
+        existing_feature_ids = Feature.where(id: feature_ids).pluck(:id)
+
+        params[:dataset][:features_attributes].each do |attrs|
+          if attrs[:id].present? && !existing_feature_ids.include?(attrs[:id].to_i)
+            attrs.delete(:id)
+          end
+        end
+
+        # Find existing features by feature_class
+        feature_classes = dataset_params[:features_attributes].map { |attrs|
+          attrs[:feature_class] if attrs[:id].blank?
+        }.compact
+
+        existing_features = Feature.where(feature_class: feature_classes)
+
+        # Update params with existing feature IDs
+        existing_features.each do |feature|
+          matching_param_index = params[:dataset][:features_attributes].find_index { |attrs|
+            attrs[:feature_class] == feature.feature_class
+          }
+
+          if matching_param_index
+            params[:dataset][:features_attributes][matching_param_index][:id] = feature.id
+          end
+        end
+      end
+
       if dataset.update(dataset_params)
         flash.now[:notice] = "Dataset configuration was successfully updated."
         render inertia: "pages/DatasetDetailsPage", props: {

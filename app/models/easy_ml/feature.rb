@@ -241,7 +241,8 @@ module EasyML
       if batch_args.key?(:batch_start)
         actually_fit_batch(batch_args)
       else
-        actually_fit_batch(get_batch_args(**batch_args))
+        batch_args = get_batch_args(**batch_args)
+        actually_fit_batch(batch_args)
       end
     end
 

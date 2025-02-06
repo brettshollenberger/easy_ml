@@ -53,7 +53,20 @@ module EasyML
                                              datatype
                                              polars_datatype
                                            ] })
+      set_feature_lineage
       reload
+    end
+
+    def set_feature_lineage
+      names = dataset.features.computed_column_names
+      columns = where(name: names, computed_by: nil).map do |col|
+        col.assign_attributes(
+          is_computed: true,
+          computed_by: col.computing_feature&.name,
+        )
+        col
+      end
+      EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[ is_computed computed_by ] })
     end
 
     def statistics
@@ -114,7 +127,7 @@ module EasyML
         col
       end
       EasyML::Column.import(cols_to_insert)
-      column_list.reload.where(name: new_columns).each(&:set_feature_lineage)
+      set_feature_lineage
       column_list.reload
     end
 

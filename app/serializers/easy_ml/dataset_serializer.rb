@@ -35,6 +35,14 @@ module EasyML
           ColumnSerializer::SmallSerializer.new(column).serializable_hash.dig(:data, :attributes)
         end
       end
+      attribute :stacktrace do |object|
+        if !object.failed? || object.events.empty?
+          nil
+        else
+          last_event = object.events.where(status: :failed).order(id: :desc).limit(1).last
+          last_event&.stacktrace
+        end
+      end
     end
 
     include JSONAPI::Serializer

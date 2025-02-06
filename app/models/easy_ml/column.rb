@@ -384,11 +384,7 @@ module EasyML
     end
 
     def lineage
-      [
-        in_raw_dataset? ? "Present in raw dataset" : nil,
-        computed_by ? "Computed by #{computed_by}" : nil,
-        preprocessing_steps.present? ? "Preprocessed using #{imputers.preprocessing_descriptions.join(", ")}" : nil,
-      ].compact
+      @lineage ||= EasyML::Column::Lineage.new(self).lineage
     end
 
     def required?

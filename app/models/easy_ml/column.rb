@@ -206,9 +206,10 @@ module EasyML
 
     def raw_dtype
       return @raw_dtype if @raw_dtype
+      set_feature_lineage
 
       if in_raw_dataset?
-        @raw_dtype = raw&.data&.to_series&.dtype
+        @raw_dtype = raw&.data&.to_series.try(:dtype)
       elsif already_computed?
         @raw_dtype = processed&.data&.to_series&.dtype
       end

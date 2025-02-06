@@ -45,7 +45,7 @@ module EasyML
       end
 
       def data(**kwargs)
-        if column.is_computed?
+        if column.is_computed? && !column.in_raw_dataset?
           Selector.new(column, :processed).send(:select, :data, **kwargs)
         else
           select(:data, **kwargs)

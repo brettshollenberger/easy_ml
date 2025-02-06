@@ -58,9 +58,11 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                   key={column.name}
                   className="bg-gray-50 rounded-lg p-4"
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-gray-900">{column.name}</h4>
-                    <span className="text-xs font-medium text-gray-500 px-2 py-1 bg-gray-200 rounded-full">
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <h4 className="font-medium text-gray-900 break-normal max-w-[70%] word-break:break-word overflow-wrap:anywhere whitespace-pre-wrap">
+                      {column.name.split('_').join('_\u200B')}
+                    </h4>
+                    <span className="text-xs font-medium text-gray-500 px-2 py-1 bg-gray-200 rounded-full flex-shrink-0">
                       {column.datatype}
                     </span>
                   </div>
@@ -68,23 +70,48 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                   {column.statistics && (
                     <div className="space-y-1">
                       {Object.entries(column.statistics.raw).map(([key, value]) => {
-                        if (key === "counts") { 
+                        // Skip internal keys and null/undefined values
+                        if (key === "counts" || 
+                            key === "allowed_categories" ||
+                            key === "value" ||
+                            key === "label_encoder" ||
+                            key === "label_decoder" ||
+                            value === null || 
+                            value === undefined) { 
                           return null;
                         }
+
+                        // Format the value based on its type
+                        let displayValue: string;
+                        if (typeof value === 'number') {
+                          displayValue = value.toLocaleString(undefined, {
+                            maximumFractionDigits: 2
+                          });
+                        } else if (typeof value === 'object') {
+                          // Handle arrays or other objects
+                          displayValue = JSON.stringify(value);
+                        } else if (typeof value === 'boolean') {
+                          displayValue = value.toString();
+                        } else {
+                          displayValue = String(value);
+                        }
+
+                        // Truncate long strings
+                        if (displayValue.length > 50) {
+                          displayValue = displayValue.slice(0, 47) + '...';
+                        }
+
                         return (
-                        <div key={key} className="flex justify-between text-sm">
-                          <span className="text-gray-500">
-                            {key.charAt(0).toUpperCase() + key.slice(1)}:
-                          </span>
-                          <span className="font-medium text-gray-900">
-                            {typeof value === 'number' ? 
-                              value.toLocaleString(undefined, {
-                                maximumFractionDigits: 2
-                              }) : 
-                              value}
-                          </span>
-                        </div>
-                      )})}
+                          <div key={key} className="flex justify-between text-sm gap-2">
+                            <span className="text-gray-500 flex-shrink-0">
+                              {key.charAt(0).toUpperCase() + key.slice(1)}:
+                            </span>
+                            <span className="font-medium text-gray-900 text-right break-all">
+                              {displayValue}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -142,10 +169,14 @@ export function DatasetPreview({ dataset }: DatasetPreviewProps) {
                     <tr key={i}>
                       {columns.map((column) => (
                         <td
-                          key={row[column]}
+                          key={`${i}-${column}`}
                           className="whitespace-nowrap px-3 py-4 text-sm text-gray-500"
                         >
-                          {row[column]?.toString()}
+                          {row[column] === null || row[column] === undefined 
+                            ? '' 
+                            : typeof row[column] === 'object' 
+                              ? JSON.stringify(row[column])
+                              : String(row[column])}
                         </td>
                       ))}
                     </tr>

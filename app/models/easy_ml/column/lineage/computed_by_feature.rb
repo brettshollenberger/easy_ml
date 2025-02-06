@@ -11,7 +11,7 @@ module EasyML
         end
 
         def timestamp
-          column.feature.fit_at
+          column.feature.fit_at || column.feature.applied_at
         end
 
         def check

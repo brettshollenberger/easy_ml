@@ -141,7 +141,13 @@ module EasyML
         assign_attributes(datatype: processed.data.to_series.dtype)
       end
       set_sample_values
-      assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(learner.learn(type: type).symbolize_keys))
+      new_stats = learner.learn(type: type).symbolize_keys
+
+      if !in_raw_dataset?
+        new_stats[:raw] = new_stats[:processed]
+      end
+
+      assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(new_stats))
       assign_attributes(
         learned_at: UTC.now,
         last_datasource_sha: dataset.last_datasource_sha,
@@ -410,9 +416,9 @@ module EasyML
 
       case datatype&.to_sym
       when :float
-        Float(value)
+        value.to_f
       when :integer
-        Integer(value)
+        value.to_i
       when :boolean
         ActiveModel::Type::Boolean.new.cast(value)
       when :datetime

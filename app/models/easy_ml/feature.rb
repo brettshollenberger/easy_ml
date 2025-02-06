@@ -294,12 +294,14 @@ module EasyML
         batch_args.symbolize_keys!
 
         if adapter.respond_to?(:batch)
-          batch_df = adapter.fit(dataset.raw, self, batch_args)
+          df = dataset.raw
         else
           df = build_batch(batch_args)
-          batch_df = adapter.fit(df, self, batch_args)
         end
       end
+      return if df.blank?
+
+      batch_df = adapter.fit(df, self, batch_args)
       if batch_df.present?
         store(batch_df)
       else
@@ -312,7 +314,10 @@ module EasyML
       return nil unless df.is_a?(Polars::DataFrame)
       return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
+      df_len_was = df.shape[0]
       result = adapter.transform(df, self)
+      df_len_now = result.shape[0]
+      raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if df_len_now != df_len_was
       update!(applied_at: Time.current)
       result
     end
@@ -390,8 +395,8 @@ module EasyML
       feature_store.list_partitions
     end
 
-    def query(filter: nil)
-      feature_store.query(filter: filter)
+    def query(**kwargs)
+      feature_store.query(**kwargs)
     end
 
     def store(df)

@@ -354,8 +354,8 @@ RSpec.describe EasyML::Deploy do
       expect(model.dataset.data.count).to eq 891
 
       # Statistics are kept separate
-      expect(model_v1.dataset.statistics.dig("raw", "Survived", "num_rows").first).to eq 500
-      expect(model.dataset.statistics.dig("raw", "Survived", "num_rows").first).to eq 891
+      expect(model_v1.dataset.statistics.dig("raw", "Survived", "num_rows")).to eq 500
+      expect(model.dataset.statistics.dig("raw", "Survived", "num_rows")).to eq 891
 
       # retrained model_file is distinct from v1 model_file
       expect(model_v2.model_file.filename).to_not eq(model_v1.model_file.filename)
@@ -431,8 +431,8 @@ RSpec.describe EasyML::Deploy do
       expect(model.dataset.data.count).to eq 891
 
       # Statistics are kept separate
-      expect(model_v1.dataset.statistics.dig("raw", "Survived", "num_rows").first).to eq 500
-      expect(model.dataset.statistics.dig("raw", "Survived", "num_rows").first).to eq 891
+      expect(model_v1.dataset.statistics.dig("raw", "Survived", "num_rows")).to eq 500
+      expect(model.dataset.statistics.dig("raw", "Survived", "num_rows")).to eq 891
 
       # retrained model_file is distinct from v1 model_file
       expect(model_v2.model_file.filename).to_not eq(model_v1.model_file.filename)

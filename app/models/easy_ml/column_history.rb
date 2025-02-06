@@ -37,5 +37,6 @@ module EasyML
     include Historiographer::History
     scope :required, -> { where(is_computed: false, hidden: false, is_target: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
     scope :computed, -> { where(is_computed: true) }
+    scope :raw, -> { where(is_computed: false) }
   end
 end

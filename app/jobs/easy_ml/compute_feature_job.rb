@@ -4,20 +4,10 @@ module EasyML
 
     @queue = :easy_ml
 
-    def self.perform(batch_id, options = {})
+    def self.perform(batch_id, batch_args = {})
       begin
-        options.symbolize_keys!
-        feature_id = options.dig(:feature_id)
-        feature = EasyML::Feature.find(feature_id)
-        dataset = feature.dataset
-
-        # Check if any feature has failed before proceeding
-        if dataset.features.any? { |f| f.workflow_status == "failed" }
-          return
-        end
-
-        feature.update(workflow_status: :analyzing) if feature.workflow_status == :ready
-        feature.fit_batch(options.merge!(batch_id: batch_id))
+        puts "ComputeFeatureJob.perform(#{batch_id}, #{batch_args})"
+        run_one_batch(batch_id, batch_args)
       rescue => e
         EasyML::Feature.transaction do
           return if dataset.reload.workflow_status == :failed
@@ -29,6 +19,10 @@ module EasyML
       end
     end
 
+    def self.run_one_batch(batch_id, batch_args)
+      EasyML::Feature.fit_one_batch(batch_id, batch_args)
+    end
+
     def self.build_error_with_context(dataset, error, batch_id, feature)
       error = EasyML::Event.handle_error(dataset, error)
       batch = feature.build_batch(batch_id: batch_id)
@@ -38,6 +32,7 @@ module EasyML
     end
 
     def self.after_batch_hook(batch_id, *args)
+      puts "Received after_batch_hook(#{batch_id}, #{args})"
       batch_args = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys)
       feature_ids = batch_args.pluck(:feature_id).uniq
       parent_id = batch_args.pluck(:parent_batch_id).first
@@ -51,6 +46,7 @@ module EasyML
 
       feature.after_fit
 
+      puts "Analyzing next feature..."
       if BatchJob.next_batch?(parent_id)
         BatchJob.enqueue_next_batch(self, parent_id)
       else

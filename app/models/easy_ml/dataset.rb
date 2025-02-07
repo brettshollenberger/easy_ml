@@ -225,6 +225,7 @@ module EasyML
     end
 
     def after_fit_features
+      puts "AFTER FIT FEATURES!"
       unlock!
       reload
       return if failed?

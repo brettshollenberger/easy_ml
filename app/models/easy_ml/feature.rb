@@ -234,17 +234,35 @@ module EasyML
       else
         jobs.each do |feature_batch|
           feature_batch.each do |batch_args|
-            begin
-              EasyML::ComputeFeatureJob.perform(nil, batch_args)
-            rescue => e
-              EasyML::Feature.fit_feature_failed(dataset, e)
-              raise e
-            end
+            EasyML::ComputeFeatureJob.perform(nil, batch_args)
           end
           feature = EasyML::Feature.find(feature_batch.first.dig(:feature_id))
           feature.after_fit
         end
         dataset.after_fit_features
+      end
+    end
+
+    def self.fit_one_batch(batch_id, batch_args = {})
+      batch_args.symbolize_keys!
+      feature_id = batch_args.dig(:feature_id)
+      feature = EasyML::Feature.find(feature_id)
+      dataset = feature.dataset
+
+      # Check if any feature has failed before proceeding
+      puts "Checking if any feature has failed..."
+      if dataset.features.any? { |f| f.workflow_status == "failed" }
+        return
+      end
+      puts "Analyzing..."
+      feature.update(workflow_status: :analyzing) if feature.workflow_status == :ready
+      puts "Fitting feature..."
+      begin
+        feature.fit_batch(batch_args.merge!(batch_id: batch_id))
+        puts "Feature fitted!"
+      rescue => e
+        EasyML::Feature.fit_feature_failed(dataset, e)
+        raise e
       end
     end
 

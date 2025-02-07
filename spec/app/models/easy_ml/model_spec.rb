@@ -44,6 +44,7 @@ RSpec.describe EasyML::Models do
     mock_s3_upload
 
     EasyML::Dataset.create(**dataset_config).tap do |dataset|
+      dataset.unlock!
       dataset.refresh
       dataset.columns.find_by(name: target).update(is_target: true)
       dataset.columns.where(name: drop_if_null_cols).update_all(drop_if_null: true)

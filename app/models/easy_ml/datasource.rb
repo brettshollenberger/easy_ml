@@ -98,6 +98,11 @@ module EasyML
       end
     end
 
+    def abort!
+      EasyML::Reaper.kill(EasyML::SyncDatasourceJob, id)
+      update(is_syncing: false)
+    end
+
     def refresh_async
       update(is_syncing: true)
       EasyML::SyncDatasourceJob.perform_later(id)

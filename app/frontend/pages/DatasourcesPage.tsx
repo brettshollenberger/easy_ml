@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { HardDrive, Plus, Trash2, Settings, RefreshCw, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { HardDrive, Plus, Trash2, Settings, RefreshCw, ChevronDown, ChevronUp, AlertCircle, XCircle } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
@@ -59,6 +59,17 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
       });
     } catch (error) {
       console.error('Failed to sync datasource:', error);
+    }
+  };
+
+  const handleAbort = async (id: number) => {
+    try {
+      await router.post(`${rootPath}/datasources/${id}/abort`, {}, {
+        preserveScroll: true,
+        preserveState: true
+      });
+    } catch (error) {
+      console.error('Failed to abort datasource sync:', error);
     }
   };
 
@@ -178,7 +189,7 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                       </div>
                     </div>
                     <div className="flex gap-2">
-                    <button
+                      <button
                         onClick={() => handleSync(datasource.id)}
                         disabled={datasource.is_syncing}
                         className={`text-gray-400 hover:text-blue-600 transition-colors ${
@@ -188,6 +199,15 @@ export default function DatasourcesPage({ datasources }: { datasources: Datasour
                       >
                         <RefreshCw className="w-5 h-5" />
                       </button>
+                      {datasource.is_syncing && (
+                        <button
+                          onClick={() => handleAbort(datasource.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          title="Abort sync"
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </button>
+                      )}
                       <Link
                         href={`${rootPath}/datasources/${datasource.id}/edit`}
                         className="text-gray-400 hover:text-blue-600 transition-colors"

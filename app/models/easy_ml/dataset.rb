@@ -126,6 +126,12 @@ module EasyML
       datasource&.num_rows
     end
 
+    def abort!
+      EasyML::Reaper.kill(EasyML::RefreshDatasetJob, id)
+      update(workflow_status: :ready)
+      unlock!
+    end
+
     def refresh_async
       return if analyzing?
 

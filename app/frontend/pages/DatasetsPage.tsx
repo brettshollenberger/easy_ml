@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { Database, Plus, Trash2, ExternalLink, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Database, Plus, Trash2, ExternalLink, Loader2, AlertCircle, ChevronDown, ChevronUp, RefreshCw, XCircle } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
@@ -54,6 +54,17 @@ export default function DatasetsPage({ datasets, constants }: Props) {
     if (confirm('Are you sure you want to delete this dataset?')) {
       router.delete(`${rootPath}/datasets/${datasetId}`);
     }
+  };
+
+  const handleRefresh = (datasetId: number) => {
+    router.post(`${rootPath}/datasets/${datasetId}/refresh`);
+  };
+
+  const handleAbort = (datasetId: number) => {
+    await router.post(`${rootPath}/datasets/${datasetId}/abort`, {}, {
+      preserveScroll: true,
+      preserveState: true
+    });
   };
 
   useEffect(() => {
@@ -176,6 +187,27 @@ export default function DatasetsPage({ datasets, constants }: Props) {
                       >
                         <ExternalLink className="w-5 h-5" />
                       </Link>
+                      <button
+                        onClick={() => handleRefresh(dataset.id)}
+                        disabled={dataset.workflow_status === 'analyzing'}
+                        className={`transition-colors ${
+                          dataset.workflow_status === 'analyzing'
+                            ? 'text-gray-300 cursor-not-allowed'
+                            : 'text-gray-400 hover:text-blue-600'
+                        }`}
+                        title={dataset.workflow_status === 'analyzing' ? 'Dataset is being analyzed' : 'Refresh dataset'}
+                      >
+                        <RefreshCw className="w-5 h-5" />
+                      </button>
+                      {dataset.workflow_status === 'analyzing' && (
+                        <button
+                          onClick={() => handleAbort(dataset.id)}
+                          className="text-gray-400 hover:text-red-600 transition-colors"
+                          title="Abort analysis"
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </button>
+                      )}
                       <button
                         className="text-gray-400 hover:text-red-600 transition-colors"
                         title="Delete dataset"

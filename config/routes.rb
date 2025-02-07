@@ -30,6 +30,7 @@ EasyML::Engine.routes.draw do
   resources :datasources, as: :easy_ml_datasources do
     member do
       post :sync
+      post :abort
     end
   end
 
@@ -37,6 +38,7 @@ EasyML::Engine.routes.draw do
   resources :datasets, as: :easy_ml_datasets do
     member do
       post :refresh
+      post :abort
     end
   end
 

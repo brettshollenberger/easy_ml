@@ -129,6 +129,13 @@ module EasyML
       redirect_to easy_ml_datasets_path, notice: "Dataset refresh has been initiated."
     end
 
+    def abort
+      dataset = Dataset.find(params[:id])
+      dataset.abort!
+
+      redirect_to easy_ml_datasets_path, notice: "Dataset processing has been aborted."
+    end
+
     private
 
     def preprocessing_params

@@ -281,9 +281,10 @@ module EasyML
         return @booster
       end
 
-      def weights
-        @booster.save_model("tmp/xgboost_model.json")
-        @booster.get_dump
+      def weights(model_file)
+        return nil unless model_file.present? && model_file.fit?
+
+        JSON.parse(model_file.read)
       end
 
       def predict(xs)

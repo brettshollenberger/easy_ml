@@ -127,6 +127,10 @@ module EasyML
       end
     end
 
+    def weights
+      adapter.weights(get_model_file)
+    end
+
     def get_retraining_job
       if retraining_job
         self.evaluator = retraining_job.evaluator
@@ -541,6 +545,47 @@ module EasyML
 
           adapter_class.constantize.new(self)
         end
+    end
+
+    UNCONFIGURABLE_COLUMNS = %w(
+      id
+      dataset_id
+      model_file_id
+      root_dir
+      file
+      sha
+      last_trained_at
+      is_training
+      created_at
+      updated_at
+      slug
+    )
+
+    def to_config
+      {
+        model: as_json.except(*UNCONFIGURABLE_COLUMNS).merge!(
+          weights: weights,
+          dataset: dataset.to_config["dataset"],
+        ),
+      }.with_indifferent_access
+    end
+
+    def self.from_config(json_config)
+      config = json_config.is_a?(String) ? JSON.parse(json_config) : json_config
+      model_config = config["model"]
+
+      # First create/update the dataset
+      dataset_config = { "dataset" => model_config.delete("dataset") }
+      dataset = EasyML::Dataset.from_config(dataset_config)
+
+      # Find or create model
+      model = EasyML::Model.find_or_create_by(name: model_config["name"]) do |m|
+        m.assign_attributes(model_config)
+        m.dataset = dataset
+      end
+      model.update!(model_config)
+
+      model
     end
 
     private

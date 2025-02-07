@@ -4,6 +4,7 @@ import { Database, Plus, Trash2, ExternalLink, Loader2, AlertCircle, ChevronDown
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
+import { StackTrace } from '../components/StackTrace';
 import { Dataset, DatasetWorkflowStatus, Column } from "@types/dataset";
 interface Props {
   datasets: Dataset[];
@@ -233,11 +234,7 @@ export default function DatasetsPage({ datasets, constants }: Props) {
                         )}
                       </button>
                       {expandedErrors.includes(dataset.id) && (
-                        <div className="mt-2 p-3 bg-red-50 rounded-md">
-                          <pre className="text-xs text-red-700 whitespace-pre-wrap font-mono">
-                            {dataset.stacktrace}
-                          </pre>
-                        </div>
+                        <StackTrace stacktrace={dataset.stacktrace} />
                       )}
                     </div>
                   )}

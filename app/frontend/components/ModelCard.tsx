@@ -4,6 +4,7 @@ import { Activity, Calendar, Database, Settings, ExternalLink, Play, LineChart,
 import { Link, router } from "@inertiajs/react";
 import { cn } from '@/lib/utils';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
+import { StackTrace } from './StackTrace';
 
 interface ModelCardProps {
   initialModel: Model;
@@ -281,9 +282,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
           </button>
           {showError && (
             <div className="mt-2 p-3 bg-red-50 rounded-md">
-              <pre className="text-xs text-red-700 whitespace-pre-wrap break-words [word-break:break-word] font-mono">
-                {lastRun.stacktrace}
-              </pre>
+              <StackTrace stacktrace={lastRun.stacktrace} />
             </div>
           )}
         </div>

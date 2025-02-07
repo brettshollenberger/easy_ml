@@ -15,7 +15,6 @@ module EasyML
         #
         # https://github.com/drfeelngood/resque-batched-job/blob/master/lib/resque/plugins/batched_job.rb#L86
         batch_args = batch_args.dup
-        puts "ComputeFeatureJob.perform(#{batch_id}, #{batch_args})"
         run_one_batch(batch_id, batch_args)
       rescue => e
         EasyML::Feature.transaction do
@@ -41,7 +40,6 @@ module EasyML
     end
 
     def self.after_batch_hook(batch_id, *args)
-      puts "Received after_batch_hook(#{batch_id}, #{args})"
       batch_args = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys)
       feature_ids = batch_args.pluck(:feature_id).uniq
       parent_id = batch_args.pluck(:parent_batch_id).first

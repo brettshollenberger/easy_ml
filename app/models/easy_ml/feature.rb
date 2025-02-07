@@ -82,7 +82,7 @@ module EasyML
             where(id: fittable.map(&:id))
           end
     scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
-    scope :ready_to_apply, -> { where.not(id: needs_fit.map(&:id)) }
+    scope :ready_to_apply, -> { where(needs_fit: false).where.not(id: has_changes.map(&:id)) }
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha
@@ -93,6 +93,10 @@ module EasyML
       feature_class.constantize
     rescue NameError
       raise InvalidFeatureError, "Invalid feature class: #{feature_class}"
+    end
+
+    def has_code?
+      feature_klass.present?
     end
 
     def adapter
@@ -508,7 +512,11 @@ module EasyML
     end
 
     def feature_klass
-      @feature_klass ||= EasyML::Features::Registry.find(feature_class.to_s).dig(:feature_class).constantize
+      begin
+        @feature_klass ||= EasyML::Features::Registry.find(feature_class.to_s).dig(:feature_class).constantize
+      rescue => e
+        nil
+      end
     end
 
     def config

@@ -15,10 +15,10 @@ module EasyML
       max_key = df[primary_key].max
       batch_size = feature.batch_size || 10_000
 
-      # Try to parse as integers if they're strings
       begin
-        min_key = min_key.to_i if min_key.is_a?(String)
-        max_key = max_key.to_i if max_key.is_a?(String)
+        # We are intentionally not using to_i, so it will raise an error for keys like "A1"
+        min_key = Integer(min_key) if min_key.is_a?(String)
+        max_key = Integer(max_key) if max_key.is_a?(String)
       rescue ArgumentError
         return store_without_partitioning(df)
       end

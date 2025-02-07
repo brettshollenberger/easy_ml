@@ -219,13 +219,12 @@ module EasyML
 
     def fit_features(async: false, features: self.features, force: false)
       features_to_compute = force ? features : features.needs_fit
-      return if features_to_compute.empty?
+      return after_fit_features if features_to_compute.empty?
 
       features.first.fit(features: features_to_compute, async: async)
     end
 
     def after_fit_features
-      puts "AFTER FIT FEATURES!"
       unlock!
       reload
       return if failed?

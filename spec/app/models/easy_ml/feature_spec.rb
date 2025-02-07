@@ -265,6 +265,16 @@ RSpec.describe EasyML::Datasource do
           )
         end
 
+        it "creates columns based on new features" do
+          zips_dataset
+          dataset.refresh
+          expect(dataset.columns.map(&:name)).to include("ZIP")
+          expect(dataset.columns.map(&:name)).to_not include("POPULATION")
+          feature
+          dataset.refresh
+          expect(dataset.reload.columns.map(&:name)).to include("POPULATION")
+        end
+
         it "computes the feature in batches based on ID ranges" do
           # Setup the dataset and feature to need recomputation
           zips_dataset

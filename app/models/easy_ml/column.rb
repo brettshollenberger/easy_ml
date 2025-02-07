@@ -43,6 +43,7 @@ module EasyML
     before_save :set_defaults
     before_save :set_feature_lineage
     before_save :set_polars_datatype
+    after_find :ensure_feature_exists
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -107,6 +108,13 @@ module EasyML
               .where(Datasource.arel_table[:sha].not_eq(nil))
           }
     scope :is_learning, -> { where(is_learning: true) }
+
+    def ensure_feature_exists
+      if feature && !feature.has_code?
+        feature.destroy
+        update(feature_id: nil)
+      end
+    end
 
     def display_attributes
       attributes.except(:statistics)

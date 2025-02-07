@@ -464,6 +464,8 @@ module EasyML
     end
 
     def after_fit
+      update_sha
+
       updates = {
         fit_at: Time.current,
         needs_fit: false,

@@ -17,6 +17,7 @@ EasyML::Engine.routes.draw do
   resources :models, as: :easy_ml_models do
     member do
       post :train
+      post :abort
       get :retraining_runs, to: "retraining_runs#index"
     end
     resources :deploys, only: [:create]

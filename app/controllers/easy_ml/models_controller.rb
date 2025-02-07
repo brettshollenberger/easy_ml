@@ -118,6 +118,14 @@ module EasyML
       redirect_to easy_ml_models_path
     end
 
+    def abort
+      model = Model.find(params[:id])
+      model.abort!
+
+      flash[:notice] = "Model training aborted!"
+      redirect_to easy_ml_models_path
+    end
+
     private
 
     def includes_list

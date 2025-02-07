@@ -16,14 +16,14 @@ module EasyML
         if dataset.features.needs_fit.any?
           dataset.fit_features(async: true)
         else
-          dataset.actually_refresh
+          dataset.after_fit_features
         end
       rescue StandardError => e
         if Rails.env.test?
           raise e
         end
         dataset.update(workflow_status: :failed)
-        handle_error(dataset, e)
+        EasyML::Event.handle_error(dataset, e)
       end
     end
   end

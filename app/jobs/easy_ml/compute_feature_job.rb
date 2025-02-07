@@ -4,20 +4,18 @@ module EasyML
 
     @queue = :easy_ml
 
-    def self.perform(batch_id, options = {})
+    def self.perform(batch_id, batch_args = {})
       begin
-        options.symbolize_keys!
-        feature_id = options.dig(:feature_id)
-        feature = EasyML::Feature.find(feature_id)
-        dataset = feature.dataset
-
-        # Check if any feature has failed before proceeding
-        if dataset.features.any? { |f| f.workflow_status == "failed" }
-          return
-        end
-
-        feature.update(workflow_status: :analyzing) if feature.workflow_status == :ready
-        feature.fit_batch(options.merge!(batch_id: batch_id))
+        # This is very, very, very, very, very important
+        # if you don't dup the batch_args, resque-batched-job will
+        # fail in some non-obvious ways, because it will try to
+        # decode to match the original batch args EXACTLY.
+        #
+        # This will waste your time so please just don't remove this .dup!!!
+        #
+        # https://github.com/drfeelngood/resque-batched-job/blob/master/lib/resque/plugins/batched_job.rb#L86
+        batch_args = batch_args.dup
+        run_one_batch(batch_id, batch_args)
       rescue => e
         EasyML::Feature.transaction do
           return if dataset.reload.workflow_status == :failed
@@ -27,6 +25,10 @@ module EasyML
           build_error_with_context(dataset, e, batch_id, feature)
         end
       end
+    end
+
+    def self.run_one_batch(batch_id, batch_args)
+      EasyML::Feature.fit_one_batch(batch_id, batch_args)
     end
 
     def self.build_error_with_context(dataset, error, batch_id, feature)

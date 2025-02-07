@@ -40,14 +40,23 @@ module EasyML
           Resque.redis.rpush("batch:#{parent_id}:remaining", batch.to_json)
         end
 
-        enqueue_batch(batch)
+        handle_batch(parent_id, batch)
+      end
+
+      def handle_batch(parent_id, batch)
+        if batch.size > 1
+          enqueue_batch(batch)
+        else
+          run_one_batch(parent_id, batch.first)
+          after_batch_hook(parent_id, batch)
+        end
       end
 
       def enqueue_next_batch(caller, parent_id)
         next_batch = Resque.redis.lpop("batch:#{parent_id}:remaining")
         payload = Resque.decode(next_batch)
 
-        caller.enqueue_batch(payload)
+        caller.handle_batch(parent_id, payload)
       end
 
       def next_batch?(parent_id)

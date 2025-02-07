@@ -60,7 +60,7 @@ RSpec.describe "EasyML::Feature Computation" do
       dataset.reload
       expect(dataset.workflow_status).to eq("failed")
       expect(dataset.events.last.status).to eq("failed")
-      expect(dataset.events.last.stacktrace).to include("Intentional failure in feature computation")
+      expect(dataset.events.last.stacktrace.gsub(/\n/, "")).to include("Intentional failure in feature computation")
 
       # Verify final states
       expect(dataset.reload.workflow_status).to eq("failed")

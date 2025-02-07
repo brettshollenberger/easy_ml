@@ -82,7 +82,7 @@ module EasyML
             where(id: fittable.map(&:id))
           end
     scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
-    scope :ready_to_apply, -> { where.not(id: needs_fit.map(&:id)) }
+    scope :ready_to_apply, -> { where(needs_fit: false).where.not(id: has_changes.map(&:id)) }
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha
@@ -93,6 +93,10 @@ module EasyML
       feature_class.constantize
     rescue NameError
       raise InvalidFeatureError, "Invalid feature class: #{feature_class}"
+    end
+
+    def has_code?
+      feature_klass.present?
     end
 
     def adapter
@@ -250,16 +254,29 @@ module EasyML
       dataset = feature.dataset
 
       # Check if any feature has failed before proceeding
-      if dataset.features.any? { |f| f.workflow_status == "failed" }
-        return
-      end
+      return if dataset.features.any? { |f| f.workflow_status == "failed" }
+
       feature.update(workflow_status: :analyzing) if feature.workflow_status == :ready
       begin
         feature.fit_batch(batch_args.merge!(batch_id: batch_id))
       rescue => e
-        EasyML::Feature.fit_feature_failed(dataset, e)
+        EasyML::Feature.transaction do
+          return if dataset.reload.workflow_status == :failed
+
+          feature.update(workflow_status: :failed)
+          dataset.update(workflow_status: :failed)
+          build_error_with_context(dataset, e, batch_id, feature)
+        end
         raise e
       end
+    end
+
+    def self.build_error_with_context(dataset, error, batch_id, feature)
+      error = EasyML::Event.handle_error(dataset, error)
+      batch = feature.build_batch(batch_id: batch_id)
+
+      # Convert any dataframes in the context to serialized form
+      error.create_context(context: batch)
     end
 
     def self.fit_feature_failed(dataset, e)
@@ -329,7 +346,11 @@ module EasyML
       end
       return if df.blank?
 
-      batch_df = adapter.fit(df, self, batch_args)
+      begin
+        batch_df = adapter.fit(df, self, batch_args)
+      rescue => e
+        raise "Feature #{feature_class}#fit failed: #{e.message}"
+      end
       if batch_df.present?
         store(batch_df)
       else
@@ -343,7 +364,11 @@ module EasyML
       return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
       df_len_was = df.shape[0]
-      result = adapter.transform(df, self)
+      begin
+        result = adapter.transform(df, self)
+      rescue => e
+        raise "Feature #{feature_class}#transform failed: #{e.message}"
+      end
       raise "Feature '#{name}' must return a Polars::DataFrame, got #{result.class}" unless result.is_a?(Polars::DataFrame)
       df_len_now = result.shape[0]
       raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if df_len_now != df_len_was
@@ -439,6 +464,8 @@ module EasyML
     end
 
     def after_fit
+      update_sha
+
       updates = {
         fit_at: Time.current,
         needs_fit: false,
@@ -500,7 +527,11 @@ module EasyML
     end
 
     def feature_klass
-      @feature_klass ||= EasyML::Features::Registry.find(feature_class.to_s).dig(:feature_class).constantize
+      begin
+        @feature_klass ||= EasyML::Features::Registry.find(feature_class.to_s).dig(:feature_class).constantize
+      rescue => e
+        nil
+      end
     end
 
     def config

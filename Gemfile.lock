@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc63)
+    easy_ml (0.2.0.pre.rc68)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport

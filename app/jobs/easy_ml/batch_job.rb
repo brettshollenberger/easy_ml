@@ -36,8 +36,6 @@ module EasyML
         batch = args_list.first
         rest = args_list[1..]
 
-        puts "Enqueueing batch of size #{batch.size} for feature #{batch.first.dig(:feature_id)}"
-
         rest.map do |batch|
           Resque.redis.rpush("batch:#{parent_id}:remaining", batch.to_json)
         end
@@ -49,19 +47,16 @@ module EasyML
         if batch.size > 1
           enqueue_batch(batch)
         else
-          puts "Handling batch of size 1!"
           run_one_batch(parent_id, batch.first)
-          enqueue_next_batch(self, parent_id)
+          after_batch_hook(parent_id, batch)
         end
       end
 
       def enqueue_next_batch(caller, parent_id)
-        puts "Enqueueing next batch!"
         next_batch = Resque.redis.lpop("batch:#{parent_id}:remaining")
         payload = Resque.decode(next_batch)
 
         caller.handle_batch(parent_id, payload)
-        # caller.enqueue_batch(payload)
       end
 
       def next_batch?(parent_id)

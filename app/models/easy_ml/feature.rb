@@ -250,16 +250,12 @@ module EasyML
       dataset = feature.dataset
 
       # Check if any feature has failed before proceeding
-      puts "Checking if any feature has failed..."
       if dataset.features.any? { |f| f.workflow_status == "failed" }
         return
       end
-      puts "Analyzing..."
       feature.update(workflow_status: :analyzing) if feature.workflow_status == :ready
-      puts "Fitting feature..."
       begin
         feature.fit_batch(batch_args.merge!(batch_id: batch_id))
-        puts "Feature fitted!"
       rescue => e
         EasyML::Feature.fit_feature_failed(dataset, e)
         raise e

@@ -6,6 +6,15 @@ module EasyML
 
     def self.perform(batch_id, batch_args = {})
       begin
+        # This is very, very, very, very, very important
+        # if you don't dup the batch_args, resque-batched-job will
+        # fail in some non-obvious ways, because it will try to
+        # decode to match the original batch args EXACTLY.
+        #
+        # This will waste your time so please just don't remove this .dup!!!
+        #
+        # https://github.com/drfeelngood/resque-batched-job/blob/master/lib/resque/plugins/batched_job.rb#L86
+        batch_args = batch_args.dup
         puts "ComputeFeatureJob.perform(#{batch_id}, #{batch_args})"
         run_one_batch(batch_id, batch_args)
       rescue => e
@@ -46,7 +55,6 @@ module EasyML
 
       feature.after_fit
 
-      puts "Analyzing next feature..."
       if BatchJob.next_batch?(parent_id)
         BatchJob.enqueue_next_batch(self, parent_id)
       else

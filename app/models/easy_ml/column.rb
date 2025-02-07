@@ -290,8 +290,6 @@ module EasyML
       end
     end
 
-    alias_method :feature, :computing_feature
-
     def set_feature_lineage
       return if dataset.nil?
 

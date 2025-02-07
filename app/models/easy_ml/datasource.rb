@@ -122,10 +122,12 @@ module EasyML
       self.refreshed_at = Time.now
       self.sha = adapter.sha
       save
+      self.schema
     end
 
     def refresh
       unless adapter.needs_refresh?
+        after_sync if schema.nil?
         update(sha: adapter.sha) if sha.nil?
         update!(is_syncing: false)
         return

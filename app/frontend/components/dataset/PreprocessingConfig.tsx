@@ -264,18 +264,18 @@ export function PreprocessingConfig({
   const renderStrategySpecificInfo = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
     let content;
-    if (strategy.method === 'most_frequent' && column.statistics?.raw.most_frequent_value) {
+    if (strategy.method === 'most_frequent' && column.statistics?.raw.most_frequent_value !== undefined) {
       content = `Most Frequent Value: ${column.statistics.raw.most_frequent_value}`
     } else if (strategy.method === 'ffill') {
       const lastValue = column.statistics?.raw.last_value;
-      if (lastValue !== undefined && lastValue !== null) {
+      if (lastValue !== undefined) {
         content = `Forward Fill using Last Value: ${lastValue}`;
       } else {
         content = 'Set date column & apply preprocessing to see last value';
       }
-    } else if (strategy.method === 'median' && column.statistics?.raw?.median !== undefined && column.statistics?.raw?.median !== null) {
+    } else if (strategy.method === 'median' && column.statistics?.raw?.median !== undefined) {
       content = `Median: ${column.statistics.raw.median}`
-    } else if (strategy.method === 'mean' && column.statistics?.raw?.mean !== undefined && column.statistics?.raw?.mean !== null) {
+    } else if (strategy.method === 'mean' && column.statistics?.raw?.mean !== undefined) {
       content = `Mean: ${column.statistics.raw.mean}`
     } else {
       return null;

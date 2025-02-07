@@ -112,7 +112,7 @@ module EasyML
     end
 
     def schema
-      read_attribute(:schema) || datasource.schema
+      read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
     end
 
     def processed_schema
@@ -186,9 +186,12 @@ module EasyML
 
     def actually_refresh
       refreshing do
+        puts "actually_refresh"
         learn(delete: false) # After syncing datasource, learn new statistics + sync columns
         process_data
+        puts "process_data"
         fully_reload
+        puts "Learning..."
         learn
         learn_statistics(type: :processed) # After processing data, we learn any new statistics
         now = UTC.now
@@ -208,7 +211,9 @@ module EasyML
       return refresh_async if async
 
       refreshing do
+        puts "prepare.."
         prepare
+        puts "fit features..."
         fit_features(async: async)
       end
     end
@@ -225,6 +230,7 @@ module EasyML
     end
 
     def after_fit_features
+      puts "after fit features..."
       unlock!
       reload
       return if failed?

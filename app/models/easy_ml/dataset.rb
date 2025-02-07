@@ -86,6 +86,86 @@ module EasyML
       }
     end
 
+    UNCONFIGURABLE_COLUMNS = %w(
+      id
+      statistics
+      root_dir
+      created_at
+      updated_at
+      refreshed_at
+      sha
+      datasource_id
+      last_datasource_sha
+    )
+
+    def to_config
+      fully_reload
+
+      {
+        dataset: as_json.except(*UNCONFIGURABLE_COLUMNS).merge!(
+          splitter: splitter.to_config,
+          datasource: datasource.to_config,
+          columns: columns.map(&:to_config),
+          features: features.map(&:to_config),
+        ),
+      }.with_indifferent_access
+    end
+
+    def self.from_config(json_config)
+      config = json_config.is_a?(String) ? JSON.parse(json_config) : json_config
+      dataset_config = config["dataset"]
+
+      # Extract datasource config and find or create datasource
+      datasource_config = dataset_config.delete("datasource")
+      datasource = EasyML::Datasource.find_or_create_by(name: datasource_config["name"]) do |ds|
+        ds.assign_attributes(datasource_config)
+      end
+      datasource.update!(datasource_config)
+
+      # Extract splitter config
+      splitter_config = dataset_config.delete("splitter")
+
+      # Find or create dataset
+      dataset = EasyML::Dataset.find_or_create_by(name: dataset_config["name"]) do |ds|
+        ds.assign_attributes(dataset_config.except("columns", "features"))
+        ds.datasource = datasource
+      end
+      dataset.update!(dataset_config.except("columns", "features"))
+
+      # Update splitter if config exists
+      if splitter_config.present?
+        if dataset.splitter.present?
+          dataset.splitter.update!(splitter_config)
+        else
+          dataset.create_splitter!(splitter_config)
+        end
+      end
+
+      # Update columns
+      existing_columns = dataset.columns.index_by(&:name)
+      dataset_config["columns"].each do |column_config|
+        column_name = column_config["name"]
+        if existing_columns[column_name]
+          existing_columns[column_name].update!(column_config)
+        else
+          dataset.columns.create!(column_config)
+        end
+      end
+
+      # Update features
+      existing_features = dataset.features.index_by(&:name)
+      dataset_config["features"].each do |feature_config|
+        feature_name = feature_config["name"]
+        if existing_features[feature_name]
+          existing_features[feature_name].update!(feature_config)
+        else
+          dataset.features.create!(feature_config)
+        end
+      end
+
+      dataset
+    end
+
     def root_dir=(value)
       raise "Cannot override value of root_dir!" unless value.to_s == root_dir.to_s
 
@@ -657,29 +737,6 @@ module EasyML
 
     def after_create_columns
       apply_date_splitter_config
-    end
-
-    UNCONFIGURABLE_COLUMNS = %w(
-      id
-      statistics
-      root_dir
-      created_at
-      updated_at
-      refreshed_at
-      sha
-      datasource_id
-      last_datasource_sha
-    )
-
-    def to_config
-      {
-        dataset: as_json.except(*UNCONFIGURABLE_COLUMNS).merge!(
-          root_dir: default_root_dir,
-          datasource: datasource.to_config,
-          columns: columns.map(&:to_config),
-          features: features.map(&:to_config),
-        ),
-      }.with_indifferent_access
     end
 
     private

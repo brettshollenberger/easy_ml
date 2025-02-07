@@ -75,6 +75,12 @@ module EasyML
       }
     end
 
+    UNCONFIGURABLE_COLUMNS = [:id, :dataset_id].freeze
+
+    def to_config
+      as_json.except(*UNCONFIGURABLE_COLUMNS).with_indifferent_access
+    end
+
     def split(df, &block)
       adapter.split(df, &block)
     end

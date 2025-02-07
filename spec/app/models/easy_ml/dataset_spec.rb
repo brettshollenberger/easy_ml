@@ -811,31 +811,41 @@ RSpec.describe EasyML::Dataset do
     end
 
     describe ".from_json_config" do
-      let(:json_config) do
-        JSON.parse(
-          File.read(SPEC_ROOT.join("internal/fixtures/titanic_export.json"))
-        )
-      end
-
       it "creates a new dataset from JSON configuration", :focus do
-        dataset.destroy! # Destroy existing dataset
+        @dataset = dataset
+        @dataset.columns.find_by(name: "Age").update(
+          preprocessing_steps: {
+            training: {
+              method: :median,
+              params: {
+                clip: { min: 0, max: 10 },
+              },
+            },
+          },
+        )
+        json_config = @dataset.to_config
 
-        dataset = EasyML::Dataset.from_json_config(json_config)
+        @dataset.destroy! # Destroy existing dataset
+        expect(EasyML::Column.count).to eq(0)
+
+        dataset = EasyML::Dataset.from_config(json_config)
 
         expect(dataset).to be_persisted
-        expect(dataset.name).to eq("Imported Titanic Dataset")
-        expect(dataset.description).to eq("Imported titanic dataset")
-        expect(dataset.datasource.name).to eq("Titanic Core Import")
+        expect(dataset.name).to eq("Titanic")
+        expect(dataset.datasource.name).to eq("Titanic Extended")
         expect(dataset.datasource.datasource_type).to eq("file")
 
-        column = dataset.columns.first
+        column = dataset.columns.find_by(name: "PassengerId")
         expect(column.name).to eq("PassengerId")
-        expect(column.description).to eq("Passenger ID")
-        expect(column.datatype).to eq("Int64")
+        expect(column.datatype).to eq("integer")
 
         feature = dataset.features.first
         expect(feature.name).to eq("FamilySize")
         expect(feature.feature_class).to eq("FamilySizeFeature")
+
+        dataset.refresh
+        expect(dataset.data.columns).to include("FamilySize")
+        expect(dataset.data["Age"].max).to eq 10 # Preprocesing steps applied
       end
     end
   end

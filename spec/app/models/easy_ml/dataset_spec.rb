@@ -2,7 +2,7 @@ require "spec_helper"
 require "support/model_spec_helper"
 require "support/file_spec_helper"
 
-RSpec.describe EasyML::Datasource do
+RSpec.describe EasyML::Dataset do
   include ModelSpecHelper
 
   let(:today) do
@@ -775,6 +775,67 @@ RSpec.describe EasyML::Datasource do
       dataset.refresh
       %w(C Q S).each do |value|
         expect(dataset.data.columns).to_not include("Embarked_#{value}")
+      end
+    end
+  end
+
+  describe "Exporting/importing dataset from JSON" do
+    let(:dataset) do
+      titanic_dataset
+    end
+
+    before do
+      dataset.features.create!(
+        name: "FamilySize",
+        feature_class: "FamilySizeFeature",
+      )
+      dataset.refresh
+    end
+
+    describe "#to_config" do
+      it "exports the dataset configuration as JSON" do
+        json_config = dataset.to_config
+
+        expect(json_config["dataset"]["name"]).to eq("Titanic")
+        expect(json_config["dataset"]["datasource"]["name"]).to eq("Titanic Extended")
+        expect(json_config["dataset"]["datasource"]["datasource_type"]).to eq("file")
+
+        column_config = json_config["dataset"]["columns"].first
+        expect(column_config["name"]).to eq("PassengerId")
+        expect(column_config["datatype"]).to eq("integer")
+
+        feature_config = json_config["dataset"]["features"].first
+        expect(feature_config["name"]).to eq("FamilySize")
+        expect(feature_config["feature_class"]).to eq("FamilySizeFeature")
+      end
+    end
+
+    describe ".from_json_config" do
+      let(:json_config) do
+        JSON.parse(
+          File.read(SPEC_ROOT.join("internal/fixtures/titanic_export.json"))
+        )
+      end
+
+      it "creates a new dataset from JSON configuration", :focus do
+        dataset.destroy! # Destroy existing dataset
+
+        dataset = EasyML::Dataset.from_json_config(json_config)
+
+        expect(dataset).to be_persisted
+        expect(dataset.name).to eq("Imported Titanic Dataset")
+        expect(dataset.description).to eq("Imported titanic dataset")
+        expect(dataset.datasource.name).to eq("Titanic Core Import")
+        expect(dataset.datasource.datasource_type).to eq("file")
+
+        column = dataset.columns.first
+        expect(column.name).to eq("PassengerId")
+        expect(column.description).to eq("Passenger ID")
+        expect(column.datatype).to eq("Int64")
+
+        feature = dataset.features.first
+        expect(feature.name).to eq("FamilySize")
+        expect(feature.feature_class).to eq("FamilySizeFeature")
       end
     end
   end

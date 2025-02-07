@@ -659,6 +659,29 @@ module EasyML
       apply_date_splitter_config
     end
 
+    UNCONFIGURABLE_COLUMNS = %w(
+      id
+      statistics
+      root_dir
+      created_at
+      updated_at
+      refreshed_at
+      sha
+      datasource_id
+      last_datasource_sha
+    )
+
+    def to_config
+      {
+        dataset: as_json.except(*UNCONFIGURABLE_COLUMNS).merge!(
+          root_dir: default_root_dir,
+          datasource: datasource.to_config,
+          columns: columns.map(&:to_config),
+          features: features.map(&:to_config),
+        ),
+      }.with_indifferent_access
+    end
+
     private
 
     def apply_date_splitter_config

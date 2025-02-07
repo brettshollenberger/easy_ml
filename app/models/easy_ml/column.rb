@@ -420,6 +420,23 @@ module EasyML
       }.compact
     end
 
+    UNCONFIGURABLE_COLUMNS = %w(
+      id
+      feature_id
+      dataset_id
+      last_datasource_sha
+      last_feature_sha
+      learned_at
+      is_learning
+      configuration_changed_at
+      created_at
+      updated_at
+    )
+
+    def to_config
+      as_json.except(*UNCONFIGURABLE_COLUMNS).with_indifferent_access
+    end
+
     def cast(value)
       return value if value.nil?
 

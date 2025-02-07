@@ -474,6 +474,23 @@ module EasyML
       update!(updates)
     end
 
+    UNCONFIGURABLE_COLUMNS = %w(
+      id
+      dataset_id
+      sha
+      applied_at
+      fit_at
+      created_at
+      updated_at
+      needs_fit
+      workflow_status
+      refresh_every
+    )
+
+    def to_config
+      as_json.except(*UNCONFIGURABLE_COLUMNS).with_indifferent_access
+    end
+
     private
 
     def bulk_update_positions(features)

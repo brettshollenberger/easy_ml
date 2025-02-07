@@ -293,6 +293,8 @@ module EasyML
     alias_method :feature, :computing_feature
 
     def set_feature_lineage
+      return if dataset.nil?
+
       if dataset.features.computed_column_names.include?(name)
         if computed_by.nil?
           assign_attributes(

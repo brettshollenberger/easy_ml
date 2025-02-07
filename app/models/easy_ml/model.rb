@@ -110,6 +110,13 @@ module EasyML
       is_training == true
     end
 
+    def abort!
+      EasyML::Reaper.kill(EasyML::TrainingJob, id)
+      update(is_training: false, status: :ready)
+      get_retraining_job.retraining_runs.last.update(status: :aborted)
+      unlock!
+    end
+
     def train(async: true)
       pending_run # Ensure we update the pending job before enqueuing in background so UI updates properly
       update(is_training: true)
@@ -309,7 +316,7 @@ module EasyML
     def fit(tuning: false, x_train: nil, y_train: nil, x_valid: nil, y_valid: nil, &progress_block)
       return fit_in_batches(**batch_args.merge!(tuning: tuning), &progress_block) if fit_in_batches?
 
-      dataset.refresh
+      dataset.refresh if dataset.reload.needs_refresh?
       adapter.fit(tuning: tuning, x_train: x_train, y_train: y_train, x_valid: x_valid, y_valid: y_valid, &progress_block)
     end
 

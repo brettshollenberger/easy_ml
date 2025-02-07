@@ -53,6 +53,25 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     }
   };
 
+  const handleAbort = async () => {
+    try {
+      await router.post(`${rootPath}/models/${model.id}/abort`, {}, {
+        preserveScroll: true,
+        preserveState: true
+      });
+      const response = await fetch(`${rootPath}/models/${model.id}`, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      const data = await response.json();
+      setModel(data.model);
+    } catch (error) {
+      console.error('Failed to abort training:', error);
+      setShowError(true);
+    }
+  };
+
   const dataset = model.dataset;
   const job = model.retraining_job;
   const lastRun = model.last_run;
@@ -77,6 +96,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
     if (model.is_training) return 'Training in progress...';
     if (!lastRun) return 'Never trained';
     if (lastRun.status === 'failed') return 'Last run failed';
+    if (lastRun.status === 'aborted') return 'Last run aborted';
     if (lastRun.status === 'success') {
       return lastRun.deployable ? 'Last run succeeded' : 'Last run completed (below threshold)';
     }
@@ -91,6 +111,23 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
       return lastRun.deployable ? 'text-green-700' : 'text-orange-700';
     }
     return 'text-gray-700';
+  };
+
+  const renderTrainingStatus = () => {
+    if (model.is_training) {
+      return (
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleAbort}
+            className="text-gray-400 hover:text-red-600"
+            title="Abort training"
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -125,6 +162,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             >
               <Play className="w-5 h-5" />
             </button>
+            {renderTrainingStatus()}
             {
               model.metrics_url && (
                 <a
@@ -243,13 +281,20 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
           </button>
           {showError && (
             <div className="mt-2 p-3 bg-red-50 rounded-md">
-              <pre className="text-xs text-red-700 whitespace-pre-wrap font-mono">
+              <pre className="text-xs text-red-700 whitespace-pre-wrap break-words [word-break:break-word] font-mono">
                 {lastRun.stacktrace}
               </pre>
             </div>
           )}
         </div>
       )}
+      <div className="flex items-center space-x-4">
+        <button
+          onClick={() => onViewDetails(model.id)}
+          className="text-gray-400 hover:text-blue-600"
+        >
+        </button>
+      </div>
     </div>
   );
 }

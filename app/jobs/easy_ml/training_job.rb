@@ -2,7 +2,7 @@ module EasyML
   class TrainingJob < ApplicationJob
     class TrainingTimeoutError < StandardError; end
 
-    INACTIVITY_TIMEOUT = 15 # seconds
+    INACTIVITY_TIMEOUT = 300 # seconds
 
     def perform(model_id)
       @model = EasyML::Model.find_by(id: model_id)

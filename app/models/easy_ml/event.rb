@@ -70,13 +70,7 @@ module EasyML
       %(#{topline}
 
         #{stacktrace.join("\n")}
-      ).split("\n").map do |l|
-        l.gsub(/\s{2,}/, " ").strip
-      end.flat_map { |line| wrap_text(line, MAX_LINE_LENGTH) }.join("\n")
-    end
-
-    def self.wrap_text(text, max_length)
-      text.strip.scan(/.{1,#{max_length}}/)
+      ).split("\n").map(&:strip).join("\n")
     end
   end
 end

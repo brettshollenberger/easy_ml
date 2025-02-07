@@ -73,7 +73,7 @@ module EasyML
         model.evaluator = evaluator if evaluator.present?
         model.task = task
 
-        model.dataset.refresh
+        model.dataset.refresh if model.dataset.needs_refresh?
         x_true, y_true = model.dataset.test(split_ys: true)
         self.x_true = x_true
         self.y_true = y_true

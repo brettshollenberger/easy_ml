@@ -329,7 +329,11 @@ module EasyML
       end
       return if df.blank?
 
-      batch_df = adapter.fit(df, self, batch_args)
+      begin
+        batch_df = adapter.fit(df, self, batch_args)
+      rescue => e
+        raise "Feature #{feature_class}#fit failed: #{e.message}"
+      end
       if batch_df.present?
         store(batch_df)
       else
@@ -343,7 +347,11 @@ module EasyML
       return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
       df_len_was = df.shape[0]
-      result = adapter.transform(df, self)
+      begin
+        result = adapter.transform(df, self)
+      rescue => e
+        raise "Feature #{feature_class}#transform failed: #{e.message}"
+      end
       raise "Feature '#{name}' must return a Polars::DataFrame, got #{result.class}" unless result.is_a?(Polars::DataFrame)
       df_len_now = result.shape[0]
       raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if df_len_now != df_len_was

@@ -8,7 +8,6 @@ module EasyML
           @column = column
           @dataset = column.dataset
           @preprocessing_step = preprocessing_step.with_indifferent_access
-          validate_preprocessing_step!
         end
 
         def inspect
@@ -71,31 +70,6 @@ module EasyML
           return df unless adapters.map(&:class).include?(OrdinalEncoder)
 
           EasyML::Column::Imputers::OrdinalEncoder.new(column, preprocessing_step).decode_labels(df)
-        end
-
-        private
-
-        def validate_preprocessing_step!
-          validate_params!
-          validate_method!
-        end
-
-        def validate_params!
-          return unless preprocessing_step[:params]
-
-          preprocessing_step[:params].keys.each do |param|
-            unless Imputers.supported_params.include?(param.to_sym)
-              raise ArgumentError, "Unsupported preprocessing parameter '#{param}'. Supported parameters are: #{Imputers.supported_params.join(", ")}"
-            end
-          end
-        end
-
-        def validate_method!
-          return unless preprocessing_step[:method]
-
-          unless Imputers.supported_methods.include?(preprocessing_step[:method].to_sym)
-            raise ArgumentError, "Unsupported preprocessing method '#{preprocessing_step[:method]}'. Supported methods are: #{Imputers.supported_methods.join(", ")}"
-          end
         end
       end
     end

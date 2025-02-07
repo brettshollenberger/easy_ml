@@ -202,7 +202,6 @@ module EasyML
         prepare!
         fit_features!(async: async)
       end
-      after_fit_features unless async
     end
 
     def refresh(async: false)
@@ -212,7 +211,6 @@ module EasyML
         prepare
         fit_features(async: async)
       end
-      after_fit_features unless async
     end
 
     def fit_features!(async: false, features: self.features)
@@ -231,7 +229,6 @@ module EasyML
       reload
       return if failed?
 
-      features.update_all(needs_fit: false, fit_at: Time.current)
       actually_refresh
     end
 

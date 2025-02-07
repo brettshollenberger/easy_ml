@@ -232,11 +232,25 @@ module EasyML
       if async && job_count > 1
         EasyML::ComputeFeatureJob.enqueue_ordered_batches(jobs)
       else
-        jobs.flatten.each do |job|
-          EasyML::ComputeFeatureJob.perform(nil, job)
+        jobs.each do |feature_batch|
+          feature_batch.each do |batch_args|
+            begin
+              EasyML::ComputeFeatureJob.perform(nil, batch_args)
+            rescue => e
+              EasyML::Feature.fit_feature_failed(dataset, e)
+              raise e
+            end
+          end
+          feature = EasyML::Feature.find(feature_batch.first.dig(:feature_id))
+          feature.after_fit
         end
-        features.each(&:after_fit) unless features.any?(&:failed?)
+        dataset.after_fit_features
       end
+    end
+
+    def self.fit_feature_failed(dataset, e)
+      dataset.update(workflow_status: :failed)
+      EasyML::Event.handle_error(dataset, e)
     end
 
     # Fit a single batch, used for testing the user's feature implementation
@@ -412,7 +426,7 @@ module EasyML
 
     def after_fit
       updates = {
-        applied_at: Time.current,
+        fit_at: Time.current,
         needs_fit: false,
         workflow_status: :ready,
       }.compact

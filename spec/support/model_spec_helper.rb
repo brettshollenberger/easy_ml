@@ -246,6 +246,7 @@ module ModelSpecHelper
         ),
         splitter_attributes: splitter_attributes,
       )
+      dataset.unlock!
       dataset.refresh
       dataset.columns.find_by(name: "Survived").update(is_target: true)
       dataset.columns.find_by(name: "Name").update(hidden: true)

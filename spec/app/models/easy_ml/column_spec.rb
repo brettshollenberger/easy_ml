@@ -166,7 +166,7 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       it "includes 'Raw dataset' in lineage" do
-        expect(column.lineage.map { |l| l[:key] }).to include(:raw_dataset)
+        expect(column.lineages.first.key.to_sym).to eq(:raw_dataset)
       end
     end
 
@@ -175,8 +175,8 @@ RSpec.describe EasyML::Column do
         feature
         dataset.refresh!
         column = dataset.columns.find_by(name: "FamilySize")
-        expect(column.lineage.map { |l| l[:key] }).to include(:computed_by_feature)
-        expect(column.lineage.map { |l| l[:description] }).to include("Computed by FamilySize")
+        expect(column.lineages.map(&:key).map(&:to_sym)).to include(:computed_by_feature)
+        expect(column.lineages.map(&:description)).to include("Computed by FamilySize")
       end
     end
 
@@ -188,7 +188,7 @@ RSpec.describe EasyML::Column do
       end
 
       it "includes preprocessing steps in lineage" do
-        expect(column.lineage.map { |l| l[:key] }).to include(:preprocessed)
+        expect(column.lineages.map(&:key).map(&:to_sym)).to include(:preprocessed)
       end
     end
 
@@ -211,9 +211,9 @@ RSpec.describe EasyML::Column do
       end
 
       it "includes all relevant information in lineage" do
-        lineage = column.lineage
-        expect(lineage.detect { |l| l[:key] == :computed_by_feature }[:description]).to include("Computed by FamilySize")
-        expect(lineage.detect { |l| l[:key] == :preprocessed }[:description]).to include("Preprocessed using Clip, Mean imputation")
+        lineage = column.lineages
+        expect(lineage.detect { |l| l.key == :computed_by_feature }.description).to include("Computed by FamilySize")
+        expect(lineage.detect { |l| l.key == :preprocessed }.description).to include("Preprocessed using Clip, Mean imputation")
         expect(lineage.length).to eq(2)
       end
     end

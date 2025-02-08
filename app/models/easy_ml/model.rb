@@ -578,12 +578,24 @@ module EasyML
       dataset_config = { "dataset" => model_config.delete("dataset") }
       dataset = EasyML::Dataset.from_config(dataset_config)
 
+      # Extract weights before creating model
+      weights = model_config.delete("weights")
+
       # Find or create model
       model = EasyML::Model.find_or_create_by(name: model_config["name"]) do |m|
         m.assign_attributes(model_config)
         m.dataset = dataset
       end
       model.update!(model_config)
+
+      # Import weights if present
+      if weights.present?
+        model_file = model.new_model_file!
+        model_file.write(weights.to_json)
+        model_file.save!
+        model.model_file = model_file
+        model.save!
+      end
 
       model
     end

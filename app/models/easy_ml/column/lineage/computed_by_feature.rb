@@ -10,7 +10,7 @@ module EasyML
           "Computed by #{column.computed_by}"
         end
 
-        def timestamp
+        def occurred_at
           column.feature.fit_at || column.feature.applied_at
         end
 

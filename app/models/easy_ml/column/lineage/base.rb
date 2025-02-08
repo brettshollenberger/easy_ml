@@ -13,7 +13,7 @@ module EasyML
           {
             key: key,
             description: description,
-            timestamp: timestamp,
+            occurred_at: occurred_at,
           }.with_indifferent_access
         end
       end

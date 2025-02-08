@@ -257,9 +257,13 @@ module EasyML
 
     def prepare!
       prepare_features
+      puts "Cleanup..."
       cleanup
+      puts "Refresh datasource..."
       refresh_datasource!
+      puts "Split data..."
       split_data
+      puts "Process data..."
       process_data
     end
 
@@ -288,7 +292,9 @@ module EasyML
 
     def refresh!(async: false)
       refreshing do
+        puts "Prepare..."
         prepare!
+        puts "Fit features..."
         fit_features!(async: async)
       end
     end
@@ -538,12 +544,19 @@ module EasyML
     end
 
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
+      puts "Apply missing features..."
       df = apply_missing_features(df, inference: inference)
+      puts "Drop nulls..."
       df = drop_nulls(df)
+      puts "Transform columns..."
       df = columns.transform(df, inference: inference)
+      puts "Apply features..."
       df = apply_features(df, features)
+      puts "Transform columns..."
       df = columns.transform(df, inference: inference, computed: true)
+      puts "Apply column mask..."
       df = apply_column_mask(df, inference: inference) unless all_columns
+      puts "Split features and targets..."
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end

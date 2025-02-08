@@ -48,6 +48,8 @@ module EasyML
             add_learned_at_to_easy_ml_columns
             add_sha_to_datasources_datasets_and_columns
             add_last_feature_sha_to_columns
+            add_extra_metadata_to_columns
+            create_easy_ml_lineages
           ].freeze
 
           # Specify the next migration number

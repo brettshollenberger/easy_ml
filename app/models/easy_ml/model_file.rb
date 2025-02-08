@@ -97,5 +97,11 @@ module EasyML
     def extension_allowlist
       %w[bin model json]
     end
+
+    def write(content)
+      FileUtils.mkdir_p(File.dirname(full_path))
+      File.write(full_path, content)
+      synced_file.upload(full_path)
+    end
   end
 end

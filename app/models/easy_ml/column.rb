@@ -2,29 +2,29 @@
 #
 # Table name: easy_ml_columns
 #
-#  id                       :bigint           not null, primary key
-#  dataset_id               :bigint           not null
-#  name                     :string           not null
-#  description              :string
-#  datatype                 :string
-#  polars_datatype          :string
-#  is_target                :boolean          default(FALSE)
-#  hidden                   :boolean          default(FALSE)
-#  drop_if_null             :boolean          default(FALSE)
-#  preprocessing_steps      :json
-#  sample_values            :json
-#  statistics               :json
-#  created_at               :datetime         not null
-#  updated_at               :datetime         not null
-#  is_date_column           :boolean          default(FALSE)
-#  computed_by              :string
-#  is_computed              :boolean          default(FALSE)
-#  feature_id               :bigint
-#  learned_at               :datetime
-#  is_learning              :boolean          default(FALSE)
-#  last_datasource_sha      :string
-#  last_feature_sha         :string
-#  configuration_changed_at :datetime
+#  id                  :bigint           not null, primary key
+#  dataset_id          :bigint           not null
+#  name                :string           not null
+#  description         :string
+#  datatype            :string
+#  polars_datatype     :string
+#  is_target           :boolean          default(FALSE)
+#  hidden              :boolean          default(FALSE)
+#  drop_if_null        :boolean          default(FALSE)
+#  preprocessing_steps :json
+#  sample_values       :json
+#  statistics          :json
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  is_date_column      :boolean          default(FALSE)
+#  computed_by         :string
+#  is_computed         :boolean          default(FALSE)
+#  feature_id          :bigint
+#  learned_at          :datetime
+#  is_learning         :boolean          default(FALSE)
+#  last_datasource_sha :string
+#  last_feature_sha    :string
+#  in_raw_dataset      :boolean
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -34,6 +34,7 @@ module EasyML
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
     belongs_to :feature, class_name: "EasyML::Feature", optional: true
+    has_many :lineages, class_name: "EasyML::Lineage"
 
     validates :name, presence: true
     validates :name, uniqueness: { scope: :dataset_id }
@@ -43,7 +44,7 @@ module EasyML
     before_save :set_defaults
     before_save :set_feature_lineage
     before_save :set_polars_datatype
-    after_find :ensure_feature_exists
+    # after_find :ensure_feature_exists
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -109,12 +110,12 @@ module EasyML
           }
     scope :is_learning, -> { where(is_learning: true) }
 
-    def ensure_feature_exists
-      if feature && !feature.has_code?
-        feature.destroy
-        update(feature_id: nil)
-      end
-    end
+    # def ensure_feature_exists
+    #   if feature && !feature.has_code?
+    #     feature.destroy
+    #     update(feature_id: nil)
+    #   end
+    # end
 
     def display_attributes
       attributes.except(:statistics)
@@ -145,6 +146,7 @@ module EasyML
     def learn(type: :all)
       return if (!in_raw_dataset? && type != :processed)
 
+      puts "Learning #{name}..."
       if !in_raw_dataset? && read_attribute(:datatype).nil?
         assign_attributes(datatype: processed.data.to_series.dtype)
       end
@@ -161,6 +163,7 @@ module EasyML
         last_datasource_sha: dataset.last_datasource_sha,
         last_feature_sha: feature&.sha,
         is_learning: type == :raw,
+        in_raw_dataset: check_in_raw_dataset?,
       )
     end
 
@@ -277,6 +280,13 @@ module EasyML
     end
 
     def in_raw_dataset?
+      value = read_attribute(:in_raw_dataset)
+      return value unless value.nil?
+
+      write_attribute(:in_raw_dataset, check_in_raw_dataset?)
+    end
+
+    def check_in_raw_dataset?
       return false if dataset&.raw&.data.nil?
 
       dataset.raw.data(all_columns: true)&.columns&.include?(name) || false
@@ -396,10 +406,6 @@ module EasyML
 
     def date_column?
       is_date_column
-    end
-
-    def lineage
-      @lineage ||= EasyML::Column::Lineage.new(self).lineage
     end
 
     def required?

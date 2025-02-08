@@ -53,11 +53,11 @@ module EasyML
                                              datatype
                                              polars_datatype
                                            ] })
-      set_feature_lineage
+      set_feature_lineage(cols_to_learn)
       reload
     end
 
-    def set_feature_lineage
+    def set_feature_lineage(cols_to_learn)
       names = dataset.features.computed_column_names
       columns = where(name: names, computed_by: nil).map do |col|
         col.assign_attributes(
@@ -67,6 +67,11 @@ module EasyML
         col
       end
       EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[ is_computed computed_by ] })
+
+      lineage = cols_to_learn.flat_map do |col|
+        EasyML::Lineage.learn(col)
+      end.compact
+      EasyML::Lineage.import(lineage, on_duplicate_key_update: { columns: %i[ column_id key occurred_at description ] })
     end
 
     def statistics
@@ -127,7 +132,7 @@ module EasyML
         col
       end
       EasyML::Column.import(cols_to_insert)
-      set_feature_lineage
+      set_feature_lineage(cols_to_insert)
       column_list.reload
     end
 

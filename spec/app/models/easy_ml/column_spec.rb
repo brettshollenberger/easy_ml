@@ -212,8 +212,8 @@ RSpec.describe EasyML::Column do
 
       it "includes all relevant information in lineage" do
         lineage = column.lineages
-        expect(lineage.detect { |l| l.key == :computed_by_feature }.description).to include("Computed by FamilySize")
-        expect(lineage.detect { |l| l.key == :preprocessed }.description).to include("Preprocessed using Clip, Mean imputation")
+        expect(lineage.detect { |l| l.key.to_sym == :computed_by_feature }.description).to include("Computed by FamilySize")
+        expect(lineage.detect { |l| l.key.to_sym == :preprocessed }.description).to include("Preprocessed using Clip, Mean imputation")
         expect(lineage.length).to eq(2)
       end
     end

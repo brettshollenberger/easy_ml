@@ -3,15 +3,13 @@ module EasyML
     module Learners
       class Datetime < Base
         def full_dataset_statistics(df)
-          return {} if df.nil?
-
-          super(df).merge!({
-            unique_count: df[column.name].n_unique,
-          })
+          super.concat([
+            unique_count(df),
+          ])
         end
 
-        def last_value(df)
-          df[column.name].sort[-1]
+        def unique_count(df)
+          Polars.col(column.name).n_unique.alias("unique_count")
         end
       end
     end

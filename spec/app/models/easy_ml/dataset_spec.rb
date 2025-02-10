@@ -811,7 +811,7 @@ RSpec.describe EasyML::Dataset do
     end
 
     describe ".from_json_config" do
-      it "creates a new dataset from JSON configuration", :focus do
+      it "creates a new dataset from JSON configuration" do
         @dataset = dataset
         @dataset.columns.find_by(name: "Age").update(
           preprocessing_steps: {

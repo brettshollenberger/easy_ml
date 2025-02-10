@@ -28,10 +28,16 @@ module EasyML
 
     attributes :id, :name, :description, :dataset_id, :datatype, :polars_datatype, :preprocessing_steps,
                :hidden, :drop_if_null, :sample_values, :statistics, :is_target,
-               :is_computed, :computed_by, :lineage
+               :is_computed, :computed_by
 
     attribute :required do |object|
       object.required?
+    end
+
+    attribute :lineage do |column|
+      column.lineages.map do |lineage|
+        LineageSerializer.new(lineage).serializable_hash.dig(:data, :attributes)
+      end
     end
   end
 end

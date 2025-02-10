@@ -13,6 +13,8 @@ module EasyML
 
         def self.adapter(column)
           begin
+            # LAZY:
+            # Deal with lazily determining types...
             dtype = column.datatype || EasyML::Data::PolarsColumn.determine_type(column.raw.data[column.name])
           rescue => e
             raise "Unable to find column #{column.name}. If this column is computed by a feature, you forgot to declare computes_columns"
@@ -54,51 +56,64 @@ module EasyML
 
         def learn(type: :all)
           types(type).each_with_object({}) do |t, h|
-            h[t] = learn_split(column.send(t))
+            begin
+              h[t] = learn_split(column.send(t))
+            rescue => e
+              puts EasyML::Event.easy_ml_context(e.backtrace)
+              raise e
+            end
           end
         end
 
         def full_dataset_statistics(df)
-          return {} if df.nil?
-
-          {
-            num_rows: df.size,
-            null_count: df[column.name].null_count || 0,
-          }
+          [num_rows(df), null_count(df)].compact
         end
 
         def train_statistics(df)
-          return {} if df.nil?
-
-          {
-            last_value: last_value(df),
-            most_frequent_value: df[column.name].mode.sort.to_a&.first,
-          }
+          [last_value(df), most_frequent_value(df)].compact
         end
 
         def learn_split(split)
-          df = split.data(select: select)
-          train_df = split.train(select: select)
-          full_dataset_stats = full_dataset_statistics(df)
-          train_stats = train_statistics(train_df)
-          full_dataset_stats.merge!(train_stats)
+          df = split.data(select: select, lazy: true)
+          train_df = split.train(select: select, lazy: true)
+          full_dataset_stats = df.select(full_dataset_statistics(df)).collect.to_hashes.first
+          train_stats = df.select(train_statistics(train_df)).collect.to_hashes.first
+          full_dataset_stats
+            .merge!(train_stats)
+            .merge!(full_dataset_statistics_eager(df))
+            .merge!(train_statistics_eager(df))
+        end
+
+        def full_dataset_statistics_eager(df)
+          {}
+        end
+
+        def train_statistics_eager(df)
+          {}
+        end
+
+        def null_count(df)
+          Polars.col(column.name).null_count.alias("null_count")
+        end
+
+        def num_rows(df)
+          Polars.col(column.name).count.alias("num_rows")
+        end
+
+        def most_frequent_value(df)
+          Polars.col(column.name).mode.alias("most_frequent_value")
         end
 
         measure_method_timing :learn_split
 
         def last_value(df)
           return unless dataset.date_column.present?
-          return nil if df.empty? || !df.columns.include?(dataset.date_column.name)
 
-          # Sort by date and get the last non-null value
-          sorted_df = df.sort(dataset.date_column.name, reverse: true)
-          last_value = sorted_df
+          Polars.col(column.name)
+            .sort_by(dataset.date_column.name, reverse: true, nulls_last: true)
             .filter(Polars.col(column.name).is_not_null)
-            .select(column.name)
-            .head(1)
-            .item
-
-          last_value
+            .first
+            .alias("last_value")
         end
       end
     end

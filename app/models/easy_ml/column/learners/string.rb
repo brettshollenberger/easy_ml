@@ -3,11 +3,13 @@ module EasyML
     module Learners
       class String < Base
         def full_dataset_statistics(df)
-          return {} if df.nil?
+          super.concat([
+            unique_count(df),
+          ])
+        end
 
-          super(df).merge!({
-            unique_count: df[column.name].cast(:str).n_unique,
-          })
+        def unique_count(df)
+          Polars.col(column.name).cast(:str).n_unique.alias("unique_count")
         end
       end
     end

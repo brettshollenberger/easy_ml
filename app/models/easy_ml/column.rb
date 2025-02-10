@@ -110,12 +110,12 @@ module EasyML
           }
     scope :is_learning, -> { where(is_learning: true) }
 
-    # def ensure_feature_exists
-    #   if feature && !feature.has_code?
-    #     feature.destroy
-    #     update(feature_id: nil)
-    #   end
-    # end
+    def ensure_feature_exists
+      if feature && !feature.has_code?
+        feature.destroy
+        update(feature_id: nil)
+      end
+    end
 
     def display_attributes
       attributes.except(:statistics)
@@ -289,7 +289,7 @@ module EasyML
     def check_in_raw_dataset?
       return false if dataset&.raw&.data.nil?
 
-      dataset.raw.data(all_columns: true)&.columns&.include?(name) || false
+      dataset.raw.data(all_columns: true, lazy: true).schema.key?(name) || false
     end
 
     def computing_feature

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_05_225531) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_08_014747) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -41,10 +41,9 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_05_225531) do
     t.boolean "is_learning", default: false
     t.string "last_datasource_sha"
     t.string "last_feature_sha"
-    t.datetime "configuration_changed_at", precision: nil
+    t.boolean "in_raw_dataset"
     t.index ["column_id"], name: "index_easy_ml_column_histories_on_column_id"
     t.index ["computed_by"], name: "index_easy_ml_column_histories_on_computed_by"
-    t.index ["configuration_changed_at"], name: "index_easy_ml_column_histories_on_configuration_changed_at"
     t.index ["dataset_id", "name"], name: "index_easy_ml_column_histories_on_dataset_id_and_name"
     t.index ["datatype"], name: "index_easy_ml_column_histories_on_datatype"
     t.index ["drop_if_null"], name: "index_easy_ml_column_histories_on_drop_if_null"
@@ -53,6 +52,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_05_225531) do
     t.index ["history_ended_at"], name: "index_easy_ml_column_histories_on_history_ended_at"
     t.index ["history_started_at"], name: "index_easy_ml_column_histories_on_history_started_at"
     t.index ["history_user_id"], name: "index_easy_ml_column_histories_on_history_user_id"
+    t.index ["in_raw_dataset"], name: "index_easy_ml_column_histories_on_in_raw_dataset"
     t.index ["is_computed"], name: "index_easy_ml_column_histories_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_column_histories_on_is_date_column"
     t.index ["is_learning"], name: "index_easy_ml_column_histories_on_is_learning"
@@ -85,14 +85,14 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_05_225531) do
     t.boolean "is_learning", default: false
     t.string "last_datasource_sha"
     t.string "last_feature_sha"
-    t.datetime "configuration_changed_at", precision: nil
+    t.boolean "in_raw_dataset"
     t.index ["computed_by"], name: "index_easy_ml_columns_on_computed_by"
-    t.index ["configuration_changed_at"], name: "index_easy_ml_columns_on_configuration_changed_at"
     t.index ["dataset_id", "name"], name: "index_easy_ml_columns_on_dataset_id_and_name", unique: true
     t.index ["datatype"], name: "index_easy_ml_columns_on_datatype"
     t.index ["drop_if_null"], name: "index_easy_ml_columns_on_drop_if_null"
     t.index ["feature_id"], name: "index_easy_ml_columns_on_feature_id"
     t.index ["hidden"], name: "index_easy_ml_columns_on_hidden"
+    t.index ["in_raw_dataset"], name: "index_easy_ml_columns_on_in_raw_dataset"
     t.index ["is_computed"], name: "index_easy_ml_columns_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_columns_on_is_date_column"
     t.index ["is_learning"], name: "index_easy_ml_columns_on_is_learning"
@@ -323,6 +323,40 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_05_225531) do
     t.index ["sha"], name: "index_easy_ml_features_on_sha"
     t.index ["version"], name: "index_easy_ml_features_on_version"
     t.index ["workflow_status"], name: "index_easy_ml_features_on_workflow_status"
+  end
+
+  create_table "easy_ml_lineage_histories", force: :cascade do |t|
+    t.integer "easy_ml_lineage_id", null: false
+    t.integer "column_id", null: false
+    t.string "key", null: false
+    t.string "description"
+    t.datetime "occurred_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.datetime "history_started_at", null: false
+    t.datetime "history_ended_at"
+    t.integer "history_user_id"
+    t.string "snapshot_id"
+    t.index ["column_id"], name: "index_easy_ml_lineage_histories_on_column_id"
+    t.index ["easy_ml_lineage_id"], name: "index_easy_ml_lineage_histories_on_easy_ml_lineage_id"
+    t.index ["history_ended_at"], name: "index_easy_ml_lineage_histories_on_history_ended_at"
+    t.index ["history_started_at"], name: "index_easy_ml_lineage_histories_on_history_started_at"
+    t.index ["history_user_id"], name: "index_easy_ml_lineage_histories_on_history_user_id"
+    t.index ["key"], name: "index_easy_ml_lineage_histories_on_key"
+    t.index ["occurred_at"], name: "index_easy_ml_lineage_histories_on_occurred_at"
+    t.index ["snapshot_id"], name: "index_easy_ml_lineage_histories_on_snapshot_id"
+  end
+
+  create_table "easy_ml_lineages", force: :cascade do |t|
+    t.bigint "column_id", null: false
+    t.string "key", null: false
+    t.string "description"
+    t.datetime "occurred_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["column_id"], name: "index_easy_ml_lineages_on_column_id"
+    t.index ["key"], name: "index_easy_ml_lineages_on_key"
+    t.index ["occurred_at"], name: "index_easy_ml_lineages_on_occurred_at"
   end
 
   create_table "easy_ml_model_file_histories", force: :cascade do |t|

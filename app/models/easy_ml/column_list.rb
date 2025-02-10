@@ -40,7 +40,7 @@ module EasyML
     end
 
     def learn(type: :raw, computed: false)
-      cols_to_learn = column_list.reload.needs_learn
+      cols_to_learn = column_list.reload.needs_learn.sort_by(&:name)
       cols_to_learn = cols_to_learn.computed if computed
       cols_to_learn = cols_to_learn.select(&:persisted?).reject(&:empty?)
       cols_to_learn.each { |col| col.learn(type: type) }

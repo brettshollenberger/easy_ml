@@ -12,7 +12,7 @@
 #  is_target           :boolean          default(FALSE)
 #  hidden              :boolean          default(FALSE)
 #  drop_if_null        :boolean          default(FALSE)
-#  preprocessing_steps :json
+#  preprocessing_steps :jsonb
 #  sample_values       :json
 #  statistics          :json
 #  created_at          :datetime         not null

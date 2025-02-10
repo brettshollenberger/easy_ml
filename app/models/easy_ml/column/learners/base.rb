@@ -74,14 +74,17 @@ module EasyML
         end
 
         def learn_split(split)
-          df = split.data(select: select, lazy: true)
-          train_df = split.train(select: select, lazy: true)
-          full_dataset_stats = df.select(full_dataset_statistics(df)).collect.to_hashes.first
-          train_stats = df.select(train_statistics(train_df)).collect.to_hashes.first
-          full_dataset_stats
-            .merge!(train_stats)
-            .merge!(full_dataset_statistics_eager(df))
-            .merge!(train_statistics_eager(df))
+          # df = split.data(select: select, lazy: true)
+          # train_df = split.train(select: select, lazy: true)
+          df = nil
+          train_df = nil
+          # full_dataset_stats = df.select(full_dataset_statistics(df)).collect.to_hashes.first
+          # train_stats = df.select(train_statistics(train_df)).collect.to_hashes.first
+          # full_dataset_stats
+          #   .merge!(train_stats)
+          # .merge!(full_dataset_statistics_eager(df))
+          # .merge!(train_statistics_eager(df))
+          full_dataset_statistics(df).concat(train_statistics(train_df)).flatten.compact
         end
 
         def full_dataset_statistics_eager(df)
@@ -93,15 +96,15 @@ module EasyML
         end
 
         def null_count(df)
-          Polars.col(column.name).null_count.alias("null_count")
+          Polars.col(column.name).null_count.alias("#{column.name}_null_count")
         end
 
         def num_rows(df)
-          Polars.col(column.name).count.alias("num_rows")
+          Polars.col(column.name).count.alias("#{column.name}_num_rows")
         end
 
         def most_frequent_value(df)
-          Polars.col(column.name).mode.alias("most_frequent_value")
+          Polars.col(column.name).mode.first.alias("#{column.name}_most_frequent_value")
         end
 
         measure_method_timing :learn_split
@@ -113,7 +116,7 @@ module EasyML
             .sort_by(dataset.date_column.name, reverse: true, nulls_last: true)
             .filter(Polars.col(column.name).is_not_null)
             .first
-            .alias("last_value")
+            .alias("#{column.name}_last_value")
         end
       end
     end

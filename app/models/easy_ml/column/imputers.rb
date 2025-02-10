@@ -74,9 +74,10 @@ module EasyML
         @supported_methods ||= []
       end
 
-      def initialize(column)
+      def initialize(column, imputers: [])
         @column = column
         @dataset = column.dataset
+        @_imputers = imputers
       end
 
       class << self
@@ -97,6 +98,7 @@ module EasyML
             hash[key.to_sym] = Imputer.new(
               column,
               column.preprocessing_steps[key],
+              @_imputers
             )
           end
         end

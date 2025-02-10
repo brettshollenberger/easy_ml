@@ -6,6 +6,9 @@ module EasyML
           false
         end
 
+        def exprs
+        end
+
         def method_missing(_name, df)
           df
         end

@@ -231,6 +231,12 @@ module EasyML
       @raw = initialize_split("raw")
     end
 
+    def clipped
+      return @clipped if @clipped && @clipped.dataset
+
+      @clipped = initialize_split("clipped")
+    end
+
     def processed
       return @processed if @processed && @processed.dataset
 
@@ -493,6 +499,7 @@ module EasyML
     end
 
     def process_data
+      learn(delete: false)
       fit
       normalize_all
     end
@@ -606,6 +613,7 @@ module EasyML
 
     def cleanup
       raw.cleanup
+      clipped.cleanup
       processed.cleanup
     end
 
@@ -777,8 +785,10 @@ module EasyML
 
     def initialize_splits
       @raw = nil
+      @clipped = nil
       @processed = nil
       raw
+      clipped
       processed
     end
 
@@ -819,7 +829,7 @@ module EasyML
       processed.cleanup
 
       SPLIT_ORDER.each do |segment|
-        df = raw.read(segment)
+        df = clipped.read(segment)
         learn_computed_columns(df) if segment == :train
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
@@ -860,7 +870,18 @@ module EasyML
     end
 
     def fit
+      apply_clip
       learn_statistics(type: :raw)
+    end
+
+    def apply_clip
+      SPLIT_ORDER.each do |segment|
+        df = raw.send(segment, lazy: true)
+        clipped.save(
+          segment,
+          columns.apply_clip(df) # Ensuring this returns a LazyFrame means we'll automatically use sink_parquet
+        )
+      end
     end
 
     # log_method :fit, "Learning statistics", verbose: true

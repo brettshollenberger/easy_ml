@@ -50,6 +50,7 @@ module EasyML
             add_last_feature_sha_to_columns
             add_extra_metadata_to_columns
             create_easy_ml_lineages
+            update_preprocessing_steps_to_jsonb
           ].freeze
 
           # Specify the next migration number

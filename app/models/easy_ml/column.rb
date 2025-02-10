@@ -11,7 +11,7 @@
 #  is_target           :boolean          default(FALSE)
 #  hidden              :boolean          default(FALSE)
 #  drop_if_null        :boolean          default(FALSE)
-#  preprocessing_steps :json
+#  preprocessing_steps :jsonb
 #  sample_values       :json
 #  statistics          :json
 #  created_at          :datetime         not null
@@ -63,6 +63,7 @@ module EasyML
     scope :api_inputs, -> { where(is_computed: false, hidden: false, is_target: false) }
     scope :computed, -> { where(is_computed: true) }
     scope :raw, -> { where(is_computed: false) }
+    scope :has_clip, -> { where("preprocessing_steps->'training'->>'params' IS NOT NULL AND preprocessing_steps->'training'->'params' @> jsonb_build_object('clip', jsonb_build_object())") }
     scope :needs_learn, -> {
             datasource_changed
               .or(feature_applied)
@@ -159,11 +160,11 @@ module EasyML
         assign_attributes(datatype: processed.data.to_series.dtype)
       end
       set_sample_values
-      new_stats = learner.learn(type: type).symbolize_keys
+      new_stats = actually_learn(type: type).symbolize_keys
 
-      if !in_raw_dataset?
-        new_stats[:raw] = new_stats[:processed]
-      end
+      # if !in_raw_dataset?
+      #   new_stats[:raw] = new_stats[:processed]
+      # end
 
       # assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(new_stats))
       # assign_attributes(
@@ -199,8 +200,8 @@ module EasyML
       df
     end
 
-    def imputers
-      @imputers ||= Column::Imputers.new(self)
+    def imputers(imputers = [])
+      @imputers ||= Column::Imputers.new(self, imputers: imputers)
     end
 
     def decode_labels(df)
@@ -293,8 +294,6 @@ module EasyML
 
       write_attribute(:in_raw_dataset, check_in_raw_dataset?)
     end
-
-    measure_method_timing :in_raw_dataset?
 
     def check_in_raw_dataset?
       return false if dataset&.raw&.data.nil?

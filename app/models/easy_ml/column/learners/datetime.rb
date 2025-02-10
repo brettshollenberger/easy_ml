@@ -9,7 +9,7 @@ module EasyML
         end
 
         def unique_count(df)
-          Polars.col(column.name).n_unique.alias("unique_count")
+          Polars.col(column.name).n_unique.alias("#{column.name}_unique_count")
         end
       end
     end

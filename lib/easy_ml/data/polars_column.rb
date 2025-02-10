@@ -2,7 +2,7 @@ require_relative "date_converter"
 
 module EasyML
   module Data
-    module PolarsColumn
+    class PolarsColumn
       TYPE_MAP = {
         float: Polars::Float64,
         integer: Polars::Int64,

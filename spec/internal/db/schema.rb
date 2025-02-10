@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_08_014747) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_10_204706) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -24,7 +24,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_08_014747) do
     t.boolean "is_target", default: false
     t.boolean "hidden", default: false
     t.boolean "drop_if_null", default: false
-    t.json "preprocessing_steps"
+    t.jsonb "preprocessing_steps"
     t.json "sample_values"
     t.json "statistics"
     t.datetime "created_at", null: false
@@ -60,6 +60,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_08_014747) do
     t.index ["last_datasource_sha"], name: "index_easy_ml_column_histories_on_last_datasource_sha"
     t.index ["last_feature_sha"], name: "index_easy_ml_column_histories_on_last_feature_sha"
     t.index ["learned_at"], name: "index_easy_ml_column_histories_on_learned_at"
+    t.index ["preprocessing_steps"], name: "index_easy_ml_column_histories_on_preprocessing_steps_gin", using: :gin
     t.index ["snapshot_id"], name: "index_easy_ml_column_histories_on_snapshot_id"
   end
 
@@ -72,7 +73,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_08_014747) do
     t.boolean "is_target", default: false
     t.boolean "hidden", default: false
     t.boolean "drop_if_null", default: false
-    t.json "preprocessing_steps"
+    t.jsonb "preprocessing_steps"
     t.json "sample_values"
     t.json "statistics"
     t.datetime "created_at", null: false
@@ -100,6 +101,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_08_014747) do
     t.index ["last_datasource_sha"], name: "index_easy_ml_columns_on_last_datasource_sha"
     t.index ["last_feature_sha"], name: "index_easy_ml_columns_on_last_feature_sha"
     t.index ["learned_at"], name: "index_easy_ml_columns_on_learned_at"
+    t.index ["preprocessing_steps"], name: "index_easy_ml_columns_on_preprocessing_steps_gin", using: :gin
   end
 
   create_table "easy_ml_dataset_histories", force: :cascade do |t|

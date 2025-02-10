@@ -2,14 +2,14 @@ module EasyML
   class Column
     module Learners
       class Categorical < String
-        def learn(type)
-          types(type).each_with_object({}) do |type, h|
-            h[type] = case type
-              when :raw then learn_split(column.raw)
-              when :processed then learn_split(column.raw).merge!(null_count: 0)
-              end
-          end
-        end
+        # def learn(type)
+        #   types(type).each_with_object({}) do |type, h|
+        #     h[type] = case type
+        #       when :raw then learn_split(column.raw)
+        #       when :processed then learn_split(column.raw).merge!(null_count: 0)
+        #       end
+        #   end
+        # end
 
         def train_statistics_eager(df)
           {

@@ -184,11 +184,25 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       before do
-        column.update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } })
+        column.update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 20 } } } })
+        dataset.columns.find_by(name: "SibSp").update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 1 } } } })
       end
 
       it "includes preprocessing steps in lineage" do
         expect(column.lineages.map(&:key).map(&:to_sym)).to include(:preprocessed)
+      end
+
+      it "queries based on columns containing clip" do
+        expect(EasyML::Column.has_clip.map(&:id)).to include(column.id)
+      end
+
+      it "applies clip to dataset" do
+        dataset.refresh
+        expect(dataset.clipped.data(lazy: true).select(Polars.col("Age").max).collect.to_series.to_a.first).to eq(20)
+        expect(dataset.clipped.data(lazy: true).select(Polars.col("SibSp").max).collect.to_series.to_a.first).to eq(1)
+
+        # It does not apply clip to non-clip columns
+        expect(dataset.clipped.data(lazy: true).select(Polars.col("PassengerId").max).collect.to_series.to_a.first).to eq(891)
       end
     end
 

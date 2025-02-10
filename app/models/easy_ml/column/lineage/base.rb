@@ -9,6 +9,10 @@ module EasyML
           @dataset = column.dataset
         end
 
+        def expr
+          Polars.col(column.name)
+        end
+
         def as_json
           {
             key: key,

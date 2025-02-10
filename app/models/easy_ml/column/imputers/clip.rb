@@ -10,10 +10,12 @@ module EasyML
           "Clip"
         end
 
+        def expr
+          Polars.col(column.name).clip(min, max).alias(column.name)
+        end
+
         def transform(df)
-          df = df.with_column(
-            Polars.col(column.name).clip(min, max).alias(column.name)
-          )
+          df = df.with_column(expr)
           df
         end
 

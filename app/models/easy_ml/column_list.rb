@@ -40,13 +40,60 @@ module EasyML
       df
     end
 
+    def run_queries(queries)
+      raw_queries = queries.flat_map do |col|
+        col[:raw]
+      end
+      raw = dataset.raw.data(lazy: true)
+      raw.select(raw_queries).collect
+    end
+
+    measure_method_timing :run_queries
+
+    def apply_clip(df)
+      clip_cols = has_clip
+
+      clipped_exprs = EasyML::ColumnList::Imputer.new(
+        dataset,
+        df,
+        columns: clip_cols,
+        imputers: [:clip],
+      ).exprs
+
+      df.with_columns(clipped_exprs)
+    end
+
     def learn(type: :raw, computed: false)
       cols_to_learn = column_list.reload.needs_learn.sort_by(&:name)
       cols_to_learn = cols_to_learn.computed if computed
       cols_to_learn = cols_to_learn.select(&:persisted?).reject(&:empty?)
-      cols_to_learn.each do |col|
-        col.learn(type: type)
+      raw_column_list = dataset.schema.keys.sort
+      queries = cols_to_learn.map do |col|
+        col.assign_attributes(in_raw_dataset: raw_column_list.include?(col.name))
+        col.actually_learn(type: type)
       end
+
+      raw_queries = queries.flat_map do |col|
+        col[:raw]
+      end.compact
+      clipped_queries = queries.flat_map do |col|
+        col[:clipped]
+      end.compact
+      processed_queries = queries.flat_map do |col|
+        col[:processed]
+      end.compact
+
+      raw = dataset.raw.data(lazy: true)
+      raw = raw.select(raw_queries).collect
+
+      clipped = dataset.clipped.data(lazy: true)
+      clipped = clipped.select(clipped_queries).collect if clipped.present?
+
+      processed = dataset.processed.data(lazy: true)
+      processed = processed.select(processed_queries).collect if processed.present? && type == :processed
+
+      binding.pry
+      # binding.pry
       # EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
       #                                        statistics
       #                                        learned_at

@@ -3,6 +3,7 @@ module EasyML
     module Learners
       class Base
         attr_accessor :column, :dataset, :dtype, :select
+        include EasyML::Timing
 
         def initialize(column)
           @column = column
@@ -82,6 +83,8 @@ module EasyML
           train_stats = train_statistics(train_df)
           full_dataset_stats.merge!(train_stats)
         end
+
+        measure_method_timing :learn_split
 
         def last_value(df)
           return unless dataset.date_column.present?

@@ -1,6 +1,7 @@
 module EasyML
   module ColumnList
     include Historiographer::Relation
+    include EasyML::Timing
 
     def sync(delete: true)
       return unless dataset.schema.present?
@@ -40,20 +41,22 @@ module EasyML
     end
 
     def learn(type: :raw, computed: false)
-      cols_to_learn = column_list.reload.needs_learn
+      cols_to_learn = column_list.reload.needs_learn.sort_by(&:name)
       cols_to_learn = cols_to_learn.computed if computed
       cols_to_learn = cols_to_learn.select(&:persisted?).reject(&:empty?)
-      cols_to_learn.each { |col| col.learn(type: type) }
-      EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
-                                             statistics
-                                             learned_at
-                                             sample_values
-                                             last_datasource_sha
-                                             is_learning
-                                             datatype
-                                             polars_datatype
-                                           ] })
-      set_feature_lineage(cols_to_learn)
+      cols_to_learn.each do |col|
+        col.learn(type: type)
+      end
+      # EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
+      #                                        statistics
+      #                                        learned_at
+      #                                        sample_values
+      #                                        last_datasource_sha
+      #                                        is_learning
+      #                                        datatype
+      #                                        polars_datatype
+      #                                      ] })
+      # set_feature_lineage(cols_to_learn)
       reload
     end
 

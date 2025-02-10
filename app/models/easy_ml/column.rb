@@ -32,6 +32,8 @@ module EasyML
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
+    include EasyML::Timing
+
     belongs_to :dataset, class_name: "EasyML::Dataset"
     belongs_to :feature, class_name: "EasyML::Feature", optional: true
     has_many :lineages, class_name: "EasyML::Lineage"
@@ -143,6 +145,12 @@ module EasyML
       data.blank?
     end
 
+    def actually_learn(type: :all)
+      learner.learn(type: type)
+    end
+
+    measure_method_timing :actually_learn
+
     def learn(type: :all)
       return if (!in_raw_dataset? && type != :processed)
 
@@ -157,14 +165,14 @@ module EasyML
         new_stats[:raw] = new_stats[:processed]
       end
 
-      assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(new_stats))
-      assign_attributes(
-        learned_at: UTC.now,
-        last_datasource_sha: dataset.last_datasource_sha,
-        last_feature_sha: feature&.sha,
-        is_learning: type == :raw,
-        in_raw_dataset: check_in_raw_dataset?,
-      )
+      # assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(new_stats))
+      # assign_attributes(
+      #   learned_at: UTC.now,
+      #   last_datasource_sha: dataset.last_datasource_sha,
+      #   last_feature_sha: feature&.sha,
+      #   is_learning: type == :raw,
+      #   in_raw_dataset: check_in_raw_dataset?,
+      # )
     end
 
     def set_configuration_changed_at
@@ -286,9 +294,12 @@ module EasyML
       write_attribute(:in_raw_dataset, check_in_raw_dataset?)
     end
 
+    measure_method_timing :in_raw_dataset?
+
     def check_in_raw_dataset?
       return false if dataset&.raw&.data.nil?
 
+      binding.pry
       dataset.raw.data(all_columns: true)&.columns&.include?(name) || false
     end
 

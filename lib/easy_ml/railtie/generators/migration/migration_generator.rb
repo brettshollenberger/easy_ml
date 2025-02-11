@@ -51,6 +51,7 @@ module EasyML
             add_extra_metadata_to_columns
             create_easy_ml_lineages
             update_preprocessing_steps_to_jsonb
+            add_raw_schema_to_datasets
           ].freeze
 
           # Specify the next migration number

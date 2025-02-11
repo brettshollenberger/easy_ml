@@ -6,6 +6,7 @@ module EasyML
     require_relative "data/synced_directory"
     require_relative "data/splits"
     require_relative "data/polars_column"
+    require_relative "data/polars_schema"
     require_relative "data/date_converter"
   end
 end

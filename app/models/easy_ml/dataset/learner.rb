@@ -74,10 +74,11 @@ module EasyML
         @schema = @dataset.raw_schema
         @raw_columns = @schema.keys.sort
         columns.each do |column|
-          column.assign_attributes(
+          attrs = {
             in_raw_dataset: @raw_columns.include?(column.name),
-            datatype: @schema[column.name],
-          )
+            datatype: column.read_attribute(:datatype).present? ? nil : @schema[column.name],
+          }.compact
+          column.assign_attributes(attrs)
         end
       end
 

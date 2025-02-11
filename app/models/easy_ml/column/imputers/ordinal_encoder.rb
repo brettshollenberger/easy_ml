@@ -50,7 +50,11 @@ module EasyML
         end
 
         def cast_encoder(encoder)
-          encoder.transform_keys { |k| column.cast(k) }
+          begin
+            encoder.transform_keys { |k| column.cast(k) }
+          rescue => e
+            binding.pry
+          end
         end
 
         def cast_decoder(decoder)

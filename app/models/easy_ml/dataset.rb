@@ -19,6 +19,7 @@
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #  last_datasource_sha :string
+#  raw_schema          :jsonb
 #
 module EasyML
   class Dataset < ActiveRecord::Base
@@ -196,7 +197,12 @@ module EasyML
     end
 
     def raw_schema
-      raw.data(all_columns: true, limit: 1, lazy: true)&.schema
+      EasyML::Data::PolarsSchema.deserialize(read_attribute(:raw_schema))
+    end
+
+    def set_raw_schema
+      serialized = EasyML::Data::PolarsSchema.serialize(raw.data(all_columns: true, lazy: true)&.schema)
+      write_attribute(:raw_schema, serialized)
     end
 
     def processed_schema
@@ -922,6 +928,7 @@ module EasyML
           raw.save(segment, df)
         end
       end
+      set_raw_schema
     end
 
     def filter_duplicate_features

@@ -62,7 +62,7 @@ module EasyML
       end
 
       def sym_to_polars(symbol)
-        TYPE_MAP.dig(symbol)
+        TYPE_MAP.dig(symbol.to_sym)
       end
 
       # Determines the semantic type of a field based on its data

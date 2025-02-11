@@ -21,9 +21,11 @@ module EasyML
           end
 
           def adapter
-            case dtype.to_sym
+            case (raw_dtype&.to_sym || dtype.to_sym)
             when :categorical
               Eager::Categorical
+            when :boolean
+              Eager::Boolean
             else
               nil
             end

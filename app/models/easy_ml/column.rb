@@ -152,30 +152,6 @@ module EasyML
       assign_attributes(statistics: (statistics || {}).symbolize_keys.deep_merge!(new_stats))
     end
 
-    def learn(type: :all)
-      return if (!in_raw_dataset? && type != :processed)
-
-      puts "Learning #{name}..."
-      if !in_raw_dataset? && read_attribute(:datatype).nil?
-        assign_attributes(datatype: processed.data.to_series.dtype)
-      end
-      set_sample_values
-      new_stats = actually_learn(type: type).symbolize_keys
-
-      # if !in_raw_dataset?
-      #   new_stats[:raw] = new_stats[:processed]
-      # end
-
-      # assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(new_stats))
-      # assign_attributes(
-      #   learned_at: UTC.now,
-      #   last_datasource_sha: dataset.last_datasource_sha,
-      #   last_feature_sha: feature&.sha,
-      #   is_learning: type == :raw,
-      #   in_raw_dataset: check_in_raw_dataset?,
-      # )
-    end
-
     def set_configuration_changed_at
       if preprocessing_steps_changed? || datatype_changed?
         self.configuration_changed_at = Time.now
@@ -214,14 +190,25 @@ module EasyML
 
     def datatype=(dtype)
       if dtype.is_a?(Polars::DataType)
-        dtype = EasyML::Data::PolarsColumn.polars_to_sym(dtype)
+        dtype = polars_to_sym(dtype)
       end
       write_attribute(:datatype, dtype)
       set_polars_datatype
     end
 
+    def polars_to_sym(dtype)
+      EasyML::Data::PolarsColumn.polars_to_sym(dtype)
+    end
+
     def datatype
-      read_attribute(:datatype) || write_attribute(:datatype, assumed_datatype)
+      read_attribute(:datatype) || write_attribute(:datatype, polars_to_sym(assumed_datatype))
+    end
+
+    def raw_dtype
+      dtype = dataset.raw_schema[name]
+      return nil if dtype.nil?
+
+      polars_to_sym(dtype)
     end
 
     def set_polars_datatype
@@ -271,6 +258,8 @@ module EasyML
         @assumed_datatype = dataset.raw_schema[name]
         # series = (raw.data || datasource_raw).to_series
         # @assumed_datatype = EasyML::Data::PolarsColumn.determine_type(series)
+      elsif dataset.processed_schema.present?
+        @assumed_datatype = dataset.processed_schema[name]
       elsif already_computed?
         return nil if processed.data.nil?
 

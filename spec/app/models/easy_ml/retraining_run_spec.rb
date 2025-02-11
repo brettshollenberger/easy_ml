@@ -160,9 +160,9 @@ RSpec.describe EasyML::RetrainingRun do
             "maximize"
           end
 
-          def evaluate(y_pred:, y_valid:, x_valid:, dataset:)
+          def evaluate(y_pred:, y_true:, x_true:, dataset:)
             # Simple custom metric for testing
-            (y_pred.sum - y_valid.sum).abs
+            (y_pred.sum - y_true.sum).abs
           end
         end
       end
@@ -203,6 +203,7 @@ RSpec.describe EasyML::RetrainingRun do
           setup_evaluation(model, [1, 2, 3], [1, 2, 3])
           original_model = model.latest_version
 
+          model.unlock!
           expect { model.train(async: false) }.to have_enqueued_job(EasyML::DeployJob)
           perform_enqueued_jobs
 

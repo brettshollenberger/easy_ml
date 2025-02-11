@@ -103,6 +103,11 @@ module EasyML
       end
     end
 
+    def safe_write(df, path)
+      FileUtils.mkdir_p(File.dirname(path))
+      df.write_parquet(path)
+    end
+
     def store_partition(partition_df, primary_key, partition_start)
       lock_partition(partition_start) do
         cleanup(type: :no_partitions)

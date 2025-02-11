@@ -1,6 +1,7 @@
 module EasyML
   class Dataset
     class Learner
+      include EasyML::Timing
       attr_accessor :dataset, :columns, :type, :computed, :raw_columns, :statistics
 
       def initialize(dataset, type: :raw)
@@ -46,6 +47,8 @@ module EasyML
         dataset.columns.set_feature_lineage(columns)
       end
 
+      measure_method_timing :save_statistics
+
       def learn_statistics
         return @statistics if @statistics
         @statistics = lazy_statistics.deep_merge!(eager_statistics).reduce({}) do |h, (type, stat_group)|
@@ -64,6 +67,8 @@ module EasyML
         end
       end
 
+      measure_method_timing :learn_statistics
+
       def prepare
         @schema = @dataset.raw_schema
         @raw_columns = @schema.keys.sort
@@ -75,13 +80,19 @@ module EasyML
         end
       end
 
+      measure_method_timing :prepare
+
       def lazy_statistics
         Lazy.new(dataset, columns, type: type).learn
       end
 
+      measure_method_timing :lazy_statistics
+
       def eager_statistics
         Eager.new(dataset, columns, type: type).learn
       end
+
+      measure_method_timing :eager_statistics
     end
   end
 end

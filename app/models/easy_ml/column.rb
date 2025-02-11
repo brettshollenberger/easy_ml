@@ -224,19 +224,8 @@ module EasyML
       read_attribute(:datatype) || write_attribute(:datatype, assumed_datatype)
     end
 
-    def raw_dtype
-      return @raw_dtype if @raw_dtype
-      set_feature_lineage
-
-      if in_raw_dataset?
-        @raw_dtype = raw&.data&.to_series.try(:dtype)
-      elsif already_computed?
-        @raw_dtype = processed&.data&.to_series&.dtype
-      end
-    end
-
     def set_polars_datatype
-      raw_type = raw_dtype
+      raw_type = datatype
       user_type = get_polars_type(datatype)
 
       if raw_type == user_type
@@ -279,8 +268,9 @@ module EasyML
       return @assumed_datatype if @assumed_datatype
 
       if in_raw_dataset?
-        series = (raw.data || datasource_raw).to_series
-        @assumed_datatype = EasyML::Data::PolarsColumn.determine_type(series)
+        @assumed_datatype = dataset.raw_schema[name]
+        # series = (raw.data || datasource_raw).to_series
+        # @assumed_datatype = EasyML::Data::PolarsColumn.determine_type(series)
       elsif already_computed?
         return nil if processed.data.nil?
 

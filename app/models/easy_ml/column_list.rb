@@ -87,7 +87,7 @@ module EasyML
       # processed = dataset.processed.data(lazy: true)
       # processed = processed.select(processed_queries).collect if processed.present? && type == :processed
 
-      # binding.pry
+      # binding.pry if data.count > 8
       # EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
       #                                        statistics
       #                                        learned_at

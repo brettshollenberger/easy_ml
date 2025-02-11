@@ -267,13 +267,9 @@ module EasyML
 
     def prepare!
       prepare_features
-      puts "Cleanup..."
       cleanup
-      puts "Refresh datasource..."
       refresh_datasource!
-      puts "Split data..."
       split_data
-      puts "Process data..."
       process_data
     end
 
@@ -286,19 +282,20 @@ module EasyML
 
     def actually_refresh
       refreshing do
-        puts "actually_refresh"
         learn(delete: false) # After syncing datasource, learn new statistics + sync columns
         process_data
-        puts "process_data"
         fully_reload
-        puts "Learning..."
         learn
         learn_statistics(type: :processed) # After processing data, we learn any new statistics
+        fully_reload
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
       end
     end
+
+    include EasyML::Timing
+    measure_method_timing :actually_refresh
 
     def refresh!(async: false)
       refreshing do
@@ -320,6 +317,8 @@ module EasyML
       end
     end
 
+    measure_method_timing :refresh
+
     def fit_features!(async: false, features: self.features)
       fit_features(async: async, features: features, force: true)
     end
@@ -330,6 +329,8 @@ module EasyML
 
       features.first.fit(features: features_to_compute, async: async)
     end
+
+    measure_method_timing :fit_features
 
     def after_fit_features
       puts "after fit features..."
@@ -572,6 +573,8 @@ module EasyML
       df
     end
 
+    measure_method_timing :normalize
+
     def missing_required_fields(df)
       desc_df = df.describe
 
@@ -714,6 +717,8 @@ module EasyML
       df[column_mask(df, inference: inference)]
     end
 
+    measure_method_timing :apply_column_mask
+
     def apply_missing_features(df, inference: false, include_one_hots: false)
       return df unless inference
 
@@ -724,6 +729,8 @@ module EasyML
       end
       df.with_columns(missing_features.map { |f| Polars.lit(nil).alias(f) })
     end
+
+    measure_method_timing :apply_missing_features
 
     def drop_columns(all_columns: false)
       if all_columns
@@ -819,6 +826,8 @@ module EasyML
       after_refresh_datasource
     end
 
+    measure_method_timing :refresh_datasource
+
     def refresh_datasource!
       datasource.reload.refresh!
       after_refresh_datasource
@@ -841,6 +850,8 @@ module EasyML
       @normalized = true
     end
 
+    measure_method_timing :normalize_all
+
     def learn_computed_columns(df)
       return unless features.ready_to_apply.any?
 
@@ -852,6 +863,8 @@ module EasyML
       processed.cleanup
     end
 
+    measure_method_timing :learn_computed_columns
+
     def drop_nulls(df)
       return df if drop_if_null.nil? || drop_if_null.empty?
 
@@ -860,6 +873,8 @@ module EasyML
 
       df.drop_nulls(subset: drop)
     end
+
+    measure_method_timing :drop_nulls
 
     # Pass refresh: false for frontend views so we don't query S3 during web requests
     def load_data(segment, **kwargs, &block)
@@ -879,6 +894,8 @@ module EasyML
     end
 
     def apply_clip
+      clipped.cleanup
+
       SPLIT_ORDER.each do |segment|
         df = raw.send(segment, lazy: true, all_columns: true)
         clipped.save(
@@ -887,6 +904,8 @@ module EasyML
         )
       end
     end
+
+    measure_method_timing :apply_clip
 
     # log_method :fit, "Learning statistics", verbose: true
 
@@ -951,6 +970,8 @@ module EasyML
         end
       end
     end
+
+    measure_method_timing :apply_features
 
     def standardize_preprocessing_steps(type)
       columns.map(&:name).zip(columns.map do |col|

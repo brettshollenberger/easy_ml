@@ -100,10 +100,11 @@ module EasyML
 
           file_path = new_file_path_for_segment(segment)
           if df.is_a?(Polars::LazyFrame)
-            df.collect.lazy.sink_parquet(file_path)
+            df.sink_parquet(file_path)
           else
             df.write_parquet(file_path)
           end
+
           file_path
         end
 

@@ -22,8 +22,8 @@ module EasyML
           new.polars_to_sym(polars_type)
         end
 
-        def determine_type(dtype)
-          new.determine_type(dtype)
+        def determine_type(series, polars_type = false)
+          new.determine_type(series, polars_type)
         end
 
         def parse_polars_dtype(dtype_string)

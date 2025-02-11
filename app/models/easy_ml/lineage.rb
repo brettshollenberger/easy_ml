@@ -32,7 +32,6 @@ module EasyML
         existing_lineage = existing_lineage.map do |lineage|
           matching_lineage = @lineage.detect { |ll| ll[:key].to_sym == lineage.key.to_sym }
 
-          binding.pry unless matching_lineage
           lineage&.assign_attributes(
             occurred_at: matching_lineage[:occurred_at],
             description: matching_lineage[:description],

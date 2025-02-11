@@ -51,7 +51,8 @@ module EasyML
     measure_method_timing :run_queries
 
     def apply_clip(df)
-      clip_cols = has_clip
+      clip_cols = has_clip.raw
+      return df unless clip_cols.any?
 
       clipped_exprs = EasyML::ColumnList::Imputer.new(
         dataset,

@@ -6,7 +6,7 @@ module EasyML
     class Tuner
       attr_accessor :model, :dataset, :project_name, :task, :config,
                     :metrics, :objective, :n_trials, :direction, :evaluator,
-                    :study, :results, :adapter, :tune_started_at, :x_true, :y_true,
+                    :study, :results, :adapter, :tune_started_at, :x_valid, :y_valid,
                     :project_name, :job, :current_run, :trial_enumerator, :progress_block,
                     :tuner_job, :dataset
 
@@ -34,7 +34,7 @@ module EasyML
             config: config,
             project_name: project_name,
             tune_started_at: nil,  # This will be set during tune
-            y_true: nil, # This will be set during tune
+            y_valid: nil, # This will be set during tune
           )
         end
       end
@@ -74,13 +74,13 @@ module EasyML
         model.task = task
 
         model.dataset.refresh if model.dataset.needs_refresh?
-        x_true, y_true = model.dataset.test(split_ys: true)
-        self.x_true = x_true
-        self.y_true = y_true
-        self.dataset = model.dataset.test(all_columns: true)
+        x_valid, y_valid = model.dataset.valid(split_ys: true)
+        self.x_valid = x_valid
+        self.y_valid = y_valid
+        self.dataset = model.dataset.valid(all_columns: true)
         adapter.tune_started_at = tune_started_at
-        adapter.y_true = y_true
-        adapter.x_true = x_true
+        adapter.y_valid = y_valid
+        adapter.x_valid = x_valid
 
         model.prepare_data unless model.batch_mode
         model.prepare_callbacks(self)
@@ -137,9 +137,9 @@ module EasyML
           end
         end
 
-        y_pred = model.predict(x_true)
+        y_pred = model.predict(x_valid)
         model.metrics = metrics
-        metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true, dataset: dataset)
+        metrics = model.evaluate(y_pred: y_pred, y_valid: y_valid, x_valid: x_valid, dataset: dataset)
         metric = metrics.symbolize_keys.dig(model.evaluator[:metric].to_sym)
 
         puts metrics

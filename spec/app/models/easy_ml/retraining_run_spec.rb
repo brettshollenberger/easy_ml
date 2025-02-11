@@ -133,11 +133,11 @@ RSpec.describe EasyML::RetrainingRun do
     end
 
     context "with model evaluation" do
-      def setup_evaluation(training_model, y_pred, y_true, call_original = false)
+      def setup_evaluation(training_model, y_pred, y_valid, call_original = false)
         # Set up our test expectations on the forked model
         allow_any_instance_of(EasyML::Dataset).to receive(:refresh!).and_return(true)
         allow_any_instance_of(EasyML::Dataset).to receive(:test).with(any_args).and_return([
-          Polars::DataFrame.new({ nums: [1, 2, 3] }), y_true,
+          Polars::DataFrame.new({ nums: [1, 2, 3] }), y_valid,
         ])
         allow(training_model).to receive(:predict).and_return(y_pred)
         allow(training_model).to receive(:deployable?).and_return(true)
@@ -160,9 +160,9 @@ RSpec.describe EasyML::RetrainingRun do
             "maximize"
           end
 
-          def evaluate(y_pred:, y_true:, x_true:, dataset:)
+          def evaluate(y_pred:, y_valid:, x_valid:, dataset:)
             # Simple custom metric for testing
-            (y_pred.sum - y_true.sum).abs
+            (y_pred.sum - y_valid.sum).abs
           end
         end
       end

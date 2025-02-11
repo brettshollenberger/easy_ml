@@ -97,7 +97,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         model.fit
         preds = model.predict(xs)
 
-        evaluation_metrics = model.evaluate(y_pred: preds, y_true: ys)
+        evaluation_metrics = model.evaluate(y_pred: preds, y_valid: ys)
 
         expect(evaluation_metrics[:mean_absolute_error]).to be_between(0, 1_000)
         expect(evaluation_metrics[:mean_squared_error]).to be_between(0, 5_000_000)
@@ -155,7 +155,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
           preds = model.predict(x_test)
 
           # Evaluate all classification metrics
-          evaluation_metrics = model.evaluate(y_pred: preds, y_true: y_test)
+          evaluation_metrics = model.evaluate(y_pred: preds, y_valid: y_test)
 
           expect(evaluation_metrics[:accuracy_score]).to be_between(0, 1)
           expect(evaluation_metrics[:precision_score]).to be_between(0, 1)

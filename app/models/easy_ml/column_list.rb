@@ -40,15 +40,7 @@ module EasyML
       df
     end
 
-    def run_queries(queries)
-      raw_queries = queries.flat_map do |col|
-        col[:raw]
-      end
-      raw = dataset.raw.data(lazy: true)
-      raw.select(raw_queries).collect
-    end
-
-    measure_method_timing :run_queries
+    measure_method_timing :transform
 
     def apply_clip(df)
       clip_cols = has_clip.raw
@@ -108,6 +100,8 @@ module EasyML
       # set_feature_lineage(cols_to_learn)
       reload
     end
+
+    measure_method_timing :learn
 
     def statistics
       stats = { raw: {}, processed: {} }
@@ -171,6 +165,8 @@ module EasyML
       end.compact
       EasyML::Lineage.import(lineage, on_duplicate_key_update: { columns: %i[ column_id key occurred_at description ] })
     end
+
+    measure_method_timing :set_feature_lineage
 
     private
 

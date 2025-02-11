@@ -150,15 +150,15 @@ module EasyML
 
       training_model.dataset.refresh
       evaluator = retraining_job.evaluator.symbolize_keys
-      x_true, y_true = training_model.dataset.test(split_ys: true)
-      y_pred = training_model.predict(x_true)
+      x_valid, y_valid = training_model.dataset.valid(split_ys: true)
+      y_pred = training_model.predict(x_valid)
 
       metric = evaluator[:metric].to_sym
       metrics = EasyML::Core::ModelEvaluator.evaluate(
         model: training_model,
         y_pred: y_pred,
-        y_true: y_true,
-        dataset: training_model.dataset.test(all_columns: true),
+        y_valid: y_valid,
+        dataset: training_model.dataset.valid(all_columns: true),
         evaluator: evaluator,
       )
       metric_value = metrics[metric]

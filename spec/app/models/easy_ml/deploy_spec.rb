@@ -237,8 +237,8 @@ RSpec.describe EasyML::Deploy do
       model_v1 = model.current_version
 
       Timecop.freeze(@time + 2.hours)
-      x_test, y_true = model.dataset.processed.test(split_ys: true)
-      y_true["Survived"]
+      x_test, y_valid = model.dataset.processed.test(split_ys: true)
+      y_valid["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
       # Historical features are still queryable
@@ -252,10 +252,10 @@ RSpec.describe EasyML::Deploy do
       model.dataset.refresh
 
       # Re-train
-      y_true = y_true["Survived"]
+      y_valid = y_valid["Survived"]
       randomize_hypers(model) do
-        pos_cases = y_true[y_true == 1].count
-        neg_cases = y_true[y_true == 0].count
+        pos_cases = y_valid[y_valid == 1].count
+        neg_cases = y_valid[y_valid == 0].count
         [pos_cases, neg_cases]
       end
       model.train(async: false)
@@ -322,8 +322,8 @@ RSpec.describe EasyML::Deploy do
 
       Timecop.freeze(@time + 2.hours)
 
-      x_test, y_true = model.dataset.processed.test(split_ys: true)
-      y_true["Survived"]
+      x_test, y_valid = model.dataset.processed.test(split_ys: true)
+      y_valid["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
       live_predictions = model.current_version.predict(x_test)
@@ -339,10 +339,10 @@ RSpec.describe EasyML::Deploy do
       model.dataset.columns.where(name: "Age").update_all(hidden: true)
       model.dataset.refresh! # Requires a full refresh! because we changed our source
 
-      y_true = y_true["Survived"]
+      y_valid = y_valid["Survived"]
       randomize_hypers(model) do
-        pos_cases = y_true[y_true == 1].count
-        neg_cases = y_true[y_true == 0].count
+        pos_cases = y_valid[y_valid == 1].count
+        neg_cases = y_valid[y_valid == 0].count
         [pos_cases, neg_cases]
       end
       model.train(async: false)
@@ -404,8 +404,8 @@ RSpec.describe EasyML::Deploy do
 
       Timecop.freeze(@time + 2.hours)
 
-      x_test, y_true = model.dataset.processed.test(split_ys: true)
-      y_true["Survived"]
+      x_test, y_valid = model.dataset.processed.test(split_ys: true)
+      y_valid["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
       live_predictions = model.current_version.predict(x_test)
@@ -504,8 +504,8 @@ RSpec.describe EasyML::Deploy do
       expect(deploy.model_file).to eq run.model_file
 
       Timecop.freeze(@time + 2.hours)
-      x_test, y_true = model.dataset.processed.test(split_ys: true)
-      y_true["Survived"]
+      x_test, y_valid = model.dataset.processed.test(split_ys: true)
+      y_valid["Survived"]
       expected_preds_v1 = Polars::Series.new(model.predict(x_test))
 
       preds_v1 = model.current_version.predict(x_test)
@@ -516,10 +516,10 @@ RSpec.describe EasyML::Deploy do
       model.dataset.refresh
 
       # Re-train
-      y_true = y_true["Survived"]
+      y_valid = y_valid["Survived"]
       randomize_hypers(model) do
-        pos_cases = y_true[y_true == 1].count
-        neg_cases = y_true[y_true == 0].count
+        pos_cases = y_valid[y_valid == 1].count
+        neg_cases = y_valid[y_valid == 0].count
         [pos_cases, neg_cases]
       end
       model.train(async: false)

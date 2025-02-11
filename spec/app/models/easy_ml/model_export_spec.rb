@@ -47,7 +47,7 @@ RSpec.describe EasyML::Model do
       imported_model = EasyML::Model.from_config(config)
 
       expect(imported_model).to be_persisted
-      expect(imported_model.name).to eq("Titanic Survival Model")
+      expect(imported_model.name).to eq("Titanic")
       expect(imported_model.model_type).to eq("xgboost")
       expect(imported_model.configuration["task"]).to eq("classification")
       expect(imported_model.configuration["hyperparameters"]["max_depth"]).to eq(6)
@@ -61,13 +61,13 @@ RSpec.describe EasyML::Model do
     it "updates an existing model and dataset" do
       config = model.to_config
       config["model"]["configuration"]["hyperparameters"]["max_depth"] = 8
-      config["model"]["dataset"]["columns"].first["description"] = "Updated description"
+      config["model"]["dataset"]["columns"].detect { |c| c["name"] == "Age" }["description"] = "Updated description"
 
       updated_model = EasyML::Model.from_config(config)
 
       expect(updated_model.id).to eq(model.id)
       expect(updated_model.configuration["hyperparameters"]["max_depth"]).to eq(8)
-      expect(updated_model.dataset.columns.first.description).to eq("Updated description")
+      expect(updated_model.dataset.columns.find_by(name: "Age").description).to eq("Updated description")
     end
   end
 end

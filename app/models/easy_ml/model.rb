@@ -588,6 +588,16 @@ module EasyML
       end
       model.update!(model_config)
 
+      hyperparameters = model_config.dig("configuration", "hyperparameters")
+      if model.persisted?
+        hyperparameters.each do |key, value|
+          model.hyperparameters[key] = value
+        end
+      else
+        model.hyperparameters = hyperparameters
+      end
+      model.save!
+
       # Import weights if present
       if weights.present?
         model_file = model.new_model_file!

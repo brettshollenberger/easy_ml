@@ -4,16 +4,12 @@ module EasyML
       class Eager
         class Categorical < Query
           def train_query(df)
-            begin
-              {
-                counts: counts(df).to_hash,
-                allowed_categories: allowed_categories(df).to_series.to_a,
-              }.merge!(
-                learn_encoder_decoder(df)
-              )
-            rescue => e
-              binding.pry
-            end
+            {
+              counts: counts(df).to_hash,
+              allowed_categories: allowed_categories(df).to_series.to_a,
+            }.merge!(
+              learn_encoder_decoder(df)
+            )
           end
 
           def learn_encoder_decoder(df)
@@ -46,6 +42,7 @@ module EasyML
               .filter(Polars.col("count").gt(column.categorical_min))
               .select(column.name)
               .unique
+              .sort(column.name, reverse: true)
           end
         end
       end

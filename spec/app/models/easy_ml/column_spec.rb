@@ -40,9 +40,8 @@ RSpec.describe EasyML::Column do
     context "Integer column" do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
-      it "returns statistics for the column", :focus do
+      it "returns statistics for the column" do
         dataset.refresh
-        # stats = column.learn
         stats = column.reload.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
@@ -59,9 +58,11 @@ RSpec.describe EasyML::Column do
     context "Categorical column" do
       let(:column) { dataset.columns.find_by(name: "Sex") }
 
-      it "returns statistics for the column" do
-        stats = column.learn
-        stats = column.statistics
+      it "returns statistics for the column", :focus do
+        dataset.refresh
+
+        stats = column.reload.statistics
+        binding.pry
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891

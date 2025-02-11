@@ -21,11 +21,7 @@ module EasyML
 
         def run_queries(split, type)
           queries = build_queries(split, type)
-          begin
-            @dataset.send(type).send(split, all_columns: true, lazy: true).select(queries).collect
-          rescue => e
-            binding.pry
-          end
+          @dataset.send(type).send(split, all_columns: true, lazy: true).select(queries).collect
         end
 
         def get_column_statistics(query_results)

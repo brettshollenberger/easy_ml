@@ -46,7 +46,7 @@ module EasyML
           end
 
           def num_rows
-            Polars.col(column.name).count.alias("#{column.name}__num_rows")
+            Polars.col(column.name).len.alias("#{column.name}__num_rows")
           end
 
           def most_frequent_value

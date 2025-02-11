@@ -21,6 +21,10 @@ module EasyML
           FileUtils.mkdir_p(dir)
         end
 
+        def any?
+          Dir.glob(File.join(dir, "*")).any?
+        end
+
         def attributes
           {
             dir: dir,

@@ -46,6 +46,14 @@ module EasyML
           raise NotImplementedError, "Subclasses must implement #split_at"
         end
 
+        def empty?
+          !any?
+        end
+
+        def any?
+          raise NotImplementedError, "Subclasses must implement #any?"
+        end
+
         protected
 
         def split_features_targets(df, split_ys, target)

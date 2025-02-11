@@ -146,11 +146,11 @@ module EasyML
       data.blank?
     end
 
-    def actually_learn(type: :all)
-      learner.learn(type: type)
-    end
+    def merge_statistics(new_stats)
+      return unless new_stats.present?
 
-    measure_method_timing :actually_learn
+      assign_attributes(statistics: (statistics || {}).symbolize_keys.deep_merge!(new_stats))
+    end
 
     def learn(type: :all)
       return if (!in_raw_dataset? && type != :processed)
@@ -186,7 +186,7 @@ module EasyML
       use_processed = !one_hot? && processed.data(limit: 1).present? && in_raw_dataset?
 
       base = use_processed ? processed : raw
-      sample_values = base.data(limit: 5, unique: true)
+      sample_values = base.data(limit: 5, unique: true, select: [name])
       if sample_values.columns.include?(name)
         sample_values = sample_values[name].to_a.uniq[0...5]
         assign_attributes(sample_values: sample_values)

@@ -195,8 +195,12 @@ module EasyML
       read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
     end
 
+    def raw_schema
+      raw.data(all_columns: true, limit: 1, lazy: true)&.schema
+    end
+
     def processed_schema
-      processed.data(limit: 1)&.schema || raw.data(limit: 1)&.schema
+      processed.data(limit: 1, lazy: true)&.schema || raw.data(limit: 1)&.schema
     end
 
     def num_rows
@@ -476,10 +480,10 @@ module EasyML
     end
 
     def learn_schema
-      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
-      return nil if data.nil?
+      split = processed.data(limit: 1).to_a.any? ? :processed : :raw
+      return nil if split.nil?
 
-      schema = data.schema.reduce({}) do |h, (k, v)|
+      schema = send(split).data(all_columns: true, lazy: true).schema.reduce({}) do |h, (k, v)|
         h.tap do
           h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
         end
@@ -876,7 +880,7 @@ module EasyML
 
     def apply_clip
       SPLIT_ORDER.each do |segment|
-        df = raw.send(segment, lazy: true)
+        df = raw.send(segment, lazy: true, all_columns: true)
         clipped.save(
           segment,
           columns.apply_clip(df) # Ensuring this returns a LazyFrame means we'll automatically use sink_parquet

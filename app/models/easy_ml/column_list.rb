@@ -64,35 +64,36 @@ module EasyML
     end
 
     def learn(type: :raw, computed: false)
-      cols_to_learn = column_list.reload.needs_learn.sort_by(&:name)
-      cols_to_learn = cols_to_learn.computed if computed
-      cols_to_learn = cols_to_learn.select(&:persisted?).reject(&:empty?)
-      raw_column_list = dataset.schema.keys.sort
-      queries = cols_to_learn.map do |col|
-        col.assign_attributes(in_raw_dataset: raw_column_list.include?(col.name))
-        col.actually_learn(type: type)
-      end
+      EasyML::Dataset::Learner.new(dataset, type: type).learn
 
-      raw_queries = queries.flat_map do |col|
-        col[:raw]
-      end.compact
-      clipped_queries = queries.flat_map do |col|
-        col[:clipped]
-      end.compact
-      processed_queries = queries.flat_map do |col|
-        col[:processed]
-      end.compact
+      # cols_to_learn = column_list.reload.needs_learn.sort_by(&:name)
+      # cols_to_learn = cols_to_learn.computed if computed
+      # cols_to_learn = cols_to_learn.select(&:persisted?).reject(&:empty?)
+      # raw_column_list = dataset.schema.keys.sort
+      # queries = cols_to_learn.map do |col|
+      #   col.assign_attributes(in_raw_dataset: raw_column_list.include?(col.name))
+      #   col.actually_learn(type: type)
+      # end
 
-      raw = dataset.raw.data(lazy: true)
-      raw = raw.select(raw_queries).collect
+      # raw_queries = queries.flat_map do |col|
+      #   col[:raw]
+      # end.compact
+      # clipped_queries = queries.flat_map do |col|
+      #   col[:clipped]
+      # end.compact
+      # processed_queries = queries.flat_map do |col|
+      #   col[:processed]
+      # end.compact
 
-      clipped = dataset.clipped.data(lazy: true)
-      clipped = clipped.select(clipped_queries).collect if clipped.present?
+      # raw = dataset.raw.data(lazy: true)
+      # raw = raw.select(raw_queries).collect
 
-      processed = dataset.processed.data(lazy: true)
-      processed = processed.select(processed_queries).collect if processed.present? && type == :processed
+      # clipped = dataset.clipped.data(lazy: true)
+      # clipped = clipped.select(clipped_queries).collect if clipped.present?
 
-      binding.pry
+      # processed = dataset.processed.data(lazy: true)
+      # processed = processed.select(processed_queries).collect if processed.present? && type == :processed
+
       # binding.pry
       # EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
       #                                        statistics
@@ -105,23 +106,6 @@ module EasyML
       #                                      ] })
       # set_feature_lineage(cols_to_learn)
       reload
-    end
-
-    def set_feature_lineage(cols_to_learn)
-      names = dataset.features.computed_column_names
-      columns = where(name: names, computed_by: nil).map do |col|
-        col.assign_attributes(
-          is_computed: true,
-          computed_by: col.computing_feature&.name,
-        )
-        col
-      end
-      EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[ is_computed computed_by ] })
-
-      lineage = cols_to_learn.flat_map do |col|
-        EasyML::Lineage.learn(col)
-      end.compact
-      EasyML::Lineage.import(lineage, on_duplicate_key_update: { columns: %i[ column_id key occurred_at description ] })
     end
 
     def statistics
@@ -168,6 +152,23 @@ module EasyML
 
     def sort_by_required
       column_list.sort_by { |col| [col.sort_required, col.name] }
+    end
+
+    def set_feature_lineage(cols_to_learn)
+      names = dataset.features.computed_column_names
+      columns = where(name: names, computed_by: nil).map do |col|
+        col.assign_attributes(
+          is_computed: true,
+          computed_by: col.computing_feature&.name,
+        )
+        col
+      end
+      EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[ is_computed computed_by ] })
+
+      lineage = cols_to_learn.flat_map do |col|
+        EasyML::Lineage.learn(col)
+      end.compact
+      EasyML::Lineage.import(lineage, on_duplicate_key_update: { columns: %i[ column_id key occurred_at description ] })
     end
 
     private

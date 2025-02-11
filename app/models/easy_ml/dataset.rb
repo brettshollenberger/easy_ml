@@ -193,7 +193,7 @@ module EasyML
     end
 
     def schema
-      read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
+      EasyML::Data::PolarsSchema.deserialize(read_attribute(:schema)) #|| datasource.schema || datasource.after_sync.schema
     end
 
     def raw_schema
@@ -490,11 +490,9 @@ module EasyML
       split = processed.data(limit: 1).to_a.any? ? :processed : :raw
       return nil if split.nil?
 
-      schema = send(split).data(all_columns: true, lazy: true).schema.reduce({}) do |h, (k, v)|
-        h.tap do
-          h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
-        end
-      end
+      schema = EasyML::Data::PolarsSchema.serialize(
+        send(split).data(all_columns: true, lazy: true).schema
+      )
       write_attribute(:schema, schema)
     end
 

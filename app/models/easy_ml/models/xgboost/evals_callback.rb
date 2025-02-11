@@ -51,7 +51,7 @@ module EasyML
             y_pred = model.predict(@preprocessed)
             dataset = model.dataset.valid(all_columns: true)
 
-            metrics = model.evaluate(y_pred: y_pred, y_valid: y_valid, x_valid: x_valid, dataset: dataset)
+            metrics = model.evaluate(y_pred: y_pred, y_true: y_valid, x_true: x_valid, dataset: dataset)
             Wandb.log(metrics)
           end
 

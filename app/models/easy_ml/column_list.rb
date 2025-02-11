@@ -58,46 +58,6 @@ module EasyML
 
     def learn(type: :raw, computed: false)
       EasyML::Dataset::Learner.new(dataset, type: type).learn
-
-      # cols_to_learn = column_list.reload.needs_learn.sort_by(&:name)
-      # cols_to_learn = cols_to_learn.computed if computed
-      # cols_to_learn = cols_to_learn.select(&:persisted?).reject(&:empty?)
-      # raw_column_list = dataset.schema.keys.sort
-      # queries = cols_to_learn.map do |col|
-      #   col.assign_attributes(in_raw_dataset: raw_column_list.include?(col.name))
-      #   col.actually_learn(type: type)
-      # end
-
-      # raw_queries = queries.flat_map do |col|
-      #   col[:raw]
-      # end.compact
-      # clipped_queries = queries.flat_map do |col|
-      #   col[:clipped]
-      # end.compact
-      # processed_queries = queries.flat_map do |col|
-      #   col[:processed]
-      # end.compact
-
-      # raw = dataset.raw.data(lazy: true)
-      # raw = raw.select(raw_queries).collect
-
-      # clipped = dataset.clipped.data(lazy: true)
-      # clipped = clipped.select(clipped_queries).collect if clipped.present?
-
-      # processed = dataset.processed.data(lazy: true)
-      # processed = processed.select(processed_queries).collect if processed.present? && type == :processed
-
-      # binding.pry if data.count > 8
-      # EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
-      #                                        statistics
-      #                                        learned_at
-      #                                        sample_values
-      #                                        last_datasource_sha
-      #                                        is_learning
-      #                                        datatype
-      #                                        polars_datatype
-      #                                      ] })
-      # set_feature_lineage(cols_to_learn)
       reload
     end
 

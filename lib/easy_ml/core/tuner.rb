@@ -99,6 +99,7 @@ module EasyML
             @results.push(result)
             @study.tell(@current_trial, result)
           rescue StandardError => e
+            puts EasyML::Event.easy_ml_context(e.backtrace)
             @tuner_run.update!(status: :failed, hyperparameters: {})
             puts "Optuna failed with: #{e.message}"
             raise e
@@ -118,6 +119,7 @@ module EasyML
 
         best_run&.hyperparameters
       rescue StandardError => e
+        puts EasyML::Event.easy_ml_context(e.backtrace)
         tuner_job&.update!(status: :failed, completed_at: Time.current)
         raise e
       end
@@ -139,7 +141,7 @@ module EasyML
 
         y_pred = model.predict(x_valid)
         model.metrics = metrics
-        metrics = model.evaluate(y_pred: y_pred, y_valid: y_valid, x_valid: x_valid, dataset: dataset)
+        metrics = model.evaluate(y_pred: y_pred, y_true: y_valid, x_true: x_valid, dataset: dataset)
         metric = metrics.symbolize_keys.dig(model.evaluator[:metric].to_sym)
 
         puts metrics

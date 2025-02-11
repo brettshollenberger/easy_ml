@@ -4,7 +4,7 @@ module EasyML
       module Adapters
         class BaseAdapter
           attr_accessor :config, :project_name, :tune_started_at, :model,
-                        :x_true, :y_true, :metadata, :model
+                        :x_valid, :y_valid, :metadata, :model
 
           def initialize(options = {})
             @model = options[:model]
@@ -12,8 +12,8 @@ module EasyML
             @project_name = options[:project_name]
             @tune_started_at = options[:tune_started_at]
             @model = options[:model]
-            @x_true = options[:x_true]
-            @y_true = options[:y_true]
+            @x_valid = options[:x_valid]
+            @y_valid = options[:y_valid]
             @metadata = options[:metadata] || {}
           end
 

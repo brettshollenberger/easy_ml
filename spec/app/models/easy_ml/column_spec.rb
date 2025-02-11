@@ -119,11 +119,12 @@ RSpec.describe EasyML::Column do
       let(:dataset) { loans_dataset }
       let(:column) do
         col = dataset.columns.find_by(name: "date")
-        col.update(hidden: false)
+        col.update(hidden: false, is_date_column: true)
         col
       end
 
       it "returns statistics for the column" do
+        column
         dataset.refresh
         stats = column.reload.statistics
         expect(stats.key?(:raw)).to be true

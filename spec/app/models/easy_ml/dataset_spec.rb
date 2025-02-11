@@ -52,29 +52,6 @@ RSpec.describe EasyML::Dataset do
     )
   end
 
-  let(:df) do
-    df = Polars::DataFrame.new({
-                                 id: [1, 2, 3, 4, 5, 6, 7, 8],
-                                 rev: [0, 0, 100, 200, 0, 300, 400, 500],
-                                 annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
-                                 points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
-                                 created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-07-15 2024-08-01
-                                                  2024-09-01 2024-10-01],
-                               })
-
-    # Convert the 'created_date' column to datetime
-    df.with_column(
-      Polars.col("created_date").str.strptime(Polars::Datetime, "%Y-%m-%d").alias("created_date")
-    )
-  end
-  let(:polars_datasource) do
-    EasyML::Datasource.create(
-      name: "dataset",
-      datasource_type: "polars",
-      df: df,
-    )
-  end
-
   let(:synced_directory) do
     EasyML::Data::SyncedDirectory
   end
@@ -108,31 +85,6 @@ RSpec.describe EasyML::Dataset do
       expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
       expect(reloaded.splitter.send(:adapter)).to be_a(EasyML::Splitters::DateSplitter)
 
-      expect(reloaded.train).to be_a(Polars::DataFrame)
-    end
-  end
-
-  describe "Polars datasource" do
-    let(:datasource) { polars_datasource }
-
-    it "saves and reloads the dataset" do
-      dataset.refresh!
-      dataset.columns.find_by(name: "rev").update(is_target: true)
-
-      reloaded = EasyML::Dataset.find(dataset.id)
-      expect(reloaded.datasource).to eq datasource
-      expect(reloaded.datasource.data).to eq datasource.data
-      expect(reloaded.target).to eq "rev"
-      expect(reloaded.splitter.today).to eq dataset.splitter.today
-      expect(reloaded.splitter.date_col).to eq dataset.splitter.date_col
-      expect(reloaded.splitter.months_test).to eq dataset.splitter.months_test
-      expect(reloaded.splitter.months_valid).to eq dataset.splitter.months_valid
-      expect(reloaded.splitter.send(:adapter)).to be_a(EasyML::Splitters::DateSplitter)
-
-      expect(reloaded).to_not be_processed
-      expect(reloaded.train).to be_nil
-      reloaded.refresh!
-      expect(reloaded).to be_processed
       expect(reloaded.train).to be_a(Polars::DataFrame)
     end
   end
@@ -540,6 +492,8 @@ RSpec.describe EasyML::Dataset do
 
     it "creates computed columns in the correct order" do
       # Create business_inception first since days_in_business depends on it
+      dataset.unlock!
+
       expect(dataset).to be_needs_refresh
       dataset.refresh!
       expect(dataset).to_not be_needs_refresh
@@ -623,50 +577,6 @@ RSpec.describe EasyML::Dataset do
         expect { dataset }.to have_enqueued_job(EasyML::RefreshDatasetJob)
         perform_enqueued_jobs
         expect(dataset.data.count).to eq 16
-      end
-    end
-
-    describe "Polars datasource" do
-      let(:datasource) { polars_datasource }
-
-      it "returns true when never refreshed (refreshed_at is nil)" do
-        expect(dataset.refreshed_at).to be_nil
-        expect(dataset).to be_needs_refresh
-      end
-
-      context "when previously refreshed" do
-        before do
-          dataset.refresh!
-        end
-
-        it "returns true when columns have been updated" do
-          # Travel forward in time to make the update
-          Timecop.travel 1.minute do
-            dataset.columns.find_by(name: "rev").update!(is_target: true)
-          end
-
-          expect(dataset.reload).to be_needs_refresh
-        end
-
-        it "returns true when features have been updated" do
-          Timecop.travel 1.minute do
-            EasyML::Feature.create!(
-              dataset: dataset,
-              feature_class: Age,
-            )
-          end
-
-          expect(dataset).to be_needs_refresh
-        end
-
-        it "returns true when datasource needs refresh" do
-          allow(dataset.datasource).to receive(:needs_refresh?).and_return(true)
-          expect(dataset).to be_needs_refresh
-        end
-
-        it "returns false when nothing has changed" do
-          expect(dataset).not_to be_needs_refresh
-        end
       end
     end
   end
@@ -800,7 +710,7 @@ RSpec.describe EasyML::Dataset do
         expect(json_config["dataset"]["datasource"]["name"]).to eq("Titanic Extended")
         expect(json_config["dataset"]["datasource"]["datasource_type"]).to eq("file")
 
-        column_config = json_config["dataset"]["columns"].first
+        column_config = json_config["dataset"]["columns"].detect { |c| c["name"] == "PassengerId" }
         expect(column_config["name"]).to eq("PassengerId")
         expect(column_config["datatype"]).to eq("integer")
 

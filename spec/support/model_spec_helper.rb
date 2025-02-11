@@ -171,6 +171,7 @@ module ModelSpecHelper
           dataset: dataset,
         )
       end
+      dataset.unlock!
       dataset.refresh
 
       dataset.columns.find_by(name: target).update(is_target: true)

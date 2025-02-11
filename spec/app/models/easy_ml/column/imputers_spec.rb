@@ -48,6 +48,7 @@ RSpec.describe EasyML::Column::Imputers do
 
   it "preprocesses ffill" do
     dataset.columns.find_by(name: "created_date").update(
+      is_date_column: true,
       preprocessing_steps: {
         training: {
           method: :ffill,
@@ -661,6 +662,7 @@ RSpec.describe EasyML::Column::Imputers do
 
     it "allows different strategy for inference" do
       dataset.columns.find_by(name: "created_date").update(
+        is_date_column: true,
         preprocessing_steps: {
           training: {
             method: :ffill,

@@ -51,6 +51,7 @@ module EasyML
 
       def learn_statistics
         return @statistics if @statistics
+
         @statistics = lazy_statistics.deep_merge!(eager_statistics).reduce({}) do |h, (type, stat_group)|
           h.tap do
             stat_group.each do |statistic, value|

@@ -39,7 +39,7 @@ module EasyML
             return @allowed_categories if @allowed_categories
 
             @allowed_categories = df.join(counts(df), on: column.name)
-              .filter(Polars.col("count").gt(column.categorical_min))
+              .filter(Polars.col("count").ge(column.categorical_min))
               .select(column.name)
               .unique
               .sort(column.name, reverse: true)

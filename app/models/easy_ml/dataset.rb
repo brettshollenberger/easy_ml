@@ -848,6 +848,8 @@ module EasyML
 
     def after_refresh_datasource
       update(last_datasource_sha: datasource.sha)
+      schema
+      save
       initialize_splits
     end
 

@@ -40,7 +40,9 @@ module EasyML
           columns.flat_map do |column|
             next if skip_processing?(column, type)
 
-            Lazy::Query.new(@dataset, column).adapter.new(@dataset, column).execute(split)
+            query = Lazy::Query.new(@dataset, column)
+            query_adapter = query.adapter.new(@dataset, column)
+            query_adapter.execute(split)
           end.compact
         end
       end

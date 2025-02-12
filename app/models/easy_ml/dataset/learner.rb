@@ -42,7 +42,6 @@ module EasyML
                                          sample_values
                                          last_datasource_sha
                                          is_learning
-                                         datatype
                                        ] })
         dataset.columns.set_feature_lineage(columns)
       end
@@ -71,15 +70,16 @@ module EasyML
       measure_method_timing :learn_statistics
 
       def prepare
-        @schema = EasyML::Data::PolarsSchema.simplify(@dataset.raw_schema)
+        @schema = EasyML::Data::PolarsSchema.simplify(@dataset.raw_schema).symbolize_keys
         @raw_columns = @schema.keys.sort.map(&:to_s)
         columns.each do |column|
           attrs = {
             in_raw_dataset: @raw_columns.include?(column.name),
-            datatype: column.read_attribute(:datatype).present? ? nil : @schema[column.name],
+            datatype: column.read_attribute(:datatype).present? ? nil : @schema[column.name.to_sym],
           }.compact
           column.assign_attributes(attrs)
         end
+        EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[in_raw_dataset datatype] })
       end
 
       measure_method_timing :prepare

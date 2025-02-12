@@ -650,7 +650,7 @@ module EasyML
       one_hot_cats = columns.allowed_categories.symbolize_keys
 
       # Map columns to names, handling one_hot expansion
-      scope.sort_by(&:id).flat_map do |col|
+      scope.sort_by(&:name).flat_map do |col|
         if col.one_hot?
           one_hot_cats[col.name.to_sym].map do |cat|
             "#{col.name}_#{cat}"

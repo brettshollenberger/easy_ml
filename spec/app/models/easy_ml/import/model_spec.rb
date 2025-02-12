@@ -7,25 +7,26 @@ RSpec.describe "Model Import" do
   let(:dataset) { titanic_dataset }
   let(:model) { titanic_model }
   let(:config) do
-    model.update(
-      name: "Different Model Name",
-      description: "XGBoost model for Titanic dataset",
-      configuration: {
-        task: "classification",
-        hyperparameters: {
-          max_depth: 8,
-          learning_rate: 0.1,
-        },
-      },
-    )
-
-    model.train(async: false)
     model.to_config
   end
 
   before(:each) do
     EasyML::Cleaner.clean
     dataset.refresh
+
+    mock_s3_upload
+    model.update(
+      name: "Different Model Name",
+      task: "classification",
+      hyperparameters: {
+        max_depth: 8,
+        learning_rate: 0.1,
+      },
+    )
+
+    model.save
+    model.train(async: false)
+    model.deploy(async: false)
     model
   end
 
@@ -35,7 +36,6 @@ RSpec.describe "Model Import" do
         config.deep_merge!(
           model: {
             name: "Model Only Import",
-            description: "Updated description",
             configuration: {
               hyperparameters: {
                 max_depth: 10,
@@ -46,22 +46,44 @@ RSpec.describe "Model Import" do
       end
 
       context "with action: :create" do
-        it "creates a new model without affecting dataset" do
-          original_dataset = model.dataset
-          model.destroy
+        it "raises an error if dataset is not specified" do
+          expect {
+            EasyML::Import::Model.from_config(model_only_config,
+                                              action: :create,
+                                              include_dataset: false)
+          }.to raise_error(ArgumentError, /Dataset must be specified when creating a model/)
+        end
 
+        it "recreates the new model, including weights", :focus do
           imported_model = EasyML::Import::Model.from_config(model_only_config,
                                                              action: :create,
-                                                             include_dataset: false)
+                                                             include_dataset: false,
+                                                             dataset: dataset)
 
           expect(imported_model.id).not_to eq(model.id)
           expect(imported_model.name).to eq("Model Only Import")
-          expect(imported_model.description).to eq("Updated description")
           expect(imported_model.configuration["hyperparameters"]["max_depth"]).to eq(10)
           expect(imported_model.configuration["hyperparameters"]["learning_rate"]).to eq(0.1)
 
-          # Should use existing dataset
-          expect(imported_model.dataset).to eq(original_dataset)
+          # Should use provided dataset
+          expect(imported_model.dataset).to eq(dataset)
+
+          expect(imported_model.weights).to match(hash_including(model_only_config.dig("model", "weights")))
+
+          row = imported_model.dataset.data[0]
+          expect(imported_model.dataset.normalize(row)).to eq(model.dataset.normalize(row))
+
+          imported_evals = imported_model.evals.transform_values { |eval| eval.round(2) }
+          orig_evals = model.evals.transform_values { |eval| eval.round(2) }
+          expect(imported_evals).to match(hash_including(orig_evals))
+
+          imported_model.deploy(async: false)
+
+          pred_imported = EasyML::Predict.predict(imported_model.slug, row)
+          pred_orig = EasyML::Predict.predict(model.slug, row)
+
+          expect(pred_imported.prediction_value).to eq(pred_orig.prediction_value)
+          expect(pred_imported.normalized_input).to match(hash_including(pred_orig.normalized_input))
         end
       end
 
@@ -77,7 +99,6 @@ RSpec.describe "Model Import" do
 
           expect(imported_model.id).to eq(model.id)
           expect(imported_model.name).to eq("Model Only Import")
-          expect(imported_model.description).to eq("Updated description")
           expect(imported_model.configuration["hyperparameters"]["max_depth"]).to eq(10)
           expect(imported_model.configuration["hyperparameters"]["learning_rate"]).to eq(0.1)
 

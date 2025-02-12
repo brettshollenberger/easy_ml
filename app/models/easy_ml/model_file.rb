@@ -101,7 +101,7 @@ module EasyML
     def write(content)
       FileUtils.mkdir_p(File.dirname(full_path))
       File.write(full_path, content)
-      synced_file.upload(full_path)
+      upload(full_path)
     end
   end
 end

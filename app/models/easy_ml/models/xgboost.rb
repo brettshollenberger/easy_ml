@@ -287,6 +287,28 @@ module EasyML
         JSON.parse(model_file.read)
       end
 
+      def set_weights(model_file, weights)
+        raise ArgumentError, "Weights must be provided" unless weights.present?
+
+        # Create a temp file with the weights
+        temp_file = Tempfile.new(["xgboost_weights", ".json"])
+        begin
+          temp_file.write(weights.to_json)
+          temp_file.close
+
+          # Load the weights into a new booster
+          initialize_model do
+            attrs = {
+              params: hyperparameters.to_h.symbolize_keys.compact,
+              model_file: temp_file.path,
+            }.compact
+            booster_class.new(**attrs)
+          end
+        ensure
+          temp_file.unlink
+        end
+      end
+
       def predict(xs)
         raise "No trained model! Train a model before calling predict" unless @booster.present?
         raise "Cannot predict on nil — XGBoost" if xs.nil?

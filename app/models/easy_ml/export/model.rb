@@ -3,11 +3,16 @@ module EasyML
     class Model
       UNCONFIGURABLE_COLUMNS = %w(
         id
+        dataset_id
+        model_file_id
+        root_dir
+        file
+        sha
+        last_trained_at
+        is_training
         created_at
         updated_at
-        dataset_id
-        refreshed_at
-        sha
+        slug
       ).freeze
 
       def self.to_config(model, include_dataset: true)

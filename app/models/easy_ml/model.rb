@@ -127,6 +127,14 @@ module EasyML
       end
     end
 
+    def weights=(weights)
+      raise ArgumentError, "Cannot set weights on model without type" unless model_type.present?
+
+      model_file = get_model_file
+      adapter.set_weights(model_file, weights)
+      save_model_file
+    end
+
     def weights
       adapter.weights(get_model_file)
     end
@@ -156,6 +164,15 @@ module EasyML
     def pending_run
       job = get_retraining_job
       job.retraining_runs.find_or_create_by(status: "pending", model: self)
+    end
+
+    def import
+      lock_model do
+        run = pending_run
+        run.wrap_training do
+          [self, hyperparameters.to_h]
+        end
+      end
     end
 
     def actually_train(&progress_block)

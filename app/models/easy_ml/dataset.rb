@@ -519,7 +519,7 @@ module EasyML
 
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       puts "Apply missing features..."
-      df = apply_missing_features(df, inference: inference)
+      df = apply_missing_columns(df, inference: inference)
       puts "Drop nulls..."
       df = drop_nulls(df)
       puts "Transform columns..."
@@ -681,18 +681,22 @@ module EasyML
 
     measure_method_timing :apply_column_mask
 
-    def apply_missing_features(df, inference: false, include_one_hots: false)
+    def apply_missing_columns(df, inference: false, include_one_hots: false)
       return df unless inference
 
-      missing_features = (col_order(inference: inference) - df.columns).compact
+      missing_columns = (col_order(inference: inference) - df.columns).compact
       unless include_one_hots
-        missing_features -= columns.one_hots.flat_map(&:virtual_columns) unless include_one_hots
-        missing_features += columns.one_hots.map(&:name) - df.columns
+        columns.one_hots.each do |one_hot|
+          virtual_columns = one_hot.virtual_columns
+          if virtual_columns.all? { |vc| df.columns.include?(vc) }
+            missing_columns -= columns.one_hots.flat_map(&:virtual_columns)
+          else
+            missing_columns += columns.one_hots.map(&:name) - df.columns
+          end
+        end
       end
-      df.with_columns(missing_features.map { |f| Polars.lit(nil).alias(f) })
+      df.with_columns(missing_columns.map { |f| Polars.lit(nil).alias(f) })
     end
-
-    measure_method_timing :apply_missing_features
 
     def drop_columns(all_columns: false)
       if all_columns

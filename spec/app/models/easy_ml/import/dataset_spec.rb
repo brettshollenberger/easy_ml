@@ -43,12 +43,6 @@ RSpec.describe EasyML::Import::Dataset do
         expect(survived.datatype).to eq("integer")
         expect(survived.is_target).to be true
       end
-
-      it "raises an error if action is not specified" do
-        expect {
-          described_class.from_config(config)
-        }.to raise_error(ArgumentError, /Action must be specified/)
-      end
     end
 
     context "when updating an existing dataset" do

@@ -24,6 +24,11 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath,
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
+  // Update local state when initialModel changes
+  useEffect(() => {
+    setModel(initialModel);
+  }, [initialModel]);
+
   useEffect(() => {
     let pollInterval: number | undefined;
 

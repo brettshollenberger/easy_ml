@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { FileUp, FileJson, Database, Upload, ArrowRight } from 'lucide-react';
-import { usePage } from '@inertiajs/react';
+import { usePage, router } from '@inertiajs/react';
 import { useInertiaForm } from 'use-inertia-form';
 import { useDropzone } from 'react-dropzone';
 import { SearchableSelect } from '../SearchableSelect';
@@ -70,11 +70,20 @@ export function UploadModelModal({ isOpen, onClose, modelId, dataset_id }: Uploa
       }
     }
 
+    // Close modal immediately
+    onClose();
+
+    // Post the data and handle the response
     post(`${rootPath}/models/${modelId}/upload`, formData, {
-      preserveScroll: true,
+      preserveScroll: false,
       onSuccess: () => {
-        onClose();
+        // Force a full page refresh to get the latest data
+        window.location.href = window.location.href;
       },
+      onError: () => {
+        // If there's an error, reopen the modal to show the error state
+        onClose();
+      }
     });
   };
 

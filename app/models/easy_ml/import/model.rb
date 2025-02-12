@@ -30,6 +30,7 @@ module EasyML
         # Handle dataset if included
         model_dataset = if include_dataset && model_config["dataset"].present?
             dataset_config = { "dataset" => model_config.delete("dataset") }
+            binding.pry
             EasyML::Import::Dataset.from_config(dataset_config, action: :create)
           else
             dataset
@@ -41,14 +42,7 @@ module EasyML
 
         model_name = model_config["name"]
         if (existing_model = EasyML::Model.find_by(name: model_name)).present?
-          max_model_name = EasyML::Model.where("name LIKE '%(Revision %'").maximum(:name)
-          if max_model_name.nil?
-            model_name = "#{model_name} (Revision 2)"
-          else
-            revision = max_model_name.split(" ").last.to_i
-            model_name = "#{model_name} (Revision #{revision + 1})"
-          end
-          model.name = model_name
+          model.name = generate_unique_name(model_name)
         end
         model.save!
 
@@ -68,12 +62,28 @@ module EasyML
                                               dataset: model.dataset)
         end
 
+        # Handle model name
+        model_name = model_config["name"]
+        if model_name != model.name && (existing_model = EasyML::Model.find_by(name: model_name)).present?
+          model_config["name"] = generate_unique_name(model_name)
+        end
+
         # Update model
         model.update!(model_config.except("weights", "dataset"))
         model.update!(weights: model_config["weights"]) if model_config["weights"].present?
         model.import
 
         model
+      end
+
+      def self.generate_unique_name(base_name)
+        max_model_name = EasyML::Model.where("name LIKE '%(Revision %'").maximum(:name)
+        if max_model_name.nil?
+          "#{base_name} (Revision 2)"
+        else
+          revision = max_model_name.split(" ").last.to_i
+          "#{base_name} (Revision #{revision + 1})"
+        end
       end
     end
   end

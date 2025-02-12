@@ -98,10 +98,8 @@ module EasyML
       end
     end
 
-    UNCONFIGURABLE_COLUMNS = %w(id root_dir created_at updated_at refreshed_at sha)
-
     def to_config
-      as_json.except(*UNCONFIGURABLE_COLUMNS).with_indifferent_access
+      EasyML::Export::Datasource.to_config(self)
     end
 
     def abort!

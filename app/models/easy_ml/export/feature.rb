@@ -15,7 +15,7 @@ module EasyML
       ).freeze
 
       def self.to_config(feature)
-        feature.as_json.except(*EasyML::Feature::UNCONFIGURABLE_COLUMNS)
+        feature.as_json.except(*EasyML::Feature::UNCONFIGURABLE_COLUMNS).deep_compact.with_indifferent_access
       end
     end
   end

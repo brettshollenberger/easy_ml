@@ -13,6 +13,7 @@ module EasyML
         created_at
         updated_at
         slug
+        early_stopping_rounds
       ).freeze
 
       def self.to_config(model, include_dataset: true)
@@ -26,7 +27,7 @@ module EasyML
           config[:model][:dataset] = model.dataset.to_config["dataset"]
         end
 
-        config.with_indifferent_access
+        config.deep_compact.with_indifferent_access
       end
     end
   end

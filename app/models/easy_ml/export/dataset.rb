@@ -12,6 +12,10 @@ module EasyML
         statistics
         datasource_id
         last_datasource_sha
+        num_rows
+        schema
+        raw_schema
+        status
       ).freeze
 
       def self.to_config(dataset)
@@ -24,7 +28,7 @@ module EasyML
             columns: dataset.columns.map(&:to_config),
             features: dataset.features.map(&:to_config),
           ),
-        }.with_indifferent_access
+        }.deep_compact.with_indifferent_access
       end
     end
   end

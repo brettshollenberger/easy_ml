@@ -6,7 +6,7 @@ module EasyML
       def self.to_config(splitter)
         return nil unless splitter.present?
 
-        splitter.as_json.except(*UNCONFIGURABLE_COLUMNS)
+        splitter.as_json.except(*UNCONFIGURABLE_COLUMNS).deep_compact.with_indifferent_access
       end
     end
   end

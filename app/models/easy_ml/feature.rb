@@ -488,7 +488,11 @@ module EasyML
     )
 
     def to_config
-      as_json.except(*UNCONFIGURABLE_COLUMNS).with_indifferent_access
+      EasyML::Export::Feature.to_config(self)
+    end
+
+    def self.from_config(config, dataset, action: :create)
+      EasyML::Import::Feature.from_config(config, dataset, action: action)
     end
 
     private

@@ -562,63 +562,22 @@ module EasyML
     )
 
     def to_config
-      {
-        model: as_json.except(*UNCONFIGURABLE_COLUMNS).merge!(
-          weights: weights,
-          dataset: dataset.to_config["dataset"],
-        ),
-      }.with_indifferent_access
+      EasyML::Export::Model.to_config(self)
     end
 
     def self.from_config(json_config)
-      config = json_config.is_a?(String) ? JSON.parse(json_config) : json_config
-      model_config = config["model"]
-
-      # First create/update the dataset
-      dataset_config = { "dataset" => model_config.delete("dataset") }
-      dataset = EasyML::Dataset.from_config(dataset_config)
-
-      # Extract weights before creating model
-      weights = model_config.delete("weights")
-
-      # Find or create model
-      model = EasyML::Model.find_or_create_by(name: model_config["name"]) do |m|
-        m.assign_attributes(model_config)
-        m.dataset = dataset
-      end
-      model.update!(model_config)
-
-      hyperparameters = model_config.dig("configuration", "hyperparameters")
-      if model.persisted?
-        hyperparameters.each do |key, value|
-          model.hyperparameters[key] = value
-        end
-      else
-        model.hyperparameters = hyperparameters
-      end
-      model.save!
-
-      # Import weights if present
-      if weights.present?
-        model_file = model.new_model_file!
-        model_file.write(weights.to_json)
-        model_file.save!
-        model.model_file = model_file
-        model.save!
-      end
-
-      model
+      EasyML::Import::Model.from_config(json_config)
     end
 
     private
 
     def default_evaluation_inputs
-      x_test, y_test = dataset.test(split_ys: true)
+      x_true, y_true = dataset.test(split_ys: true)
       ds = dataset.test(all_columns: true)
-      y_pred = predict(x_test)
+      y_pred = predict(x_true)
       {
-        x_true: x_test,
-        y_true: y_test,
+        x_true: x_true,
+        y_true: y_true,
         y_pred: y_pred,
         dataset: ds,
       }

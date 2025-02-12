@@ -100,71 +100,11 @@ module EasyML
     )
 
     def to_config
-      fully_reload
-
-      {
-        dataset: as_json.except(*UNCONFIGURABLE_COLUMNS).merge!(
-          splitter: splitter.to_config,
-          datasource: datasource.to_config,
-          columns: columns.map(&:to_config),
-          features: features.map(&:to_config),
-        ),
-      }.with_indifferent_access
+      EasyML::Export::Dataset.to_config(self)
     end
 
-    def self.from_config(json_config)
-      config = json_config.is_a?(String) ? JSON.parse(json_config) : json_config
-      dataset_config = config["dataset"]
-
-      # Extract datasource config and find or create datasource
-      datasource_config = dataset_config.delete("datasource")
-      datasource = EasyML::Datasource.find_or_create_by(name: datasource_config["name"]) do |ds|
-        ds.assign_attributes(datasource_config)
-      end
-      datasource.update!(datasource_config)
-
-      # Extract splitter config
-      splitter_config = dataset_config.delete("splitter")
-
-      # Find or create dataset
-      dataset = EasyML::Dataset.find_or_create_by(name: dataset_config["name"]) do |ds|
-        ds.assign_attributes(dataset_config.except("columns", "features"))
-        ds.datasource = datasource
-      end
-      dataset.update!(dataset_config.except("columns", "features"))
-
-      # Update splitter if config exists
-      if splitter_config.present?
-        if dataset.splitter.present?
-          dataset.splitter.update!(splitter_config)
-        else
-          dataset.create_splitter!(splitter_config)
-        end
-      end
-
-      # Update columns
-      existing_columns = dataset.columns.index_by(&:name)
-      dataset_config["columns"].each do |column_config|
-        column_name = column_config["name"]
-        if existing_columns[column_name]
-          existing_columns[column_name].update!(column_config)
-        else
-          dataset.columns.create!(column_config)
-        end
-      end
-
-      # Update features
-      existing_features = dataset.features.index_by(&:name)
-      dataset_config["features"].each do |feature_config|
-        feature_name = feature_config["name"]
-        if existing_features[feature_name]
-          existing_features[feature_name].update!(feature_config)
-        else
-          dataset.features.create!(feature_config)
-        end
-      end
-
-      dataset
+    def self.from_config(json_config, action: nil, target_dataset: nil)
+      EasyML::Import::Dataset.from_config(json_config, action: action, target_dataset: target_dataset)
     end
 
     def root_dir=(value)
@@ -784,6 +724,19 @@ module EasyML
       apply_date_splitter_config
     end
 
+    def fully_reload
+      return unless persisted?
+
+      base_vars = self.class.new.instance_variables
+      dirty_vars = (instance_variables - base_vars)
+      in_memory_classes = [EasyML::Data::Splits::InMemorySplit]
+      dirty_vars.each do |ivar|
+        value = instance_variable_get(ivar)
+        remove_instance_variable(ivar) unless in_memory_classes.any? { |in_memory_class| value.is_a?(in_memory_class) }
+      end
+      reload
+    end
+
     private
 
     def apply_date_splitter_config
@@ -993,19 +946,6 @@ module EasyML
       columns.map(&:name).zip(columns.map do |col|
         col.preprocessing_steps&.dig(type)
       end).to_h.compact.reject { |_k, v| v["method"] == "none" }
-    end
-
-    def fully_reload
-      return unless persisted?
-
-      base_vars = self.class.new.instance_variables
-      dirty_vars = (instance_variables - base_vars)
-      in_memory_classes = [EasyML::Data::Splits::InMemorySplit]
-      dirty_vars.each do |ivar|
-        value = instance_variable_get(ivar)
-        remove_instance_variable(ivar) unless in_memory_classes.any? { |in_memory_class| value.is_a?(in_memory_class) }
-      end
-      reload
     end
 
     def underscored_name

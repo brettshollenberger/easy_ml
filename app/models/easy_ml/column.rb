@@ -423,12 +423,17 @@ module EasyML
       learned_at
       is_learning
       configuration_changed_at
+      statistics
       created_at
       updated_at
     )
 
     def to_config
-      as_json.except(*UNCONFIGURABLE_COLUMNS).with_indifferent_access
+      EasyML::Export::Column.to_config(self)
+    end
+
+    def self.from_config(config, dataset, action: :create)
+      EasyML::Import::Column.from_config(config, dataset, action: action)
     end
 
     def cast(value)

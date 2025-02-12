@@ -587,8 +587,8 @@ module EasyML
       slug
     )
 
-    def to_config
-      EasyML::Export::Model.to_config(self)
+    def to_config(include_dataset: false)
+      EasyML::Export::Model.to_config(self, include_dataset: include_dataset)
     end
 
     def self.from_config(json_config)

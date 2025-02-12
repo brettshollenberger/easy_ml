@@ -18,7 +18,7 @@ export function DownloadModelModal({ isOpen, onClose, modelId }: DownloadModelMo
     if (!selectedOption) return;
     
     const includeDataset = selectedOption === 'both';
-    router.get(`${rootPath}/models/${modelId}/download`, { include_dataset: includeDataset });
+    window.location.href = `${rootPath}/models/${modelId}/download?include_dataset=${includeDataset}`;
     onClose();
   };
 

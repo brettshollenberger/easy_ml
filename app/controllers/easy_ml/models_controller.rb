@@ -130,7 +130,7 @@ module EasyML
       model = Model.find(params[:id])
       config = model.to_config(include_dataset: params[:include_dataset] == "true")
 
-      send_data config.to_json,
+      send_data JSON.pretty_generate(config),
                 filename: "#{model.name.parameterize}-config.json",
                 type: "application/json",
                 disposition: "attachment"

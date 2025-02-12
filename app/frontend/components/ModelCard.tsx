@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink, Play, LineChart,
-        Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
-        Download, Upload } from 'lucide-react';
+import {
+  Activity, Calendar, Database, Settings, ExternalLink, Play, LineChart,
+  Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
+  Download, Upload
+} from 'lucide-react';
 import { Link, router } from "@inertiajs/react";
 import { cn } from '@/lib/utils';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 import { StackTrace } from './StackTrace';
-import { DownloadModelModal, UploadModelModal } from './Modals';
+import { DownloadModelModal, UploadModelModal } from './models';
 
 interface ModelCardProps {
   initialModel: Model;
@@ -140,7 +142,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-            ${model.deployment_status === 'inference' 
+            ${model.deployment_status === 'inference'
               ? 'bg-blue-100 text-blue-800'
               : 'bg-gray-100 text-gray-800'}`}
           >
@@ -160,9 +162,8 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             <button
               onClick={handleTrain}
               disabled={model.is_training}
-              className={`text-gray-400 hover:text-green-600 transition-colors ${
-                model.is_training ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`text-gray-400 hover:text-green-600 transition-colors ${model.is_training ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               title="Train model"
             >
               <Play className="w-5 h-5" />
@@ -233,7 +234,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-gray-400" />
           {dataset ? (
-            <Link 
+            <Link
               href={`${rootPath}/datasets/${dataset.id}`}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
@@ -271,11 +272,10 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             {Object.entries(lastRun.metrics as Record<string, number>).map(([key, value]) => (
               <div
                 key={key}
-                className={`px-2 py-1 rounded-md text-xs font-medium ${
-                  lastRun.deployable
+                className={`px-2 py-1 rounded-md text-xs font-medium ${lastRun.deployable
                     ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
-                }`}
+                  }`}
               >
                 {key}: {value.toFixed(4)}
               </div>

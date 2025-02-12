@@ -3,12 +3,12 @@ module EasyML
     class Feature
       UNCONFIGURABLE_COLUMNS = %w(
         id
+        created_at
+        updated_at
         dataset_id
         sha
         applied_at
         fit_at
-        created_at
-        updated_at
         needs_fit
         workflow_status
         refresh_every

@@ -1,7 +1,7 @@
 module EasyML
   module Export
     class Splitter
-      UNCONFIGURABLE_COLUMNS = [:id, :dataset_id].freeze
+      UNCONFIGURABLE_COLUMNS = %w[id created_at updated_at dataset_id]
 
       def self.to_config(splitter)
         return nil unless splitter.present?

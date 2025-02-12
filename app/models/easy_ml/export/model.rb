@@ -3,9 +3,9 @@ module EasyML
     class Model
       UNCONFIGURABLE_COLUMNS = %w(
         id
-        dataset_id
         created_at
         updated_at
+        dataset_id
         refreshed_at
         sha
       ).freeze

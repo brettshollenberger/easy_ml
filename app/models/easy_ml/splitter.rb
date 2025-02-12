@@ -75,8 +75,6 @@ module EasyML
       }
     end
 
-    UNCONFIGURABLE_COLUMNS = [:id, :dataset_id].freeze
-
     def to_config
       EasyML::Export::Splitter.to_config(self)
     end

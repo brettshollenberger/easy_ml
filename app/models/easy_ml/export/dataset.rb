@@ -3,10 +3,10 @@ module EasyML
     class Dataset
       UNCONFIGURABLE_COLUMNS = %w(
         id
-        statistics
-        root_dir
         created_at
         updated_at
+        statistics
+        root_dir
         refreshed_at
         sha
         statistics

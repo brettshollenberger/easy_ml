@@ -7,13 +7,13 @@ module EasyML
 
         case action
         when :create
-          dataset.columns.create!(config)
+          dataset.columns.create(config)
         when :update
           if existing_column
             existing_column.update!(config)
             existing_column
           else
-            raise EasyML::InvalidConfigurationError, "Column '#{column_name}' not found in dataset"
+            # Do not create column if it does not exist in the raw dataset
           end
         else
           raise ArgumentError, "Invalid action: #{action}. Must be :create or :update"

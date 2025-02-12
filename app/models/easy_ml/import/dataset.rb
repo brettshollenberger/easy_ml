@@ -1,9 +1,9 @@
 module EasyML
   module Import
     class Dataset
-      def self.from_config(json_config, action: nil, target_dataset: nil)
+      def self.from_config(json_config, action: nil, dataset: nil)
         raise ArgumentError, "Action must be specified" unless action.present?
-        raise ArgumentError, "Target dataset must be specified" if action == :update && target_dataset.nil?
+        raise ArgumentError, "Target dataset must be specified" if action == :update && dataset.nil?
 
         config = json_config.is_a?(String) ? JSON.parse(json_config) : json_config
         dataset_config = config["dataset"]
@@ -24,7 +24,7 @@ module EasyML
           )
         elsif action == :update
           update_dataset(
-            target_dataset,
+            dataset,
             dataset_config,
             columns_config,
             features_config

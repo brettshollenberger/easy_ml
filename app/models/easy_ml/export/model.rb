@@ -11,12 +11,10 @@ module EasyML
       ).freeze
 
       def self.to_config(model)
-        model.fully_reload
-
         {
           model: model.as_json.except(*UNCONFIGURABLE_COLUMNS).merge!(
-            dataset: EasyML::Export::Dataset.to_config(model.dataset)["dataset"],
             weights: model.weights,
+            dataset: model.dataset.to_config["dataset"],
           ),
         }.with_indifferent_access
       end

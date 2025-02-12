@@ -199,7 +199,7 @@ module EasyML
         set_default_wandb_project_name unless tuning
 
         # Prepare validation data
-        x_valid, y_valid = dataset.valid(split_ys: true)
+        x_valid, y_valid = dataset.valid(split_ys: true, select: dataset.col_order)
         d_valid = preprocess(x_valid, y_valid)
 
         num_iterations = hyperparameters.to_h[:n_estimators]
@@ -217,7 +217,7 @@ module EasyML
         callbacks << ::XGBoost::EvaluationMonitor.new(period: 1)
 
         # Generate batches without loading full dataset
-        batches = dataset.train(split_ys: true, batch_size: batch_size, batch_start: batch_start, batch_key: batch_key)
+        batches = dataset.train(split_ys: true, batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, select: dataset.col_order)
         prev_xs = []
         prev_ys = []
 

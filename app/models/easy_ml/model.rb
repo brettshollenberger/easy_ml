@@ -276,7 +276,9 @@ module EasyML
 
     def predict(xs)
       load_model!
-      xs = dataset.normalize(xs)
+      unless xs.is_a?(XGBoost::DMatrix)
+        xs = dataset.normalize(xs, inference: true)
+      end
       adapter.predict(xs)
     end
 

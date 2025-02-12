@@ -170,6 +170,34 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath,
               <Play className="w-5 h-5" />
             </button>
             {renderTrainingStatus()}
+            <button
+              onClick={() => setShowDownloadModal(true)}
+              className="text-gray-400 hover:text-blue-600"
+              title="Download configuration"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="text-gray-400 hover:text-green-600"
+              title="Upload configuration"
+            >
+              <Upload className="w-5 h-5" />
+            </button>
+            <Link
+              href={`${rootPath}/models/${model.id}/edit`}
+              className="text-gray-400 hover:text-gray-600"
+              title="Edit model"
+            >
+              <Settings className="w-5 h-5" />
+            </Link>
+            <button
+              onClick={() => handleDelete(model.id)}
+              className="text-gray-400 hover:text-gray-600"
+              title="Delete model"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
             {
               model.metrics_url && (
                 <a
@@ -190,34 +218,6 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath,
             >
               <ExternalLink className="w-5 h-5" />
             </Link>
-            <Link
-              href={`${rootPath}/models/${model.id}/edit`}
-              className="text-gray-400 hover:text-gray-600"
-              title="Edit model"
-            >
-              <Settings className="w-5 h-5" />
-            </Link>
-            <button
-              onClick={() => setShowDownloadModal(true)}
-              className="text-gray-400 hover:text-blue-600"
-              title="Download configuration"
-            >
-              <Download className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="text-gray-400 hover:text-green-600"
-              title="Upload configuration"
-            >
-              <Upload className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => handleDelete(model.id)}
-              className="text-gray-400 hover:text-gray-600"
-              title="Delete model"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
           </div>
         </div>
 

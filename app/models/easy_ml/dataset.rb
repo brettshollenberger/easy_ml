@@ -193,16 +193,27 @@ module EasyML
     end
 
     def schema
-      EasyML::Data::PolarsSchema.deserialize(read_attribute(:schema)) #|| datasource.schema || datasource.after_sync.schema
+      return @schema if @schema
+
+      schema = read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
+      schema = set_schema(schema)
+      @schema = EasyML::Data::PolarsSchema.deserialize(schema)
     end
 
     def raw_schema
-      EasyML::Data::PolarsSchema.deserialize(read_attribute(:raw_schema))
+      return @raw_schema if @raw_schema
+
+      raw_schema = read_attribute(:raw_schema) || datasource.schema || datasource.after_sync.schema
+      raw_schema = set_raw_schema(raw_schema)
+      @raw_schema = EasyML::Data::PolarsSchema.deserialize(raw_schema)
     end
 
-    def set_raw_schema
-      serialized = EasyML::Data::PolarsSchema.serialize(raw.data(all_columns: true, lazy: true)&.schema)
-      write_attribute(:raw_schema, serialized)
+    def set_schema(schema)
+      write_attribute(:schema, EasyML::Data::PolarsSchema.serialize(schema))
+    end
+
+    def set_raw_schema(raw_schema)
+      write_attribute(:raw_schema, EasyML::Data::PolarsSchema.serialize(raw_schema))
     end
 
     def processed_schema
@@ -490,10 +501,8 @@ module EasyML
       split = processed.data(limit: 1).to_a.any? ? :processed : :raw
       return nil if split.nil?
 
-      schema = EasyML::Data::PolarsSchema.serialize(
-        send(split).data(all_columns: true, lazy: true).schema
-      )
-      write_attribute(:schema, schema)
+      schema = send(split).data(all_columns: true, lazy: true).schema
+      set_schema(schema)
     end
 
     def learn_statistics(type: :raw, computed: false)
@@ -926,7 +935,7 @@ module EasyML
           raw.save(segment, df)
         end
       end
-      set_raw_schema
+      raw_schema # Set if not already set
     end
 
     def filter_duplicate_features

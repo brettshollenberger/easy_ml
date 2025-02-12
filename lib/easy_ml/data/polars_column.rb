@@ -14,7 +14,18 @@ module EasyML
         categorical: Polars::Categorical,
         null: Polars::Null,
       }
-      POLARS_MAP = TYPE_MAP.invert.stringify_keys
+      POLARS_MAP = {
+        Polars::Float64 => :float,
+        Polars::Int64 => :integer,
+        Polars::Float32 => :float,
+        Polars::Int32 => :integer,
+        Polars::Boolean => :boolean,
+        Polars::Datetime => :datetime,
+        Polars::Date => :date,
+        Polars::String => :string,
+        Polars::Categorical => :categorical,
+        Polars::Null => :null,
+      }.stringify_keys
       include EasyML::Timing
 
       class << self
@@ -44,7 +55,11 @@ module EasyML
       end
 
       def polars_to_sym(polars_type)
-        POLARS_MAP.dig(polars_type.class.to_s)
+        if polars_type.is_a?(Polars::DataType)
+          POLARS_MAP.dig(polars_type.class.to_s)
+        else
+          polars_type.to_sym if TYPE_MAP.keys.include?(polars_type.to_sym)
+        end
       end
 
       def parse_polars_dtype(dtype_string)

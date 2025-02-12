@@ -60,7 +60,7 @@ module EasyML
 
     attribute :columns do |dataset|
       dataset.columns.order(:id).map do |column|
-        ColumnSerializer::SmallSerializer.new(column).serializable_hash.dig(:data, :attributes)
+        ColumnSerializer.new(column).serializable_hash.dig(:data, :attributes)
       end
     end
 

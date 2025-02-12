@@ -2,20 +2,37 @@ module EasyML
   module Data
     module PolarsSchema
       def self.serialize(schema)
+        schema.deep_symbolize_keys!
+
         schema.transform_values do |dtype|
-          {
-            type: EasyML::Data::PolarsColumn.polars_to_sym(dtype),
-            params: dtype_params(dtype),
-          }
+          if dtype.is_a?(Hash) && dtype.key?(:type) && dtype.key?(:params)
+            dtype
+          else
+            {
+              type: EasyML::Data::PolarsColumn.polars_to_sym(dtype),
+              params: dtype_params(dtype),
+            }
+          end
         end
       end
 
-      def self.deserialize(schema_hash)
-        schema_hash.transform_values do |type_info|
-          polars_type = PolarsColumn.sym_to_polars(type_info["type"].to_sym)
-          params = type_info["params"]&.transform_keys(&:to_sym) || {}
+      def self.deserialize(schema)
+        schema.deep_symbolize_keys!
 
-          polars_type.new(**params)
+        schema.reduce({}) do |h, (key, type_info)|
+          h.tap do
+            polars_type = PolarsColumn.sym_to_polars(type_info[:type].to_sym)
+            params = type_info[:params]&.transform_keys(&:to_sym) || {}
+
+            h[key] = polars_type.new(**params)
+          end
+        end
+      end
+
+      def self.simplify(schema)
+        schema = serialize(schema)
+        schema.transform_values do |hash|
+          hash.dig(:type)
         end
       end
 

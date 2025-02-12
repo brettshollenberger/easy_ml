@@ -29,7 +29,7 @@ module EasyML
           col.merge_statistics(statistics.dig(col.name))
           col.set_sample_values
           col.assign_attributes(
-            learned_at: UTC.now,
+            learned_at: EasyML::Support::UTC.now,
             last_datasource_sha: col.dataset.last_datasource_sha,
             last_feature_sha: col.feature&.sha,
             is_learning: type == :raw,
@@ -71,8 +71,8 @@ module EasyML
       measure_method_timing :learn_statistics
 
       def prepare
-        @schema = @dataset.raw_schema
-        @raw_columns = @schema.keys.sort
+        @schema = EasyML::Data::PolarsSchema.simplify(@dataset.raw_schema)
+        @raw_columns = @schema.keys.sort.map(&:to_s)
         columns.each do |column|
           attrs = {
             in_raw_dataset: @raw_columns.include?(column.name),

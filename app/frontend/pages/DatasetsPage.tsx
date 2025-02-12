@@ -61,7 +61,7 @@ export default function DatasetsPage({ datasets, constants }: Props) {
   };
 
   const handleAbort = (datasetId: number) => {
-    await router.post(`${rootPath}/datasets/${datasetId}/abort`, {}, {
+    router.post(`${rootPath}/datasets/${datasetId}/abort`, {}, {
       preserveScroll: true,
       preserveState: true
     });

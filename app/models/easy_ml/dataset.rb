@@ -132,8 +132,16 @@ module EasyML
       FileUtils.rm_rf(root_dir) if root_dir.present?
     end
 
+    def as_json
+      @serializing = true
+      super.tap do
+        @serializing = false
+      end
+    end
+
     def schema
       return @schema if @schema
+      return read_attribute(:schema) if @serializing
 
       schema = read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
       schema = set_schema(schema)
@@ -142,6 +150,7 @@ module EasyML
 
     def raw_schema
       return @raw_schema if @raw_schema
+      return read_attribute(:raw_schema) if @serializing
 
       raw_schema = read_attribute(:raw_schema) || datasource.schema || datasource.after_sync.schema
       raw_schema = set_raw_schema(raw_schema)

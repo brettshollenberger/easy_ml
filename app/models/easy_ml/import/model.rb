@@ -7,7 +7,12 @@ module EasyML
         raise ArgumentError, "Dataset must be specified when creating a model" if action == :create && !include_dataset && dataset.nil?
 
         config = json_config.is_a?(String) ? JSON.parse(json_config) : json_config
+        config = config.deep_dup.with_indifferent_access
         model_config = config["model"]
+
+        # Config variables would skip custom setters, so better to manually merge
+        configuration = model_config.delete("configuration")
+        model_config.merge!(configuration)
 
         case action
         when :create
@@ -33,6 +38,18 @@ module EasyML
         # Create model
         model = EasyML::Model.new(model_config.except("weights", "dataset"))
         model.dataset = model_dataset
+
+        model_name = model_config["name"]
+        if (existing_model = EasyML::Model.find_by(name: model_name)).present?
+          max_model_name = EasyML::Model.where("name LIKE '%(Revision %'").maximum(:name)
+          if max_model_name.nil?
+            model_name = "#{model_name} (Revision 2)"
+          else
+            revision = max_model_name.split(" ").last.to_i
+            model_name = "#{model_name} (Revision #{revision + 1})"
+          end
+          model.name = model_name
+        end
         model.save!
 
         # Update weights if present
@@ -54,6 +71,7 @@ module EasyML
         # Update model
         model.update!(model_config.except("weights", "dataset"))
         model.update!(weights: model_config["weights"]) if model_config["weights"].present?
+        model.import
 
         model
       end

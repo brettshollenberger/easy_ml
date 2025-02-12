@@ -54,7 +54,7 @@ RSpec.describe "Model Import" do
           }.to raise_error(ArgumentError, /Dataset must be specified when creating a model/)
         end
 
-        it "recreates the new model, including weights", :focus do
+        it "recreates the new model, including weights" do
           imported_model = EasyML::Import::Model.from_config(model_only_config,
                                                              action: :create,
                                                              include_dataset: false,
@@ -113,33 +113,33 @@ RSpec.describe "Model Import" do
       let(:model_with_dataset_config) do
         config.deep_merge!(
           model: {
-            name: "Full Model Import",
             dataset: {
               name: "Updated Dataset Name",
               description: "Updated dataset description",
-              columns: [
-                {
-                  name: "Age",
-                  description: "Updated Age description",
-                  drop_if_null: true,
-                },
-              ],
+              columns: config.dig("model", "dataset", "columns").map do |col|
+                if col["name"] == "Age"
+                  col.merge!(
+                    description: "Updated Age description",
+                    drop_if_null: true,
+                  )
+                else
+                  col
+                end
+              end,
             },
           },
         )
       end
 
       context "with action: :create" do
-        it "creates new model and dataset" do
-          model.destroy
-          dataset.destroy
-
-          imported_model = EasyML::Import::Model.from_config(model_with_dataset_config,
+        it "creates new model and dataset, avoiding slug conflict" do
+          imported_model = EasyML::Import::Model.from_config(model_with_dataset_config.deep_dup,
                                                              action: :create,
                                                              include_dataset: true)
 
           expect(imported_model.id).not_to eq(model.id)
-          expect(imported_model.name).to eq("Full Model Import")
+          expect(imported_model.name).to eq("Different Model Name (Revision 2)")
+          expect(imported_model.slug).not_to eq(model.slug)
 
           # Should create new dataset
           expect(imported_model.dataset.id).not_to eq(dataset.id)
@@ -149,6 +149,12 @@ RSpec.describe "Model Import" do
           age_column = imported_model.dataset.columns.find_by(name: "Age")
           expect(age_column.description).to eq("Updated Age description")
           expect(age_column.drop_if_null).to be true
+
+          imported_model2 = EasyML::Import::Model.from_config(model_with_dataset_config.deep_dup,
+                                                              action: :create,
+                                                              include_dataset: true)
+          expect(imported_model2.name).to eq "Different Model Name (Revision 3)"
+          expect(imported_model2.slug).to eq "different_model_name_revision_3"
         end
       end
 

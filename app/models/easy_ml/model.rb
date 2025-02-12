@@ -680,7 +680,7 @@ module EasyML
 
     def set_slug
       if slug.nil? && name.present?
-        self.slug = name.gsub(/\s/, "_").downcase
+        self.slug = name.gsub(/\s/, "_").gsub(/[^a-zA-Z0-9_]/, "").downcase
       end
     end
   end

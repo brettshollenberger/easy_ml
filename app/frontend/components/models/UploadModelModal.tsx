@@ -52,7 +52,24 @@ export function UploadModelModal({ isOpen, onClose, modelId, dataset_id }: Uploa
   const handleUpload = () => {
     if (!canUpload) return;
 
-    post(`${rootPath}/models/${modelId}/upload`, {
+    const formData = new FormData();
+    if (data.config) {
+      formData.append('config', data.config);
+    }
+    
+    // When dataset_id prop is present, we're in model-only mode
+    if (dataset_id) {
+      formData.append('include_dataset', 'false');
+      formData.append('dataset_id', dataset_id.toString());
+    } else {
+      // Otherwise, use the selected option and dataset_id from form
+      formData.append('include_dataset', (selectedOption === 'both').toString());
+      if (selectedOption === 'model' && data.dataset_id) {
+        formData.append('dataset_id', data.dataset_id);
+      }
+    }
+
+    post(`${rootPath}/models/${modelId}/upload`, formData, {
       preserveScroll: true,
       onSuccess: () => {
         onClose();

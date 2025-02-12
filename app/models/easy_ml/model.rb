@@ -591,8 +591,8 @@ module EasyML
       EasyML::Export::Model.to_config(self, include_dataset: include_dataset)
     end
 
-    def self.from_config(json_config)
-      EasyML::Import::Model.from_config(json_config)
+    def self.from_config(json_config, action: nil, model: nil, include_dataset: true, dataset: nil)
+      EasyML::Import::Model.from_config(json_config, action: action, model: model, include_dataset: include_dataset, dataset: dataset)
     end
 
     private

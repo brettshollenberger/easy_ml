@@ -142,11 +142,17 @@ module EasyML
 
       begin
         config = JSON.parse(params[:config].read)
+        dataset = if params[:dataset_id].present?
+            EasyML::Dataset.find(params[:dataset_id])
+          else
+            model.dataset
+          end
+
         EasyML::Model.from_config(config,
                                   action: :update,
                                   model: model,
-                                  include_dataset: true,
-                                  dataset: model.dataset)
+                                  include_dataset: params[:include_dataset] == "true",
+                                  dataset: dataset)
 
         flash[:notice] = "Model configuration was successfully uploaded."
         redirect_to easy_ml_models_path

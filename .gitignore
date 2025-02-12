@@ -12,3 +12,4 @@
 node_modules
 *.local
 .env
+spec/internal/easy_ml/mocks/models

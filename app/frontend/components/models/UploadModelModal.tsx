@@ -2,8 +2,8 @@ import React, { useState, useRef } from 'react';
 import { FileUp, FileJson, Database, Upload, ArrowRight } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import { useInertiaForm } from 'use-inertia-form';
+import { useDropzone } from 'react-dropzone';
 import { SearchableSelect } from '../SearchableSelect';
-import type { Dataset } from '../../types/dataset';
 
 interface UploadModelModalProps {
   isOpen: boolean;
@@ -25,25 +25,26 @@ interface PageProps {
 export function UploadModelModal({ isOpen, onClose, modelId, dataset_id }: UploadModelModalProps) {
   const { rootPath, datasets } = usePage<PageProps>().props;
   const [selectedOption, setSelectedOption] = useState<'model' | 'both' | null>(dataset_id ? 'model' : null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  
   const { data, setData, post, processing, errors } = useInertiaForm<UploadForm>({
     config: null,
     dataset_id: dataset_id ? dataset_id.toString() : '',
   });
 
-  const handleFileSelect = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        setData('config', file);
-      }
-    };
-    input.click();
+  const onDrop = (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (file) {
+      setData('config', file);
+    }
   };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'application/json': ['.json']
+    },
+    multiple: false
+  });
 
   const canUpload = data.config && (dataset_id || (selectedOption && (
     selectedOption === 'both' || (selectedOption === 'model' && data.dataset_id)
@@ -156,18 +157,19 @@ export function UploadModelModal({ isOpen, onClose, modelId, dataset_id }: Uploa
 
         {(selectedOption || dataset_id) && (
           <div className="mt-4">
-            <button
-              onClick={handleFileSelect}
-              className={`w-full px-4 py-3 rounded-lg text-left transition-all duration-200 border-2 border-dashed
-                ${data.config ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-500'}`}
+            <div
+              {...getRootProps()}
+              className={`w-full px-4 py-3 rounded-lg text-left transition-all duration-200 border-2 border-dashed cursor-pointer
+                ${data.config || isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300 hover:border-blue-500'}`}
             >
+              <input {...getInputProps()} />
               <div className="flex items-center justify-center gap-2 text-sm">
-                <Upload className={`w-4 h-4 ${data.config ? 'text-blue-600' : 'text-gray-400'}`} />
-                <span className={data.config ? 'text-blue-600' : 'text-gray-500'}>
-                  {data.config ? data.config.name : 'Click to select configuration file'}
+                <Upload className={`w-4 h-4 ${data.config || isDragActive ? 'text-blue-600' : 'text-gray-400'}`} />
+                <span className={data.config || isDragActive ? 'text-blue-600' : 'text-gray-500'}>
+                  {isDragActive ? 'Drop the file here' : data.config ? data.config.name : 'Click or drag to select configuration file'}
                 </span>
               </div>
-            </button>
+            </div>
             {errors.config && (
               <p className="mt-1 text-sm text-red-600">{errors.config}</p>
             )}

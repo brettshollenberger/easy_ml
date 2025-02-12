@@ -103,8 +103,8 @@ module EasyML
       EasyML::Export::Dataset.to_config(self)
     end
 
-    def self.from_config(json_config, action: nil, target_dataset: nil)
-      EasyML::Import::Dataset.from_config(json_config, action: action, target_dataset: target_dataset)
+    def self.from_config(json_config, action: nil, dataset: nil)
+      EasyML::Import::Dataset.from_config(json_config, action: action, dataset: dataset)
     end
 
     def root_dir=(value)

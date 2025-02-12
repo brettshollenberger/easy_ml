@@ -55,6 +55,8 @@ module EasyML
       end
 
       def polars_to_sym(polars_type)
+        return nil if polars_type.nil?
+
         if polars_type.is_a?(Polars::DataType)
           POLARS_MAP.dig(polars_type.class.to_s)
         else

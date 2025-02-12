@@ -9,6 +9,7 @@ interface UploadModelModalProps {
   isOpen: boolean;
   onClose: () => void;
   modelId: number;
+  dataset_id?: number;
 }
 
 interface UploadForm {
@@ -21,14 +22,14 @@ interface PageProps {
   datasets: Pick<Dataset, 'id' | 'name' | 'num_rows'>[];
 }
 
-export function UploadModelModal({ isOpen, onClose, modelId }: UploadModelModalProps) {
+export function UploadModelModal({ isOpen, onClose, modelId, dataset_id }: UploadModelModalProps) {
   const { rootPath, datasets } = usePage<PageProps>().props;
-  const [selectedOption, setSelectedOption] = useState<'model' | 'both' | null>(null);
+  const [selectedOption, setSelectedOption] = useState<'model' | 'both' | null>(dataset_id ? 'model' : null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data, setData, post, processing, errors } = useInertiaForm<UploadForm>({
     config: null,
-    dataset_id: '',
+    dataset_id: dataset_id ? dataset_id.toString() : '',
   });
 
   const handleFileSelect = () => {
@@ -44,9 +45,9 @@ export function UploadModelModal({ isOpen, onClose, modelId }: UploadModelModalP
     input.click();
   };
 
-  const canUpload = data.config && selectedOption && (
+  const canUpload = data.config && (dataset_id || (selectedOption && (
     selectedOption === 'both' || (selectedOption === 'model' && data.dataset_id)
-  );
+  )));
 
   const handleUpload = () => {
     if (!canUpload) return;
@@ -71,49 +72,51 @@ export function UploadModelModal({ isOpen, onClose, modelId }: UploadModelModalP
           </div>
         </div>
 
-        <div className="space-y-3">
-          <button
-            onClick={() => {
-              setSelectedOption('model');
-              setData('dataset_id', '');
-            }}
-            className={`w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${
-              selectedOption === 'model'
-                ? 'bg-blue-50 border-2 border-blue-500 ring-2 ring-blue-200'
-                : 'bg-white border-2 border-gray-200 hover:border-blue-200'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium text-gray-900">Model Only</div>
-                <div className="text-sm text-gray-500">Upload model configuration and select a dataset</div>
+        {!dataset_id && (
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                setSelectedOption('model');
+                setData('dataset_id', '');
+              }}
+              className={`w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${
+                selectedOption === 'model'
+                  ? 'bg-blue-50 border-2 border-blue-500 ring-2 ring-blue-200'
+                  : 'bg-white border-2 border-gray-200 hover:border-blue-200'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-gray-900">Model Only</div>
+                  <div className="text-sm text-gray-500">Upload model configuration and select a dataset</div>
+                </div>
+                <FileJson className={`w-5 h-5 ${selectedOption === 'model' ? 'text-blue-600' : 'text-gray-400'}`} />
               </div>
-              <FileJson className={`w-5 h-5 ${selectedOption === 'model' ? 'text-blue-600' : 'text-gray-400'}`} />
-            </div>
-          </button>
+            </button>
 
-          <button
-            onClick={() => {
-              setSelectedOption('both');
-              setData('dataset_id', '');
-            }}
-            className={`w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${
-              selectedOption === 'both'
-                ? 'bg-blue-50 border-2 border-blue-500 ring-2 ring-blue-200'
-                : 'bg-white border-2 border-gray-200 hover:border-blue-200'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="font-medium text-gray-900">Model + Dataset</div>
-                <div className="text-sm text-gray-500">Upload and validate both model and dataset configurations</div>
+            <button
+              onClick={() => {
+                setSelectedOption('both');
+                setData('dataset_id', '');
+              }}
+              className={`w-full px-4 py-3 rounded-lg text-left transition-all duration-200 ${
+                selectedOption === 'both'
+                  ? 'bg-blue-50 border-2 border-blue-500 ring-2 ring-blue-200'
+                  : 'bg-white border-2 border-gray-200 hover:border-blue-200'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-gray-900">Model + Dataset</div>
+                  <div className="text-sm text-gray-500">Upload and validate both model and dataset configurations</div>
+                </div>
+                <Database className={`w-5 h-5 ${selectedOption === 'both' ? 'text-blue-600' : 'text-gray-400'}`} />
               </div>
-              <Database className={`w-5 h-5 ${selectedOption === 'both' ? 'text-blue-600' : 'text-gray-400'}`} />
-            </div>
-          </button>
-        </div>
+            </button>
+          </div>
+        )}
 
-        {selectedOption === 'model' && (
+        {selectedOption === 'model' && !dataset_id && (
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Select Dataset
@@ -134,7 +137,7 @@ export function UploadModelModal({ isOpen, onClose, modelId }: UploadModelModalP
           </div>
         )}
 
-        {selectedOption && (
+        {(selectedOption || dataset_id) && (
           <div className="mt-4">
             <button
               onClick={handleFileSelect}

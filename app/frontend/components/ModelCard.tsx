@@ -319,6 +319,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath,
           isOpen={showUploadModal}
           onClose={() => setShowUploadModal(false)}
           modelId={model.id}
+          dataset_id={model.dataset_id}
           datasets={datasets}
         />
       )}

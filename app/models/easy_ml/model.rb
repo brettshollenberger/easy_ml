@@ -197,6 +197,20 @@ module EasyML
       "training:#{self.name}:#{self.id}"
     end
 
+    def hyperparameters=(hyperparameters)
+      return unless model_type.present?
+
+      @hypers = adapter.build_hyperparameters(hyperparameters)
+    end
+
+    def hyperparameters
+      @hypers ||= adapter.build_hyperparameters(@hyperparameters)
+    end
+
+    def callbacks
+      @cbs ||= adapter.build_callbacks(@callbacks)
+    end
+
     def hyperparameter_search(&progress_block)
       tuner = retraining_job.tuner_config.symbolize_keys
       extra_params = {
@@ -242,14 +256,6 @@ module EasyML
     alias_method :current_version, :inference_version
     alias_method :latest_version, :inference_version
     alias_method :deployed, :inference_version
-
-    def hyperparameters
-      @hypers ||= adapter.build_hyperparameters(@hyperparameters)
-    end
-
-    def callbacks
-      @cbs ||= adapter.build_callbacks(@callbacks)
-    end
 
     def predict(xs)
       load_model!

@@ -10,13 +10,18 @@ module EasyML
         sha
       ).freeze
 
-      def self.to_config(model)
-        {
+      def self.to_config(model, include_dataset: true)
+        config = {
           model: model.as_json.except(*UNCONFIGURABLE_COLUMNS).merge!(
             weights: model.weights,
-            dataset: model.dataset.to_config["dataset"],
           ),
-        }.with_indifferent_access
+        }
+
+        if include_dataset
+          config[:model][:dataset] = model.dataset.to_config["dataset"]
+        end
+
+        config.with_indifferent_access
       end
     end
   end

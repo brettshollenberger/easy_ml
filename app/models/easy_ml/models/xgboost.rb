@@ -420,11 +420,12 @@ module EasyML
 
       def prepare_data
         if @d_train.nil?
-          x_sample, y_sample = dataset.train(split_ys: true, limit: 5)
+          col_order = dataset.col_order
+          x_sample, y_sample = dataset.train(split_ys: true, limit: 5, select: col_order)
           preprocess(x_sample, y_sample) # Ensure we fail fast if the dataset is misconfigured
-          x_train, y_train = dataset.train(split_ys: true)
-          x_valid, y_valid = dataset.valid(split_ys: true)
-          x_test, y_test = dataset.test(split_ys: true)
+          x_train, y_train = dataset.train(split_ys: true, select: col_order)
+          x_valid, y_valid = dataset.valid(split_ys: true, select: col_order)
+          x_test, y_test = dataset.test(split_ys: true, select: col_order)
           @d_train = preprocess(x_train, y_train)
           @d_valid = preprocess(x_valid, y_valid)
           @d_test = preprocess(x_test, y_test)

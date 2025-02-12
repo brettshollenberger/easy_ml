@@ -21,6 +21,14 @@ module EasyML
           FileUtils.mkdir_p(dir)
         end
 
+        def processed?
+          dir.match?(%r{processed$})
+        end
+
+        def raw?
+          !processed?
+        end
+
         def any?
           Dir.glob(File.join(dir, "*")).any?
         end

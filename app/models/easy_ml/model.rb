@@ -276,6 +276,7 @@ module EasyML
 
     def predict(xs)
       load_model!
+      xs = dataset.normalize(xs)
       adapter.predict(xs)
     end
 

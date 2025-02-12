@@ -2,7 +2,6 @@ module EasyML
   module Import
     class Dataset
       def self.from_config(json_config, action: nil, dataset: nil)
-        raise ArgumentError, "Action must be specified" unless action.present?
         raise ArgumentError, "Target dataset must be specified" if action == :update && dataset.nil?
 
         config = json_config.is_a?(String) ? JSON.parse(json_config) : json_config
@@ -13,6 +12,13 @@ module EasyML
         splitter_config = dataset_config.delete("splitter")
         columns_config = dataset_config.delete("columns") || []
         features_config = dataset_config.delete("features") || []
+
+        if action.nil?
+          name = dataset_config["name"]
+          dataset = EasyML::Dataset.find_by(name: name)
+          action = dataset.present? ? :update : :create
+        end
+        raise ArgumentError, "Action must be specified" unless action.present?
 
         if action == :create
           create_dataset(

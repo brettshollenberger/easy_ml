@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Calendar, Database, Settings, ExternalLink, Play, LineChart,
-        Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+        Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
+        Download, Upload } from 'lucide-react';
 import { Link, router } from "@inertiajs/react";
 import { cn } from '@/lib/utils';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 import { StackTrace } from './StackTrace';
+import { DownloadModelModal, UploadModelModal } from './Modals';
 
 interface ModelCardProps {
   initialModel: Model;
@@ -16,6 +18,8 @@ interface ModelCardProps {
 export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
   const [model, setModel] = useState(initialModel);
   const [showError, setShowError] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   useEffect(() => {
     let pollInterval: number | undefined;
@@ -192,6 +196,20 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
               <Settings className="w-5 h-5" />
             </Link>
             <button
+              onClick={() => setShowDownloadModal(true)}
+              className="text-gray-400 hover:text-blue-600"
+              title="Download configuration"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="text-gray-400 hover:text-green-600"
+              title="Upload configuration"
+            >
+              <Upload className="w-5 h-5" />
+            </button>
+            <button
               onClick={() => handleDelete(model.id)}
               className="text-gray-400 hover:text-gray-600"
               title="Delete model"
@@ -286,6 +304,21 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             </div>
           )}
         </div>
+      )}
+      {showDownloadModal && (
+        <DownloadModelModal
+          isOpen={showDownloadModal}
+          onClose={() => setShowDownloadModal(false)}
+          modelId={model.id}
+        />
+      )}
+
+      {showUploadModal && (
+        <UploadModelModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          modelId={model.id}
+        />
       )}
       <div className="flex items-center space-x-4">
         <button

@@ -126,6 +126,35 @@ module EasyML
       redirect_to easy_ml_models_path
     end
 
+    def download
+      model = Model.find(params[:id])
+      config = model.to_config(include_dataset: params[:include_dataset] == "true")
+
+      send_data config.to_json,
+                filename: "#{model.name.parameterize}-config.json",
+                type: "application/json",
+                disposition: "attachment"
+    end
+
+    def upload
+      model = Model.find(params[:id])
+
+      begin
+        config = JSON.parse(params[:config].read)
+        model.from_config(config,
+                          action: :update,
+                          model: model,
+                          include_dataset: true,
+                          dataset: model.dataset)
+
+        flash[:notice] = "Model configuration was successfully uploaded."
+        redirect_to easy_ml_models_path
+      rescue JSON::ParserError, StandardError => e
+        flash[:error] = "Failed to upload configuration: #{e.message}"
+        redirect_to easy_ml_models_path
+      end
+    end
+
     private
 
     def includes_list

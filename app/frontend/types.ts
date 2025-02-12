@@ -1,4 +1,4 @@
-import { Dataset } from './dataset';
+export type { Dataset } from './types/dataset';
 
 export type ModelStatus = 'success' | 'failed';
 export type DeploymentStatus = 'training' | 'inference' | 'retired';

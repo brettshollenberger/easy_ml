@@ -1,5 +1,4 @@
-import type { Datasource } from "./datasource";
-import type { SplitterConfig } from '../components/dataset/splitters/types';
+export type { Datasource } from "./datasource";
 
 export type DatasetWorkflowStatus = "analyzing" | "ready" | "failed" | "locked";
 export type DatasetStatus = "training" | "inference" | "retired";

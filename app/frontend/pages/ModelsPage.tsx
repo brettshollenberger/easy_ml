@@ -5,10 +5,17 @@ import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
 import { router } from '@inertiajs/react';
+import type { Model, Dataset } from '../types';
 
 const ITEMS_PER_PAGE = 6;
 
-export default function ModelsPage({ rootPath, models }) {
+interface ModelsPageProps {
+  rootPath: string;
+  models: Array<Model>;
+  datasets: Array<Dataset>;
+}
+
+export default function ModelsPage({ rootPath, models, datasets }: ModelsPageProps) {
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,11 +98,12 @@ export default function ModelsPage({ rootPath, models }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {paginatedModels.map((model) => (
                 <ModelCard
-                  rootPath={rootPath}
                   key={model.id}
                   initialModel={model}
-                  onViewDetails={setSelectedModelId}
+                  onViewDetails={() => setSelectedModelId(model.id)}
                   handleDelete={handleDelete}
+                  rootPath={rootPath}
+                  datasets={datasets}
                 />
               ))}
             </div>

@@ -9,15 +9,16 @@ import { cn } from '@/lib/utils';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
 import { StackTrace } from './StackTrace';
 import { DownloadModelModal, UploadModelModal } from './models';
-
+import { Dataset } from '../types';
 interface ModelCardProps {
   initialModel: Model;
   onViewDetails: (modelId: number) => void;
   handleDelete: (modelId: number) => void;
   rootPath: string;
+  datasets: Array<Dataset>;
 }
 
-export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
+export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath, datasets }: ModelCardProps) {
   const [model, setModel] = useState(initialModel);
   const [showError, setShowError] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -318,6 +319,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
           isOpen={showUploadModal}
           onClose={() => setShowUploadModal(false)}
           modelId={model.id}
+          datasets={datasets}
         />
       )}
       <div className="flex items-center space-x-4">

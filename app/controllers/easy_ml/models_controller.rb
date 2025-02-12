@@ -23,6 +23,7 @@ module EasyML
 
       render inertia: "pages/ModelsPage", props: {
         models: models.map { |model| model_to_json(model) },
+        datasets: EasyML::Dataset.all.map { |dataset| dataset.slice(:id, :name, :num_rows) },
       }
     end
 

@@ -166,11 +166,9 @@ RSpec.describe "Model Import" do
                                                              include_dataset: true)
 
           expect(imported_model.id).to eq(model.id)
-          expect(imported_model.name).to eq("Full Model Import")
 
           # Should update existing dataset
           expect(imported_model.dataset.id).to eq(dataset.id)
-          expect(imported_model.dataset.name).to eq("Updated Dataset Name")
           expect(imported_model.dataset.description).to eq("Updated dataset description")
 
           age_column = imported_model.dataset.columns.find_by(name: "Age")

@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Brain, Plus, Trash2 } from 'lucide-react';
+import { Brain, Plus, Upload } from 'lucide-react';
 import { ModelCard } from '../components/ModelCard';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
 import { router } from '@inertiajs/react';
 import type { Model, Dataset } from '../types';
+import { UploadModelModal } from '../components/models';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -19,6 +20,7 @@ export default function ModelsPage({ rootPath, models, datasets }: ModelsPagePro
   const [selectedModelId, setSelectedModelId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const filteredModels = useMemo(() => {
     return models.filter(model =>
@@ -67,13 +69,23 @@ export default function ModelsPage({ rootPath, models, datasets }: ModelsPagePro
               placeholder="Search models..."
             />
           </div>
-          <button
-            onClick={() => router.visit(`${rootPath}/models/new`)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="w-4 h-4" />
-            New Model
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50"
+              title="Import model"
+            >
+              <Upload className="w-4 h-4" />
+              Import
+            </button>
+            <button
+              onClick={() => router.visit(`${rootPath}/models/new`)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="w-4 h-4" />
+              New Model
+            </button>
+          </div>
         </div>
 
         {paginatedModels.length === 0 ? (
@@ -118,6 +130,12 @@ export default function ModelsPage({ rootPath, models, datasets }: ModelsPagePro
           </>
         )}
       </div>
+
+      <UploadModelModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        datasets={datasets}
+      />
     </div>
   );
 }

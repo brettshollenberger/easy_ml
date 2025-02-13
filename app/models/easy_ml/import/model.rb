@@ -73,7 +73,7 @@ module EasyML
 
         # Update model
         model.update!(model_config.except("weights", "dataset", "retraining_job"))
-        retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model)
+        retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model) if model_config["retraining_job"].present?
         if model_config["weights"].present?
           model.update!(weights: model_config["weights"])
           model.import

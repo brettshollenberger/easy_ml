@@ -70,7 +70,6 @@ module EasyML
         @job = tuner_job
         @study = Optuna::Study.new(direction: direction)
         @results = []
-        model.evaluator = evaluator if evaluator.present?
         model.task = task
 
         model.dataset.refresh if model.dataset.needs_refresh?

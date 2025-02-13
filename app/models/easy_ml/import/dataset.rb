@@ -80,8 +80,21 @@ module EasyML
         # Update dataset attributes except name (preserve original name)
         dataset.update!(dataset_config.except("name", "datasource"))
 
+        needs_refresh = false
+
         # Update existing columns
         columns_config.each do |column_config|
+          column_name = column_config["name"]
+          existing_column = dataset.columns.find_by(name: column_name)
+          
+          if existing_column
+            old_drop_if_null = existing_column.drop_if_null
+            new_drop_if_null = column_config["drop_if_null"]
+            
+            # Check if drop_if_null has changed
+            needs_refresh ||= !new_drop_if_null.nil? && old_drop_if_null != new_drop_if_null
+          end
+
           EasyML::Column.from_config(column_config, dataset, action: :update)
         end
 
@@ -89,6 +102,9 @@ module EasyML
         features_config.each do |feature_config|
           EasyML::Feature.from_config(feature_config, dataset, action: :update)
         end
+
+        # Refresh if needed
+        dataset.refresh_async if needs_refresh
 
         dataset
       end

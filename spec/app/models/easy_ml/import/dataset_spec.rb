@@ -97,6 +97,26 @@ RSpec.describe EasyML::Import::Dataset do
         expect(updated_dataset.columns.pluck(:name)).to match_array(dataset.columns.pluck(:name))
       end
 
+      it "calls refresh_async when config changes require refresh" do
+        # Update a column's drop_if_null setting which requires refresh
+        update_config = dataset.to_config.deep_merge!(
+          dataset: {
+            columns: [
+              {
+                name: "PassengerId",
+                drop_if_null: true,  # This change requires refresh
+              },
+            ],
+          },
+        )
+
+        expect_any_instance_of(EasyML::Dataset).to receive(:refresh_async)
+
+        described_class.from_config(update_config,
+                                    action: :update,
+                                    dataset: dataset)
+      end
+
       it "raises an error if action is update but no dataset specified" do
         expect {
           described_class.from_config(update_config, action: :update)

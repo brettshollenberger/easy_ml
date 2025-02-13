@@ -115,6 +115,32 @@ RSpec.describe "Model Import" do
             expect(pred_imported.prediction_value).to eq(pred_orig.prediction_value)
             expect(pred_imported.normalized_input).to match(hash_including(pred_orig.normalized_input))
           end
+
+          it "updates existing model, including retraining job" do
+            model.destroy
+
+            imported_model = EasyML::Import::Model.from_config(model_only_config,
+                                                               action: :create,
+                                                               include_dataset: false,
+                                                               dataset: dataset)
+            expect(imported_model.evaluator.dig(:metric)).to eq "accuracy_score"
+
+            # Change retraining job metric, and re-upload to same model
+            model_only_config["model"]["retraining_job"]["metric"] = "recall_score"
+            imported_model = EasyML::Import::Model.from_config(model_only_config,
+                                                               model: imported_model,
+                                                               action: :update,
+                                                               include_dataset: false,
+                                                               dataset: dataset)
+
+            imported_model = EasyML::Import::Model.from_config(model_only_config,
+                                                               action: :create,
+                                                               include_dataset: false,
+                                                               dataset: dataset)
+
+            expect(imported_model.evaluator.dig(:metric)).to eq "recall_score"
+            expect(imported_model.retraining_job.metric).to eq "recall_score"
+          end
         end
 
         context "with action: :update" do

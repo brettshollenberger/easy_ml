@@ -56,7 +56,12 @@ module EasyML
         end
         model.save!
 
-        retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model) if model_config["retraining_job"].present?
+        if model_config["retraining_job"].present?
+          retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model)
+          model.retraining_job = retraining_job
+          model.save!
+          model.reload
+        end
 
         # Update weights if present
         if model_config["weights"].present?
@@ -76,6 +81,13 @@ module EasyML
 
         # Update model attributes except name (preserve original name)
         model.update!(model_config.except("name", "weights", "dataset", "retraining_job"))
+
+        if model_config["retraining_job"].present?
+          retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model)
+          model.retraining_job = retraining_job
+          model.save!
+          model.reload
+        end
 
         # Update weights if present
         if model_config["weights"].present?

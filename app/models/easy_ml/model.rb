@@ -53,10 +53,10 @@ module EasyML
     belongs_to :dataset
     belongs_to :model_file, class_name: "EasyML::ModelFile", foreign_key: "model_file_id", optional: true
 
-    has_one :retraining_job, class_name: "EasyML::RetrainingJob"
+    has_one :retraining_job, class_name: "EasyML::RetrainingJob", dependent: :destroy
     accepts_nested_attributes_for :retraining_job
-    has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
-    has_many :deploys, class_name: "EasyML::Deploy"
+    has_many :retraining_runs, class_name: "EasyML::RetrainingRun", dependent: :destroy
+    has_many :deploys, class_name: "EasyML::Deploy", dependent: :destroy
 
     scope :deployed, -> { EasyML::ModelHistory.deployed }
 

@@ -45,7 +45,7 @@ module EasyML
         end
         model.save!
 
-        retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model)
+        retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model) if model_config["retraining_job"].present?
 
         # Update weights if present
         if model_config["weights"].present?

@@ -294,14 +294,15 @@ module ModelSpecHelper
     end
 
     base.let(:titanic_model) do
-      EasyML::Model.create(
-        name: "Titanic",
-        slug: "Titanic",
-        dataset: titanic_dataset,
-        task: :classification,
-        objective: "binary:logistic",
-        hyperparameters: { n_estimators: 1 },
-      )
+      EasyML::Model.find_or_create_by(name: "Titanic") do |model|
+        model.update(
+          slug: "Titanic",
+          dataset: titanic_dataset,
+          task: :classification,
+          objective: "binary:logistic",
+          hyperparameters: { n_estimators: 1 },
+        )
+      end
     end
   end
 

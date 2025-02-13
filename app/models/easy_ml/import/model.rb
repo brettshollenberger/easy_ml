@@ -36,7 +36,7 @@ module EasyML
           end
 
         # Create model
-        model = EasyML::Model.new(model_config.except("weights", "dataset"))
+        model = EasyML::Model.new(model_config.except("weights", "dataset", "retraining_job"))
         model.dataset = model_dataset
 
         model_name = model_config["name"]
@@ -44,6 +44,8 @@ module EasyML
           model.name = generate_unique_name(model_name)
         end
         model.save!
+
+        retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model)
 
         # Update weights if present
         if model_config["weights"].present?
@@ -70,7 +72,8 @@ module EasyML
         end
 
         # Update model
-        model.update!(model_config.except("weights", "dataset"))
+        model.update!(model_config.except("weights", "dataset", "retraining_job"))
+        retraining_job = EasyML::RetrainingJob.from_config(model_config["retraining_job"], model)
         if model_config["weights"].present?
           model.update!(weights: model_config["weights"])
           model.import

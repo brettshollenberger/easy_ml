@@ -159,6 +159,14 @@ module EasyML
       }[frequency.to_sym]
     end
 
+    def to_config
+      EasyML::Export::RetrainingJob.to_config(self)
+    end
+
+    def self.from_config(config, model)
+      EasyML::Import::RetrainingJob.from_config(config, model)
+    end
+
     private
 
     def metric_class

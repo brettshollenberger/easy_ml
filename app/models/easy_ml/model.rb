@@ -421,7 +421,7 @@ module EasyML
     end
 
     def evals
-      last_run&.metrics || {}
+      (last_run&.metrics || {}).with_indifferent_access
     end
 
     def metric_accessor(metric)

@@ -75,10 +75,16 @@ RSpec.describe "Model Import" do
           end
 
           it "recreates the new model, including weights" do
+            model.retraining_job.update!(metric: "recall_score", frequency: "day")
+
             imported_model = EasyML::Import::Model.from_config(model_only_config,
                                                                action: :create,
                                                                include_dataset: false,
                                                                dataset: dataset)
+            expect(imported_model.evaluator.dig(:metric)).to eq "recall_score"
+            # It uses the retraining job to evaluate the model
+            expect(imported_model.retraining_runs.first.metric_value.round(2)).to eq model.evals.dig(:recall_score).round(2)
+            expect(imported_model.retraining_job.frequency).to eq "day"
 
             expect(imported_model.id).not_to eq(model.id)
             expect(imported_model.name).to eq("Model Only Import")

@@ -90,6 +90,7 @@ RSpec.describe EasyML::RetrainingRun do
     it "saves best_params" do
       allow(retraining_job).to receive(:should_tune?).and_return(true)
 
+      model.unlock!
       model.train(async: false)
       expect(model.last_run.best_params.keys).to include("learning_rate", "n_estimators", "max_depth")
     end
@@ -98,6 +99,7 @@ RSpec.describe EasyML::RetrainingRun do
       retraining_job.update(tuner_config: nil, batch_mode: true, batch_size: 100, batch_overlap: 2)
       expect_any_instance_of(EasyML::Model).to receive(:fit_in_batches).and_call_original
 
+      model.unlock!
       model.train(async: false)
     end
 

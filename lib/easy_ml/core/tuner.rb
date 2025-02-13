@@ -73,13 +73,13 @@ module EasyML
         model.task = task
 
         model.dataset.refresh if model.dataset.needs_refresh?
-        x_valid, y_valid = model.dataset.valid(split_ys: true)
+        x_valid, y_valid = model.dataset.valid(split_ys: true, select: model.dataset.col_order)
         self.x_valid = x_valid
         self.y_valid = y_valid
         self.dataset = model.dataset.valid(all_columns: true)
         adapter.tune_started_at = tune_started_at
-        adapter.y_valid = y_valid
         adapter.x_valid = x_valid
+        adapter.y_valid = y_valid
 
         model.prepare_data unless model.batch_mode
         model.prepare_callbacks(self)

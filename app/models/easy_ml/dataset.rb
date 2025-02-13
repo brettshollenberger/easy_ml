@@ -520,8 +520,6 @@ module EasyML
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       puts "Apply missing features..."
       df = apply_missing_columns(df, inference: inference)
-      puts "Drop nulls..."
-      df = drop_nulls(df)
       puts "Transform columns..."
       df = columns.transform(df, inference: inference)
       puts "Apply features..."
@@ -530,6 +528,8 @@ module EasyML
       df = columns.transform(df, inference: inference, computed: true)
       puts "Apply column mask..."
       df = apply_column_mask(df, inference: inference) unless all_columns
+      puts "Drop nulls..."
+      df = drop_nulls(df) unless inference
       puts "Split features and targets..."
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
@@ -659,7 +659,7 @@ module EasyML
       one_hot_cats = columns.allowed_categories.symbolize_keys
 
       # Map columns to names, handling one_hot expansion
-      scope.sort_by(&:name).flat_map do |col|
+      scope.flat_map do |col|
         if col.one_hot?
           one_hot_cats[col.name.to_sym].map do |cat|
             "#{col.name}_#{cat}"
@@ -667,7 +667,7 @@ module EasyML
         else
           col.name
         end
-      end
+      end.sort
     end
 
     def column_mask(df, inference: false)
@@ -763,7 +763,7 @@ module EasyML
     end
 
     def preloaded_columns
-      @preloaded_columns ||= columns.load
+      @preloaded_columns ||= columns.load.select(&:persisted?)
     end
 
     def download_remote_files

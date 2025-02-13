@@ -46,8 +46,10 @@ module EasyML
         model.save!
 
         # Update weights if present
-        model.update!(weights: model_config["weights"]) if model_config["weights"].present?
-        model.import
+        if model_config["weights"].present?
+          model.update!(weights: model_config["weights"])
+          model.import
+        end
 
         model
       end
@@ -69,8 +71,10 @@ module EasyML
 
         # Update model
         model.update!(model_config.except("weights", "dataset"))
-        model.update!(weights: model_config["weights"]) if model_config["weights"].present?
-        model.import
+        if model_config["weights"].present?
+          model.update!(weights: model_config["weights"])
+          model.import
+        end
 
         model
       end

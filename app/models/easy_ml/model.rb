@@ -127,6 +127,14 @@ module EasyML
       end
     end
 
+    def trained?
+      retraining_runs.where(status: :success).exists?
+    end
+
+    def deployed?
+      inference_version.present?
+    end
+
     def weights=(weights)
       raise ArgumentError, "Cannot set weights on model without type" unless model_type.present?
 

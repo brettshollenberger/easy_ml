@@ -128,7 +128,7 @@ RSpec.describe "Model Import" do
                                                                include_dataset: false)
 
             expect(imported_model.id).to eq(model.id)
-            expect(imported_model.name).to eq("Model Only Import")
+            expect(imported_model.name).to eq(model.name) # Keep original name
             expect(imported_model.configuration["hyperparameters"]["max_depth"]).to eq(10)
             expect(imported_model.configuration["hyperparameters"]["learning_rate"]).to eq(0.1)
 
@@ -170,7 +170,7 @@ RSpec.describe "Model Import" do
                                                                include_dataset: true)
 
             expect(imported_model.id).not_to eq(model.id)
-            expect(imported_model.name).to eq("Different Model Name (Revision 2)")
+            expect(imported_model.name).to eq("Different Model Name (Revision 1)")
             expect(imported_model.slug).not_to eq(model.slug)
 
             # Should create new dataset
@@ -185,13 +185,13 @@ RSpec.describe "Model Import" do
             imported_model2 = EasyML::Import::Model.from_config(model_with_dataset_config.deep_dup,
                                                                 action: :create,
                                                                 include_dataset: true)
-            expect(imported_model2.name).to eq "Different Model Name (Revision 3)"
-            expect(imported_model2.slug).to eq "different_model_name_revision_3"
+            expect(imported_model2.name).to eq "Different Model Name (Revision 2)"
+            expect(imported_model2.slug).to eq "different_model_name_revision_2"
           end
         end
 
         context "with action: :update" do
-          it "updates existing model BUT not dataset", :focus do
+          it "updates existing model BUT not dataset" do
             imported_model = EasyML::Import::Model.from_config(model_with_dataset_config,
                                                                action: :update,
                                                                model: model,

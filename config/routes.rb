@@ -22,8 +22,11 @@ EasyML::Engine.routes.draw do
       post :upload
       get :retraining_runs, to: "retraining_runs#index"
     end
+    collection do
+      get "new", as: "new"
+      post :upload
+    end
     resources :deploys, only: [:create]
-    get "new", on: :collection, as: "new"
   end
 
   resources :retraining_runs, only: [:show]

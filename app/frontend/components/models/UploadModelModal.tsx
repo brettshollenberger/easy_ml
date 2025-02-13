@@ -8,7 +8,7 @@ import { SearchableSelect } from '../SearchableSelect';
 interface UploadModelModalProps {
   isOpen: boolean;
   onClose: () => void;
-  modelId: number;
+  modelId?: number;
   dataset_id?: number;
 }
 
@@ -73,8 +73,13 @@ export function UploadModelModal({ isOpen, onClose, modelId, dataset_id }: Uploa
     // Close modal immediately
     onClose();
 
+    // Determine the correct endpoint based on whether we're updating or creating
+    const endpoint = modelId 
+      ? `${rootPath}/models/${modelId}/upload`
+      : `${rootPath}/models/upload`;
+
     // Post the data and handle the response
-    post(`${rootPath}/models/${modelId}/upload`, formData, {
+    post(endpoint, formData, {
       preserveScroll: false,
       onSuccess: () => {
         // Force a full page refresh to get the latest data

@@ -45,7 +45,7 @@ module EasyML
     MODEL_NAMES = MODEL_OPTIONS.keys.freeze
     MODEL_CONSTANTS = MODEL_OPTIONS.values.map(&:constantize)
 
-    add_configuration_attributes :task, :objective, :hyperparameters, :evaluator, :callbacks, :metrics
+    add_configuration_attributes :task, :objective, :hyperparameters, :callbacks, :metrics
     MODEL_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
       add_configuration_attributes attribute
     end
@@ -412,7 +412,9 @@ module EasyML
     end
 
     def evaluator
-      instance_variable_get(:@evaluator) || default_evaluator
+      return @evaluator if @evaluator.present?
+
+      retraining_job.present? ? retraining_job.evaluator : default_evaluator
     end
 
     def default_evaluator

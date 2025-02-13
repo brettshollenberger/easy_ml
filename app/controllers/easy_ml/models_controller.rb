@@ -138,7 +138,7 @@ module EasyML
     end
 
     def upload
-      model = Model.find(params[:id])
+      model = Model.find(params[:id]) if params[:id].present?
 
       begin
         config = JSON.parse(params[:config].read)
@@ -148,8 +148,10 @@ module EasyML
             model.dataset
           end
 
+        action = model.present? ? :update : :create
+
         EasyML::Model.from_config(config,
-                                  action: :update,
+                                  action: action,
                                   model: model,
                                   include_dataset: params[:include_dataset] == "true",
                                   dataset: dataset)

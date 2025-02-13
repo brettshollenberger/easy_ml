@@ -13,9 +13,11 @@ module EasyML
         columns_config = dataset_config.delete("columns") || []
         features_config = dataset_config.delete("features") || []
 
-        name = dataset_config["name"]
-        dataset = EasyML::Dataset.find_by(name: name)
-        action = dataset.present? ? :update : :create
+        if action == :create
+          name = dataset_config["name"]
+          dataset = EasyML::Dataset.find_by(name: name)
+          action = dataset.present? ? :update : :create
+        end
         raise ArgumentError, "Action must be specified" unless action.present?
 
         if action == :create

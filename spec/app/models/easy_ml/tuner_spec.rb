@@ -137,7 +137,7 @@ RSpec.describe EasyML::Core::Tuner do
       end
 
       EasyML::Core::ModelEvaluator.register(:custom, CustomEvaluator, :regression)
-      model.update(evaluator: { metric: :custom, max: 10 })
+      model.get_retraining_job.update(metric: :custom, threshold: 10, direction: "minimize")
       model.save
       tuner = EasyML::Core::Tuner.new(tuner_params.merge!(model: model))
       tuner.tune

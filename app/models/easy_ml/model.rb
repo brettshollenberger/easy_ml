@@ -152,15 +152,16 @@ module EasyML
 
       evaluator = Core::ModelEvaluator.default_evaluator(task).symbolize_keys
 
-      create_retraining_job(
-        model: self,
-        active: false,
-        metric: evaluator[:metric],
-        direction: evaluator[:direction],
-        threshold: evaluator[:threshold],
-        frequency: "month",
-        at: { hour: 0, day_of_month: 1 },
-      )
+      method = persisted? ? :create_retraining_job : :build_retraining_job
+
+      send(method,
+           model: self,
+           active: false,
+           metric: evaluator[:metric],
+           direction: evaluator[:direction],
+           threshold: evaluator[:threshold],
+           frequency: "month",
+           at: { hour: 0, day_of_month: 1 })
     end
 
     def pending_run

@@ -191,7 +191,7 @@ RSpec.describe "Model Import" do
         end
 
         context "with action: :update" do
-          it "updates existing model BUT not dataset" do
+          it "updates existing model BUT not dataset", :focus do
             imported_model = EasyML::Import::Model.from_config(model_with_dataset_config,
                                                                action: :update,
                                                                model: model,

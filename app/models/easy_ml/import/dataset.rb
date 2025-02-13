@@ -1,6 +1,12 @@
 module EasyML
   module Import
     class Dataset
+      def self.permitted_keys
+        @permitted_keys ||= EasyML::Dataset.columns.map(&:name).map(&:to_sym) -
+                            EasyML::Export::Dataset::UNCONFIGURABLE_COLUMNS.map(&:to_sym) +
+                            [:columns, :features, :splitter, :datasource]
+      end
+
       def self.from_config(json_config, action: nil, dataset: nil)
         raise ArgumentError, "Target dataset must be specified" if action == :update && dataset.nil?
 
@@ -85,6 +91,41 @@ module EasyML
         end
 
         dataset
+      end
+
+      def self.validate(dataset_config)
+        extra_keys = dataset_config.keys.map(&:to_sym) - permitted_keys
+        raise ArgumentError, "Invalid dataset keys: #{extra_keys.join(", ")}" unless extra_keys.empty?
+
+        if dataset_config[:splitter].present?
+          dataset_config[:splitter] = EasyML::Import::Splitter.validate(dataset_config[:splitter])
+        end
+
+        if dataset_config[:columns].present?
+          unless dataset_config[:columns].is_a?(Array)
+            raise ArgumentError, "Columns configuration must be an array"
+          end
+          dataset_config[:columns].each_with_index do |col_config, idx|
+            unless col_config.is_a?(Hash)
+              raise ArgumentError, "Each column configuration must be a hash, at index #{idx}"
+            end
+            EasyML::Import::Column.validate(col_config, idx)
+          end
+        end
+
+        if dataset_config[:features].present?
+          unless dataset_config[:features].is_a?(Array)
+            raise ArgumentError, "Features configuration must be an array"
+          end
+          dataset_config[:features].each_with_index do |feat_config, idx|
+            unless feat_config.is_a?(Hash)
+              raise ArgumentError, "Each feature configuration must be a hash, at index #{idx}"
+            end
+            EasyML::Import::Feature.validate(feat_config, idx)
+          end
+        end
+
+        dataset_config
       end
     end
   end

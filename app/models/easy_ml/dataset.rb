@@ -763,7 +763,7 @@ module EasyML
     end
 
     def preloaded_columns
-      @preloaded_columns ||= columns.load.select(&:persisted?)
+      @preloaded_columns ||= columns.load
     end
 
     def download_remote_files

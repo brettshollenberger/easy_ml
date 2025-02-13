@@ -677,6 +677,8 @@ module EasyML
     end
 
     def validate_metrics_allowed
+      set_defaults if metrics.nil? || metrics.empty?
+
       unknown_metrics = metrics.select { |metric| allowed_metrics.exclude?(metric) }
       return unless unknown_metrics.any?
 

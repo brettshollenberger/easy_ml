@@ -735,10 +735,7 @@ RSpec.describe EasyML::Dataset do
         )
         json_config = @dataset.to_config
 
-        @dataset.destroy! # Destroy existing dataset
-        expect(EasyML::Column.count).to eq(0)
-
-        dataset = EasyML::Dataset.from_config(json_config)
+        dataset = EasyML::Dataset.from_config(json_config, action: :create)
 
         expect(dataset).to be_persisted
         expect(dataset.name).to eq("Titanic")

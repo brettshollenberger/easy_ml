@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_11_191250) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_13_022059) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -491,7 +491,6 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_11_191250) do
     t.bigint "model_id"
     t.string "frequency", null: false
     t.json "at", null: false
-    t.json "evaluator"
     t.boolean "tuning_enabled", default: false
     t.json "tuner_config"
     t.string "tuning_frequency"

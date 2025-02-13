@@ -52,6 +52,8 @@ RSpec.describe "Model Export" do
         expect(config[:model]).to be_present
         expect(config[:model][:name]).to eq("Different Model Name")
         expect(config[:model][:model_type]).to eq("xgboost")
+        expect(config[:model][:configuration][:task]).to eq("classification")
+        expect(config[:model][:configuration][:hyperparameters][:max_depth]).to eq(8)
         expect(config[:model][:weights]).to be_present
 
         # Dataset config should be included
@@ -59,6 +61,21 @@ RSpec.describe "Model Export" do
         expect(dataset_config).to be_present
         expect(dataset_config[:name]).to eq("Titanic")
         expect(dataset_config[:datasource][:name]).to eq("Titanic Extended")
+      end
+    end
+
+    context "when model has a retraining job" do
+      it "exports model configuration with retraining job" do
+        model.retraining_job.update(metric: "recall_score")
+        expect(model.evaluator.dig(:metric)).to eq "recall_score"
+
+        config = EasyML::Export::Model.to_config(model, include_dataset: true)
+
+        expect(config[:model][:retraining_job]).to be_present
+        expect(config[:model][:retraining_job][:frequency]).to eq("month")
+        expect(config[:model][:retraining_job][:metric]).to eq("recall_score")
+        expect(config[:model][:retraining_job][:direction]).to eq("maximize")
+        expect(config[:model][:retraining_job][:threshold]).to eq(0.7)
       end
     end
 

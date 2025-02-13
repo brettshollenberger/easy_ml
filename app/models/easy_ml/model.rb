@@ -148,19 +148,13 @@ module EasyML
     end
 
     def get_retraining_job
-      if retraining_job
-        self.evaluator = retraining_job.evaluator
-        evaluator = self.evaluator.symbolize_keys
-      else
-        default_eval = Core::ModelEvaluator.default_evaluator(task)
-        self.evaluator = default_eval
-        evaluator = default_eval
-      end
+      return retraining_job if retraining_job.present?
 
-      retraining_job || create_retraining_job(
+      evaluator = Core::ModelEvaluator.default_evaluator(task).symbolize_keys
+
+      create_retraining_job(
         model: self,
         active: false,
-        evaluator: evaluator,
         metric: evaluator[:metric],
         direction: evaluator[:direction],
         threshold: evaluator[:threshold],
@@ -399,6 +393,10 @@ module EasyML
       dataset.decode_labels(ys, col: col)
     end
 
+    def evaluator
+      get_retraining_job&.evaluator || default_evaluator
+    end
+
     def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil, dataset: nil)
       evaluator ||= self.evaluator
       if y_pred.nil?
@@ -409,12 +407,6 @@ module EasyML
         dataset = inputs[:dataset]
       end
       EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true, dataset: dataset, evaluator: evaluator)
-    end
-
-    def evaluator
-      return @evaluator if @evaluator.present?
-
-      retraining_job.present? ? retraining_job.evaluator : default_evaluator
     end
 
     def default_evaluator

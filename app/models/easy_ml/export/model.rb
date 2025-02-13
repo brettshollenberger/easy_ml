@@ -29,6 +29,10 @@ module EasyML
           config[:model][:dataset] = model.dataset.to_config["dataset"]
         end
 
+        if model.retraining_job.present?
+          config[:model][:retraining_job] = EasyML::Export::RetrainingJob.to_config(model.retraining_job)
+        end
+
         config.deep_compact.with_indifferent_access
       end
     end

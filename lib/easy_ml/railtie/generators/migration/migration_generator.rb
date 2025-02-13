@@ -52,6 +52,7 @@ module EasyML
             create_easy_ml_lineages
             update_preprocessing_steps_to_jsonb
             add_raw_schema_to_datasets
+            remove_evaluator_from_retraining_jobs
           ].freeze
 
           # Specify the next migration number

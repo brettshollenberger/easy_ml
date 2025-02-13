@@ -6,7 +6,6 @@
 #  model_id         :bigint
 #  frequency        :string           not null
 #  at               :json             not null
-#  evaluator        :json
 #  tuning_enabled   :boolean          default(FALSE)
 #  tuner_config     :json
 #  tuning_frequency :string

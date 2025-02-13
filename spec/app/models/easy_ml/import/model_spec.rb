@@ -222,6 +222,13 @@ RSpec.describe "Model Import" do
           EasyML::Import::Model.from_config(config, action: :update)
         }.to raise_error(ArgumentError, /Target model must be specified/)
       end
+
+      it "preserves the model name during update" do
+        original_name = model.name
+        config = { "model" => { "name" => "A Different Name" } }
+        updated_model = EasyML::Import::Model.from_config(config, action: :update, model: model)
+        expect(updated_model.name).to eq(original_name)
+      end
     end
   end
 end

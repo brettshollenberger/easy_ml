@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_13_022059) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -466,7 +466,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_022059) do
     t.index ["model_type"], name: "index_easy_ml_models_on_model_type"
     t.index ["name", "status"], name: "index_easy_ml_models_on_name_and_status"
     t.index ["name", "version"], name: "index_easy_ml_models_on_name_and_version"
-    t.index ["name"], name: "index_easy_ml_models_on_name"
+    t.index ["name"], name: "index_easy_ml_models_on_name", unique: true
     t.index ["sha"], name: "index_easy_ml_models_on_sha"
     t.index ["slug"], name: "index_easy_ml_models_on_slug", unique: true
     t.index ["status"], name: "index_easy_ml_models_on_status"

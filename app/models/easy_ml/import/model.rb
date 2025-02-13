@@ -12,7 +12,7 @@ module EasyML
 
         # Config variables would skip custom setters, so better to manually merge
         configuration = model_config.delete("configuration")
-        model_config.merge!(configuration)
+        model_config.merge!(configuration) if configuration.present?
 
         case action
         when :create
@@ -65,11 +65,8 @@ module EasyML
                                               dataset: model.dataset)
         end
 
-        # Handle model name
-        model_name = model_config["name"]
-        if model_name != model.name && (existing_model = EasyML::Model.find_by(name: model_name)).present?
-          model_config["name"] = generate_unique_name(model_name)
-        end
+        # Ensure the model's name remains unchanged during update
+        model_config["name"] = model.name
 
         # Update model
         model.update!(model_config.except("weights", "dataset", "retraining_job"))

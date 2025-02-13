@@ -25,6 +25,7 @@ gem "resque-batched-job"
 gem "resque-pool"
 gem "zhong"
 gem "rollbar"
+gem "rdoc"
 
 group :development, :test do
   gem "combustion"

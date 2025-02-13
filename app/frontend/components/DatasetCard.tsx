@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from '@inertiajs/react';
-import { Database, Trash2, ExternalLink, Loader2, AlertCircle, ChevronDown, ChevronUp, RefreshCw, XCircle } from 'lucide-react';
+import { Database, Trash2, ExternalLink, Loader2, AlertCircle, ChevronDown, ChevronUp, RefreshCw, XCircle, Download, Upload } from 'lucide-react';
 import { Dataset, DatasetWorkflowStatus, Column } from "@types/dataset";
 import { StackTrace } from './StackTrace';
 
@@ -41,6 +41,36 @@ export function DatasetCard({
   isErrorExpanded,
   onToggleError
 }: Props) {
+  // Create a hidden file input for handling uploads
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleDownload = () => {
+    window.location.href = `${rootPath}/datasets/${dataset.id}/download`;
+  };
+
+  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('config', file);
+
+    fetch(`${rootPath}/datasets/${dataset.id}/upload`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: {
+        'X-CSRF-Token': document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content || '',
+      },
+    }).then(response => {
+      if (response.ok) {
+        window.location.reload();
+      } else {
+        console.error('Upload failed');
+      }
+    });
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
       <div className="flex justify-between items-start mb-4">
@@ -94,6 +124,27 @@ export function DatasetCard({
               <XCircle className="w-5 h-5" />
             </button>
           )}
+          <button
+            onClick={handleDownload}
+            className="text-gray-400 hover:text-blue-600 transition-colors"
+            title="Download dataset configuration"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="text-gray-400 hover:text-green-600 transition-colors"
+            title="Upload dataset configuration"
+          >
+            <Upload className="w-5 h-5" />
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleUpload}
+            accept=".json"
+            className="hidden"
+          />
           <button
             className="text-gray-400 hover:text-red-600 transition-colors"
             title="Delete dataset"

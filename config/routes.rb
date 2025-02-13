@@ -44,6 +44,8 @@ EasyML::Engine.routes.draw do
     member do
       post :refresh
       post :abort
+      get :download
+      post :upload
     end
   end
 

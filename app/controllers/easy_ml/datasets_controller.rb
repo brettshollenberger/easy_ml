@@ -136,6 +136,31 @@ module EasyML
       redirect_to easy_ml_datasets_path, notice: "Dataset processing has been aborted."
     end
 
+    def download
+      dataset = Dataset.find(params[:id])
+      config = dataset.to_config
+
+      send_data JSON.pretty_generate(config),
+                filename: "#{dataset.name.parameterize}-config.json",
+                type: "application/json",
+                disposition: "attachment"
+    end
+
+    def upload
+      dataset = Dataset.find(params[:id])
+
+      begin
+        config = JSON.parse(params[:config].read)
+        EasyML::Dataset.from_config(config, action: :update, dataset: dataset)
+
+        flash[:notice] = "Dataset configuration was successfully uploaded."
+        redirect_to easy_ml_datasets_path
+      rescue JSON::ParserError, StandardError => e
+        flash[:error] = "Failed to upload configuration: #{e.message}"
+        redirect_to easy_ml_datasets_path
+      end
+    end
+
     private
 
     def preprocessing_params

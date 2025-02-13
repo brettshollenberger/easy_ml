@@ -314,9 +314,9 @@ export function PreprocessingConfig({
                   </p>
                 </div>
               ) : (
-                <div className="flex-3/4 flex items-start gap-1">
+                <div className="flex items-start gap-1 max-w-[100%]">
                   <p
-                    className="text-sm text-gray-500 cursor-pointer flex-grow truncate"
+                    className="text-sm text-gray-500 cursor-pointer flex-grow line-clamp-3"
                     onClick={handleDescriptionClick}
                   >
                     {column.description || 'No description provided'}

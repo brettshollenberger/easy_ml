@@ -56,7 +56,8 @@ module EasyML
 
     has_many :events, as: :eventable, class_name: "EasyML::Event", dependent: :destroy
     attr_accessor :schema, :columns, :num_rows, :is_syncing
-    belongs_to :dataset, class_name: "EasyML::Dataset", optional: true, dependent: :destroy
+    belongs_to :dataset, class_name: "EasyML::Dataset", optional: true
+    before_destroy :destroy_dataset
 
     add_configuration_attributes :schema, :columns, :num_rows, :polars_args, :verbose, :is_syncing
     DATASOURCE_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
@@ -74,10 +75,8 @@ module EasyML
       }
     end
 
-    def reread(columns = nil)
-      return false unless adapter.respond_to?(:convert_to_parquet)
-
-      adapter.convert_to_parquet(columns)
+    def destroy_dataset
+      dataset&.destroy!
     end
 
     def available_files

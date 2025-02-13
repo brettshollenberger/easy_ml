@@ -1,6 +1,8 @@
 module EasyML
   module Export
     class Column
+      using EasyML::DeepCompact
+
       UNCONFIGURABLE_COLUMNS = %w(
         id
         feature_id

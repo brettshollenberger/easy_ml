@@ -30,7 +30,6 @@ module EasyML
         # Handle dataset if included
         model_dataset = if include_dataset && model_config["dataset"].present?
             dataset_config = { "dataset" => model_config.delete("dataset") }
-            binding.pry
             EasyML::Import::Dataset.from_config(dataset_config, action: :create)
           else
             dataset

@@ -1,6 +1,8 @@
 module EasyML
   module Export
     class Model
+      using EasyML::DeepCompact
+
       UNCONFIGURABLE_COLUMNS = %w(
         id
         dataset_id

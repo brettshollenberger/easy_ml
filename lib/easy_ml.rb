@@ -15,6 +15,7 @@ module EasyML
   class Error < StandardError; end
 
   require_relative "easy_ml/configuration"
+  require_relative "easy_ml/deep_compact"
   require_relative "easy_ml/timing"
   require_relative "easy_ml/support"
   require_relative "easy_ml/core_ext"

@@ -19,6 +19,7 @@
 #  created_at          :datetime         not null
 #  updated_at          :datetime         not null
 #  last_datasource_sha :string
+#  raw_schema          :jsonb
 #
 module EasyML
   class Dataset < ActiveRecord::Base
@@ -86,6 +87,26 @@ module EasyML
       }
     end
 
+    UNCONFIGURABLE_COLUMNS = %w(
+      id
+      statistics
+      root_dir
+      created_at
+      updated_at
+      refreshed_at
+      sha
+      datasource_id
+      last_datasource_sha
+    )
+
+    def to_config
+      EasyML::Export::Dataset.to_config(self)
+    end
+
+    def self.from_config(json_config, action: nil, dataset: nil)
+      EasyML::Import::Dataset.from_config(json_config, action: action, dataset: dataset)
+    end
+
     def root_dir=(value)
       raise "Cannot override value of root_dir!" unless value.to_s == root_dir.to_s
 
@@ -111,12 +132,41 @@ module EasyML
       FileUtils.rm_rf(root_dir) if root_dir.present?
     end
 
+    def as_json
+      @serializing = true
+      super.tap do
+        @serializing = false
+      end
+    end
+
     def schema
-      read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
+      return @schema if @schema
+      return read_attribute(:schema) if @serializing
+
+      schema = read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
+      schema = set_schema(schema)
+      @schema = EasyML::Data::PolarsSchema.deserialize(schema)
+    end
+
+    def raw_schema
+      return @raw_schema if @raw_schema
+      return read_attribute(:raw_schema) if @serializing
+
+      raw_schema = read_attribute(:raw_schema) || datasource.schema || datasource.after_sync.schema
+      raw_schema = set_raw_schema(raw_schema)
+      @raw_schema = EasyML::Data::PolarsSchema.deserialize(raw_schema)
+    end
+
+    def set_schema(schema)
+      write_attribute(:schema, EasyML::Data::PolarsSchema.serialize(schema))
+    end
+
+    def set_raw_schema(raw_schema)
+      write_attribute(:raw_schema, EasyML::Data::PolarsSchema.serialize(raw_schema))
     end
 
     def processed_schema
-      processed.data(limit: 1)&.schema || raw.data(limit: 1)&.schema
+      processed.data(limit: 1, lazy: true)&.schema || raw.data(limit: 1)&.schema
     end
 
     def num_rows
@@ -124,6 +174,12 @@ module EasyML
         datasource.after_sync
       end
       datasource&.num_rows
+    end
+
+    def abort!
+      EasyML::Reaper.kill(EasyML::RefreshDatasetJob, id)
+      update(workflow_status: :ready)
+      unlock!
     end
 
     def refresh_async
@@ -143,6 +199,12 @@ module EasyML
       return @raw if @raw && @raw.dataset
 
       @raw = initialize_split("raw")
+    end
+
+    def clipped
+      return @clipped if @clipped && @clipped.dataset
+
+      @clipped = initialize_split("clipped")
     end
 
     def processed
@@ -186,23 +248,26 @@ module EasyML
 
     def actually_refresh
       refreshing do
-        puts "actually_refresh"
         learn(delete: false) # After syncing datasource, learn new statistics + sync columns
         process_data
-        puts "process_data"
         fully_reload
-        puts "Learning..."
         learn
         learn_statistics(type: :processed) # After processing data, we learn any new statistics
+        fully_reload
         now = UTC.now
         update(workflow_status: "ready", refreshed_at: now, updated_at: now)
         fully_reload
       end
     end
 
+    include EasyML::Timing
+    measure_method_timing :actually_refresh
+
     def refresh!(async: false)
       refreshing do
+        puts "Prepare..."
         prepare!
+        puts "Fit features..."
         fit_features!(async: async)
       end
     end
@@ -218,6 +283,8 @@ module EasyML
       end
     end
 
+    measure_method_timing :refresh
+
     def fit_features!(async: false, features: self.features)
       fit_features(async: async, features: features, force: true)
     end
@@ -228,6 +295,8 @@ module EasyML
 
       features.first.fit(features: features_to_compute, async: async)
     end
+
+    measure_method_timing :fit_features
 
     def after_fit_features
       puts "after fit features..."
@@ -378,15 +447,11 @@ module EasyML
     end
 
     def learn_schema
-      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
-      return nil if data.nil?
+      split = processed.data(limit: 1).to_a.any? ? :processed : :raw
+      return nil if split.nil?
 
-      schema = data.schema.reduce({}) do |h, (k, v)|
-        h.tap do
-          h[k] = EasyML::Data::PolarsColumn.polars_to_sym(v)
-        end
-      end
-      write_attribute(:schema, schema)
+      schema = send(split).data(all_columns: true, lazy: true).schema
+      set_schema(schema)
     end
 
     def learn_statistics(type: :raw, computed: false)
@@ -401,6 +466,7 @@ module EasyML
     end
 
     def process_data
+      learn(delete: false)
       fit
       normalize_all
     end
@@ -452,15 +518,24 @@ module EasyML
     end
 
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
-      df = apply_missing_features(df, inference: inference)
-      df = drop_nulls(df)
+      puts "Apply missing features..."
+      df = apply_missing_columns(df, inference: inference)
+      puts "Transform columns..."
       df = columns.transform(df, inference: inference)
+      puts "Apply features..."
       df = apply_features(df, features)
+      puts "Transform columns..."
       df = columns.transform(df, inference: inference, computed: true)
+      puts "Apply column mask..."
       df = apply_column_mask(df, inference: inference) unless all_columns
+      puts "Drop nulls..."
+      df = drop_nulls(df) unless inference
+      puts "Split features and targets..."
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end
+
+    measure_method_timing :normalize
 
     def missing_required_fields(df)
       desc_df = df.describe
@@ -507,6 +582,7 @@ module EasyML
 
     def cleanup
       raw.cleanup
+      clipped.cleanup
       processed.cleanup
     end
 
@@ -583,7 +659,7 @@ module EasyML
       one_hot_cats = columns.allowed_categories.symbolize_keys
 
       # Map columns to names, handling one_hot expansion
-      scope.sort_by(&:id).flat_map do |col|
+      scope.flat_map do |col|
         if col.one_hot?
           one_hot_cats[col.name.to_sym].map do |cat|
             "#{col.name}_#{cat}"
@@ -591,7 +667,7 @@ module EasyML
         else
           col.name
         end
-      end
+      end.sort
     end
 
     def column_mask(df, inference: false)
@@ -603,15 +679,23 @@ module EasyML
       df[column_mask(df, inference: inference)]
     end
 
-    def apply_missing_features(df, inference: false, include_one_hots: false)
+    measure_method_timing :apply_column_mask
+
+    def apply_missing_columns(df, inference: false, include_one_hots: false)
       return df unless inference
 
-      missing_features = (col_order(inference: inference) - df.columns).compact
+      missing_columns = (col_order(inference: inference) - df.columns).compact
       unless include_one_hots
-        missing_features -= columns.one_hots.flat_map(&:virtual_columns) unless include_one_hots
-        missing_features += columns.one_hots.map(&:name) - df.columns
+        columns.one_hots.each do |one_hot|
+          virtual_columns = one_hot.virtual_columns
+          if virtual_columns.all? { |vc| df.columns.include?(vc) }
+            missing_columns -= columns.one_hots.flat_map(&:virtual_columns)
+          else
+            missing_columns += columns.one_hots.map(&:name) - df.columns
+          end
+        end
       end
-      df.with_columns(missing_features.map { |f| Polars.lit(nil).alias(f) })
+      df.with_columns(missing_columns.map { |f| Polars.lit(nil).alias(f) })
     end
 
     def drop_columns(all_columns: false)
@@ -653,6 +737,19 @@ module EasyML
       apply_date_splitter_config
     end
 
+    def fully_reload
+      return unless persisted?
+
+      base_vars = self.class.new.instance_variables
+      dirty_vars = (instance_variables - base_vars)
+      in_memory_classes = [EasyML::Data::Splits::InMemorySplit]
+      dirty_vars.each do |ivar|
+        value = instance_variable_get(ivar)
+        remove_instance_variable(ivar) unless in_memory_classes.any? { |in_memory_class| value.is_a?(in_memory_class) }
+      end
+      reload
+    end
+
     private
 
     def apply_date_splitter_config
@@ -678,8 +775,10 @@ module EasyML
 
     def initialize_splits
       @raw = nil
+      @clipped = nil
       @processed = nil
       raw
+      clipped
       processed
     end
 
@@ -706,6 +805,8 @@ module EasyML
       after_refresh_datasource
     end
 
+    measure_method_timing :refresh_datasource
+
     def refresh_datasource!
       datasource.reload.refresh!
       after_refresh_datasource
@@ -713,6 +814,8 @@ module EasyML
 
     def after_refresh_datasource
       update(last_datasource_sha: datasource.sha)
+      schema
+      save
       initialize_splits
     end
 
@@ -720,13 +823,15 @@ module EasyML
       processed.cleanup
 
       SPLIT_ORDER.each do |segment|
-        df = raw.read(segment)
+        df = clipped.read(segment)
         learn_computed_columns(df) if segment == :train
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
       @normalized = true
     end
+
+    measure_method_timing :normalize_all
 
     def learn_computed_columns(df)
       return unless features.ready_to_apply.any?
@@ -739,6 +844,8 @@ module EasyML
       processed.cleanup
     end
 
+    measure_method_timing :learn_computed_columns
+
     def drop_nulls(df)
       return df if drop_if_null.nil? || drop_if_null.empty?
 
@@ -747,6 +854,8 @@ module EasyML
 
       df.drop_nulls(subset: drop)
     end
+
+    measure_method_timing :drop_nulls
 
     # Pass refresh: false for frontend views so we don't query S3 during web requests
     def load_data(segment, **kwargs, &block)
@@ -761,8 +870,23 @@ module EasyML
     end
 
     def fit
+      apply_clip
       learn_statistics(type: :raw)
     end
+
+    def apply_clip
+      clipped.cleanup
+
+      SPLIT_ORDER.each do |segment|
+        df = raw.send(segment, lazy: true, all_columns: true)
+        clipped.save(
+          segment,
+          columns.apply_clip(df) # Ensuring this returns a LazyFrame means we'll automatically use sink_parquet
+        )
+      end
+    end
+
+    measure_method_timing :apply_clip
 
     # log_method :fit, "Learning statistics", verbose: true
 
@@ -779,6 +903,7 @@ module EasyML
           raw.save(segment, df)
         end
       end
+      raw_schema # Set if not already set
     end
 
     def filter_duplicate_features
@@ -828,23 +953,12 @@ module EasyML
       end
     end
 
+    measure_method_timing :apply_features
+
     def standardize_preprocessing_steps(type)
       columns.map(&:name).zip(columns.map do |col|
         col.preprocessing_steps&.dig(type)
       end).to_h.compact.reject { |_k, v| v["method"] == "none" }
-    end
-
-    def fully_reload
-      return unless persisted?
-
-      base_vars = self.class.new.instance_variables
-      dirty_vars = (instance_variables - base_vars)
-      in_memory_classes = [EasyML::Data::Splits::InMemorySplit]
-      dirty_vars.each do |ivar|
-        value = instance_variable_get(ivar)
-        remove_instance_variable(ivar) unless in_memory_classes.any? { |in_memory_class| value.is_a?(in_memory_class) }
-      end
-      reload
     end
 
     def underscored_name

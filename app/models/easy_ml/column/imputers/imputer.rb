@@ -2,16 +2,21 @@ module EasyML
   class Column
     class Imputers
       class Imputer
-        attr_accessor :dataset, :column, :preprocessing_step
+        attr_accessor :dataset, :column, :preprocessing_step, :allowed_adapters
 
-        def initialize(column, preprocessing_step)
+        def initialize(column, preprocessing_step, allowed_adapters = [])
           @column = column
           @dataset = column.dataset
           @preprocessing_step = preprocessing_step.with_indifferent_access
+          @allowed_adapters = allowed_adapters.map(&:to_sym)
         end
 
         def inspect
           "#<#{self.class.name} adapters=#{adapters.map(&:inspect).join(", ")}>"
+        end
+
+        def exprs
+          adapters.map(&:expr)
         end
 
         def ordered_adapters
@@ -29,19 +34,12 @@ module EasyML
           ]
         end
 
-        def adapters
-          @adapters ||= ordered_adapters.map { |klass| klass.new(column, preprocessing_step) }.select(&:applies?)
+        def allowed?(adapter)
+          allowed_adapters.empty? || allowed_adapters.include?(adapter.class.name.split("::").last.underscore.to_sym)
         end
 
-        def imputers
-          return nil if column.preprocessing_steps.blank?
-
-          @imputers ||= column.preprocessing_steps.keys.reduce({}) do |hash, key|
-            hash[key.to_sym] = Imputer.new(
-              column: column,
-              preprocessing_step: column.preprocessing_steps[key],
-            )
-          end
+        def adapters
+          @adapters ||= ordered_adapters.map { |klass| klass.new(column, preprocessing_step) }.select { |adapter| allowed?(adapter) && adapter.applies? }
         end
 
         def description

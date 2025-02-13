@@ -1,6 +1,7 @@
 module EasyML
   module ColumnList
     include Historiographer::Relation
+    include EasyML::Timing
 
     def sync(delete: true)
       return unless dataset.schema.present?
@@ -39,35 +40,28 @@ module EasyML
       df
     end
 
+    measure_method_timing :transform
+
+    def apply_clip(df)
+      clip_cols = has_clip.raw
+      return df unless clip_cols.any?
+
+      clipped_exprs = EasyML::ColumnList::Imputer.new(
+        dataset,
+        df,
+        columns: clip_cols,
+        imputers: [:clip],
+      ).exprs
+
+      df.with_columns(clipped_exprs)
+    end
+
     def learn(type: :raw, computed: false)
-      cols_to_learn = column_list.reload.needs_learn
-      cols_to_learn = cols_to_learn.computed if computed
-      cols_to_learn = cols_to_learn.select(&:persisted?).reject(&:empty?)
-      cols_to_learn.each { |col| col.learn(type: type) }
-      EasyML::Column.import(cols_to_learn, on_duplicate_key_update: { columns: %i[
-                                             statistics
-                                             learned_at
-                                             sample_values
-                                             last_datasource_sha
-                                             is_learning
-                                             datatype
-                                             polars_datatype
-                                           ] })
-      set_feature_lineage
+      EasyML::Dataset::Learner.new(dataset, type: type).learn
       reload
     end
 
-    def set_feature_lineage
-      names = dataset.features.computed_column_names
-      columns = where(name: names, computed_by: nil).map do |col|
-        col.assign_attributes(
-          is_computed: true,
-          computed_by: col.computing_feature&.name,
-        )
-        col
-      end
-      EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[ is_computed computed_by ] })
-    end
+    measure_method_timing :learn
 
     def statistics
       stats = { raw: {}, processed: {} }
@@ -115,6 +109,25 @@ module EasyML
       column_list.sort_by { |col| [col.sort_required, col.name] }
     end
 
+    def set_feature_lineage(cols_to_learn)
+      names = dataset.features.computed_column_names
+      columns = where(name: names, computed_by: nil).map do |col|
+        col.assign_attributes(
+          is_computed: true,
+          computed_by: col.computing_feature&.name,
+        )
+        col
+      end
+      EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[ is_computed computed_by ] })
+
+      lineage = cols_to_learn.flat_map do |col|
+        EasyML::Lineage.learn(col)
+      end.compact
+      EasyML::Lineage.import(lineage, on_duplicate_key_update: { columns: %i[ column_id key occurred_at description ] })
+    end
+
+    measure_method_timing :set_feature_lineage
+
     private
 
     def import_new(new_columns, existing_columns)
@@ -127,7 +140,7 @@ module EasyML
         col
       end
       EasyML::Column.import(cols_to_insert)
-      set_feature_lineage
+      set_feature_lineage(cols_to_insert)
       column_list.reload
     end
 

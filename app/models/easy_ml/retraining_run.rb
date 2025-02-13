@@ -83,7 +83,6 @@ module EasyML
             completed_at: failed_reasons.none? ? Time.current : nil,
             error_message: failed_reasons.any? ? failed_reasons&.first : nil,
             model: training_model,
-            metrics: training_model.evaluate,
             best_params: best_params,
             tuner_job_id: tuner&.id,
             metadata: tuner&.metadata,
@@ -109,6 +108,7 @@ module EasyML
         end
         true
       rescue => e
+        puts EasyML::Event.easy_ml_context(e.backtrace)
         EasyML::Event.handle_error(self, e)
         update!(
           status: "failed",
@@ -150,14 +150,15 @@ module EasyML
 
       training_model.dataset.refresh
       evaluator = retraining_job.evaluator.symbolize_keys
-      x_true, y_true = training_model.dataset.test(split_ys: true)
-      y_pred = training_model.predict(x_true)
+      x_test, y_test = training_model.dataset.test(split_ys: true)
+      y_pred = training_model.predict(x_test)
 
       metric = evaluator[:metric].to_sym
       metrics = EasyML::Core::ModelEvaluator.evaluate(
         model: training_model,
         y_pred: y_pred,
-        y_true: y_true,
+        y_true: y_test,
+        x_true: x_test,
         dataset: training_model.dataset.test(all_columns: true),
         evaluator: evaluator,
       )
@@ -176,6 +177,7 @@ module EasyML
 
       {
         metric_value: metric_value,
+        metrics: metrics,
         threshold: threshold,
         threshold_direction: threshold_direction,
         deployable: deployable,

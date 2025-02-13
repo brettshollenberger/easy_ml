@@ -27,6 +27,10 @@ module EasyML
           @preprocessing_step = preprocessing_step.with_indifferent_access
         end
 
+        def expr
+          Polars.col(column.name)
+        end
+
         def applies?
           method_applies? || param_applies?
         end

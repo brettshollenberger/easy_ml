@@ -11,7 +11,8 @@ module EasyML
         end
 
         def load_data(segment, **kwargs)
-          drop_cols = dataset.drop_columns(all_columns: kwargs.key?(:all_columns) && kwargs[:all_columns])
+          all_columns = kwargs.key?(:all_columns) && kwargs[:all_columns]
+          drop_cols = dataset.drop_columns(all_columns: all_columns)
           kwargs.delete(:all_columns)
           kwargs = kwargs.merge!(drop_cols: drop_cols, target: dataset.target)
           read(segment, **kwargs)
@@ -44,6 +45,14 @@ module EasyML
 
         def split_at
           raise NotImplementedError, "Subclasses must implement #split_at"
+        end
+
+        def empty?
+          !any?
+        end
+
+        def any?
+          raise NotImplementedError, "Subclasses must implement #any?"
         end
 
         protected

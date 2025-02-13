@@ -21,6 +21,18 @@ module EasyML
           FileUtils.mkdir_p(dir)
         end
 
+        def processed?
+          dir.match?(%r{processed$})
+        end
+
+        def raw?
+          !processed?
+        end
+
+        def any?
+          Dir.glob(File.join(dir, "*")).any?
+        end
+
         def attributes
           {
             dir: dir,
@@ -95,7 +107,12 @@ module EasyML
           FileUtils.mkdir_p(segment_dir)
 
           file_path = new_file_path_for_segment(segment)
-          df.write_parquet(file_path)
+          if df.is_a?(Polars::LazyFrame)
+            df.sink_parquet(file_path)
+          else
+            df.write_parquet(file_path)
+          end
+
           file_path
         end
 
@@ -104,7 +121,7 @@ module EasyML
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
-                          unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: nil, batch_key: nil, &block)
+                          unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: nil, batch_key: nil, lazy: false, &block)
           files = files_for_segment(segment)
           return split_ys ? [nil, nil] : nil if files.empty?
 
@@ -119,6 +136,7 @@ module EasyML
             batch_size: batch_size,
             batch_start: batch_start,
             batch_key: batch_key,
+            lazy: lazy,
           }.compact
 
           if batch_size.present?

@@ -80,6 +80,13 @@ module EasyML
       redirect_to easy_ml_datasources_path, error: "Datasource not found..."
     end
 
+    def abort
+      datasource = Datasource.find(params[:id])
+      datasource.abort!
+
+      redirect_to easy_ml_datasources_path, notice: "Datasource sync has been aborted."
+    end
+
     private
 
     def datasource_params

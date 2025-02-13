@@ -97,13 +97,12 @@ RSpec.describe "Custom Evaluators" do
     let(:model) { titanic_model }
 
     it "accepts custom evaluators in tuner initialization" do
-      model.assign_attributes(evaluator: { metric: :test_weighted_mae, max: 10 })
-      model.save
+      model.get_retraining_job.assign_attributes(metric: :test_weighted_mae, direction: :minimize, threshold: 10)
+      model.get_retraining_job.save
 
       tuner = EasyML::Core::Tuner.new(
         model: model,
-        objective: "mean_absolute_error", # Can't use test_weighted_mae as the objective, only as tuner evaluator
-        evaluator: model.evaluator,
+        objective: "mean_absolute_error", # Can't use test_weighted_mae as the actual objective, only as a tuner evaluator
         task: :classification,
         config: {
           n_estimators: {

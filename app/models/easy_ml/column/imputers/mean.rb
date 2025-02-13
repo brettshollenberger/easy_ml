@@ -8,13 +8,17 @@ module EasyML
           "Mean imputation"
         end
 
+        def expr
+          return super unless mean.present?
+
+          Polars.col(column.name).fill_null(mean).alias(column.name)
+        end
+
         def transform(df)
           return df unless mean.present?
 
           mean = statistics(:mean)
-          df = df.with_column(
-            Polars.col(column.name).fill_null(mean).alias(column.name)
-          )
+          df = df.with_column(expr)
           df
         end
 

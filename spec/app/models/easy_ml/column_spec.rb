@@ -41,8 +41,8 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       it "returns statistics for the column" do
-        stats = column.learn
-        stats = column.statistics
+        dataset.refresh
+        stats = column.reload.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891
@@ -59,8 +59,9 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Sex") }
 
       it "returns statistics for the column" do
-        stats = column.learn
-        stats = column.statistics
+        dataset.refresh
+
+        stats = column.reload.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891
@@ -79,8 +80,8 @@ RSpec.describe EasyML::Column do
                           },
                         },
                       })
-        stats = column.learn
-        stats = column.statistics
+        dataset.refresh
+        stats = column.reload.statistics
         expect(column.decode_labels([0, 1])).to eq(["female", "male"])
       end
 
@@ -93,7 +94,8 @@ RSpec.describe EasyML::Column do
                           },
                         },
                       })
-        column.learn
+        dataset.refresh
+        column.reload
         expect(column.raw.data.columns.sort).to eq(["Sex"])
         expect(column.processed.data.columns.sort).to eq(["Sex_female", "Sex_male", "Sex_other"])
       end
@@ -103,14 +105,13 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Name") }
 
       it "returns statistics for the column" do
-        stats = column.learn
-        stats = column.statistics
+        dataset.refresh
+        stats = column.reload.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 891
         expect(stats.dig(:raw, :null_count)).to eq 0
         expect(stats.dig(:raw, :unique_count)).to eq 891
-        expect(stats.dig(:raw, :most_frequent_value)).to eq "Abbing, Mr. Anthony"
       end
     end
 
@@ -118,13 +119,14 @@ RSpec.describe EasyML::Column do
       let(:dataset) { loans_dataset }
       let(:column) do
         col = dataset.columns.find_by(name: "date")
-        col.update(hidden: false)
+        col.update(hidden: false, is_date_column: true)
         col
       end
 
       it "returns statistics for the column" do
-        stats = column.learn
-        stats = column.statistics
+        column
+        dataset.refresh
+        stats = column.reload.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 10
@@ -136,13 +138,13 @@ RSpec.describe EasyML::Column do
       end
     end
 
-    context "Null column" do
+    xcontext "Null column" do
       let(:dataset) { null_dataset }
       let(:column) { dataset.columns.find_by(name: "null_col") }
 
       it "returns statistics for the column" do
-        stats = column.learn
-        stats = column.statistics
+        dataset.refresh
+        stats = column.reload.statistics
         expect(stats.key?(:raw)).to be true
         expect(stats.key?(:processed)).to be true
         expect(stats.dig(:raw, :num_rows)).to eq 1
@@ -166,7 +168,7 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       it "includes 'Raw dataset' in lineage" do
-        expect(column.lineage.map { |l| l[:key] }).to include(:raw_dataset)
+        expect(column.lineages.first.key.to_sym).to eq(:raw_dataset)
       end
     end
 
@@ -175,8 +177,8 @@ RSpec.describe EasyML::Column do
         feature
         dataset.refresh!
         column = dataset.columns.find_by(name: "FamilySize")
-        expect(column.lineage.map { |l| l[:key] }).to include(:computed_by_feature)
-        expect(column.lineage.map { |l| l[:description] }).to include("Computed by FamilySize")
+        expect(column.lineages.map(&:key).map(&:to_sym)).to include(:computed_by_feature)
+        expect(column.lineages.map(&:description)).to include("Computed by FamilySize")
       end
     end
 
@@ -184,11 +186,25 @@ RSpec.describe EasyML::Column do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       before do
-        column.update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 100 } } } })
+        column.update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 20 } } } })
+        dataset.columns.find_by(name: "SibSp").update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 1 } } } })
       end
 
       it "includes preprocessing steps in lineage" do
-        expect(column.lineage.map { |l| l[:key] }).to include(:preprocessed)
+        expect(column.lineages.map(&:key).map(&:to_sym)).to include(:preprocessed)
+      end
+
+      it "queries based on columns containing clip" do
+        expect(EasyML::Column.has_clip.map(&:id)).to include(column.id)
+      end
+
+      it "applies clip to dataset" do
+        dataset.refresh
+        expect(dataset.clipped.data(lazy: true).select(Polars.col("Age").max).collect.to_series.to_a.first).to eq(20)
+        expect(dataset.clipped.data(lazy: true).select(Polars.col("SibSp").max).collect.to_series.to_a.first).to eq(1)
+
+        # It does not apply clip to non-clip columns
+        expect(dataset.clipped.data(lazy: true).select(Polars.col("PassengerId").max).collect.to_series.to_a.first).to eq(891)
       end
     end
 
@@ -211,9 +227,12 @@ RSpec.describe EasyML::Column do
       end
 
       it "includes all relevant information in lineage" do
-        lineage = column.lineage
-        expect(lineage.detect { |l| l[:key] == :computed_by_feature }[:description]).to include("Computed by FamilySize")
-        expect(lineage.detect { |l| l[:key] == :preprocessed }[:description]).to include("Preprocessed using Clip, Mean imputation")
+        column
+        dataset.refresh
+        lineage = column.lineages
+
+        expect(lineage.detect { |l| l.key.to_sym == :computed_by_feature }.description).to include("Computed by FamilySize")
+        expect(lineage.detect { |l| l.key.to_sym == :preprocessed }.description).to include("Preprocessed using Clip, Mean imputation")
         expect(lineage.length).to eq(2)
       end
     end

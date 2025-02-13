@@ -18,10 +18,15 @@ EasyML::Engine.routes.draw do
     member do
       post :train
       post :abort
+      get :download
+      post :upload
       get :retraining_runs, to: "retraining_runs#index"
     end
+    collection do
+      get "new", as: "new"
+      post :upload
+    end
     resources :deploys, only: [:create]
-    get "new", on: :collection, as: "new"
   end
 
   resources :retraining_runs, only: [:show]
@@ -30,6 +35,7 @@ EasyML::Engine.routes.draw do
   resources :datasources, as: :easy_ml_datasources do
     member do
       post :sync
+      post :abort
     end
   end
 
@@ -37,6 +43,12 @@ EasyML::Engine.routes.draw do
   resources :datasets, as: :easy_ml_datasets do
     member do
       post :refresh
+      post :abort
+      get :download
+      post :upload
+    end
+    collection do
+      post :upload
     end
   end
 

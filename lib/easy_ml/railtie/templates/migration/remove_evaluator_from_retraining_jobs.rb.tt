@@ -1,0 +1,7 @@
+class RemoveEvaluatorFromRetrainingJobs < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    if column_exists?(:easy_ml_retraining_jobs, :evaluator)
+      remove_column :easy_ml_retraining_jobs, :evaluator
+    end
+  end
+end

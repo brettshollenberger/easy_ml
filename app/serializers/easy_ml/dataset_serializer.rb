@@ -59,7 +59,8 @@ module EasyML
     end
 
     attribute :columns do |dataset|
-      dataset.columns.order(:id).map do |column|
+      col_order = dataset.col_order
+      dataset.columns.sort_by { |c| col_order.index(c.name) || Float::INFINITY }.map do |column|
         ColumnSerializer.new(column).serializable_hash.dig(:data, :attributes)
       end
     end

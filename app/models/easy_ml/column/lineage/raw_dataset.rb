@@ -10,7 +10,7 @@ module EasyML
           "Present in raw dataset"
         end
 
-        def timestamp
+        def occurred_at
           column.dataset.datasource.refreshed_at
         end
 

@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc72)
+    easy_ml (0.2.0.pre.rc75)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -2093,6 +2093,7 @@ DEPENDENCIES
   polars-df (~> 0.16.0)
   pry
   rake (~> 13.0)
+  rdoc
   resque
   resque-batched-job
   resque-pool

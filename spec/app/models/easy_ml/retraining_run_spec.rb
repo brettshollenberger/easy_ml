@@ -90,6 +90,7 @@ RSpec.describe EasyML::RetrainingRun do
     it "saves best_params" do
       allow(retraining_job).to receive(:should_tune?).and_return(true)
 
+      model.unlock!
       model.train(async: false)
       expect(model.last_run.best_params.keys).to include("learning_rate", "n_estimators", "max_depth")
     end
@@ -98,6 +99,7 @@ RSpec.describe EasyML::RetrainingRun do
       retraining_job.update(tuner_config: nil, batch_mode: true, batch_size: 100, batch_overlap: 2)
       expect_any_instance_of(EasyML::Model).to receive(:fit_in_batches).and_call_original
 
+      model.unlock!
       model.train(async: false)
     end
 
@@ -133,11 +135,11 @@ RSpec.describe EasyML::RetrainingRun do
     end
 
     context "with model evaluation" do
-      def setup_evaluation(training_model, y_pred, y_true, call_original = false)
+      def setup_evaluation(training_model, y_pred, y_valid, call_original = false)
         # Set up our test expectations on the forked model
         allow_any_instance_of(EasyML::Dataset).to receive(:refresh!).and_return(true)
         allow_any_instance_of(EasyML::Dataset).to receive(:test).with(any_args).and_return([
-          Polars::DataFrame.new({ nums: [1, 2, 3] }), y_true,
+          Polars::DataFrame.new({ nums: [1, 2, 3] }), y_valid,
         ])
         allow(training_model).to receive(:predict).and_return(y_pred)
         allow(training_model).to receive(:deployable?).and_return(true)
@@ -203,6 +205,7 @@ RSpec.describe EasyML::RetrainingRun do
           setup_evaluation(model, [1, 2, 3], [1, 2, 3])
           original_model = model.latest_version
 
+          model.unlock!
           expect { model.train(async: false) }.to have_enqueued_job(EasyML::DeployJob)
           perform_enqueued_jobs
 

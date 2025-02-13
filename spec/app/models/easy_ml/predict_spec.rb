@@ -22,9 +22,11 @@ RSpec.describe EasyML::Predict do
       model.save
       model.train(async: false)
       model.deploy(async: false)
+      expect(model.weights).to eq(model.inference_version.weights)
 
       df, = model.dataset.test(split_ys: true)
       model_preds = model.predict(df)
+      expect(model.predict(df)).to eq(model.inference_version.predict(df))
 
       live_preds = described_class.predict(model.slug, df)
       expect(live_preds.map(&:prediction_value)).to eq model_preds

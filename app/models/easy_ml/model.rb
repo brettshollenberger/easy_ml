@@ -45,7 +45,7 @@ module EasyML
     MODEL_NAMES = MODEL_OPTIONS.keys.freeze
     MODEL_CONSTANTS = MODEL_OPTIONS.values.map(&:constantize)
 
-    add_configuration_attributes :task, :objective, :hyperparameters, :evaluator, :callbacks, :metrics
+    add_configuration_attributes :task, :objective, :hyperparameters, :callbacks, :metrics
     MODEL_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
       add_configuration_attributes attribute
     end
@@ -53,10 +53,10 @@ module EasyML
     belongs_to :dataset
     belongs_to :model_file, class_name: "EasyML::ModelFile", foreign_key: "model_file_id", optional: true
 
-    has_one :retraining_job, class_name: "EasyML::RetrainingJob"
+    has_one :retraining_job, class_name: "EasyML::RetrainingJob", dependent: :destroy
     accepts_nested_attributes_for :retraining_job
-    has_many :retraining_runs, class_name: "EasyML::RetrainingRun"
-    has_many :deploys, class_name: "EasyML::Deploy"
+    has_many :retraining_runs, class_name: "EasyML::RetrainingRun", dependent: :destroy
+    has_many :deploys, class_name: "EasyML::Deploy", dependent: :destroy
 
     scope :deployed, -> { EasyML::ModelHistory.deployed }
 
@@ -127,31 +127,55 @@ module EasyML
       end
     end
 
-    def get_retraining_job
-      if retraining_job
-        self.evaluator = retraining_job.evaluator
-        evaluator = self.evaluator.symbolize_keys
-      else
-        default_eval = Core::ModelEvaluator.default_evaluator(task)
-        self.evaluator = default_eval
-        evaluator = default_eval
-      end
+    def trained?
+      retraining_runs.where(status: :success).exists?
+    end
 
-      retraining_job || create_retraining_job(
-        model: self,
-        active: false,
-        evaluator: evaluator,
-        metric: evaluator[:metric],
-        direction: evaluator[:direction],
-        threshold: evaluator[:threshold],
-        frequency: "month",
-        at: { hour: 0, day_of_month: 1 },
-      )
+    def deployed?
+      inference_version.present?
+    end
+
+    def weights=(weights)
+      raise ArgumentError, "Cannot set weights on model without type" unless model_type.present?
+
+      model_file = get_model_file
+      adapter.set_weights(model_file, weights)
+      save_model_file
+    end
+
+    def weights
+      adapter.weights(get_model_file)
+    end
+
+    def get_retraining_job
+      return retraining_job if retraining_job.present?
+
+      evaluator = Core::ModelEvaluator.default_evaluator(task).symbolize_keys
+
+      method = persisted? ? :create_retraining_job : :build_retraining_job
+
+      send(method,
+           model: self,
+           active: false,
+           metric: evaluator[:metric],
+           direction: evaluator[:direction],
+           threshold: evaluator[:threshold],
+           frequency: "month",
+           at: { hour: 0, day_of_month: 1 })
     end
 
     def pending_run
       job = get_retraining_job
       job.retraining_runs.find_or_create_by(status: "pending", model: self)
+    end
+
+    def import
+      lock_model do
+        run = pending_run
+        run.wrap_training do
+          [self, hyperparameters.to_h]
+        end
+      end
     end
 
     def actually_train(&progress_block)
@@ -191,6 +215,20 @@ module EasyML
 
     def lock_key
       "training:#{self.name}:#{self.id}"
+    end
+
+    def hyperparameters=(hyperparameters)
+      return unless model_type.present?
+
+      @hypers = adapter.build_hyperparameters(hyperparameters)
+    end
+
+    def hyperparameters
+      @hypers ||= adapter.build_hyperparameters(@hyperparameters)
+    end
+
+    def callbacks
+      @cbs ||= adapter.build_callbacks(@callbacks)
     end
 
     def hyperparameter_search(&progress_block)
@@ -239,16 +277,11 @@ module EasyML
     alias_method :latest_version, :inference_version
     alias_method :deployed, :inference_version
 
-    def hyperparameters
-      @hypers ||= adapter.build_hyperparameters(@hyperparameters)
-    end
-
-    def callbacks
-      @cbs ||= adapter.build_callbacks(@callbacks)
-    end
-
     def predict(xs)
       load_model!
+      unless xs.is_a?(XGBoost::DMatrix)
+        xs = dataset.normalize(xs, inference: true)
+      end
       adapter.predict(xs)
     end
 
@@ -361,6 +394,10 @@ module EasyML
       dataset.decode_labels(ys, col: col)
     end
 
+    def evaluator
+      get_retraining_job&.evaluator || default_evaluator
+    end
+
     def evaluate(y_pred: nil, y_true: nil, x_true: nil, evaluator: nil, dataset: nil)
       evaluator ||= self.evaluator
       if y_pred.nil?
@@ -371,10 +408,6 @@ module EasyML
         dataset = inputs[:dataset]
       end
       EasyML::Core::ModelEvaluator.evaluate(model: self, y_pred: y_pred, y_true: y_true, x_true: x_true, dataset: dataset, evaluator: evaluator)
-    end
-
-    def evaluator
-      instance_variable_get(:@evaluator) || default_evaluator
     end
 
     def default_evaluator
@@ -388,7 +421,7 @@ module EasyML
     end
 
     def evals
-      last_run&.metrics || {}
+      (last_run&.metrics || {}).with_indifferent_access
     end
 
     def metric_accessor(metric)
@@ -543,6 +576,28 @@ module EasyML
         end
     end
 
+    UNCONFIGURABLE_COLUMNS = %w(
+      id
+      dataset_id
+      model_file_id
+      root_dir
+      file
+      sha
+      last_trained_at
+      is_training
+      created_at
+      updated_at
+      slug
+    )
+
+    def to_config(include_dataset: false)
+      EasyML::Export::Model.to_config(self, include_dataset: include_dataset)
+    end
+
+    def self.from_config(json_config, action: nil, model: nil, include_dataset: true, dataset: nil)
+      EasyML::Import::Model.from_config(json_config, action: action, model: model, include_dataset: include_dataset, dataset: dataset)
+    end
+
     private
 
     def default_evaluation_inputs
@@ -622,6 +677,8 @@ module EasyML
     end
 
     def validate_metrics_allowed
+      set_defaults if metrics.nil? || metrics.empty?
+
       unknown_metrics = metrics.select { |metric| allowed_metrics.exclude?(metric) }
       return unless unknown_metrics.any?
 
@@ -631,7 +688,7 @@ module EasyML
 
     def set_slug
       if slug.nil? && name.present?
-        self.slug = name.gsub(/\s/, "_").downcase
+        self.slug = name.gsub(/\s/, "_").gsub(/[^a-zA-Z0-9_]/, "").downcase
       end
     end
   end

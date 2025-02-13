@@ -1,6 +1,8 @@
 module EasyML
   class Column
     class Selector
+      include EasyML::Timing
+
       attr_accessor :selected, :dataset, :column, :transform
 
       def initialize(column, selected = nil, &block)
@@ -27,6 +29,8 @@ module EasyML
           column.imputers.training.clip(df)
         end
       end
+
+      measure_method_timing :clipped
 
       def processed
         Selector.new(column, :processed)

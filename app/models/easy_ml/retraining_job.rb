@@ -6,7 +6,6 @@
 #  model_id         :bigint
 #  frequency        :string           not null
 #  at               :json             not null
-#  evaluator        :json
 #  tuning_enabled   :boolean          default(FALSE)
 #  tuner_config     :json
 #  tuning_frequency :string
@@ -158,6 +157,14 @@ module EasyML
         week: "Weekly",
         day: "Daily",
       }[frequency.to_sym]
+    end
+
+    def to_config
+      EasyML::Export::RetrainingJob.to_config(self)
+    end
+
+    def self.from_config(config, model)
+      EasyML::Import::RetrainingJob.from_config(config, model)
     end
 
     private

@@ -107,6 +107,56 @@ RSpec.describe EasyML::Datasource do
       expect(s3_datasource.data.count).to eq 16
     end
 
+    it "automatically sets schema, raw schema, and column dtypes" do
+      mock_s3_download(multi_file_dir)
+
+      s3_datasource = EasyML::Datasource.create!(
+        name: "Multi File",
+        datasource_type: "s3",
+        s3_bucket: "bucket",
+      )
+      s3_dataset = EasyML::Dataset.create(
+        name: "My Dataset",
+        datasource: s3_datasource,
+        splitter_attributes: {
+          splitter_type: "random",
+          seed: 42,
+        },
+      )
+
+      expect(s3_dataset.columns).to be_empty
+      s3_dataset.refresh
+
+      expect(s3_dataset.columns).not_to be_empty
+
+      columns = [{ :name => "annual_revenue", :datatype => "integer" },
+                 { :name => "created_date", :datatype => "datetime" },
+                 { :name => "drop_me", :datatype => "boolean" },
+                 { :name => "id", :datatype => "integer" },
+                 { :name => "rev", :datatype => "integer" },
+                 { :name => "loan_purpose", :datatype => "categorical" },
+                 { :name => "state", :datatype => "categorical" }]
+
+      columns.each do |col|
+        column = s3_dataset.columns.find_by(name: col[:name])
+        expect(column).to be_present
+        expect(column.datatype.to_sym).to eq(col[:datatype].to_sym)
+        expect(column).to be_in_raw_dataset
+      end
+
+      expect(s3_dataset.schema).to match(hash_including(
+        {
+          id: Polars::Int64,
+          rev: Polars::Int64,
+          annual_revenue: Polars::Int64,
+          created_date: Polars::Datetime,
+          drop_me: Polars::Boolean,
+          loan_purpose: Polars::Categorical,
+          state: Polars::Categorical,
+        }
+      ))
+    end
+
     it "refreshes asynchronously" do
       mock_s3_download(multi_file_dir)
       s3_datasource = EasyML::Datasource.create!(

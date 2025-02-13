@@ -24,6 +24,7 @@
 #  history_user_id     :integer
 #  snapshot_id         :string
 #  last_datasource_sha :string
+#  raw_schema          :jsonb
 #
 module EasyML
   class DatasetHistory < ActiveRecord::Base

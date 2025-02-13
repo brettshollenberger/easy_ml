@@ -88,17 +88,20 @@ module EasyML
       end
 
       def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
-                             batch_size: nil, batch_start: nil, batch_key: nil, &block)
+                             batch_size: nil, batch_start: nil, batch_key: nil, lazy: false, &block)
         files ||= self.files
         PolarsReader.query(files, drop_cols: drop_cols, filter: filter, limit: limit,
                                   select: select, unique: unique, sort: sort, descending: descending,
-                                  batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, &block)
+                                  batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, lazy: lazy, &block)
       end
 
       def self.query(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
-                            batch_size: nil, batch_start: nil, batch_key: nil, &block)
-        return query_files(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select,
-                                  unique: unique, sort: sort, descending: descending).collect unless batch_size.present?
+                            batch_size: nil, batch_start: nil, batch_key: nil, lazy: false, &block)
+        unless batch_size.present?
+          result = query_files(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select,
+                                      unique: unique, sort: sort, descending: descending)
+          return lazy ? result : result.collect
+        end
 
         return batch_enumerator(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select, unique: unique, sort: sort, descending: descending,
                                        batch_size: batch_size, batch_start: batch_start, batch_key: batch_key) unless block_given?

@@ -171,6 +171,7 @@ module ModelSpecHelper
           dataset: dataset,
         )
       end
+      dataset.unlock!
       dataset.refresh
 
       dataset.columns.find_by(name: target).update(is_target: true)
@@ -246,6 +247,7 @@ module ModelSpecHelper
         ),
         splitter_attributes: splitter_attributes,
       )
+      dataset.unlock!
       dataset.refresh
       dataset.columns.find_by(name: "Survived").update(is_target: true)
       dataset.columns.find_by(name: "Name").update(hidden: true)
@@ -292,14 +294,15 @@ module ModelSpecHelper
     end
 
     base.let(:titanic_model) do
-      EasyML::Model.create(
-        name: "Titanic",
-        slug: "Titanic",
-        dataset: titanic_dataset,
-        task: :classification,
-        objective: "binary:logistic",
-        hyperparameters: { n_estimators: 1 },
-      )
+      EasyML::Model.find_or_create_by(name: "Titanic") do |model|
+        model.update(
+          slug: "Titanic",
+          dataset: titanic_dataset,
+          task: :classification,
+          objective: "binary:logistic",
+          hyperparameters: { n_estimators: 1 },
+        )
+      end
     end
   end
 

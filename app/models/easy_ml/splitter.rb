@@ -75,6 +75,14 @@ module EasyML
       }
     end
 
+    def to_config
+      EasyML::Export::Splitter.to_config(self)
+    end
+
+    def self.from_config(config, dataset)
+      EasyML::Import::Splitter.from_config(config, dataset)
+    end
+
     def split(df, &block)
       adapter.split(df, &block)
     end

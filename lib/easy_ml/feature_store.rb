@@ -104,12 +104,8 @@ module EasyML
     end
 
     def safe_write(df, path)
-      begin
-        FileUtils.mkdir_p(File.dirname(path))
-        df.write_parquet(path)
-      rescue => e
-        binding.pry
-      end
+      FileUtils.mkdir_p(File.dirname(path))
+      df.write_parquet(path)
     end
 
     def store_partition(partition_df, primary_key, partition_start)

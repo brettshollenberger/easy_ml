@@ -1,20 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, Calendar, Database, Settings, ExternalLink, Play, LineChart,
-        Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Activity, Calendar, Database, Settings, ExternalLink, Play, LineChart,
+  Trash2, Loader2, XCircle, CheckCircle2, AlertCircle, ChevronDown, ChevronUp,
+  Download, Upload
+} from 'lucide-react';
 import { Link, router } from "@inertiajs/react";
 import { cn } from '@/lib/utils';
 import type { Model, RetrainingJob, RetrainingRun } from '../types';
-
+import { StackTrace } from './StackTrace';
+import { DownloadModelModal, UploadModelModal } from './models';
+import { Dataset } from '../types';
 interface ModelCardProps {
   initialModel: Model;
   onViewDetails: (modelId: number) => void;
   handleDelete: (modelId: number) => void;
   rootPath: string;
+  datasets: Array<Dataset>;
 }
 
-export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath }: ModelCardProps) {
+export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath, datasets }: ModelCardProps) {
   const [model, setModel] = useState(initialModel);
   const [showError, setShowError] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
+  // Update local state when initialModel changes
+  useEffect(() => {
+    setModel(initialModel);
+  }, [initialModel]);
 
   useEffect(() => {
     let pollInterval: number | undefined;
@@ -135,7 +148,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-            ${model.deployment_status === 'inference' 
+            ${model.deployment_status === 'inference'
               ? 'bg-blue-100 text-blue-800'
               : 'bg-gray-100 text-gray-800'}`}
           >
@@ -155,14 +168,41 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             <button
               onClick={handleTrain}
               disabled={model.is_training}
-              className={`text-gray-400 hover:text-green-600 transition-colors ${
-                model.is_training ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              className={`text-gray-400 hover:text-green-600 transition-colors ${model.is_training ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
               title="Train model"
             >
               <Play className="w-5 h-5" />
             </button>
             {renderTrainingStatus()}
+            <button
+              onClick={() => setShowDownloadModal(true)}
+              className="text-gray-400 hover:text-blue-600"
+              title="Download configuration"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="text-gray-400 hover:text-green-600"
+              title="Upload configuration"
+            >
+              <Upload className="w-5 h-5" />
+            </button>
+            <Link
+              href={`${rootPath}/models/${model.id}/edit`}
+              className="text-gray-400 hover:text-gray-600"
+              title="Edit model"
+            >
+              <Settings className="w-5 h-5" />
+            </Link>
+            <button
+              onClick={() => handleDelete(model.id)}
+              className="text-gray-400 hover:text-gray-600"
+              title="Delete model"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
             {
               model.metrics_url && (
                 <a
@@ -183,20 +223,6 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             >
               <ExternalLink className="w-5 h-5" />
             </Link>
-            <Link
-              href={`${rootPath}/models/${model.id}/edit`}
-              className="text-gray-400 hover:text-gray-600"
-              title="Edit model"
-            >
-              <Settings className="w-5 h-5" />
-            </Link>
-            <button
-              onClick={() => handleDelete(model.id)}
-              className="text-gray-400 hover:text-gray-600"
-              title="Delete model"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
@@ -214,7 +240,7 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-gray-400" />
           {dataset ? (
-            <Link 
+            <Link
               href={`${rootPath}/datasets/${dataset.id}`}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
@@ -252,11 +278,10 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
             {Object.entries(lastRun.metrics as Record<string, number>).map(([key, value]) => (
               <div
                 key={key}
-                className={`px-2 py-1 rounded-md text-xs font-medium ${
-                  lastRun.deployable
+                className={`px-2 py-1 rounded-md text-xs font-medium ${lastRun.deployable
                     ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
-                }`}
+                  }`}
               >
                 {key}: {value.toFixed(4)}
               </div>
@@ -281,12 +306,27 @@ export function ModelCard({ initialModel, onViewDetails, handleDelete, rootPath 
           </button>
           {showError && (
             <div className="mt-2 p-3 bg-red-50 rounded-md">
-              <pre className="text-xs text-red-700 whitespace-pre-wrap break-words [word-break:break-word] font-mono">
-                {lastRun.stacktrace}
-              </pre>
+              <StackTrace stacktrace={lastRun.stacktrace} />
             </div>
           )}
         </div>
+      )}
+      {showDownloadModal && (
+        <DownloadModelModal
+          isOpen={showDownloadModal}
+          onClose={() => setShowDownloadModal(false)}
+          modelId={model.id}
+        />
+      )}
+
+      {showUploadModal && (
+        <UploadModelModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          modelId={model.id}
+          dataset_id={model.dataset_id}
+          datasets={datasets}
+        />
       )}
       <div className="flex items-center space-x-4">
         <button

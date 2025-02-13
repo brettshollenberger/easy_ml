@@ -60,6 +60,10 @@ module EasyML
       stacktrace.select { |loc| loc.match?(/easy_ml/) }
     end
 
+    def self.called_by?(matcher)
+      easy_ml_context(caller).any? { |line| line.match?(matcher) }
+    end
+
     def self.format_stacktrace(error)
       return nil if error.nil?
 

@@ -199,7 +199,7 @@ module EasyML
         set_default_wandb_project_name unless tuning
 
         # Prepare validation data
-        x_valid, y_valid = dataset.valid(split_ys: true)
+        x_valid, y_valid = dataset.valid(split_ys: true, select: dataset.col_order)
         d_valid = preprocess(x_valid, y_valid)
 
         num_iterations = hyperparameters.to_h[:n_estimators]
@@ -217,7 +217,7 @@ module EasyML
         callbacks << ::XGBoost::EvaluationMonitor.new(period: 1)
 
         # Generate batches without loading full dataset
-        batches = dataset.train(split_ys: true, batch_size: batch_size, batch_start: batch_start, batch_key: batch_key)
+        batches = dataset.train(split_ys: true, batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, select: dataset.col_order)
         prev_xs = []
         prev_ys = []
 
@@ -281,9 +281,32 @@ module EasyML
         return @booster
       end
 
-      def weights
-        @booster.save_model("tmp/xgboost_model.json")
-        @booster.get_dump
+      def weights(model_file)
+        return nil unless model_file.present? && model_file.fit?
+
+        JSON.parse(model_file.read)
+      end
+
+      def set_weights(model_file, weights)
+        raise ArgumentError, "Weights must be provided" unless weights.present?
+
+        # Create a temp file with the weights
+        temp_file = Tempfile.new(["xgboost_weights", ".json"])
+        begin
+          temp_file.write(weights.to_json)
+          temp_file.close
+
+          # Load the weights into a new booster
+          initialize_model do
+            attrs = {
+              params: hyperparameters.to_h.symbolize_keys.compact,
+              model_file: temp_file.path,
+            }.compact
+            booster_class.new(**attrs)
+          end
+        ensure
+          temp_file.unlink
+        end
       end
 
       def predict(xs)
@@ -397,11 +420,12 @@ module EasyML
 
       def prepare_data
         if @d_train.nil?
-          x_sample, y_sample = dataset.train(split_ys: true, limit: 5)
+          col_order = dataset.col_order
+          x_sample, y_sample = dataset.train(split_ys: true, limit: 5, select: col_order)
           preprocess(x_sample, y_sample) # Ensure we fail fast if the dataset is misconfigured
-          x_train, y_train = dataset.train(split_ys: true)
-          x_valid, y_valid = dataset.valid(split_ys: true)
-          x_test, y_test = dataset.test(split_ys: true)
+          x_train, y_train = dataset.train(split_ys: true, select: col_order)
+          x_valid, y_valid = dataset.valid(split_ys: true, select: col_order)
+          x_test, y_test = dataset.test(split_ys: true, select: col_order)
           @d_train = preprocess(x_train, y_train)
           @d_valid = preprocess(x_valid, y_valid)
           @d_test = preprocess(x_test, y_test)

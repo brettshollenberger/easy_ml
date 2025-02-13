@@ -6,7 +6,7 @@ module EasyML
     class Tuner
       attr_accessor :model, :dataset, :project_name, :task, :config,
                     :metrics, :objective, :n_trials, :direction, :evaluator,
-                    :study, :results, :adapter, :tune_started_at, :x_true, :y_true,
+                    :study, :results, :adapter, :tune_started_at, :x_valid, :y_valid,
                     :project_name, :job, :current_run, :trial_enumerator, :progress_block,
                     :tuner_job, :dataset
 
@@ -34,7 +34,7 @@ module EasyML
             config: config,
             project_name: project_name,
             tune_started_at: nil,  # This will be set during tune
-            y_true: nil, # This will be set during tune
+            y_valid: nil, # This will be set during tune
           )
         end
       end
@@ -70,17 +70,16 @@ module EasyML
         @job = tuner_job
         @study = Optuna::Study.new(direction: direction)
         @results = []
-        model.evaluator = evaluator if evaluator.present?
         model.task = task
 
         model.dataset.refresh if model.dataset.needs_refresh?
-        x_true, y_true = model.dataset.test(split_ys: true)
-        self.x_true = x_true
-        self.y_true = y_true
-        self.dataset = model.dataset.test(all_columns: true)
+        x_valid, y_valid = model.dataset.valid(split_ys: true, select: model.dataset.col_order)
+        self.x_valid = x_valid
+        self.y_valid = y_valid
+        self.dataset = model.dataset.valid(all_columns: true)
         adapter.tune_started_at = tune_started_at
-        adapter.y_true = y_true
-        adapter.x_true = x_true
+        adapter.x_valid = x_valid
+        adapter.y_valid = y_valid
 
         model.prepare_data unless model.batch_mode
         model.prepare_callbacks(self)
@@ -99,6 +98,7 @@ module EasyML
             @results.push(result)
             @study.tell(@current_trial, result)
           rescue StandardError => e
+            puts EasyML::Event.easy_ml_context(e.backtrace)
             @tuner_run.update!(status: :failed, hyperparameters: {})
             puts "Optuna failed with: #{e.message}"
             raise e
@@ -118,6 +118,7 @@ module EasyML
 
         best_run&.hyperparameters
       rescue StandardError => e
+        puts EasyML::Event.easy_ml_context(e.backtrace)
         tuner_job&.update!(status: :failed, completed_at: Time.current)
         raise e
       end
@@ -137,9 +138,9 @@ module EasyML
           end
         end
 
-        y_pred = model.predict(x_true)
+        y_pred = model.predict(x_valid)
         model.metrics = metrics
-        metrics = model.evaluate(y_pred: y_pred, y_true: y_true, x_true: x_true, dataset: dataset)
+        metrics = model.evaluate(y_pred: y_pred, y_true: y_valid, x_true: x_valid, dataset: dataset)
         metric = metrics.symbolize_keys.dig(model.evaluator[:metric].to_sym)
 
         puts metrics

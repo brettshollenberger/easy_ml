@@ -2,29 +2,29 @@
 #
 # Table name: easy_ml_columns
 #
-#  id                       :bigint           not null, primary key
-#  dataset_id               :bigint           not null
-#  name                     :string           not null
-#  description              :string
-#  datatype                 :string
-#  polars_datatype          :string
-#  is_target                :boolean          default(FALSE)
-#  hidden                   :boolean          default(FALSE)
-#  drop_if_null             :boolean          default(FALSE)
-#  preprocessing_steps      :json
-#  sample_values            :json
-#  statistics               :json
-#  created_at               :datetime         not null
-#  updated_at               :datetime         not null
-#  is_date_column           :boolean          default(FALSE)
-#  computed_by              :string
-#  is_computed              :boolean          default(FALSE)
-#  feature_id               :bigint
-#  learned_at               :datetime
-#  is_learning              :boolean          default(FALSE)
-#  last_datasource_sha      :string
-#  last_feature_sha         :string
-#  configuration_changed_at :datetime
+#  id                  :bigint           not null, primary key
+#  dataset_id          :bigint           not null
+#  name                :string           not null
+#  description         :string
+#  datatype            :string
+#  polars_datatype     :string
+#  is_target           :boolean          default(FALSE)
+#  hidden              :boolean          default(FALSE)
+#  drop_if_null        :boolean          default(FALSE)
+#  preprocessing_steps :jsonb
+#  sample_values       :json
+#  statistics          :json
+#  created_at          :datetime         not null
+#  updated_at          :datetime         not null
+#  is_date_column      :boolean          default(FALSE)
+#  computed_by         :string
+#  is_computed         :boolean          default(FALSE)
+#  feature_id          :bigint
+#  learned_at          :datetime
+#  is_learning         :boolean          default(FALSE)
+#  last_datasource_sha :string
+#  last_feature_sha    :string
+#  in_raw_dataset      :boolean
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -32,8 +32,11 @@ module EasyML
     include Historiographer::Silent
     historiographer_mode :snapshot_only
 
+    include EasyML::Timing
+
     belongs_to :dataset, class_name: "EasyML::Dataset"
     belongs_to :feature, class_name: "EasyML::Feature", optional: true
+    has_many :lineages, class_name: "EasyML::Lineage"
 
     validates :name, presence: true
     validates :name, uniqueness: { scope: :dataset_id }
@@ -43,7 +46,7 @@ module EasyML
     before_save :set_defaults
     before_save :set_feature_lineage
     before_save :set_polars_datatype
-    after_find :ensure_feature_exists
+    # after_find :ensure_feature_exists
 
     # Scopes
     scope :visible, -> { where(hidden: false) }
@@ -60,6 +63,7 @@ module EasyML
     scope :api_inputs, -> { where(is_computed: false, hidden: false, is_target: false) }
     scope :computed, -> { where(is_computed: true) }
     scope :raw, -> { where(is_computed: false) }
+    scope :has_clip, -> { where("preprocessing_steps->'training'->>'params' IS NOT NULL AND preprocessing_steps->'training'->'params' @> jsonb_build_object('clip', jsonb_build_object())") }
     scope :needs_learn, -> {
             datasource_changed
               .or(feature_applied)
@@ -142,26 +146,10 @@ module EasyML
       data.blank?
     end
 
-    def learn(type: :all)
-      return if (!in_raw_dataset? && type != :processed)
+    def merge_statistics(new_stats)
+      return unless new_stats.present?
 
-      if !in_raw_dataset? && read_attribute(:datatype).nil?
-        assign_attributes(datatype: processed.data.to_series.dtype)
-      end
-      set_sample_values
-      new_stats = learner.learn(type: type).symbolize_keys
-
-      if !in_raw_dataset?
-        new_stats[:raw] = new_stats[:processed]
-      end
-
-      assign_attributes(statistics: (read_attribute(:statistics) || {}).symbolize_keys.merge!(new_stats))
-      assign_attributes(
-        learned_at: UTC.now,
-        last_datasource_sha: dataset.last_datasource_sha,
-        last_feature_sha: feature&.sha,
-        is_learning: type == :raw,
-      )
+      assign_attributes(statistics: (statistics || {}).symbolize_keys.deep_merge!(new_stats))
     end
 
     def set_configuration_changed_at
@@ -174,7 +162,7 @@ module EasyML
       use_processed = !one_hot? && processed.data(limit: 1).present? && in_raw_dataset?
 
       base = use_processed ? processed : raw
-      sample_values = base.data(limit: 5, unique: true)
+      sample_values = base.data(limit: 5, unique: true, select: [name])
       if sample_values.columns.include?(name)
         sample_values = sample_values[name].to_a.uniq[0...5]
         assign_attributes(sample_values: sample_values)
@@ -188,8 +176,8 @@ module EasyML
       df
     end
 
-    def imputers
-      @imputers ||= Column::Imputers.new(self)
+    def imputers(imputers = [])
+      @imputers ||= Column::Imputers.new(self, imputers: imputers)
     end
 
     def decode_labels(df)
@@ -202,29 +190,29 @@ module EasyML
 
     def datatype=(dtype)
       if dtype.is_a?(Polars::DataType)
-        dtype = EasyML::Data::PolarsColumn.polars_to_sym(dtype)
+        dtype = polars_to_sym(dtype)
       end
       write_attribute(:datatype, dtype)
       set_polars_datatype
     end
 
+    def polars_to_sym(dtype)
+      EasyML::Data::PolarsColumn.polars_to_sym(dtype)
+    end
+
     def datatype
-      read_attribute(:datatype) || write_attribute(:datatype, assumed_datatype)
+      read_attribute(:datatype) || write_attribute(:datatype, polars_to_sym(assumed_datatype))
     end
 
     def raw_dtype
-      return @raw_dtype if @raw_dtype
-      set_feature_lineage
+      dtype = dataset.raw_schema[name]
+      return nil if dtype.nil?
 
-      if in_raw_dataset?
-        @raw_dtype = raw&.data&.to_series.try(:dtype)
-      elsif already_computed?
-        @raw_dtype = processed&.data&.to_series&.dtype
-      end
+      polars_to_sym(dtype)
     end
 
     def set_polars_datatype
-      raw_type = raw_dtype
+      raw_type = datatype
       user_type = get_polars_type(datatype)
 
       if raw_type == user_type
@@ -267,8 +255,11 @@ module EasyML
       return @assumed_datatype if @assumed_datatype
 
       if in_raw_dataset?
-        series = (raw.data || datasource_raw).to_series
-        @assumed_datatype = EasyML::Data::PolarsColumn.determine_type(series)
+        @assumed_datatype = dataset.raw_schema[name]
+        # series = (raw.data || datasource_raw).to_series
+        # @assumed_datatype = EasyML::Data::PolarsColumn.determine_type(series)
+      elsif dataset.processed_schema.present?
+        @assumed_datatype = dataset.processed_schema[name]
       elsif already_computed?
         return nil if processed.data.nil?
 
@@ -277,9 +268,16 @@ module EasyML
     end
 
     def in_raw_dataset?
+      value = read_attribute(:in_raw_dataset)
+      return value unless value.nil?
+
+      write_attribute(:in_raw_dataset, check_in_raw_dataset?)
+    end
+
+    def check_in_raw_dataset?
       return false if dataset&.raw&.data.nil?
 
-      dataset.raw.data(all_columns: true)&.columns&.include?(name) || false
+      dataset.raw.data(all_columns: true, lazy: true).schema.key?(name) || false
     end
 
     def computing_feature
@@ -398,10 +396,6 @@ module EasyML
       is_date_column
     end
 
-    def lineage
-      @lineage ||= EasyML::Column::Lineage.new(self).lineage
-    end
-
     def required?
       !is_computed && (preprocessing_steps.nil? || preprocessing_steps == {}) && !hidden && !is_target
     end
@@ -418,6 +412,28 @@ module EasyML
         required: required?,
         allowed_values: allowed_categories.empty? ? nil : allowed_categories,
       }.compact
+    end
+
+    UNCONFIGURABLE_COLUMNS = %w(
+      id
+      feature_id
+      dataset_id
+      last_datasource_sha
+      last_feature_sha
+      learned_at
+      is_learning
+      configuration_changed_at
+      statistics
+      created_at
+      updated_at
+    )
+
+    def to_config
+      EasyML::Export::Column.to_config(self)
+    end
+
+    def self.from_config(config, dataset, action: :create)
+      EasyML::Import::Column.from_config(config, dataset, action: action)
     end
 
     def cast(value)

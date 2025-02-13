@@ -9,11 +9,15 @@ module EasyML
           @dataset = column.dataset
         end
 
+        def expr
+          Polars.col(column.name)
+        end
+
         def as_json
           {
             key: key,
             description: description,
-            timestamp: timestamp,
+            occurred_at: occurred_at,
           }.with_indifferent_access
         end
       end

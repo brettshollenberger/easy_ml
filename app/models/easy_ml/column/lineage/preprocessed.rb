@@ -10,7 +10,7 @@ module EasyML
           "Preprocessed using #{column.imputers.preprocessing_descriptions.join(", ")}"
         end
 
-        def timestamp
+        def occurred_at
           column.dataset.refreshed_at
         end
 

@@ -23,6 +23,7 @@ module EasyML
 
       render inertia: "pages/ModelsPage", props: {
         models: models.map { |model| model_to_json(model) },
+        datasets: EasyML::Dataset.all.map { |dataset| dataset.slice(:id, :name, :num_rows) },
       }
     end
 
@@ -124,6 +125,43 @@ module EasyML
 
       flash[:notice] = "Model training aborted!"
       redirect_to easy_ml_models_path
+    end
+
+    def download
+      model = Model.find(params[:id])
+      config = model.to_config(include_dataset: params[:include_dataset] == "true")
+
+      send_data JSON.pretty_generate(config),
+                filename: "#{model.name.parameterize}-config.json",
+                type: "application/json",
+                disposition: "attachment"
+    end
+
+    def upload
+      model = Model.find(params[:id]) if params[:id].present?
+
+      begin
+        config = JSON.parse(params[:config].read)
+        dataset = if params[:dataset_id].present?
+            EasyML::Dataset.find(params[:dataset_id])
+          else
+            model.dataset
+          end
+
+        action = model.present? ? :update : :create
+
+        EasyML::Model.from_config(config,
+                                  action: action,
+                                  model: model,
+                                  include_dataset: params[:include_dataset] == "true",
+                                  dataset: dataset)
+
+        flash[:notice] = "Model configuration was successfully uploaded."
+        redirect_to easy_ml_models_path
+      rescue JSON::ParserError, StandardError => e
+        flash[:error] = "Failed to upload configuration: #{e.message}"
+        redirect_to easy_ml_models_path
+      end
     end
 
     private

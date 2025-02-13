@@ -37,16 +37,19 @@ module Features
   class DidConvert
     include EasyML::Features
 
-    def did_convert(df)
+    def computes_columns
+      ["did_convert"]
+    end
+
+    def transform(df, feature)
       df.with_column(
-        (Polars.col("rev") > 0)
-          .alias("did_convert")
+        (Polars.col("rev") > 0).alias("did_convert")
       )
     end
-    
-    feature :did_convert,
-      name: "Did Convert",
-      description: "Boolean true/false..."
+
+    feature name: "did_convert",
+            description: "Boolean true/false, did the loan application fund?"
+
   end
 end`}
           </code>

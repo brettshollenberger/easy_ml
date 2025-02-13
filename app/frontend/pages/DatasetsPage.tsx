@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
-import { Database, Plus } from 'lucide-react';
+import { Database, Plus, Upload } from 'lucide-react';
 import { EmptyState } from '../components/EmptyState';
 import { SearchInput } from '../components/SearchInput';
 import { Pagination } from '../components/Pagination';
 import { DatasetCard } from '../components/DatasetCard';
+import { UploadDatasetButton } from '../components/datasets/UploadDatasetButton';
 import { Dataset } from "@types/dataset";
 
 interface Props {
@@ -105,13 +106,16 @@ export default function DatasetsPage({ datasets }: Props) {
               placeholder="Search datasets..."
             />
           </div>
-          <Link
-            href={`${rootPath}/datasets/new`}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Plus className="w-4 h-4" />
-            New Dataset
-          </Link>
+          <div className="flex gap-3">
+            <UploadDatasetButton />
+            <Link
+              href={`${rootPath}/datasets/new`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <Plus className="w-4 h-4" />
+              New Dataset
+            </Link>
+          </div>
         </div>
 
         {paginatedDatasets.length === 0 ? (

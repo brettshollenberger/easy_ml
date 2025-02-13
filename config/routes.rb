@@ -47,6 +47,9 @@ EasyML::Engine.routes.draw do
       get :download
       post :upload
     end
+    collection do
+      post :upload
+    end
   end
 
   # Transformations

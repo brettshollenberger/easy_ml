@@ -147,11 +147,12 @@ module EasyML
     end
 
     def upload
-      dataset = Dataset.find(params[:id])
+      dataset = Dataset.find(params[:id]) if params[:id].present?
 
       begin
         config = JSON.parse(params[:config].read)
-        EasyML::Dataset.from_config(config, action: :update, dataset: dataset)
+        action = dataset.present? ? :update : :create
+        EasyML::Dataset.from_config(config, action: action, dataset: dataset)
 
         flash[:notice] = "Dataset configuration was successfully uploaded."
         redirect_to easy_ml_datasets_path

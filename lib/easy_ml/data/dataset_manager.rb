@@ -85,7 +85,7 @@ module EasyML
       private
 
       def writer
-        @writer ||= writer.new(options)
+        @writer ||= Writer.new(options)
       end
 
       def store_method

@@ -4,24 +4,32 @@ module EasyML
       class Writer
         class Base
           attr_accessor :filenames, :root_dir
+
           def initialize(options)
             @root_dir = options.dig(:root_dir)
             @filenames = options.dig(:filenames)
             @append_only = options.dig(:append_only)
+            raise "filenames required: How should we name the new file?" if filenames.nil?
+          end
+
+          def wipe
+            clear_unique_id
+            FileUtils.rm_rf(root_dir)
           end
 
           def store(df)
             store_to_unique_file(df)
           end
 
-        private
+          private
+
           def store_to_unique_file(df)
             safe_write(df, unique_path)
           end
 
           def unique_path(subdir: nil)
-            filename = "#{filenames}.#{unique_id(subdir)}.parquet"
-            File.join(feature_dir, subdir, filename)
+            filename = "#{filenames}.#{unique_id(subdir: subdir)}.parquet"
+            File.join(root_dir, subdir.to_s, filename)
           end
 
           def safe_write(df, path)
@@ -31,18 +39,18 @@ module EasyML
           end
 
           def clear_unique_id(subdir: nil)
-            key = unique_id_key(subdir)
+            key = unique_id_key(subdir: subdir)
             Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
               suo.client.del(key)
             end
           end
 
           def unique_id_key(subdir: nil)
-            File.join("dataset_manager", root_dir, subdir, "sequence")
+            File.join("dataset_managers", root_dir, subdir.to_s, "sequence")
           end
 
           def unique_id(subdir: nil)
-            key = unique_id_key(subdir)
+            key = unique_id_key(subdir: subdir)
 
             Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
               redis = suo.client

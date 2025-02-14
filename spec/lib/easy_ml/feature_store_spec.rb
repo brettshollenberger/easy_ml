@@ -179,7 +179,6 @@ RSpec.describe EasyML::FeatureStore do
 
         expect(File.exist?(expected_path)).to be true
         stored_df = Polars.read_parquet(expected_path)
-        binding.pry
         expect(stored_df.to_hashes).to match_array(simple_data)
       end
     end

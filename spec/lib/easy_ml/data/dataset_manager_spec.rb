@@ -220,4 +220,43 @@ RSpec.describe EasyML::Data::DatasetManager do
       end
     end
   end
+
+  describe "#store" do
+    let(:feature_manager) do
+      described_class.new(
+        root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
+        filenames: "family_size",
+      )
+    end
+
+    it "stores each chunk of the dataframe to a separate file", :focus do
+      feature_manager.wipe
+
+      files = []
+      batch_size = 100
+      manager.query(batch_size: batch_size) do |batch|
+        batch = batch.with_column(
+          (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
+        )
+        files.push(
+          feature_manager.store(batch.select("PassengerId", "FamilySize"))
+        )
+      end
+
+      last_file_idx = files.size - 1
+      files.each.with_index do |file, idx|
+        df = manager.query(file)
+        if idx == last_file_idx
+          # Last batch size is the remainder of the total size
+          expect(df.shape[0]).to eq(manager.query.shape[0] % batch_size)
+        else
+          expect(df.shape[0]).to eq(batch_size)
+        end
+      end
+
+      (1..9).each do |i|
+        expect(files[i - 1]).to eq(feature_manager.root_dir.join("family_size.#{i}.parquet").to_s)
+      end
+    end
+  end
 end

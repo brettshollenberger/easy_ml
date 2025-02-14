@@ -8,7 +8,7 @@ module EasyML
 
         ADAPTERS = [
           File,
-          DataFrame
+          DataFrame,
         ]
 
         def self.query(input, **kwargs, &block)
@@ -21,7 +21,8 @@ module EasyML
           Dir.glob(File.join(dir, "**/*.{parquet}"))
         end
 
-      private
+        private
+
         def self.adapter(input)
           if input.is_a?(Polars::DataFrame)
             DataFrame
@@ -29,7 +30,6 @@ module EasyML
             File
           end
         end
-
       end
     end
   end

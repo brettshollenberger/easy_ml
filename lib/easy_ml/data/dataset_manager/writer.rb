@@ -22,18 +22,32 @@ module EasyML
         end
 
         def store(df)
-          adapter.new(options).store(df)
+          adapter.store(df)
         end
 
-      private
+        def wipe
+          adapter.wipe
+        end
+
+        def inspect
+          keys = %w(root_dir append_only partitioned primary_key)
+          attrs = keys.map { |k| "#{k}=#{send(k)}" unless send(k).nil? }.compact
+          "#<#{self.class.name} #{attrs.join(" ")}>"
+        end
+
+        private
+
+        def adapter_class
+          partitioned? ? PartitionedWriter : Base
+        end
+
         def adapter
-          partitioned? ? PartitionedWriter : Writer
+          @adapter ||= adapter_class.new(options)
         end
 
         def partitioned?
           @partitioned
         end
-
       end
     end
   end

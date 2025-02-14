@@ -25,11 +25,6 @@ module EasyML
 
           def initialize(options, &block)
             options = apply_defaults(options)
-
-            options.each do |k,v|
-              puts "Assigning #{k}=#{v}"
-              send("#{k}=", v)
-            end
             @block = block
             @options = options
           end
@@ -46,6 +41,10 @@ module EasyML
               unless options.key?(k)
                 options[k] = default
               end
+            end
+
+            options.each do |k,v|
+              send("#{k}=", v)
             end
 
             options

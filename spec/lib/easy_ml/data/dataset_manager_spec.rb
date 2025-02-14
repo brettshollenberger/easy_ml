@@ -100,92 +100,86 @@ RSpec.describe EasyML::Data::DatasetManager do
     end
 
     describe "querying in batches" do
-    end
+      let(:batch_size) { 100 }
 
-    describe "querying with block" do
+      it "yields batches of specified size" do
+        batches = []
+        manager.query(batch_size: batch_size) { |batch|
+          batch = batch.collect
+          expect(batch.shape[0]).to be <= batch_size
+          batches << batch
+        }
+
+        total_rows = batches.sum { |b| b.shape[0] }
+        expect(total_rows).to eq(manager.data.shape[0])
+      end
+
+      it "identifies or creates a column for batch iteration" do
+        df = nil
+        manager.query(batch_size: batch_size) do |batch|
+          batch = batch.collect
+          df = df.nil? ? batch : Polars.concat([df, batch])
+        end
+        # Should either have PassengerId or a row_number column
+        expect(["PassengerId"] & df.columns).not_to be_empty
+        expect(df.shape[0]).to eq(manager.data.shape[0])
+      end
+
+      it "yields batches starting from specified offset" do
+        batches = []
+        manager.query(batch_size: batch_size, batch_start: 200) do |batch|
+          batch = batch.collect
+          batches.push(batch)
+        end
+
+        # expect no batch_overlap between batches
+        batches.each_cons(2) { |a, b|
+          expect(a["PassengerId"].to_a.max).to be < b["PassengerId"].to_a.min
+        }
+        expect(batches[0]["PassengerId"].to_a.min).to eq(200)
+      end
+
+      it "yields enumerable when no block given" do
+        batches = []
+        batcher = manager.query(batch_size: batch_size)
+        batcher.each do |batch|
+          batch = batch.collect
+          batches.push(batch)
+        end
+
+        # expect no batch_overlap between batches
+        batches.each_cons(2) { |a, b|
+          expect(a["PassengerId"].to_a.max).to be < b["PassengerId"].to_a.min
+        }
+      end
+
+      it "uses specified batch key when provided" do
+        batches = []
+        manager.query(batch_size: batch_size, batch_key: "Name") do |batch|
+          batch = batch.collect
+          batches.push(batch)
+        end
+
+        # Verify batches are ordered by Name
+        batches.each_cons(2) { |a, b|
+          expect(a["Name"].to_a.max).to be < b["Name"].to_a.min
+        }
+      end
+
+      it "raises error when no columns are specified" do
+        columns = ["Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"]
+        batches = []
+        expect {
+          manager.query(batch_size: batch_size, select: columns) do |batch|
+            expect(batch.columns).to include("RowNum")
+            expect(batch.columns).to match_array(columns + ["RowNum"])
+            batches.push(batch)
+          end
+        }.to raise_error(RuntimeError)
+      end
     end
 
     describe "querying dataframes" do
     end
   end
-
-  # describe "#query with batching" do
-  #   let(:batch_size) { 100 }
-
-  #   it "yields batches of specified size" do
-  #     batches = []
-  #     reader.query(batch_size: batch_size) { |batch|
-  #       batch = batch.collect
-  #       expect(batch.shape[0]).to be <= batch_size
-  #       batches << batch
-  #     }
-
-  #     total_rows = batches.sum { |b| b.shape[0] }
-  #     expect(total_rows).to eq(reader.data.shape[0])
-  #   end
-
-  #   it "identifies or creates a column for batch iteration" do
-  #     df = nil
-  #     reader.query(batch_size: batch_size) do |batch|
-  #       batch = batch.collect
-  #       df = df.nil? ? batch : Polars.concat([df, batch])
-  #     end
-  #     # Should either have PassengerId or a row_number column
-  #     expect(["PassengerId"] & df.columns).not_to be_empty
-  #     expect(df.shape[0]).to eq(reader.data.shape[0])
-  #   end
-
-  #   it "yields batches starting from specified offset" do
-  #     batches = []
-  #     reader.query(batch_size: batch_size, batch_start: 200) do |batch|
-  #       batch = batch.collect
-  #       batches.push(batch)
-  #     end
-
-  #     # expect no batch_overlap between batches
-  #     batches.each_cons(2) { |a, b|
-  #       expect(a["PassengerId"].to_a.max).to be < b["PassengerId"].to_a.min
-  #     }
-  #     expect(batches[0]["PassengerId"].to_a.min).to eq(200)
-  #   end
-
-  #   it "yields enumerable when no block given" do
-  #     batches = []
-  #     batcher = reader.query(batch_size: batch_size)
-  #     batcher.each do |batch|
-  #       batch = batch.collect
-  #       batches.push(batch)
-  #     end
-
-  #     # expect no batch_overlap between batches
-  #     batches.each_cons(2) { |a, b|
-  #       expect(a["PassengerId"].to_a.max).to be < b["PassengerId"].to_a.min
-  #     }
-  #   end
-
-  #   it "uses specified batch key when provided" do
-  #     batches = []
-  #     reader.query(batch_size: batch_size, batch_key: "Name") do |batch|
-  #       batch = batch.collect
-  #       batches.push(batch)
-  #     end
-
-  #     # Verify batches are ordered by Name
-  #     batches.each_cons(2) { |a, b|
-  #       expect(a["Name"].to_a.max).to be < b["Name"].to_a.min
-  #     }
-  #   end
-
-  #   it "raises error when no columns are specified" do
-  #     columns = ["Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked"]
-  #     batches = []
-  #     expect {
-  #       reader.query(batch_size: batch_size, select: columns) do |batch|
-  #         expect(batch.columns).to include("RowNum")
-  #         expect(batch.columns).to match_array(columns + ["RowNum"])
-  #         batches.push(batch)
-  #       end
-  #     }.to raise_error(RuntimeError)
-  #   end
-  # end
 end

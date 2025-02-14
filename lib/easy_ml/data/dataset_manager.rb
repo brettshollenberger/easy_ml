@@ -4,7 +4,7 @@ module EasyML
       require_relative "dataset_manager/writer"
       require_relative "dataset_manager/reader"
 
-      attr_accessor :root_dir, :partitioned, :append_only, :filenames, :primary_key, 
+      attr_accessor :root_dir, :partitioned, :append_only, :filenames, :primary_key,
                     :primary_key, :partition_size, :s3_bucket, :s3_prefix,
                     :s3_access_key_id, :s3_secret_access_key, :polars_args,
                     :options
@@ -36,14 +36,18 @@ module EasyML
       end
 
       class << self
-        def query(input=nil, **kwargs, &block)
+        def query(input = nil, **kwargs, &block)
           Reader.query(input, **kwargs, &block)
         end
       end
 
-      def query(input=nil, **kwargs, &block)
+      def query(input = nil, **kwargs, &block)
         input = root_dir if input.nil?
         DatasetManager.query(input, **kwargs, &block)
+      end
+
+      def data
+        query
       end
 
       def store(df)
@@ -78,7 +82,8 @@ module EasyML
         synced_directory.download
       end
 
-    private
+      private
+
       def writer
         @writer ||= writer.new(options)
       end
@@ -98,7 +103,6 @@ module EasyML
           cache_for: 0,
         )
       end
-
     end
   end
 end

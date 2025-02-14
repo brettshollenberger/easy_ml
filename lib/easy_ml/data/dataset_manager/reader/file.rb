@@ -6,7 +6,7 @@ module EasyML
 
           def query
             return query_dataframes(dataframe, schema) unless batch_size.present?
-            return Batch.new(options, block).query
+            return Batch.new(options, &block).query
           end
 
           def schema
@@ -26,9 +26,10 @@ module EasyML
             @dataframe = Polars.concat(lazy_frames)
           end
 
-          def lazy_frames
+          def lazy_frames(files=nil)
             return @lazy_frames if @lazy_frames
 
+            files ||= self.files
             @lazy_frames = files.map do |file|
               Polars.scan_parquet(file)
             end

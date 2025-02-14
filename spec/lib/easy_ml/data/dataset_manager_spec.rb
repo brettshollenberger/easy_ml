@@ -221,7 +221,7 @@ RSpec.describe EasyML::Data::DatasetManager do
     end
   end
 
-  describe "#store" do
+  describe "#store and #compact" do
     before(:each) do
       feature_manager.wipe
     end
@@ -309,6 +309,55 @@ RSpec.describe EasyML::Data::DatasetManager do
         end
 
         expect(manager.query.shape[0]).to eq(feature_manager.query.shape[0])
+      end
+    end
+
+    describe "Append-only" do
+      let(:feature_manager) do
+        described_class.new(
+          root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
+          filenames: "family_size",
+          primary_key: "PassengerId",
+          append_only: true,
+        )
+      end
+
+      it "never wipes chunks" do
+        files = []
+        batch_size = 100
+
+        filter = Polars.col("PassengerId").le(500)
+        manager.query(batch_size: batch_size, filter: filter) do |batch|
+          batch = batch.with_column(
+            (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
+          )
+          files.push(
+            feature_manager.store(batch.select("PassengerId", "FamilySize")).flatten
+          )
+        end
+        files = files.flatten
+        expect(feature_manager.files.sort).to eq(files.sort)
+
+        # It compacts partitions
+        feature_manager.compact
+
+        # Now we finish another round of adding to the store
+        # But we'll "accidentally" re-process some of the data
+        filter = Polars.col("PassengerId").gt(300)
+        manager.query(batch_size: batch_size, filter: filter) do |batch|
+          batch = batch.with_column(
+            (Polars.col("SibSp") - Polars.col("Parch")).alias("FamilySize")
+          )
+          feature_manager.store(batch.select("PassengerId", "FamilySize")).flatten
+        end
+        feature_manager.compact
+
+        # None of the old data was re-added, even though we changed the FamilySize feature computation
+        expect(manager.query.shape[0]).to eq(feature_manager.query.shape[0])
+
+        affected_rows = feature_manager.query(filter: Polars.col("PassengerId").is_between(300, 500))
+        # It maintains the old logic (it is append only)
+        expect(affected_rows["FamilySize"].to_a).to eq(affected_rows["SibSp"].to_a + affected_rows["Parch"].to_a)
       end
     end
   end

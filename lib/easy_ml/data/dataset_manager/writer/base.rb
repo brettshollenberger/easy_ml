@@ -3,12 +3,14 @@ module EasyML
     class DatasetManager
       class Writer
         class Base
-          attr_accessor :filenames, :root_dir
+          attr_accessor :filenames, :root_dir, :options, :append_only, :df
 
           def initialize(options)
             @root_dir = options.dig(:root_dir)
             @filenames = options.dig(:filenames)
             @append_only = options.dig(:append_only)
+            @options = options
+            @df = options.dig(:df)
             raise "filenames required: How should we name the new file?" if filenames.nil?
           end
 
@@ -17,14 +19,33 @@ module EasyML
             FileUtils.rm_rf(root_dir)
           end
 
-          def store(df)
-            store_to_unique_file(df)
+          def store
+            store_to_unique_file
+          end
+
+          def compact
+            files = self.files
+
+            clear_unique_id
+            File.join(root_dir, "compacted.parquet").tap do |target_file|
+              query(lazy: true).sink_parquet(target_file)
+              FileUtils.rm(files)
+            end
+            clear_unique_id
           end
 
           private
 
-          def store_to_unique_file(df)
-            safe_write(df, unique_path)
+          def files
+            DatasetManager.new(options).files
+          end
+
+          def query(**kwargs, &block)
+            DatasetManager.new(options).query(root_dir, **kwargs, &block)
+          end
+
+          def store_to_unique_file(subdir = nil)
+            safe_write(df, unique_path(subdir: subdir))
           end
 
           def unique_path(subdir: nil)

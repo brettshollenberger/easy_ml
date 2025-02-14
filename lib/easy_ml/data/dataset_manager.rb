@@ -4,14 +4,14 @@ module EasyML
       require_relative "dataset_manager/writer"
       require_relative "dataset_manager/reader"
 
-      attr_accessor :root_dir, :partitioned, :append_only, :filenames, :primary_key,
+      attr_accessor :root_dir, :partition, :append_only, :filenames, :primary_key,
                     :primary_key, :partition_size, :s3_bucket, :s3_prefix,
                     :s3_access_key_id, :s3_secret_access_key, :polars_args,
                     :options
 
       def initialize(options = {})
         @root_dir = options.dig(:root_dir)
-        @partitioned = options.dig(:partitioned) || false
+        @partition = options.dig(:partition) || false
         @append_only = options.dig(:append_only) || false
         @filenames = options.dig(:filenames) || "file"
         @primary_key = options.dig(:primary_key)
@@ -23,14 +23,14 @@ module EasyML
         @polars_args = options.dig(:polars_args) || {}
         @options = options
 
-        raise "primary_key required: how should we divide partitions?" if partitioned && primary_key.nil?
-        raise "partition_size required: specify number of rows in each partition" if partitioned && partition_size.nil?
+        raise "primary_key required: how should we divide partitions?" if partition && primary_key.nil?
+        raise "partition_size required: specify number of rows in each partition" if partition && partition_size.nil?
         raise "root_dir required: specify the root_dir of the dataset" unless root_dir.present?
         raise "filenames required: specify the prefix to uuse for unique new files" unless filenames.present?
       end
 
       def inspect
-        keys = %w(root_dir append_only partitioned primary_key)
+        keys = %w(root_dir append_only partition primary_key)
         attrs = keys.map { |k| "#{k}=#{send(k)}" unless send(k).nil? }.compact
         "#<#{self.class.name} #{attrs.join("\n\t")}>"
       end
@@ -54,8 +54,8 @@ module EasyML
         writer.store(df)
       end
 
-      def merge
-        writer.merge
+      def compact
+        writer.compact
       end
 
       def cp(from, to)
@@ -67,7 +67,7 @@ module EasyML
       end
 
       def files
-        reader.files(root_dir)
+        Reader.files(root_dir)
       end
 
       def wipe

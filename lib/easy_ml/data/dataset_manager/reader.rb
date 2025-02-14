@@ -18,7 +18,7 @@ module EasyML
         end
 
         def self.files(dir)
-          Dir.glob(File.join(dir, "**/*.{parquet}"))
+          Dir.glob(::File.join(dir, "**/*.{parquet}"))
         end
 
         private

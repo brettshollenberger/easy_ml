@@ -222,40 +222,93 @@ RSpec.describe EasyML::Data::DatasetManager do
   end
 
   describe "#store" do
-    let(:feature_manager) do
-      described_class.new(
-        root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
-        filenames: "family_size",
-      )
+    before(:each) do
+      feature_manager.wipe
     end
 
-    it "stores each chunk of the dataframe to a separate file", :focus do
+    after(:each) do
       feature_manager.wipe
+    end
 
-      files = []
-      batch_size = 100
-      manager.query(batch_size: batch_size) do |batch|
-        batch = batch.with_column(
-          (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
-        )
-        files.push(
-          feature_manager.store(batch.select("PassengerId", "FamilySize"))
+    describe "Non-partitioned" do
+      let(:feature_manager) do
+        described_class.new(
+          root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
+          filenames: "family_size",
         )
       end
 
-      last_file_idx = files.size - 1
-      files.each.with_index do |file, idx|
-        df = manager.query(file)
-        if idx == last_file_idx
-          # Last batch size is the remainder of the total size
-          expect(df.shape[0]).to eq(manager.query.shape[0] % batch_size)
-        else
-          expect(df.shape[0]).to eq(batch_size)
+      it "stores each chunk of the dataframe to a separate file" do
+        files = []
+        batch_size = 100
+        manager.query(batch_size: batch_size) do |batch|
+          batch = batch.with_column(
+            (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
+          )
+          files.push(
+            feature_manager.store(batch.select("PassengerId", "FamilySize"))
+          )
         end
+
+        last_file_idx = files.size - 1
+        files.each.with_index do |file, idx|
+          df = manager.query(file)
+          if idx == last_file_idx
+            # Last batch size is the remainder of the total size
+            expect(df.shape[0]).to eq(manager.query.shape[0] % batch_size)
+          else
+            expect(df.shape[0]).to eq(batch_size)
+          end
+        end
+
+        (1..9).each do |i|
+          expect(files[i - 1]).to eq(feature_manager.root_dir.join("family_size.#{i}.parquet").to_s)
+        end
+
+        expect(manager.query.shape[0]).to eq(feature_manager.query.shape[0])
+
+        # It compacts partitions
+        feature_manager.compact
+        expect(feature_manager.files).to eq([feature_manager.root_dir.join("compacted.parquet").to_s])
+
+        expect(manager.query.shape[0]).to eq(feature_manager.query.shape[0])
+      end
+    end
+
+    describe "Partitioned" do
+      let(:feature_manager) do
+        described_class.new(
+          root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
+          filenames: "family_size",
+          partition: true,
+          partition_size: 100,
+          primary_key: "PassengerId",
+        )
       end
 
-      (1..9).each do |i|
-        expect(files[i - 1]).to eq(feature_manager.root_dir.join("family_size.#{i}.parquet").to_s)
+      it "stores each chunk based on partition" do
+        files = []
+        batch_size = 100
+
+        # Essentially randomly sort these so the partitioned writer has to write to multiple files
+        manager.query(batch_size: batch_size, batch_key: "Name") do |batch|
+          batch = batch.with_column(
+            (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
+          )
+          files.push(
+            feature_manager.store(batch.select("PassengerId", "FamilySize")).flatten
+          )
+        end
+        files = files.flatten
+        expect(feature_manager.files.sort).to eq(files.sort)
+
+        # It compacts partitions
+        feature_manager.compact
+        (1..9).each do |i|
+          expect(feature_manager.files[i - 1]).to eq(feature_manager.root_dir.join("compacted/family_size.#{i}.parquet").to_s)
+        end
+
+        expect(manager.query.shape[0]).to eq(feature_manager.query.shape[0])
       end
     end
   end

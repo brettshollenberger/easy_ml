@@ -10,27 +10,32 @@ module EasyML
           Partitioned,
         ]
 
-        attr_accessor :filenames, :root_dir, :partitioned,
-                      :append_only, :options
+        attr_accessor :filenames, :root_dir, :partition,
+                      :append_only, :primary_key, :options
 
         def initialize(options)
           @root_dir = options.dig(:root_dir)
           @filenames = options.dig(:filenames)
-          @partitioned = options.dig(:partitioned) || false
+          @partition = options.dig(:partition) || false
           @append_only = options.dig(:append_only)
+          @primary_key = options.dig(:primary_key)
           @options = options
         end
 
         def store(df)
-          adapter.store(df)
+          adapter_class.new(options.merge!(df: df)).store
         end
 
         def wipe
-          adapter.wipe
+          adapter_class.new(options).wipe
+        end
+
+        def compact
+          adapter_class.new(options).compact
         end
 
         def inspect
-          keys = %w(root_dir append_only partitioned primary_key)
+          keys = %w(root_dir append_only partition primary_key)
           attrs = keys.map { |k| "#{k}=#{send(k)}" unless send(k).nil? }.compact
           "#<#{self.class.name} #{attrs.join(" ")}>"
         end
@@ -38,15 +43,11 @@ module EasyML
         private
 
         def adapter_class
-          partitioned? ? PartitionedWriter : Base
+          partition? ? Partitioned : Base
         end
 
-        def adapter
-          @adapter ||= adapter_class.new(options)
-        end
-
-        def partitioned?
-          @partitioned
+        def partition?
+          @partition
         end
       end
     end

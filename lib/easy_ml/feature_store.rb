@@ -257,8 +257,8 @@ module EasyML
 
     def clear_unique_id(partition_start = nil)
       key = unique_id_key(partition_start)
-      Support::Lockable.with_lock(key, wait_timeout: 2) do |client|
-        client.del(key)
+      Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
+        suo.client.del(key)
       end
     end
 
@@ -269,9 +269,11 @@ module EasyML
     def unique_id(partition_start = nil)
       key = unique_id_key(partition_start)
 
-      Support::Lockable.with_lock(key, wait_timeout: 2) do |client|
-        seq = (client.get(key) || "0").to_i
-        client.set(key, (seq + 1).to_s)
+      Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
+        redis = suo.client
+
+        seq = (redis.get(key) || "0").to_i
+        redis.set(key, (seq + 1).to_s)
         seq + 1
       end
     end

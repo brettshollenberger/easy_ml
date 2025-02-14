@@ -1,0 +1,105 @@
+module EasyML
+  module Data
+    class DatasetManager
+      WRITERS = [
+        Writer,
+        PartitionedWriter,
+      ]
+
+      attr_accessor :root_dir, :partitioned, :append_only, :filenames, :primary_key, 
+                    :primary_key, :partition_size, :s3_bucket, :s3_prefix,
+                    :s3_access_key_id, :s3_secret_access_key, :polars_args,
+                    :options
+
+      def initialize(options = {})
+        @root_dir = options.dig(:root_dir)
+        @partitioned = options.dig(:partitioned) || false
+        @append_only = options.dig(:append_only) || false
+        @filenames = options.dig(:filenames) || "file"
+        @primary_key = options.dig(:primary_key)
+        @partition_size = options.dig(:partition_size) || nil
+        @s3_bucket = options.dig(:s3_bucket) || EasyML::Configuration.s3_bucket
+        @s3_prefix = options.dig(:s3_prefix) || nil
+        @s3_access_key_id = options.dig(:s3_access_key_id) || EasyML::Configuration.s3_access_key_id
+        @s3_secret_access_key = options.dig(:s3_secret_access_key) || EasyML::Configuration.s3_secret_access_key
+        @polars_args = options.dig(:polars_args) || {}
+        @options = options
+
+        raise "primary_key required: how should we divide partitions?" if partitioned && primary_key.nil?
+        raise "partition_size required: specify number of rows in each partition" if partitioned && partition_size.nil?
+        raise "root_dir required: specify the root_dir of the dataset" unless root_dir.present?
+        raise "filenames required: specify the prefix to uuse for unique new files" unless filenames.present?
+      end
+
+      def query(input, **kwargs, &block)
+        reader.query(input, **kwargs, &block)
+      end
+
+      def store(df)
+        writer.store(df)
+      end
+
+      def merge
+        writer.merge
+      end
+
+      def cp(from, to)
+        writer.cp(from, to)
+      end
+
+      def empty?
+        files.empty? || query(limit: 1).empty?
+      end
+
+      def files
+        reader.files(root_dir)
+      end
+
+      def wipe
+        writer.wipe
+      end
+
+      def upload
+        synced_directory.upload
+      end
+
+      def download
+        synced_directory.download
+      end
+
+    private
+      def writer
+        @writer ||= pick_writer.new(options)
+      end
+
+      def reader
+        Reader
+      end
+
+      def partitioned?
+        @partitioned
+      end
+
+      def store_method
+        @append_only ? :append : :store
+      end
+
+      def pick_writer
+        partitioned? ? PartitionedWriter : Writer
+      end
+
+      def synced_directory
+        @synced_dir ||= EasyML::Data::SyncedDirectory.new(
+          root_dir: root_dir,
+          s3_bucket: s3_bucket,
+          s3_prefix: s3_prefix,
+          s3_access_key_id: s3_access_key_id,
+          s3_secret_access_key: s3_secret_access_key,
+          polars_args: polars_args,
+          cache_for: 0,
+        )
+      end
+
+    end
+  end
+end

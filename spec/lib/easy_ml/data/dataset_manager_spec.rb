@@ -180,6 +180,44 @@ RSpec.describe EasyML::Data::DatasetManager do
     end
 
     describe "querying dataframes" do
+      let(:df) { manager.data }
+
+      it "filters data based on conditions" do
+        filtered = manager.query(df, filter: Polars.col("Age") > 30)
+        expect(filtered["Age"].to_a).to all(be > 30)
+      end
+
+      it "limits the number of rows returned" do
+        limit_size = 5
+        limited = manager.query(df, limit: limit_size)
+        expect(limited.shape[0]).to eq(limit_size)
+      end
+
+      it "selects specific columns" do
+        columns = ["Age", "Sex", "Survived"]
+        selected = manager.query(df, select: columns)
+        expect(selected.columns).to match_array(columns)
+      end
+
+      it "returns unique values for specified columns" do
+        unique_col = "Sex"
+        unique_values = manager.query(df, unique: unique_col, select: unique_col)
+        df = manager.query
+        expect(unique_values.shape[0]).to be < df.shape[0]
+        expect(unique_values.get_column(unique_col).value_counts().shape[0]).to eq(unique_values.shape[0])
+      end
+
+      it "sorts data by specified column" do
+        sort_col = "Age"
+        sorted = manager.query(df, sort: sort_col, filter: Polars.col("Age").is_not_null)["Age"].to_a
+        expect(sorted).to eq(sorted.sort)
+      end
+
+      it "sorts data in descending order" do
+        sort_col = "Age"
+        sorted = manager.query(df, sort: sort_col, descending: true, filter: Polars.col("Age").is_not_null)["Age"].to_a
+        expect(sorted).to eq(sorted.sort.reverse)
+      end
     end
   end
 end

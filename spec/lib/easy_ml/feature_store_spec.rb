@@ -139,6 +139,14 @@ RSpec.describe EasyML::FeatureStore do
         [
           { "COMPANY_ID" => 1, "SIMPLE_TIME" => "2024-01-01" },
           { "COMPANY_ID" => 2, "SIMPLE_TIME" => "2024-01-02" },
+          { "COMPANY_ID" => 3, "SIMPLE_TIME" => "2024-01-01" },
+          { "COMPANY_ID" => 4, "SIMPLE_TIME" => "2024-01-01" },
+          { "COMPANY_ID" => 5, "SIMPLE_TIME" => "2024-01-01" },
+          { "COMPANY_ID" => 6, "SIMPLE_TIME" => "2024-01-01" },
+          { "COMPANY_ID" => 7, "SIMPLE_TIME" => "2024-01-01" },
+          { "COMPANY_ID" => 8, "SIMPLE_TIME" => "2024-01-02" },
+          { "COMPANY_ID" => 9, "SIMPLE_TIME" => "2024-01-02" },
+          { "COMPANY_ID" => 10, "SIMPLE_TIME" => "2024-01-02" },
         ]
       end
 
@@ -160,6 +168,18 @@ RSpec.describe EasyML::FeatureStore do
         simple_feature.store(simple_df)
         expect(File.exist?(expected_path)).to be true
         stored_df = Polars.read_parquet(expected_path)
+        expect(stored_df.to_hashes).to match_array(simple_data)
+      end
+
+      it "does not completely bork the file when computed in batches", :focus do
+        simple_df_batch_one = simple_df[0..5]
+        simple_df_batch_two = simple_df[6..10]
+        simple_feature.store(simple_df_batch_one)
+        simple_feature.store(simple_df_batch_two)
+
+        expect(File.exist?(expected_path)).to be true
+        stored_df = Polars.read_parquet(expected_path)
+        binding.pry
         expect(stored_df.to_hashes).to match_array(simple_data)
       end
     end

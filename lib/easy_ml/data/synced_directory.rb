@@ -1,5 +1,3 @@
-require_relative "polars_reader"
-
 module EasyML
   module Data
     class SyncedDirectory

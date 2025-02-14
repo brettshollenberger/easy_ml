@@ -7,36 +7,18 @@ module EasyML
     end
 
     def store(df)
-      primary_key = feature.primary_key&.first
-      return store_without_partitioning(df) unless df.columns.include?(primary_key)
-      return store_without_partitioning(df) unless primary_key
-
-      min_key = df[primary_key].min
-      max_key = df[primary_key].max
-      batch_size = feature.batch_size || 10_000
-
-      begin
-        # We are intentionally not using to_i, so it will raise an error for keys like "A1"
-        min_key = Integer(min_key) if min_key.is_a?(String)
-        max_key = Integer(max_key) if max_key.is_a?(String)
-      rescue ArgumentError
-        return store_without_partitioning(df)
+      if partitioned?
+        store_each_partition(df)
+      else
+        store_without_partitioning(df)
       end
+    end
 
-      # Only partition if we have integer keys where we can predict boundaries
-      return store_without_partitioning(df) unless min_key.is_a?(Integer) && max_key.is_a?(Integer)
-
-      partitions = compute_partition_boundaries(min_key, max_key, batch_size)
-      partitions.each do |partition_start|
-        partition_end = partition_start + batch_size - 1
-        partition_df = df.filter(
-          (Polars.col(primary_key) >= partition_start) &
-          (Polars.col(primary_key) <= partition_end)
-        )
-
-        next if partition_df.height == 0
-
-        store_partition(partition_df, primary_key, partition_start)
+    def merge
+      if partitioned?
+        merge_partitions
+      else
+        merge_nonpartitioned_files
       end
     end
 
@@ -82,6 +64,130 @@ module EasyML
 
     private
 
+    def store_each_partition(df)
+      partition_boundaries.each do |partition_start|
+        partition_end = partition_start + batch_size - 1
+        partition_df = df.filter(
+          (Polars.col(primary_key) >= partition_start) &
+          (Polars.col(primary_key) <= partition_end)
+        )
+
+        next if partition_df.height == 0
+
+        store_to_unique_file(partition_df, partition_start: partition_start)
+      end
+    end
+
+    def store_without_partitioning(df)
+      store_to_unique_file(df)
+    end
+
+    def partition_dir(partition_start)
+      File.join(feature_dir, partition_start)
+    end
+
+    def feature_path(subdir: nil)
+      filename = "feature.#{unique_id(subdir)}.parquet"
+      File.join(feature_dir, subdir, filename)
+    end
+
+    def store_to_unique_file(df, partition_start: nil)
+      path = feature_path(subdir: partition_start)
+
+      FileUtils.mkdir_p(File.dirname(path))
+      df.sink_parquet(path)
+      path
+    end
+
+    def query_partition(partition_start, **kwargs)
+      EasyML::Data::Polars::Reader.new.query(
+        [partition_dir(partition_start)],
+        **kwargs,
+      )
+    end
+
+    def merge_partition_files(partition_start)
+      pattern = File.join(feature_dir, "feature#{partition_start}_*.parquet")
+      files = Dir.glob(pattern).sort
+
+      return if files.empty?
+
+      reader = EasyML::Data::Polars::Reader.new
+      merged_df = reader.query(files)
+
+      # If we have a primary key, deduplicate based on it
+      if (primary_key = feature.primary_key&.first)
+        merged_df = merged_df.unique(subset: [primary_key], keep: "last")
+      end
+
+      target_path = partition_path(partition_start)
+      lock_partition(partition_start) do
+        FileUtils.mkdir_p(File.dirname(target_path))
+        merged_df.sink_parquet(target_path)
+
+        # Clean up individual files after successful merge
+        files.each { |f| FileUtils.rm(f) }
+      end
+    end
+
+    def merge_nonpartitioned_files
+      pattern = File.join(feature_dir, "feature_*.parquet")
+      files = Dir.glob(pattern).sort
+
+      return if files.empty?
+
+      reader = EasyML::Data::Polars::Reader.new
+      merged_df = reader.query(files)
+
+      # If we have a primary key, deduplicate based on it
+      if (primary_key = feature.primary_key&.first)
+        merged_df = merged_df.unique(subset: [primary_key], keep: "last")
+      end
+
+      lock_file do
+        FileUtils.mkdir_p(File.dirname(feature_path))
+        merged_df.sink_parquet(feature_path)
+
+        # Clean up individual files after successful merge
+        files.each { |f| FileUtils.rm(f) }
+      end
+    end
+
+    def primary_key
+      @primary_key ||= feature.primary_key&.first
+    end
+
+    def partitioned?
+      @partitioned ||= begin
+          primary_key.present? &&
+            df.columns.include?(primary_key) &&
+            numeric_primary_key?
+        end
+    end
+
+    def min_key
+      @min_key ||= df[primary_key].min
+    end
+
+    def max_key
+      @max_key ||= df[primary_key].max
+    end
+
+    def batch_size
+      @batch_size ||= feature.batch_size || 10_000
+    end
+
+    def numeric_primary_key?
+      begin
+        # We are intentionally not using to_i, so it will raise an error for keys like "A1"
+        min_key = Integer(min_key) if min_key.is_a?(String)
+        max_key = Integer(max_key) if max_key.is_a?(String)
+        min_key.is_a?(Integer) && max_key.is_a?(Integer)
+      rescue ArgumentError
+        false
+      end
+    end
+
     def cleanup(type: :partitions)
       case type
       when :partitions
@@ -95,43 +201,8 @@ module EasyML
       end
     end
 
-    def store_without_partitioning(df)
-      lock_file do
-        cleanup(type: :partitions)
-        path = feature_path
-        safe_write(df, path)
-      end
-    end
-
-    def safe_write(df, path)
-      FileUtils.mkdir_p(File.dirname(path))
-      df.write_parquet(path)
-    end
-
-    def store_partition(partition_df, primary_key, partition_start)
-      lock_partition(partition_start) do
-        cleanup(type: :no_partitions)
-        path = partition_path(partition_start)
-
-        if File.exist?(path)
-          reader = EasyML::Data::PolarsReader.new
-          existing_df = reader.query([path])
-          preserved_records = existing_df.filter(
-            Polars.col(primary_key).is_in(partition_df[primary_key]).is_not
-          )
-          if preserved_records.shape[1] != partition_df.shape[1]
-            wipe
-          else
-            partition_df = Polars.concat([preserved_records, partition_df], how: "vertical")
-          end
-        end
-
-        safe_write(partition_df, path)
-      end
-    end
-
     def query_all_partitions(**kwargs)
-      reader = EasyML::Data::PolarsReader.new
+      reader = EasyML::Data::Polars::Reader.new
       pattern = File.join(feature_dir, "feature*.parquet")
       files = Dir.glob(pattern)
 
@@ -140,7 +211,7 @@ module EasyML
       reader.query(files, **kwargs)
     end
 
-    def compute_partition_boundaries(min_key, max_key, batch_size)
+    def partition_boundaries
       start_partition = (min_key / batch_size.to_f).floor * batch_size
       end_partition = (max_key / batch_size.to_f).floor * batch_size
       (start_partition..end_partition).step(batch_size).to_a
@@ -159,10 +230,6 @@ module EasyML
 
     def feature_dir
       feature_dir_for_version(feature.version)
-    end
-
-    def feature_path
-      File.join(feature_dir, "feature.parquet")
     end
 
     def partition_path(partition_start)
@@ -186,6 +253,27 @@ module EasyML
         polars_args: datasource_config.dig("polars_args"),
         cache_for: 0,
       )
+    end
+
+    def clear_unique_id(partition_start = nil)
+      key = unique_id_key(partition_start)
+      Support::Lockable.with_lock(key, wait_timeout: 2) do |client|
+        client.del(key)
+      end
+    end
+
+    def unique_id_key(partition_start = nil)
+      File.join("feature_store", feature.id.to_s, partition_start.to_s, "sequence")
+    end
+
+    def unique_id(partition_start = nil)
+      key = unique_id_key(partition_start)
+
+      Support::Lockable.with_lock(key, wait_timeout: 2) do |client|
+        seq = (client.get(key) || "0").to_i
+        client.set(key, (seq + 1).to_s)
+        seq + 1
+      end
     end
 
     def lock_partition(partition_start)

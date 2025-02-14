@@ -231,6 +231,8 @@ module EasyML
       jobs = ordered_features.map(&:build_batches)
       job_count = jobs.dup.flatten.size
 
+      ordered_features.each(&:wipe)
+
       # This is very important! For whatever reason, Resque BatchJob does not properly
       # handle batch finished callbacks for batch size = 1
       if async && job_count > 1

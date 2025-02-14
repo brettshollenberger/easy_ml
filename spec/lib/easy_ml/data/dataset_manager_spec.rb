@@ -332,10 +332,10 @@ RSpec.describe EasyML::Data::DatasetManager do
             (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
           )
           files.push(
-            feature_manager.store(batch.select("PassengerId", "FamilySize")).flatten
+            feature_manager.store(batch.select("PassengerId", "FamilySize"))
           )
         end
-        files = files.flatten
+        files = files.flatten.compact
         expect(feature_manager.files.sort).to eq(files.sort)
 
         # It compacts partitions
@@ -348,7 +348,7 @@ RSpec.describe EasyML::Data::DatasetManager do
           batch = batch.with_column(
             (Polars.col("SibSp") - Polars.col("Parch")).alias("FamilySize")
           )
-          feature_manager.store(batch.select("PassengerId", "FamilySize")).flatten
+          feature_manager.store(batch.select("PassengerId", "FamilySize"))
         end
         feature_manager.compact
 
@@ -356,8 +356,36 @@ RSpec.describe EasyML::Data::DatasetManager do
         expect(manager.query.shape[0]).to eq(feature_manager.query.shape[0])
 
         affected_rows = feature_manager.query(filter: Polars.col("PassengerId").is_between(300, 500))
+        orig_rows = manager.query(filter: Polars.col("PassengerId").is_between(300, 500))
+        affected_rows = affected_rows.join(
+          orig_rows,
+          on: "PassengerId",
+        )[["PassengerId", "FamilySize", "SibSp", "Parch"]]
+
         # It maintains the old logic (it is append only)
-        expect(affected_rows["FamilySize"].to_a).to eq(affected_rows["SibSp"].to_a + affected_rows["Parch"].to_a)
+        affected_rows = affected_rows.with_column(
+          Polars.col("FamilySize").eq(
+            Polars.col("SibSp") + Polars.col("Parch")
+          ).alias("Match")
+        )
+        expect(affected_rows["Match"].to_a).to all(eq true)
+
+        # Once more for good measure, run everything again
+        manager.query(batch_size: batch_size) do |batch|
+          batch = batch.with_column(
+            Polars.lit(42).alias("FamilySize")
+          )
+          feature_manager.store(batch.select("PassengerId", "FamilySize"))
+        end
+        feature_manager.compact
+
+        affected_rows = feature_manager.query
+        affected_rows = affected_rows.with_column(
+          Polars.col("FamilySize").eq(
+            Polars.lit(42)
+          ).not_.alias("Match")
+        )
+        expect(affected_rows["Match"].to_a).to all(eq true)
       end
     end
   end

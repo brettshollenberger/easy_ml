@@ -45,7 +45,11 @@ module EasyML
           end
 
           def store_to_unique_file(subdir = nil)
-            safe_write(df, unique_path(subdir: subdir))
+            begin
+              safe_write(df, unique_path(subdir: subdir))
+            rescue => e
+              binding.pry
+            end
           end
 
           def unique_path(subdir: nil)

@@ -25,8 +25,8 @@ module EasyML
             clear_unique_id(subdir: "compacted")
             compact_each_partition.tap do
               FileUtils.rm(files)
+              clear_unique_id
             end
-            clear_unique_id
           end
 
           private

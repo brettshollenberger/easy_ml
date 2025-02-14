@@ -4,10 +4,12 @@ module EasyML
       class Writer
         require_relative "writer/base"
         require_relative "writer/partitioned"
+        require_relative "writer/append_only"
 
         ADAPTERS = [
           Base,
           Partitioned,
+          AppendOnly,
         ]
 
         attr_accessor :filenames, :root_dir, :partition,
@@ -43,11 +45,21 @@ module EasyML
         private
 
         def adapter_class
-          partition? ? Partitioned : Base
+          if partition?
+            Partitioned
+          elsif append_only?
+            AppendOnly
+          else
+            Base
+          end
         end
 
         def partition?
           @partition
+        end
+
+        def append_only?
+          @append_only
         end
       end
     end

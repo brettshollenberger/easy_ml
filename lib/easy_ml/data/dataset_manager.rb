@@ -1,10 +1,8 @@
 module EasyML
   module Data
     class DatasetManager
-      WRITERS = [
-        Writer,
-        PartitionedWriter,
-      ]
+      require_relative "dataset_manager/writer"
+      require_relative "dataset_manager/reader"
 
       attr_accessor :root_dir, :partitioned, :append_only, :filenames, :primary_key, 
                     :primary_key, :partition_size, :s3_bucket, :s3_prefix,
@@ -31,8 +29,21 @@ module EasyML
         raise "filenames required: specify the prefix to uuse for unique new files" unless filenames.present?
       end
 
-      def query(input, **kwargs, &block)
-        reader.query(input, **kwargs, &block)
+      def inspect
+        keys = %w(root_dir append_only partitioned primary_key)
+        attrs = keys.map { |k| "#{k}=#{send(k)}" unless send(k).nil? }.compact
+        "#<#{self.class.name} #{attrs.join("\n\t")}>"
+      end
+
+      class << self
+        def query(input=nil, **kwargs, &block)
+          Reader.query(input, **kwargs, &block)
+        end
+      end
+
+      def query(input=nil, **kwargs, &block)
+        input = root_dir if input.nil?
+        DatasetManager.query(input, **kwargs, &block)
       end
 
       def store(df)
@@ -69,23 +80,11 @@ module EasyML
 
     private
       def writer
-        @writer ||= pick_writer.new(options)
-      end
-
-      def reader
-        Reader
-      end
-
-      def partitioned?
-        @partitioned
+        @writer ||= writer.new(options)
       end
 
       def store_method
         @append_only ? :append : :store
-      end
-
-      def pick_writer
-        partitioned? ? PartitionedWriter : Writer
       end
 
       def synced_directory

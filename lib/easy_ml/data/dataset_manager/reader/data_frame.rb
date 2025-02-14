@@ -5,7 +5,11 @@ module EasyML
       class Reader
         class DataFrame < File
           def query
-            return query_dataframes(lazy_frames)
+            return query_dataframes(lazy_frames, schema)
+          end
+
+          def schema
+            input.schema
           end
 
         private

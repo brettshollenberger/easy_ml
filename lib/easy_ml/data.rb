@@ -8,5 +8,6 @@ module EasyML
     require_relative "data/polars_column"
     require_relative "data/polars_schema"
     require_relative "data/date_converter"
+    require_relative "data/dataset_manager"
   end
 end

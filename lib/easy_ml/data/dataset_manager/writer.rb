@@ -2,58 +2,38 @@ module EasyML
   module Data
     class DatasetManager
       class Writer
-        attr_accessor :filenames, :root_dir
+        require_relative "writer/base"
+        require_relative "writer/partitioned"
+
+        ADAPTERS = [
+          Base,
+          Partitioned,
+        ]
+
+        attr_accessor :filenames, :root_dir, :partitioned,
+                      :append_only, :options
 
         def initialize(options)
           @root_dir = options.dig(:root_dir)
           @filenames = options.dig(:filenames)
+          @partitioned = options.dig(:partitioned) || false
           @append_only = options.dig(:append_only)
+          @options = options
         end
 
         def store(df)
-          store_to_unique_file(df)
+          adapter.new(options).store(df)
         end
 
       private
-        def store_to_unique_file(df)
-          safe_write(df, unique_path)
+        def adapter
+          partitioned? ? PartitionedWriter : Writer
         end
 
-        def unique_path(subdir: nil)
-          filename = "#{filenames}.#{unique_id(subdir)}.parquet"
-          File.join(feature_dir, subdir, filename)
+        def partitioned?
+          @partitioned
         end
 
-        def safe_write(df, path)
-          FileUtils.mkdir_p(File.dirname(path))
-          df.sink_parquet(path)
-          path
-        end
-
-        def clear_unique_id(subdir: nil)
-          key = unique_id_key(subdir)
-          Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
-            suo.client.del(key)
-          end
-        end
-
-        def unique_id_key(subdir: nil)
-          File.join("dataset_manager", root_dir, subdir, "sequence")
-        end
-
-        def unique_id(subdir: nil)
-          key = unique_id_key(subdir)
-
-          Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
-            redis = suo.client
-
-            seq = (redis.get(key) || "0").to_i
-            redis.set(key, (seq + 1).to_s)
-            seq + 1
-          end
-        end
-
-        
       end
     end
   end

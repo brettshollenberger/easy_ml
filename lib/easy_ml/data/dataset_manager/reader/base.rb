@@ -3,20 +3,35 @@ module EasyML
     class DatasetManager
       class Reader
         class Base
-          EasyML::Data::DatasetManager::Reader::DEFAULTS.each do |k, _|
+          DEFAULTS = {
+            drop_cols: [],
+            filter: nil,
+            limit: nil,
+            select: nil,
+            unique: nil,
+            sort: nil,
+            descending: false,
+            batch_size: nil,
+            batch_start: nil,
+            batch_key: nil,
+            lazy: false,
+          }
+
+          DEFAULTS.each do |k, _|
             attr_accessor k
           end
-          attr_accessor :block
+          attr_accessor :block, :options, :input
           attr_accessor :options
-          attr_accessor :files
 
           def initialize(options, &block)
+            options = apply_defaults(options)
+
             options.each do |k,v|
+              puts "Assigning #{k}=#{v}"
               send("#{k}=", v)
             end
             @block = block
             @options = options
-            @files = options.dig(:input)
           end
 
           def query
@@ -24,22 +39,35 @@ module EasyML
           end
 
         private
-          def query_dataframes(dfs)
+          def apply_defaults(kwargs)
+            options = kwargs.dup
+
+            DEFAULTS.each do |k, default|
+              unless options.key?(k)
+                options[k] = default
+              end
+            end
+
+            options
+          end
+
+          def query_dataframes(df, schema)
             # Apply the predicate filter if given
-            dfs = dfs.filter(filter) if filter
+            df = df.filter(filter) if filter
             # Apply select columns if provided
-            dfs = dfs.select(select) if select.present?
-            dfs = dfs.unique if unique
+            df = df.select(select) if select.present?
+            df = df.unique if unique
 
             # Apply sorting if provided
-            dfs = dfs.sort(sort, reverse: descending) if sort
+            df = df.sort(sort, reverse: descending) if sort
 
             # Apply drop columns
-            drop_cols &= dfs.columns
-            dfs = dfs.drop(drop_cols) unless drop_cols.empty?
+            drop_cols = self.drop_cols
+            drop_cols &= schema.keys
+            df = df.drop(drop_cols) unless drop_cols.empty?
 
             # Collect the DataFrame (execute the lazy operations)
-            dfs = dfs.limit(limit) if limit
+            df = df.limit(limit) if limit
             lazy ? df : df.collect
           end
 

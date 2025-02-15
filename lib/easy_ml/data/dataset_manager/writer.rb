@@ -20,7 +20,7 @@ module EasyML
         def initialize(options)
           @root_dir = options.dig(:root_dir)
           @filenames = options.dig(:filenames)
-          @partition = options.dig(:partition) || false
+          @partition = options.dig(:partition) || (options.dig(:partition_size).present? && options.dig(:primary_key).present?)
           @append_only = options.dig(:append_only)
           @primary_key = options.dig(:primary_key)
           @named = options.dig(:named) || false

@@ -11,7 +11,7 @@ module EasyML
 
       def initialize(options = {})
         @root_dir = options.dig(:root_dir)
-        @partition = options.dig(:partition) || false
+        @partition = options.dig(:partition) || (options.dig(:partition_size).present? && options.dig(:primary_key).present?)
         @append_only = options.dig(:append_only) || false
         @filenames = options.dig(:filenames) || "file"
         @primary_key = options.dig(:primary_key)
@@ -30,7 +30,7 @@ module EasyML
       end
 
       def inspect
-        keys = %w(root_dir append_only partition primary_key)
+        keys = %w(root append_only partition primary_key)
         attrs = keys.map { |k| "#{k}=#{send(k)}" unless send(k).nil? }.compact
         "#<#{self.class.name} #{attrs.join("\n\t")}>"
       end
@@ -100,6 +100,10 @@ module EasyML
       end
 
       private
+
+      def root
+        root_dir.gsub(/^#{Rails.root.to_s}/, "")
+      end
 
       def writer
         @writer ||= Writer.new(options)

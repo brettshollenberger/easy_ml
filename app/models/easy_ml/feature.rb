@@ -443,17 +443,7 @@ module EasyML
       @feature_store ||= EasyML::FeatureStore.new(self)
     end
 
-    def files
-      feature_store.list_partitions
-    end
-
-    def query(**kwargs)
-      feature_store.query(**kwargs)
-    end
-
-    def store(df)
-      feature_store.store(df)
-    end
+    delegate :files, :query, :store, :compact, to: :feature_store
 
     def batch_size
       read_attribute(:batch_size) ||

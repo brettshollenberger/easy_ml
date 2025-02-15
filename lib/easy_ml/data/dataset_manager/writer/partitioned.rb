@@ -4,6 +4,7 @@ module EasyML
       class Writer
         class Partitioned < Base
           require_relative "partitioned/partition_reasons"
+          require_relative "partitioned/boundaries"
 
           attr_accessor :partition_size, :partition, :primary_key, :df
 
@@ -13,7 +14,14 @@ module EasyML
             @partition = options.dig(:partition)
             @primary_key = options.dig(:primary_key)
 
-            raise "filenames required: specify the prefix to uuse for unique new files" unless filenames.present?
+            raise "filenames required: specify the prefix to use for unique new files" unless filenames.present?
+          end
+
+          def wipe
+            partitions.each do |partition|
+              clear_unique_id(subdir: partition)
+              FileUtils.rm_rf(File.join(root_dir, partition))
+            end
           end
 
           def store
@@ -35,6 +43,10 @@ module EasyML
 
           private
 
+          def partitions
+            Dir.glob(File.join(root_dir, "*")).map { |f| f.split("/").last }
+          end
+
           def compact_each_partition
             with_each_partition do |partition_df, _|
               safe_write(
@@ -45,32 +57,28 @@ module EasyML
           end
 
           def with_each_partition(&block)
-            partition_boundaries.map do |partition_start|
-              partition_end = partition_start + partition_size - 1
-              partition_df = df.filter(
-                (Polars.col(primary_key) >= partition_start) &
-                (Polars.col(primary_key) <= partition_end)
-              )
-              num_rows = partition_df.select(Polars.length).collect[0, 0]
+            partition_boundaries.map do |partition|
+              partition_start = partition[:partition_start]
+              partition_end = partition[:partition_end]
+              partition_df = df.filter(Polars.col(primary_key).is_between(partition_start, partition_end))
+              num_rows = lazy? ? partition_df.select(Polars.length).collect[0, 0] : partition_df.shape[0]
 
               next if num_rows == 0
-              yield partition_df, partition_start
+              yield partition_df, partition
             end
           end
 
           def store_each_partition
-            with_each_partition do |partition_df, partition_start|
+            with_each_partition do |partition_df, partition|
               safe_write(
                 partition_df,
-                unique_path(subdir: partition_start)
+                unique_path(subdir: partition[:partition])
               )
             end
           end
 
           def partition_boundaries
-            start_partition = (min_key / partition_size.to_f).floor * partition_size
-            end_partition = (max_key / partition_size.to_f).floor * partition_size
-            (start_partition..end_partition).step(partition_size).to_a
+            Boundaries.new(df, primary_key, partition_size).to_a
           end
 
           def cannot_partition_reasons

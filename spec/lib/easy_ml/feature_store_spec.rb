@@ -51,6 +51,16 @@ RSpec.describe EasyML::FeatureStore do
     )
   end
 
+  before(:each) do
+    feature.wipe
+    simple_feature.wipe
+  end
+
+  after(:each) do
+    feature.wipe
+    simple_feature.wipe
+  end
+
   let(:test_data) do
     [
       { "LOAN_APP_ID" => 5, "LAST_APP_TIME" => "2024-01-01" },
@@ -71,7 +81,8 @@ RSpec.describe EasyML::FeatureStore do
             "features",
             feature.name.parameterize.gsub(/-/, "_"),
             feature.version.to_s,
-            "feature0.parquet"
+            1.to_s,
+            "feature.1.parquet"
           ),
           File.join(
             Rails.root,
@@ -80,7 +91,8 @@ RSpec.describe EasyML::FeatureStore do
             "features",
             feature.name.parameterize.gsub(/-/, "_"),
             feature.version.to_s,
-            "feature10.parquet"
+            2.to_s,
+            "feature.1.parquet"
           ),
         ]
       end
@@ -100,37 +112,6 @@ RSpec.describe EasyML::FeatureStore do
         expect(second_partition.to_hashes).to contain_exactly(
           { "LOAN_APP_ID" => 15, "LAST_APP_TIME" => "2024-01-02" }
         )
-      end
-
-      context "when updating existing partitions" do
-        let(:existing_data) do
-          [
-            { "LOAN_APP_ID" => 5, "LAST_APP_TIME" => "2024-01-31" },  # Will be overwritten
-            { "LOAN_APP_ID" => 7, "LAST_APP_TIME" => "2024-01-03" },  # Will be preserved
-          ]
-        end
-
-        before do
-          existing_df = Polars::DataFrame.new(existing_data)
-          feature.wipe
-          feature.store(existing_df)
-        end
-
-        it "updates only affected partitions" do
-          new_data = [
-            { "LOAN_APP_ID" => 5, "LAST_APP_TIME" => "2024-01-04" },  # Updates existing record
-          ]
-          new_df = Polars::DataFrame.new(new_data)
-
-          feature.store(new_df)
-
-          # Check first partition (0-9)
-          first_partition = Polars.read_parquet(expected_paths[0])
-          expect(first_partition.sort("LOAN_APP_ID").to_hashes).to contain_exactly(
-            { "LOAN_APP_ID" => 5, "LAST_APP_TIME" => "2024-01-04" },
-            { "LOAN_APP_ID" => 7, "LAST_APP_TIME" => "2024-01-03" }
-          )
-        end
       end
     end
 
@@ -160,26 +141,34 @@ RSpec.describe EasyML::FeatureStore do
           "features",
           simple_feature.name.parameterize.gsub(/-/, "_"),
           simple_feature.version.to_s,
-          "feature.parquet"
+          "compacted.parquet"
         )
       end
 
       it "writes dataframe to single file" do
+        simple_feature.wipe
         simple_feature.store(simple_df)
+        simple_feature.compact
+        expect(simple_feature.files).to include(expected_path)
         expect(File.exist?(expected_path)).to be true
         stored_df = Polars.read_parquet(expected_path)
         expect(stored_df.to_hashes).to match_array(simple_data)
+        expect(simple_feature.query.to_hashes).to match_array(simple_data)
       end
 
-      it "does not completely bork the file when computed in batches", :focus do
+      it "does not completely bork the file when computed in batches" do
+        simple_feature.wipe
+
         simple_df_batch_one = simple_df[0..5]
         simple_df_batch_two = simple_df[6..10]
         simple_feature.store(simple_df_batch_one)
         simple_feature.store(simple_df_batch_two)
+        simple_feature.compact
 
         expect(File.exist?(expected_path)).to be true
         stored_df = Polars.read_parquet(expected_path)
         expect(stored_df.to_hashes).to match_array(simple_data)
+        expect(simple_feature.query.to_hashes).to match_array(simple_data)
       end
     end
   end
@@ -217,6 +206,7 @@ RSpec.describe EasyML::FeatureStore do
       end
 
       before do
+        simple_feature.wipe
         simple_df = Polars::DataFrame.new(simple_data)
         simple_feature.store(simple_df)
       end

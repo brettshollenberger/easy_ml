@@ -9,6 +9,7 @@ module EasyML
             super
             @primary_key = options.dig(:primary_key)
             raise "primary_key required for append_only writer" if primary_key.nil?
+            raise "filenames required: specify the prefix to uuse for unique new files" unless filenames.present?
           end
 
           def store

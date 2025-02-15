@@ -5,11 +5,13 @@ module EasyML
         require_relative "writer/base"
         require_relative "writer/partitioned"
         require_relative "writer/append_only"
+        require_relative "writer/named"
 
         ADAPTERS = [
           Base,
           Partitioned,
           AppendOnly,
+          Named,
         ]
 
         attr_accessor :filenames, :root_dir, :partition,
@@ -21,11 +23,12 @@ module EasyML
           @partition = options.dig(:partition) || false
           @append_only = options.dig(:append_only)
           @primary_key = options.dig(:primary_key)
+          @named = options.dig(:named) || false
           @options = options
         end
 
-        def store(df)
-          adapter_class.new(options.merge!(df: df)).store
+        def store(df, *args)
+          adapter_class.new(options.merge!(df: df)).store(*args)
         end
 
         def wipe
@@ -49,9 +52,15 @@ module EasyML
             Partitioned
           elsif append_only?
             AppendOnly
+          elsif named?
+            Named
           else
             Base
           end
+        end
+
+        def named?
+          @named
         end
 
         def partition?

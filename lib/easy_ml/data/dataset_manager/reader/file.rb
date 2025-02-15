@@ -3,6 +3,13 @@ module EasyML
     class DatasetManager
       class Reader
         class File < Base
+          attr_accessor :file_filter
+
+          def initialize(options = {})
+            super
+            @file_filter = options.dig(:file_filter) || ->(file) { true }
+          end
+
           def query
             return query_dataframes(dataframe, schema) unless batch_size.present?
             return Batch.new(options, &block).query
@@ -13,14 +20,21 @@ module EasyML
           end
 
           def files
-            if is_file?
-              @files ||= [input]
-            elsif is_dir?
-              @files ||= Dir.glob(::File.join(root_dir, "**/*.{parquet}"))
+            filter_files do
+              if is_file?
+                @files ||= [input]
+              elsif is_dir?
+                @files ||= Dir.glob(::File.join(root_dir, "**/*.{parquet}"))
+              end
             end
           end
 
           private
+
+          def filter_files(&block)
+            yield
+            @files = @files.select(&file_filter)
+          end
 
           def is_dir?
             path.directory?

@@ -11,7 +11,6 @@ module EasyML
             @append_only = options.dig(:append_only)
             @options = options
             @df = options.dig(:df)
-            raise "filenames required: How should we name the new file?" if filenames.nil?
           end
 
           def wipe
@@ -44,22 +43,19 @@ module EasyML
             DatasetManager.new(options).query(root_dir, **kwargs, &block)
           end
 
-          def store_to_unique_file(subdir = nil)
-            begin
-              safe_write(df, unique_path(subdir: subdir))
-            rescue => e
-              binding.pry
-            end
+          def store_to_unique_file(subdir: nil)
+            safe_write(df, unique_path(subdir: subdir))
           end
 
           def unique_path(subdir: nil)
-            filename = "#{filenames}.#{unique_id(subdir: subdir)}.parquet"
+            filename = [filenames, unique_id(subdir: subdir), "parquet"].compact.join(".")
+
             File.join(root_dir, subdir.to_s, filename)
           end
 
           def safe_write(df, path)
             FileUtils.mkdir_p(File.dirname(path))
-            df.sink_parquet(path)
+            df.is_a?(Polars::LazyFrame) ? df.sink_parquet(path) : df.write_parquet(path)
             path
           end
 

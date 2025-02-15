@@ -5,8 +5,8 @@ module EasyML
       require_relative "dataset_manager/reader"
 
       attr_accessor :root_dir, :partition, :append_only, :filenames, :primary_key,
-                    :primary_key, :partition_size, :s3_bucket, :s3_prefix,
-                    :s3_access_key_id, :s3_secret_access_key, :polars_args,
+                    :partition_size, :s3_bucket, :s3_prefix, :s3_access_key_id,
+                    :s3_secret_access_key, :polars_args, :source_of_truth,
                     :options
 
       def initialize(options = {})
@@ -21,12 +21,12 @@ module EasyML
         @s3_access_key_id = options.dig(:s3_access_key_id) || EasyML::Configuration.s3_access_key_id
         @s3_secret_access_key = options.dig(:s3_secret_access_key) || EasyML::Configuration.s3_secret_access_key
         @polars_args = options.dig(:polars_args) || {}
+        @source_of_truth = options.dig(:source_of_truth) || :local
         @options = options
 
         raise "primary_key required: how should we divide partitions?" if partition && primary_key.nil?
         raise "partition_size required: specify number of rows in each partition" if partition && partition_size.nil?
         raise "root_dir required: specify the root_dir of the dataset" unless root_dir.present?
-        raise "filenames required: specify the prefix to uuse for unique new files" unless filenames.present?
       end
 
       def inspect
@@ -39,6 +39,10 @@ module EasyML
         def query(input = nil, **kwargs, &block)
           Reader.query(input, **kwargs, &block)
         end
+
+        def schema(input = nil, **kwargs, &block)
+          Reader.schema(input, **kwargs, &block)
+        end
       end
 
       def query(input = nil, **kwargs, &block)
@@ -46,12 +50,25 @@ module EasyML
         DatasetManager.query(input, **kwargs, &block)
       end
 
+      def schema(input = nil, **kwargs, &block)
+        input = root_dir if input.nil?
+        DatasetManager.schema(input, **kwargs, &block)
+      end
+
+      def sha
+        Reader.sha(root_dir)
+      end
+
+      def normalize
+        Normalizer.normalize(root_dir)
+      end
+
       def data
         query
       end
 
-      def store(df)
-        writer.store(df)
+      def store(df, *args)
+        writer.store(df, *args)
       end
 
       def compact
@@ -88,13 +105,10 @@ module EasyML
         @writer ||= Writer.new(options)
       end
 
-      def store_method
-        @append_only ? :append : :store
-      end
-
       def synced_directory
         @synced_dir ||= EasyML::Data::SyncedDirectory.new(
           root_dir: root_dir,
+          source_of_truth: source_of_truth,
           s3_bucket: s3_bucket,
           s3_prefix: s3_prefix,
           s3_access_key_id: s3_access_key_id,

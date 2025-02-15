@@ -1,49 +1,17 @@
 module EasyML
-  class FeatureStore
+  class FeatureStore < EasyML::Data::DatasetManager
     attr_reader :feature
 
     def initialize(feature)
       @feature = feature
-    end
-
-    def store(df)
-      if partitioned?
-        store_each_partition(df)
-      else
-        store_without_partitioning(df)
-      end
-    end
-
-    def merge
-      if partitioned?
-        merge_partitions
-      else
-        merge_nonpartitioned_files
-      end
-    end
-
-    def query(**kwargs)
-      query_all_partitions(**kwargs)
-    end
-
-    def empty?
-      list_partitions.empty?
-    end
-
-    def list_partitions
-      Dir.glob(File.join(feature_dir, "feature*.parquet")).sort
-    end
-
-    def wipe
-      FileUtils.rm_rf(feature_dir)
-    end
-
-    def upload_remote_files
-      synced_directory.upload
-    end
-
-    def download
-      synced_directory&.download
+      options = {
+        root_dir: feature_dir,
+        filenames: "feature",
+        append_only: false,
+        primary_key: feature.primary_key&.first,
+        partition_size: batch_size,
+      }
+      super(options)
     end
 
     def cp(old_version, new_version)

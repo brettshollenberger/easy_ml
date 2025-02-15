@@ -338,45 +338,12 @@ module EasyML
     #
     # So yes this is an annoying way to structure a method, but it's helpful for performance
     #
-    def refresh_reasons(exclude: [])
-      {
-        not_split: {
-          name: "Not split",
-          check: -> { not_split? },
-        },
-        refreshed_at_is_nil: {
-          name: "Refreshed at is nil",
-          check: -> { refreshed_at.nil? },
-        },
-        columns_need_refresh: {
-          name: "Columns need refresh",
-          check: -> { columns_need_refresh? },
-        },
-        features_need_fit: {
-          name: "Features need refresh",
-          check: -> { features_need_fit? },
-        },
-        datasource_needs_refresh: {
-          name: "Datasource needs refresh",
-          check: -> { datasource_needs_refresh? },
-        },
-        refreshed_datasource: {
-          name: "Refreshed datasource",
-          check: -> { refreshed_datasource? },
-        },
-        datasource_was_refreshed: {
-          name: "Datasource was refreshed",
-          check: -> { datasource_was_refreshed? },
-        },
-      }.except(*exclude).select do |k, config|
-        config[:check].call
-      end.map do |k, config|
-        config[:name]
-      end
+    def refresh_reasons(except: [])
+      RefreshReasons.new(self).check(except: except)
     end
 
-    def needs_refresh?(exclude: [])
-      refresh_reasons(exclude: exclude).any?
+    def needs_refresh?(except: [])
+      refresh_reasons(except: except).any?
     end
 
     def processed?

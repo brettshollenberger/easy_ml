@@ -84,7 +84,7 @@ module EasyML
     end
 
     attribute :needs_refresh do |dataset|
-      dataset.needs_refresh?(exclude: [:datasource_needs_refresh])
+      dataset.needs_refresh?(except: [:datasource_needs_refresh])
     end
 
     attribute :stacktrace do |object|

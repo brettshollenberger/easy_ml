@@ -14,6 +14,7 @@ module EasyML
         @s3_region = options.dig(:s3_region) || EasyML::Configuration.s3_region
         @cache_for = options.dig(:cache_for)
         @polars_args = options.dig(:polars_args)
+        @source_of_truth = options.dig(:source_of_truth) || :remote
       end
 
       delegate :query, :data, :all_files, :files, :sha, to: :reader

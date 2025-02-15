@@ -33,7 +33,8 @@ module EasyML
             raise "Not implemented"
           end
 
-        private
+          private
+
           def apply_defaults(kwargs)
             options = kwargs.dup
 
@@ -43,7 +44,7 @@ module EasyML
               end
             end
 
-            options.each do |k,v|
+            options.each do |k, v|
               send("#{k}=", v)
             end
 
@@ -69,7 +70,6 @@ module EasyML
             df = df.limit(limit) if limit
             lazy ? df : df.collect
           end
-
         end
       end
     end

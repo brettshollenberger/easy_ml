@@ -443,10 +443,6 @@ module EasyML
       @feature_store ||= EasyML::FeatureStore.new(self)
     end
 
-    def upload_remote_files
-      feature_store.upload_remote_files
-    end
-
     def files
       feature_store.list_partitions
     end

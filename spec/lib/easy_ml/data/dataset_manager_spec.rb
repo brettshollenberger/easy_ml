@@ -230,7 +230,7 @@ RSpec.describe EasyML::Data::DatasetManager do
       feature_manager.wipe
     end
 
-    describe "Non-partitioned" do
+    describe "Simple writer" do
       let(:feature_manager) do
         described_class.new(
           root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
@@ -275,40 +275,96 @@ RSpec.describe EasyML::Data::DatasetManager do
       end
     end
 
-    describe "Partitioned" do
+    # Will be used by things like train/test/valid sets
+    describe "Named writer" do
       let(:feature_manager) do
         described_class.new(
           root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
-          filenames: "family_size",
-          partition: true,
-          partition_size: 100,
-          primary_key: "PassengerId",
+          named: true,
         )
       end
 
-      it "stores each chunk based on partition" do
+      it "stores each named chunk of the dataframe to a separate file" do
         files = []
         batch_size = 100
-
-        # Essentially randomly sort these so the partitioned writer has to write to multiple files
-        manager.query(batch_size: batch_size, batch_key: "Name") do |batch|
-          batch = batch.with_column(
-            (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
-          )
-          files.push(
-            feature_manager.store(batch.select("PassengerId", "FamilySize")).flatten
-          )
+        num_rows = manager.query(lazy: true).select("PassengerId").collect.shape[0]
+        partitions = [
+          -1,
+          (num_rows * 0.8).round,
+          (num_rows * 0.9).round,
+          num_rows,
+        ]
+        chunks = partitions.each_cons(2).to_a
+        train, test, valid = chunks.map do |endpoint|
+          manager.query(lazy: true).filter(Polars.col("PassengerId").gt(endpoint[0]) & Polars.col("PassengerId").le(endpoint[1])).collect
         end
-        files = files.flatten
-        expect(feature_manager.files.sort).to eq(files.sort)
 
-        # It compacts partitions
-        feature_manager.compact
-        (1..9).each do |i|
-          expect(feature_manager.files[i - 1]).to eq(feature_manager.root_dir.join("compacted/family_size.#{i}.parquet").to_s)
-        end
+        feature_manager.store(train, "train")
+        feature_manager.store(test, "test")
+        feature_manager.store(valid, "valid")
 
         expect(manager.query.shape[0]).to eq(feature_manager.query.shape[0])
+        expect(feature_manager.files.sort).to eq(%w(train test valid).map { |name| feature_manager.root_dir.join("#{name}/1.parquet").to_s }.sort)
+
+        expect(feature_manager.query(file_filter: ->(name) { name.match?(/train/) })).to eq(train)
+        expect(feature_manager.query(file_filter: ->(name) { name.match?(/test/) })).to eq(test)
+        expect(feature_manager.query(file_filter: ->(name) { name.match?(/valid/) })).to eq(valid)
+      end
+    end
+
+    describe "Partitioned" do
+      describe "Cannot partition non-numeric column" do
+        let(:feature_manager) do
+          described_class.new(
+            root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
+            filenames: "family_size",
+            partition: true,
+            partition_size: 100,
+            primary_key: "Sex",
+          )
+        end
+
+        it "raises an error when trying to partition a non-numeric column" do
+          df = manager.query(limit: 10).select("Sex")
+          expect { feature_manager.store(df.select("Sex")) }.to raise_error(/Primary key is not numeric/)
+        end
+      end
+
+      describe "Numeric partition strategy" do
+        let(:feature_manager) do
+          described_class.new(
+            root_dir: SPEC_ROOT.join("internal/easy_ml/features/family_size"),
+            filenames: "family_size",
+            partition: true,
+            partition_size: 100,
+            primary_key: "PassengerId",
+          )
+        end
+
+        it "stores each chunk based on partition" do
+          files = []
+          batch_size = 100
+
+          # Essentially randomly sort these so the partitioned writer has to write to multiple files
+          manager.query(batch_size: batch_size, batch_key: "Name") do |batch|
+            batch = batch.with_column(
+              (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
+            )
+            files.push(
+              feature_manager.store(batch.select("PassengerId", "FamilySize")).flatten
+            )
+          end
+          files = files.flatten
+          expect(feature_manager.files.sort).to eq(files.sort)
+
+          # It compacts partitions
+          feature_manager.compact
+          (1..9).each do |i|
+            expect(feature_manager.files[i - 1]).to eq(feature_manager.root_dir.join("compacted/family_size.#{i}.parquet").to_s)
+          end
+
+          expect(manager.query.shape[0]).to eq(feature_manager.query.shape[0])
+        end
       end
     end
 

@@ -3,6 +3,8 @@ module EasyML
     class DatasetManager
       class Writer
         class Partitioned < Base
+          require_relative "partitioned/partition_reasons"
+
           attr_accessor :partition_size, :partition, :primary_key, :df
 
           def initialize(options)
@@ -10,10 +12,12 @@ module EasyML
             @partition_size = options.dig(:partition_size)
             @partition = options.dig(:partition)
             @primary_key = options.dig(:primary_key)
+
+            raise "filenames required: specify the prefix to uuse for unique new files" unless filenames.present?
           end
 
           def store
-            return Base.new(options).store unless can_partition?
+            raise cannot_partition_reasons.explain unless can_partition?
 
             store_each_partition
           end
@@ -69,23 +73,40 @@ module EasyML
             (start_partition..end_partition).step(partition_size).to_a
           end
 
+          def cannot_partition_reasons
+            @cannot_partition_reasons ||= PartitionReasons.new(self)
+          end
+
           def can_partition?
-            @partitioned ||= begin
-                primary_key.present? &&
-                  df.columns.include?(primary_key) &&
-                  numeric_primary_key?
-              end
+            @partitioned ||= cannot_partition_reasons.none?
           end
 
           def lazy?
             df.is_a?(Polars::LazyFrame)
           end
 
+          def cast_primary_key
+            case dtype_primary_key
+            when Polars::Categorical
+              Polars.col(primary_key).cast(Polars::String)
+            else
+              Polars.col(primary_key)
+            end
+          end
+
+          def dtype_primary_key
+            @dtype_primary_key ||= schema[primary_key]
+          end
+
+          def schema
+            @schema ||= df.schema
+          end
+
           def min_key
             return @min_key if @min_key
 
             if lazy?
-              @min_key = df.select(primary_key).min.collect.to_a[0].dig(primary_key)
+              @min_key = df.select(cast_primary_key).min.collect.to_a[0].dig(primary_key)
             else
               @min_key = df[primary_key].min
             end
@@ -95,7 +116,7 @@ module EasyML
             return @max_key if @max_key
 
             if lazy?
-              @max_key = df.select(primary_key).max.collect.to_a[0].dig(primary_key)
+              @max_key = df.select(cast_primary_key).max.collect.to_a[0].dig(primary_key)
             else
               @max_key = df[primary_key].max
             end

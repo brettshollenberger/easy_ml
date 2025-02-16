@@ -197,7 +197,7 @@ module EasyML
       end
 
       EasyML::Data::Partition::Boundaries.new(
-        reader.data(lazy: true),
+        reader.data(lazy: true, all_columns: true),
         primary_key,
         batch_size
       ).to_a.map.with_index do |partition, idx|

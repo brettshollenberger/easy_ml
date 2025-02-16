@@ -13,30 +13,26 @@ module EasyML
           end
 
           def wipe
-            unlock_all!
+            unlock!
             FileUtils.rm_rf(root_dir)
           end
 
           def store
             filename = File.join(root_dir, "main.parquet")
 
-            lock_file(filename) do |f|
-              append(df, filename)
-            end
+            # lock_file(filename) do |f|
+            append(df, filename)
+            # end
+          end
+
+          def unlock!
+            list_keys.each { |key| unlock_file(key) }
           end
 
           private
 
           def reader
             EasyML::Data::DatasetManager.new(options)
-          end
-
-          def unlock_all!
-            calculate_lock_keys.each { |f| unlock_file(f) }
-          end
-
-          def calculate_lock_keys
-            files.map { |f| file_lock_key(f) }
           end
 
           def append(df, filename)
@@ -57,6 +53,7 @@ module EasyML
           def lock_file(filename)
             Support::Lockable.with_lock(file_lock_key(filename), wait_timeout: 2, stale_timeout: 60) do |client|
               begin
+                # add_key(file_lock_key(filename))
                 yield client if block_given?
               ensure
                 unlock_file(filename)
@@ -65,11 +62,12 @@ module EasyML
           end
 
           def file_lock_key(filename)
-            "easy_ml:dataset_manager:writer:#{filename}:v1"
+            "easy_ml:dataset_manager:writer:#{filename}:v5"
           end
 
           def unlock_file(filename)
             Support::Lockable.unlock!(file_lock_key(filename))
+            # clear_key(file_lock_key(filename))
           end
 
           def files
@@ -114,6 +112,14 @@ module EasyML
             File.join("dataset_managers", root_dir, subdir.to_s, "sequence")
           end
 
+          def clear_key(key)
+            keylist = unique_id_key(subdir: "keylist")
+
+            Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
+              suo.client.srem(keylist, key)
+            end
+          end
+
           def add_key(key)
             keylist = unique_id_key(subdir: "keylist")
 
@@ -125,8 +131,12 @@ module EasyML
           def list_keys
             keylist = unique_id_key(subdir: "keylist")
 
-            Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
-              suo.client.smembers(keylist)
+            begin
+              Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
+                suo.client.smembers(keylist)
+              end
+            rescue => e
+              []
             end
           end
 

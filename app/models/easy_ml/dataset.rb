@@ -180,6 +180,8 @@ module EasyML
       EasyML::Reaper.kill(EasyML::RefreshDatasetJob, id)
       update(workflow_status: :ready)
       unlock!
+      features.update_all(needs_fit: true, workflow_status: "ready")
+      features.each(&:wipe)
     end
 
     def refresh_async
@@ -281,6 +283,7 @@ module EasyML
 
     def fit_features(async: false, features: self.features, force: false)
       features_to_compute = force ? features : features.needs_fit
+      puts "Features to compute.... #{features_to_compute}"
       return after_fit_features if features_to_compute.empty?
 
       features.first.fit(features: features_to_compute, async: async)
@@ -289,10 +292,12 @@ module EasyML
     measure_method_timing :fit_features
 
     def after_fit_features
+      puts "After fit features"
       unlock!
       reload
       return if failed?
 
+      puts "Actually refresh..."
       actually_refresh
     end
 
@@ -379,6 +384,7 @@ module EasyML
 
     def unlock!
       Support::Lockable.unlock!(lock_key)
+      features.each(&:unlock!)
     end
 
     def locked?

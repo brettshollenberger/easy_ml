@@ -75,6 +75,10 @@ module EasyML
         query
       end
 
+      def unlock!
+        writer.unlock!
+      end
+
       def store(df, *args)
         writer.store(df, *args)
       end

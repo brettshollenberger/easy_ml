@@ -88,6 +88,7 @@ module EasyML
     before_save :update_sha
     after_find :update_from_feature_class
     before_save :update_from_feature_class
+    before_destroy :wipe
 
     def feature_klass
       feature_class.constantize
@@ -451,6 +452,10 @@ module EasyML
         workflow_status: :ready,
       }.compact
       update!(updates)
+    end
+
+    def unlock!
+      feature_store.unlock!
     end
 
     UNCONFIGURABLE_COLUMNS = %w(

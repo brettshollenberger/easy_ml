@@ -5,19 +5,22 @@ module EasyML
     def initialize(feature)
       @feature = feature
 
-      datasource_config = feature.dataset.datasource.configuration || {}
-
-      options = {
-        root_dir: feature_dir,
-        filenames: "feature",
-        append_only: false,
-        primary_key: feature.primary_key&.first,
-        partition_size: batch_size,
-        s3_bucket: datasource_config.dig("s3_bucket") || EasyML::Configuration.s3_bucket,
-        s3_prefix: s3_prefix,
-        polars_args: datasource_config.dig("polars_args"),
-      }.compact
-      super(options)
+      datasource_config = feature&.dataset&.datasource&.configuration
+      if datasource_config
+        options = {
+          root_dir: feature_dir,
+          filenames: "feature",
+          append_only: false,
+          primary_key: feature.primary_key&.first,
+          partition_size: batch_size,
+          s3_bucket: datasource_config.dig("s3_bucket") || EasyML::Configuration.s3_bucket,
+          s3_prefix: s3_prefix,
+          polars_args: datasource_config.dig("polars_args"),
+        }.compact
+        super(options)
+      else
+        super({ root_dir: "" })
+      end
     end
 
     def cp(old_version, new_version)
@@ -46,9 +49,9 @@ module EasyML
       File.join(
         Rails.root,
         "easy_ml/datasets",
-        feature.dataset.name.parameterize.gsub("-", "_"),
+        feature&.dataset&.name&.parameterize&.gsub("-", "_"),
         "features",
-        feature.name.parameterize.gsub("-", "_"),
+        feature&.name&.parameterize&.gsub("-", "_"),
         version.to_s
       )
     end

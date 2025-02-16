@@ -24,6 +24,10 @@ module EasyML
           @options = options
         end
 
+        def unlock!
+          adapter_class.new(options).unlock!
+        end
+
         def store(df, *args)
           adapter_class.new(options.merge!(df: df)).store(*args)
         end

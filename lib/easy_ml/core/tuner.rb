@@ -99,7 +99,7 @@ module EasyML
             @study.tell(@current_trial, result)
           rescue StandardError => e
             puts EasyML::Event.easy_ml_context(e.backtrace)
-            @tuner_run.update!(status: :failed, hyperparameters: {})
+            @tuner_run.update!(status: :failed, hyperparameters: model.hyperparameters.to_h)
             puts "Optuna failed with: #{e.message}"
             raise e
           end

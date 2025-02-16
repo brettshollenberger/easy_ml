@@ -140,7 +140,7 @@ module EasyML
       end
     end
 
-    delegate :raw, :processed, :data, :train, :test, :valid, :clipped, to: :data_selector
+    delegate :raw, :processed, :data, :train, :test, :valid, to: :data_selector
 
     def empty?
       data.blank?

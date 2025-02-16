@@ -9,8 +9,8 @@ module EasyML
             {
               worker: worker,
               working: true,
-              class: args.dig("job_class"),
-              args: args.dig("arguments"),
+              class: args.is_a?(Hash) ? args.dig("job_class") : nil,
+              args: args.is_a?(Hash) ? args.dig("arguments") : nil,
               pid: worker.pid,
             }
           else

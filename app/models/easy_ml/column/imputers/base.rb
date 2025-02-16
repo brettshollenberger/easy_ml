@@ -63,7 +63,7 @@ module EasyML
           if column.is_computed
             column.statistics.dig(:processed, *args)
           else
-            column.statistics.dig(:clipped, *args) || column.statistics.dig(:raw, *args)
+            column.statistics.dig(:raw, *args)
           end
         end
 

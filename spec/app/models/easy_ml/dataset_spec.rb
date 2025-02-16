@@ -131,7 +131,6 @@ RSpec.describe EasyML::Dataset do
         dataset.columns.each do |col|
           expect(col.statistics).to have_key(:raw), "#{col.name} does not have raw statistics"
           expect(col.statistics).to have_key(:processed), "#{col.name} does not have processed statistics"
-          expect(col.statistics).to have_key(:clipped), "#{col.name} does not have clipped statistics"
         end
       end
 

@@ -208,7 +208,6 @@ module EasyML
           batch_end: partition[:partition_end],
           batch_number: feature_position,
           subbatch_number: idx,
-          parent_batch_id: Random.uuid,
         }
       end
     end
@@ -217,9 +216,20 @@ module EasyML
       feature_store.wipe
     end
 
+    def abort!
+      EasyML::Reaper.kill(EasyML::RefreshDatasetJob, id)
+      update(workflow_status: :ready)
+      unlock!
+    end
+
     def fit(features: [self], async: false)
       ordered_features = features.sort_by(&:feature_position)
-      jobs = ordered_features.map(&:build_batches)
+      parent_batch_id = Random.uuid
+      jobs = ordered_features.map do |feature|
+        feature.build_batches.map do |batch_args|
+          batch_args.merge(parent_batch_id: parent_batch_id)
+        end
+      end
       job_count = jobs.dup.flatten.size
 
       ordered_features.each(&:wipe)

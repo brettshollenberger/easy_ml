@@ -39,13 +39,13 @@ module EasyML
         rest.map do |batch|
           Resque.redis.rpush("batch:#{parent_id}:remaining", batch.to_json)
         end
-
+        track_batch(parent_id)
         handle_batch(parent_id, batch)
       end
 
       def handle_batch(parent_id, batch)
         if batch.size > 1
-          enqueue_batch(batch)
+          enqueue_batch(batch, parent_id)
         else
           run_one_batch(parent_id, batch.first)
           after_batch_hook(parent_id, batch)
@@ -60,7 +60,21 @@ module EasyML
       end
 
       def next_batch?(parent_id)
-        batches_remaining(parent_id) > 0
+        (batches_remaining(parent_id) > 0)
+      end
+
+      def list_batches
+        Resque.redis.hkeys("batches:tracking")
+      end
+
+      def track_batch(parent_id)
+        Resque.redis.hset("batches:tracking", parent_id, true)
+      end
+
+      def cleanup_all
+        list_batches.each do |batch_id|
+          cleanup_batch(batch_id)
+        end
       end
 
       def batches_remaining(parent_id)
@@ -69,12 +83,30 @@ module EasyML
 
       def cleanup_batch(parent_id)
         Resque.redis.del("batch:#{parent_id}:remaining")
+        10.times do
+          puts "DELETING BATCH #{parent_id}"
+        end
+        Resque.redis.hdel("batches:tracking", parent_id)
+      end
+
+      def poll
+        while true
+          sleep 2
+          EasyML::BatchJob.list_batches.map do |batch|
+            puts "Batch #{batch} | Remaining : #{EasyML::BatchJob.batches_remaining(batch)}"
+          end
+        end
+      end
+
+      def get_parent_batch_id(args_list)
+        args_list.dup.flatten.detect { |arg| arg.dig(:parent_batch_id) }.dig(:parent_batch_id)
       end
 
       private
 
-      def get_parent_batch_id(args_list)
-        args_list.dup.flatten.first.dig(:parent_batch_id)
+      def get_args_list(batch_id)
+        redis_key = "#{batch(batch_id)}:original_args"
+        redis.get(redis_key)
       end
 
       # Store batch arguments in Redis

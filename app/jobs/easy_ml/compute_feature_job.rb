@@ -22,23 +22,23 @@ module EasyML
     end
 
     def self.after_batch_hook(batch_id, *args)
-      batch_args = fetch_batch_arguments(batch_id).flatten.map(&:symbolize_keys)
-      feature_ids = batch_args.pluck(:feature_id).uniq
-      parent_id = batch_args.pluck(:parent_batch_id).first
+      args = args.flatten.first.with_indifferent_access
+      feature_id = args.dig(:feature_id)
 
-      feature = EasyML::Feature.find_by(id: feature_ids.first)
+      feature = EasyML::Feature.find_by(id: feature_id)
 
       if feature.failed?
         dataset.features.where(workflow_status: :analyzing).update_all(workflow_status: :ready)
-        return BatchJob.cleanup_batch(parent_id)
+        return BatchJob.cleanup_batch(batch_id)
       end
 
       feature.after_fit
 
-      if BatchJob.next_batch?(parent_id)
-        BatchJob.enqueue_next_batch(self, parent_id)
+      if BatchJob.next_batch?(batch_id)
+        BatchJob.enqueue_next_batch(self, batch_id)
       else
-        dataset = EasyML::Feature.find_by(id: feature_ids.first).dataset
+        cleanup_batch(batch_id)
+        dataset = feature.dataset
         dataset.after_fit_features
       end
     end

@@ -16,7 +16,7 @@ module EasyML
           end
 
           def schema
-            @schema ||= Polars.read_parquet_schema(files.first)
+            @schema ||= files.any? ? Polars.read_parquet_schema(files.first) : nil
           end
 
           def files
@@ -25,6 +25,8 @@ module EasyML
                 @files ||= [input]
               elsif is_dir?
                 @files ||= Dir.glob(::File.join(root_dir, "**/*.{parquet}"))
+              else
+                @files ||= []
               end
             end
           end
@@ -53,7 +55,7 @@ module EasyML
           end
 
           def dataframe
-            @dataframe = Polars.concat(lazy_frames)
+            @dataframe = lazy_frames.any? ? Polars.concat(lazy_frames) : Polars::LazyFrame.new
           end
 
           def lazy_frames(files = nil)

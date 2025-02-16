@@ -14,13 +14,13 @@ class BatchFeature
     batch_end = options.dig(:batch_end)
 
     df = reader.query(
-      filter: Polars.col("COMPANY_ID").is_in((batch_start..batch_end).to_a),
+      filter: Polars.col("COMPANY_ID").is_between(batch_start, batch_end),
       sort: ["COMPANY_ID", "ID"],
     )
 
     df.with_columns(
       Polars.col("CREATED_AT").shift(1).over("COMPANY_ID").alias("LAST_APP_TIME")
-    )[["ID", "LAST_APP_TIME"]]
+    )[["ID", "COMPANY_ID", "LAST_APP_TIME"]]
   end
 
   def transform(df, feature)

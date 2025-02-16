@@ -52,6 +52,9 @@ module EasyML
           end
 
           def query_dataframes(df, schema)
+            num_rows = df.is_a?(Polars::LazyFrame) ? df.select(Polars.length).collect[0, 0] : df.shape[0]
+            return df if num_rows == 0
+
             # Apply the predicate filter if given
             df = df.filter(filter) if filter
             # Apply select columns if provided

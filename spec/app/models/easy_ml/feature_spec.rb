@@ -62,6 +62,30 @@ RSpec.describe EasyML::Datasource do
   end
 
   describe "Features" do
+    describe "Refreshing features" do
+      let(:dataset) { titanic_dataset }
+      let(:feature) do
+        dataset.features.create!(
+          name: "FamilySize",
+          feature_class: "FamilySizeFeature",
+        )
+      end
+
+      it "prevents feature duplication" do
+        feature.wipe
+        feature
+        dataset.refresh
+        feature.query
+        expect(feature.query.count).to eq(891)
+
+        dataset.features.first.update!(needs_fit: true)
+        expect(dataset.needs_refresh?).to be true
+        dataset.reload.refresh
+
+        expect(feature.query.count).to eq(891)
+      end
+    end
+
     describe "base methods" do
       let(:feature) { BaseFeature.new }
 
@@ -353,19 +377,19 @@ RSpec.describe EasyML::Datasource do
 
           perform_enqueued_jobs
 
-          batch_jobs = Resque.peek(:easy_ml, 0, 10)
-          expect(batch_jobs.length).to eq(10) # 10 jobs
+          batch_jobs = Resque.peek(:easy_ml, 0, 11)
+          expect(batch_jobs.length).to eq(11) # 10 jobs
 
           # Verify first batch
           first_job = batch_jobs.first
           expect(first_job["class"]).to eq("EasyML::ComputeFeatureJob")
-          expect(first_job["args"].last[:batch_start]).to eq(1)
-          expect(first_job["args"].last[:batch_end]).to eq(10)
+          expect(first_job["args"].last[:batch_start]).to eq(0)
+          expect(first_job["args"].last[:batch_end]).to eq(9)
 
           # Verify last batch
           last_job = batch_jobs.last
           expect(last_job["class"]).to eq("EasyML::ComputeFeatureJob")
-          expect(last_job["args"].last[:batch_start]).to eq(91)
+          expect(last_job["args"].last[:batch_start]).to eq(100)
           expect(last_job["args"].last[:batch_end]).to eq(100)
 
           # Here we need to run the jobs queued via resque,
@@ -401,6 +425,20 @@ RSpec.describe EasyML::Datasource do
 
           dataset.reload
           expect(dataset.needs_refresh?).to be false
+
+          dataset.data.select("COMPANY_ID").unique.to_a.pluck("COMPANY_ID").sort
+          computed_companies = feature.query.select("COMPANY_ID").unique.to_a.pluck("COMPANY_ID").sort
+          uncomputed_companies = dataset.data.filter(Polars.col("COMPANY_ID").is_in(computed_companies).not_)
+          expect(uncomputed_companies).to be_empty
+
+          dataset.features.first.update!(needs_fit: true)
+          dataset.fully_reload
+          expect(dataset.needs_refresh?).to be true
+          dataset.reload.refresh
+
+          # Still does not overwrite existing data
+          expect(feature.query.count).to eq(100)
+          expect(feature.files.count).to eq 11 # Number of partitions
         end
       end
     end

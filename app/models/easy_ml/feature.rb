@@ -190,31 +190,21 @@ module EasyML
       reader = dataset.raw
 
       if adapter.respond_to?(:batch)
-        array = adapter.batch(reader, self)
-        min_id = array.min
-        max_id = array.max
+        series = adapter.batch(reader, self)
+        primary_key = series.name
       else
-        # Get all primary keys
-        begin
-          unless primary_key.present?
-            raise "Couldn't find primary key for feature #{feature_class}, check your feature class"
-          end
-          df = reader.query(select: primary_key)
-        rescue => e
-          raise "Couldn't find primary key #{primary_key.first} for feature #{feature_class}: #{e.message}"
-        end
-        return [] if df.nil?
-
-        min_id = df[primary_key.first].min
-        max_id = df[primary_key.last].max
+        primary_key = self.primary_key
       end
 
-      (min_id..max_id).step(batch_size).map.with_index do |batch_start, idx|
-        batch_end = [batch_start + batch_size, max_id + 1].min - 1
+      EasyML::Data::Partition::Boundaries.new(
+        reader.data(lazy: true),
+        primary_key,
+        batch_size
+      ).to_a.map.with_index do |partition, idx|
         {
           feature_id: id,
-          batch_start: batch_start,
-          batch_end: batch_end,
+          batch_start: partition[:partition_start],
+          batch_end: partition[:partition_end],
           batch_number: feature_position,
           subbatch_number: idx,
           parent_batch_id: Random.uuid,
@@ -440,7 +430,7 @@ module EasyML
     end
 
     def feature_store
-      @feature_store ||= EasyML::FeatureStore.new(self)
+      EasyML::FeatureStore.new(self)
     end
 
     delegate :files, :query, :store, :compact, to: :feature_store
@@ -454,6 +444,7 @@ module EasyML
     def after_fit
       update_sha
 
+      feature_store.compact
       updates = {
         fit_at: Time.current,
         needs_fit: false,

@@ -59,6 +59,13 @@ module EasyML
             path
           end
 
+          def clear_all_keys
+            keys = list_keys
+            Support::Lockable.with_lock(keys, wait_timeout: 2) do |suo|
+              suo.client.del(keys)
+            end
+          end
+
           def clear_unique_id(subdir: nil)
             key = unique_id_key(subdir: subdir)
             Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
@@ -70,8 +77,32 @@ module EasyML
             File.join("dataset_managers", root_dir, subdir.to_s, "sequence")
           end
 
+          def add_key(key)
+            keylist = unique_id_key(subdir: "keylist")
+
+            Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
+              suo.client.sadd(keylist, key)
+            end
+          end
+
+          def list_keys
+            keylist = unique_id_key(subdir: "keylist")
+
+            Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
+              suo.client.smembers(keylist)
+            end
+          end
+
+          def key_exists?(key)
+            keylist = unique_id_key(subdir: "keylist")
+            Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
+              suo.client.sismember(keylist, key)
+            end
+          end
+
           def unique_id(subdir: nil)
             key = unique_id_key(subdir: subdir)
+            add_key(key)
 
             Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
               redis = suo.client

@@ -4,7 +4,6 @@ module EasyML
       class Writer
         class Partitioned < Base
           require_relative "partitioned/partition_reasons"
-          require_relative "partitioned/boundaries"
 
           attr_accessor :partition_size, :partition, :primary_key, :df
 
@@ -19,13 +18,16 @@ module EasyML
 
           def wipe
             partitions.each do |partition|
-              clear_unique_id(subdir: partition)
               FileUtils.rm_rf(File.join(root_dir, partition))
             end
+            clear_all_keys
           end
 
           def store
-            raise cannot_partition_reasons.explain unless can_partition?
+            unless can_partition?
+              puts cannot_partition_reasons.explain
+              return Base.new(options).store
+            end
 
             store_each_partition
           end
@@ -44,7 +46,7 @@ module EasyML
           private
 
           def partitions
-            Dir.glob(File.join(root_dir, "*")).map { |f| f.split("/").last }
+            Dir.glob(File.join(root_dir, "**/*")).map { |f| f.split("/").last }
           end
 
           def compact_each_partition
@@ -63,6 +65,7 @@ module EasyML
               partition_df = df.filter(Polars.col(primary_key).is_between(partition_start, partition_end))
               num_rows = lazy? ? partition_df.select(Polars.length).collect[0, 0] : partition_df.shape[0]
 
+              binding.pry if num_rows == 0
               next if num_rows == 0
               yield partition_df, partition
             end
@@ -78,7 +81,7 @@ module EasyML
           end
 
           def partition_boundaries
-            Boundaries.new(df, primary_key, partition_size).to_a
+            EasyML::Data::Partition::Boundaries.new(df, primary_key, partition_size).to_a
           end
 
           def cannot_partition_reasons

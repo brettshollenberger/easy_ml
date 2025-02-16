@@ -43,6 +43,14 @@ module EasyML
         def schema(input = nil, **kwargs, &block)
           Reader.schema(input, **kwargs, &block)
         end
+
+        def num_rows
+          Reader.num_rows
+        end
+      end
+
+      def num_rows
+        Reader.num_rows(root_dir)
       end
 
       def query(input = nil, **kwargs, &block)
@@ -106,7 +114,7 @@ module EasyML
       end
 
       def writer
-        @writer ||= Writer.new(options)
+        Writer.new(options)
       end
 
       def synced_directory

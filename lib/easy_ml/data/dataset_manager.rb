@@ -79,10 +79,6 @@ module EasyML
         writer.store(df, *args)
       end
 
-      def compact
-        writer.compact
-      end
-
       def cp(from, to)
         writer.cp(from, to)
       end

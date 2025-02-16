@@ -3,40 +3,74 @@ module EasyML
     class DatasetManager
       class Writer
         class Base
-          attr_accessor :filenames, :root_dir, :options, :append_only, :df
+          attr_accessor :filenames, :root_dir, :options, :df
 
           def initialize(options)
             @root_dir = options.dig(:root_dir)
             @filenames = options.dig(:filenames)
-            @append_only = options.dig(:append_only)
             @options = options
             @df = options.dig(:df)
           end
 
           def wipe
-            clear_unique_id
+            unlock_all!
             FileUtils.rm_rf(root_dir)
           end
 
           def store
-            store_to_unique_file
-          end
+            filename = File.join(root_dir, "main.parquet")
 
-          def compact
-            files = self.files
-
-            clear_unique_id
-            File.join(root_dir, "compacted.parquet").tap do |target_file|
-              safe_write(
-                query(lazy: true),
-                target_file
-              )
-              FileUtils.rm(files)
+            lock_file(filename) do |f|
+              append(df, filename)
             end
-            clear_unique_id
           end
 
           private
+
+          def reader
+            EasyML::Data::DatasetManager.new(options)
+          end
+
+          def unlock_all!
+            calculate_lock_keys.each { |f| unlock_file(f) }
+          end
+
+          def calculate_lock_keys
+            files.map { |f| file_lock_key(f) }
+          end
+
+          def append(df, filename)
+            if File.exist?(filename)
+              existing_df = reader.query(filename)
+              preserved_records = existing_df.filter(
+                Polars.col(primary_key).is_in(df[primary_key]).is_not
+              )
+              if preserved_records.shape[1] != df.shape[1]
+                wipe
+              else
+                df = Polars.concat([preserved_records, df], how: "vertical")
+              end
+            end
+            safe_write(df, filename)
+          end
+
+          def lock_file(filename)
+            Support::Lockable.with_lock(file_lock_key(filename), wait_timeout: 2, stale_timeout: 60) do |client|
+              begin
+                yield client if block_given?
+              ensure
+                unlock_file(filename)
+              end
+            end
+          end
+
+          def file_lock_key(filename)
+            "easy_ml:dataset_manager:writer:#{filename}:v1"
+          end
+
+          def unlock_file(filename)
+            Support::Lockable.unlock!(file_lock_key(filename))
+          end
 
           def files
             DatasetManager.new(options).files

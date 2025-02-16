@@ -16,13 +16,6 @@ module EasyML
             raise "filenames required: specify the prefix to use for unique new files" unless filenames.present?
           end
 
-          def wipe
-            partitions.each do |partition|
-              FileUtils.rm_rf(File.join(root_dir, partition))
-            end
-            clear_all_keys
-          end
-
           def store
             unless can_partition?
               puts cannot_partition_reasons.explain
@@ -32,30 +25,22 @@ module EasyML
             store_each_partition
           end
 
-          def compact
-            files = self.files
-            @df = query(lazy: true)
+          private
 
-            clear_unique_id(subdir: "compacted")
-            compact_each_partition.tap do
-              FileUtils.rm(files)
-              clear_unique_id
+          def clean_uncompacted_dirs
+            uncompacted_dirs.each do |dir|
+              puts "removing uncompacted dir: #{dir}"
+              FileUtils.rm_rf(dir)
             end
+            clear_all_keys
           end
 
-          private
+          def uncompacted_dirs
+            Dir.glob(File.join(root_dir, "**")).reject { |f| f.match?(/compacted/) }
+          end
 
           def partitions
             Dir.glob(File.join(root_dir, "**/*")).map { |f| f.split("/").last }
-          end
-
-          def compact_each_partition
-            with_each_partition do |partition_df, _|
-              safe_write(
-                partition_df.sort(Polars.col(primary_key)),
-                unique_path(subdir: "compacted")
-              )
-            end
           end
 
           def with_each_partition(&block)
@@ -65,7 +50,6 @@ module EasyML
               partition_df = df.filter(Polars.col(primary_key).is_between(partition_start, partition_end))
               num_rows = lazy? ? partition_df.select(Polars.length).collect[0, 0] : partition_df.shape[0]
 
-              binding.pry if num_rows == 0
               next if num_rows == 0
               yield partition_df, partition
             end
@@ -73,11 +57,12 @@ module EasyML
 
           def store_each_partition
             with_each_partition do |partition_df, partition|
-              safe_write(
-                partition_df,
-                unique_path(subdir: partition[:partition])
-              )
+              append(partition_df, partition_path(partition))
             end
+          end
+
+          def partition_path(partition)
+            File.join(root_dir, "#{partition[:partition]}.parquet")
           end
 
           def partition_boundaries

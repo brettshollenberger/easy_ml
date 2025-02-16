@@ -43,8 +43,11 @@ module EasyML
         end
 
         def to_a
+          is_lazy = df.is_a?(Polars::LazyFrame)
+          empty = is_lazy ? df.limit(1).collect.empty? : df.shape[0] == 0
+          return [] if empty
+
           sorted = boundaries.select(["partition", "partition_start", "partition_end"]).unique.sort("partition")
-          is_lazy = sorted.is_a?(Polars::LazyFrame)
           array = (is_lazy ? sorted.collect.to_a : sorted.to_a).map(&:with_indifferent_access)
           # For the last partition, set the end to the total number of rows (so we read the last row with is_between queries)
           last_idx = array.size - 1

@@ -265,9 +265,7 @@ module EasyML
 
     def refresh!(async: false)
       refreshing do
-        puts "Prepare..."
         prepare!
-        puts "Fit features..."
         fit_features!(async: async)
       end
     end
@@ -276,9 +274,7 @@ module EasyML
       return refresh_async if async
 
       refreshing do
-        puts "prepare.."
         prepare
-        puts "fit features..."
         fit_features(async: async)
       end
     end
@@ -299,7 +295,6 @@ module EasyML
     measure_method_timing :fit_features
 
     def after_fit_features
-      puts "after fit features..."
       unlock!
       reload
       return if failed?
@@ -485,19 +480,12 @@ module EasyML
     end
 
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
-      puts "Apply missing features..."
       df = apply_missing_columns(df, inference: inference)
-      puts "Transform columns..."
       df = columns.transform(df, inference: inference)
-      puts "Apply features..."
       df = apply_features(df, features)
-      puts "Transform columns..."
       df = columns.transform(df, inference: inference, computed: true)
-      puts "Apply column mask..."
       df = apply_column_mask(df, inference: inference) unless all_columns
-      puts "Drop nulls..."
       df = drop_nulls(df) unless inference
-      puts "Split features and targets..."
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
     end

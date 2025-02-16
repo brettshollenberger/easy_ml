@@ -324,9 +324,10 @@ RSpec.describe EasyML::Data::DatasetManager do
           )
         end
 
-        it "raises an error when trying to partition a non-numeric column" do
+        it "doesn't partition with non-numeric primary key" do
           df = manager.query(limit: 10).select("Sex")
-          expect { feature_manager.store(df.select("Sex")) }.to raise_error(/Primary key is not numeric/)
+          feature_manager.store(df.select("Sex"))
+          expect(feature_manager.files.count).to eq 1 # Not partitioned
         end
       end
 

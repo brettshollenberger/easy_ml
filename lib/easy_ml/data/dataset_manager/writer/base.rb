@@ -27,7 +27,10 @@ module EasyML
 
             clear_unique_id
             File.join(root_dir, "compacted.parquet").tap do |target_file|
-              query(lazy: true).sink_parquet(target_file)
+              safe_write(
+                query(lazy: true),
+                target_file
+              )
               FileUtils.rm(files)
             end
             clear_unique_id

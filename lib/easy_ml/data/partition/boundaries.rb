@@ -6,7 +6,7 @@ module EasyML
 
         def initialize(df, primary_key, partition_size)
           @df = df
-          @primary_key = primary_key
+          @primary_key = primary_key.is_a?(Array) ? primary_key.first : primary_key
           @partition_size = partition_size
         end
 

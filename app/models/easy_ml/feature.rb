@@ -317,6 +317,7 @@ module EasyML
         params = {
           select: select,
           filter: filter,
+          sort: primary_key,
         }.compact
       else
         params = {}

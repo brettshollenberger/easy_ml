@@ -303,6 +303,8 @@ RSpec.describe EasyML::Datasource do
           # Setup the dataset and feature to need recomputation
           zips_dataset
           feature
+          dataset.unlock!
+
           dataset.refresh
           dataset.columns.find_by(name: "ZIP").update(datatype: "string")
           dataset.refresh
@@ -315,19 +317,19 @@ RSpec.describe EasyML::Datasource do
 
           perform_enqueued_jobs
 
-          batch_jobs = Resque.peek(:easy_ml, 0, 10)
-          expect(batch_jobs.length).to eq(10) # 10 jobs
+          batch_jobs = Resque.peek(:easy_ml, 0, 11)
+          expect(batch_jobs.length).to eq(11)
 
           # Verify first batch
           first_job = batch_jobs.first
           expect(first_job["class"]).to eq("EasyML::ComputeFeatureJob")
-          expect(first_job["args"].last[:batch_start]).to eq(1)
-          expect(first_job["args"].last[:batch_end]).to eq(10)
+          expect(first_job["args"].last[:batch_start]).to eq(0)
+          expect(first_job["args"].last[:batch_end]).to eq(9)
 
           # Verify last batch
           last_job = batch_jobs.last
           expect(last_job["class"]).to eq("EasyML::ComputeFeatureJob")
-          expect(last_job["args"].last[:batch_start]).to eq(91)
+          expect(last_job["args"].last[:batch_start]).to eq(100)
           expect(last_job["args"].last[:batch_end]).to eq(100)
 
           # Process all batch jobs

@@ -4,7 +4,7 @@ class FamilySizeFeature
   feature name: "Family Size",
           description: "Combines Parch and SibSp to get total family size",
           primary_key: "PassengerId",
-          batch_size: 10
+          batch_size: 300
 
   def computes_columns
     ["FamilySize"]

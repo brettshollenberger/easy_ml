@@ -1,67 +1,23 @@
 module EasyML
-  class FeatureStore
+  class FeatureStore < EasyML::Data::DatasetManager
     attr_reader :feature
 
     def initialize(feature)
       @feature = feature
-    end
 
-    def store(df)
-      primary_key = feature.primary_key&.first
-      return store_without_partitioning(df) unless df.columns.include?(primary_key)
-      return store_without_partitioning(df) unless primary_key
+      datasource_config = feature.dataset.datasource.configuration || {}
 
-      min_key = df[primary_key].min
-      max_key = df[primary_key].max
-      batch_size = feature.batch_size || 10_000
-
-      begin
-        # We are intentionally not using to_i, so it will raise an error for keys like "A1"
-        min_key = Integer(min_key) if min_key.is_a?(String)
-        max_key = Integer(max_key) if max_key.is_a?(String)
-      rescue ArgumentError
-        return store_without_partitioning(df)
-      end
-
-      # Only partition if we have integer keys where we can predict boundaries
-      return store_without_partitioning(df) unless min_key.is_a?(Integer) && max_key.is_a?(Integer)
-
-      partitions = compute_partition_boundaries(min_key, max_key, batch_size)
-      partitions.each do |partition_start|
-        partition_end = partition_start + batch_size - 1
-        partition_df = df.filter(
-          (Polars.col(primary_key) >= partition_start) &
-          (Polars.col(primary_key) <= partition_end)
-        )
-
-        next if partition_df.height == 0
-
-        store_partition(partition_df, primary_key, partition_start)
-      end
-    end
-
-    def query(**kwargs)
-      query_all_partitions(**kwargs)
-    end
-
-    def empty?
-      list_partitions.empty?
-    end
-
-    def list_partitions
-      Dir.glob(File.join(feature_dir, "feature*.parquet")).sort
-    end
-
-    def wipe
-      FileUtils.rm_rf(feature_dir)
-    end
-
-    def upload_remote_files
-      synced_directory.upload
-    end
-
-    def download
-      synced_directory&.download
+      options = {
+        root_dir: feature_dir,
+        filenames: "feature",
+        append_only: false,
+        primary_key: feature.primary_key&.first,
+        partition_size: batch_size,
+        s3_bucket: datasource_config.dig("s3_bucket") || EasyML::Configuration.s3_bucket,
+        s3_prefix: s3_prefix,
+        polars_args: datasource_config.dig("polars_args"),
+      }.compact
+      super(options)
     end
 
     def cp(old_version, new_version)
@@ -82,68 +38,8 @@ module EasyML
 
     private
 
-    def cleanup(type: :partitions)
-      case type
-      when :partitions
-        list_partitions.each do |partition|
-          FileUtils.rm(partition)
-        end
-      when :no_partitions
-        FileUtils.rm_rf(feature_path)
-      when :all
-        wipe
-      end
-    end
-
-    def store_without_partitioning(df)
-      lock_file do
-        cleanup(type: :partitions)
-        path = feature_path
-        safe_write(df, path)
-      end
-    end
-
-    def safe_write(df, path)
-      FileUtils.mkdir_p(File.dirname(path))
-      df.write_parquet(path)
-    end
-
-    def store_partition(partition_df, primary_key, partition_start)
-      lock_partition(partition_start) do
-        cleanup(type: :no_partitions)
-        path = partition_path(partition_start)
-
-        if File.exist?(path)
-          reader = EasyML::Data::PolarsReader.new
-          existing_df = reader.query([path])
-          preserved_records = existing_df.filter(
-            Polars.col(primary_key).is_in(partition_df[primary_key]).is_not
-          )
-          if preserved_records.shape[1] != partition_df.shape[1]
-            wipe
-          else
-            partition_df = Polars.concat([preserved_records, partition_df], how: "vertical")
-          end
-        end
-
-        safe_write(partition_df, path)
-      end
-    end
-
-    def query_all_partitions(**kwargs)
-      reader = EasyML::Data::PolarsReader.new
-      pattern = File.join(feature_dir, "feature*.parquet")
-      files = Dir.glob(pattern)
-
-      return Polars::DataFrame.new if files.empty?
-
-      reader.query(files, **kwargs)
-    end
-
-    def compute_partition_boundaries(min_key, max_key, batch_size)
-      start_partition = (min_key / batch_size.to_f).floor * batch_size
-      end_partition = (max_key / batch_size.to_f).floor * batch_size
-      (start_partition..end_partition).step(batch_size).to_a
+    def batch_size
+      @batch_size ||= feature.batch_size || 10_000
     end
 
     def feature_dir_for_version(version)
@@ -161,74 +57,8 @@ module EasyML
       feature_dir_for_version(feature.version)
     end
 
-    def feature_path
-      File.join(feature_dir, "feature.parquet")
-    end
-
-    def partition_path(partition_start)
-      File.join(feature_dir, "feature#{partition_start}.parquet")
-    end
-
     def s3_prefix
       File.join("datasets", feature_dir.split("datasets").last)
-    end
-
-    def synced_directory
-      return unless feature.dataset&.datasource.present?
-
-      datasource_config = feature.dataset.datasource.configuration || {}
-      @synced_dir ||= EasyML::Data::SyncedDirectory.new(
-        root_dir: feature_dir,
-        s3_bucket: datasource_config.dig("s3_bucket") || EasyML::Configuration.s3_bucket,
-        s3_prefix: s3_prefix,
-        s3_access_key_id: EasyML::Configuration.s3_access_key_id,
-        s3_secret_access_key: EasyML::Configuration.s3_secret_access_key,
-        polars_args: datasource_config.dig("polars_args"),
-        cache_for: 0,
-      )
-    end
-
-    def lock_partition(partition_start)
-      Support::Lockable.with_lock(partition_lock_key(partition_start), wait_timeout: 2, stale_timeout: 60) do |client|
-        begin
-          yield client if block_given?
-        ensure
-          unlock_partition(partition_start)
-        end
-      end
-    end
-
-    def lock_file
-      Support::Lockable.with_lock(file_lock_key, wait_timeout: 2, stale_timeout: 60) do |client|
-        begin
-          yield client if block_given?
-        ensure
-          unlock_file
-        end
-      end
-    end
-
-    def unlock_partition(partition_start)
-      Support::Lockable.unlock!(partition_lock_key(partition_start))
-    end
-
-    def unlock_file
-      Support::Lockable.unlock!(file_lock_key)
-    end
-
-    def unlock_all_partitions
-      list_partitions.each do |partition_path|
-        partition_start = partition_path.match(/feature(\d+)\.parquet/)[1].to_i
-        unlock_partition(partition_start)
-      end
-    end
-
-    def partition_lock_key(partition_start)
-      "feature_store:#{feature.id}.partition.#{partition_start}"
-    end
-
-    def file_lock_key
-      "feature_store:#{feature.id}.file"
     end
   end
 end

@@ -68,7 +68,7 @@ module EasyML
       end
 
       def track_batch(parent_id)
-        Resque.redis.hset("batches:tracking", parent_id, true)
+        Resque.redis.hset("batches:tracking", parent_id, 1)
       end
 
       def cleanup_all

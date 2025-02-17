@@ -14,10 +14,10 @@ module EasyML
       #
       # https://github.com/drfeelngood/resque-batched-job/blob/master/lib/resque/plugins/batched_job.rb#L86
       batch_args = batch_args.dup
-      run_one_batch(batch_id, batch_args)
+      EasyML::ComputeFeatureJob.new.perform(batch_id, batch_args)
     end
 
-    def self.run_one_batch(batch_id, batch_args)
+    def perform(batch_id, batch_args = {})
       EasyML::Feature.fit_one_batch(batch_id, batch_args)
     end
 

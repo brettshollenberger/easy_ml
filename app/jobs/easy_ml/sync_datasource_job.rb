@@ -8,6 +8,7 @@ module EasyML
 
       begin
         datasource.refresh
+        datasource.after_sync
       rescue StandardError => e
         datasource.update!(is_syncing: false)
         handle_error(datasource, e)

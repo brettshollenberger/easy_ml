@@ -262,7 +262,7 @@ module EasyML
     def refresh!(async: false)
       refreshing do
         prepare!
-        fit_features!(async: async)
+        fit_features!(async: false) #async)
       end
     end
 
@@ -271,7 +271,7 @@ module EasyML
 
       refreshing do
         prepare
-        fit_features(async: async)
+        fit_features(async: false) #async)
       end
     end
 

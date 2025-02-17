@@ -47,7 +47,7 @@ module EasyML
         if batch.size > 1
           enqueue_batch(batch, parent_id)
         else
-          run_one_batch(parent_id, batch.first)
+          new.perform(parent_id, batch.first)
           after_batch_hook(parent_id, batch)
         end
       end
@@ -83,10 +83,19 @@ module EasyML
 
       def cleanup_batch(parent_id)
         Resque.redis.del("batch:#{parent_id}:remaining")
-        10.times do
-          puts "DELETING BATCH #{parent_id}"
-        end
         Resque.redis.hdel("batches:tracking", parent_id)
+      end
+
+      def batch_args
+        list_batches.map do |batch_id|
+          fetch_batch_arguments(batch_id)
+        end
+      end
+
+      def select_batches(&block)
+        list_batches.select do |batch_id|
+          yield fetch_batch_arguments(batch_id)
+        end
       end
 
       def poll

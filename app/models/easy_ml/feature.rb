@@ -216,12 +216,6 @@ module EasyML
       feature_store.wipe
     end
 
-    def abort!
-      EasyML::Reaper.kill(EasyML::RefreshDatasetJob, id)
-      update(workflow_status: :ready)
-      unlock!
-    end
-
     def fit(features: [self], async: false)
       ordered_features = features.sort_by(&:feature_position)
       parent_batch_id = Random.uuid

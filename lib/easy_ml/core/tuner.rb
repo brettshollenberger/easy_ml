@@ -73,7 +73,7 @@ module EasyML
         model.task = task
 
         model.dataset.refresh if model.dataset.needs_refresh?
-        x_valid, y_valid = model.dataset.valid(split_ys: true, select: model.dataset.col_order)
+        x_valid, y_valid = model.dataset.valid(split_ys: true, all_columns: true)
         self.x_valid = x_valid
         self.y_valid = y_valid
         self.dataset = model.dataset.valid(all_columns: true)

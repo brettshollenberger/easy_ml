@@ -75,12 +75,16 @@ module EasyML
         query
       end
 
-      def store(df, *args)
-        writer.store(df, *args)
+      def unlock!
+        writer.unlock!
       end
 
       def compact
         writer.compact
+      end
+
+      def store(df, *args)
+        writer.store(df, *args)
       end
 
       def cp(from, to)

@@ -10,7 +10,7 @@ module EasyML
 
         def transform(df)
           df = df.with_column(
-            Polars.col(column.name).fill_null(Polars.lit(UTC.today.beginning_of_day)).alias(column.name)
+            Polars.col(column.name).fill_null(Polars.lit(EasyML::Support::UTC.today.beginning_of_day)).alias(column.name)
           )
           df
         end

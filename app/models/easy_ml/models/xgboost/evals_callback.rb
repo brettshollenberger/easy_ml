@@ -47,6 +47,7 @@ module EasyML
           if epoch % log_frequency == 0
             model.adapter.external_model = booster
             x_valid, y_valid = valid_dataset
+            x_valid = x_valid.select(model.dataset.col_order(inference: true))
             @preprocessed ||= model.preprocess(x_valid, y_valid)
             y_pred = model.predict(@preprocessed)
             dataset = model.dataset.valid(all_columns: true)

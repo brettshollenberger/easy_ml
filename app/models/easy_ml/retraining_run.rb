@@ -150,7 +150,7 @@ module EasyML
 
       training_model.dataset.refresh
       evaluator = retraining_job.evaluator.symbolize_keys
-      x_test, y_test = training_model.dataset.test(split_ys: true)
+      x_test, y_test = training_model.dataset.test(split_ys: true, all_columns: true)
       y_pred = training_model.predict(x_test)
 
       metric = evaluator[:metric].to_sym

@@ -443,7 +443,11 @@ module EasyML
         lazy = xs.is_a?(Polars::LazyFrame)
 
         # Get features, labels and weights
-        features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
+        begin
+          features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
+        rescue => e
+          binding.pry
+        end
         if ys.present?
           labels = lazy ? ys.collect.to_numo.flatten : ys.to_numo.flatten
         else

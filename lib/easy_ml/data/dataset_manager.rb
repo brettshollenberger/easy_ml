@@ -67,6 +67,8 @@ module EasyML
         Reader.sha(root_dir)
       end
 
+      # Transform CSV files into Parquet files, of all the same datatype.
+      # Learn datatypes of columns and store schema.
       def normalize
         Normalizer.normalize(root_dir)
       end

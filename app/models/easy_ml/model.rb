@@ -45,7 +45,7 @@ module EasyML
     MODEL_NAMES = MODEL_OPTIONS.keys.freeze
     MODEL_CONSTANTS = MODEL_OPTIONS.values.map(&:constantize)
 
-    add_configuration_attributes :task, :objective, :hyperparameters, :callbacks, :metrics
+    add_configuration_attributes :task, :objective, :hyperparameters, :callbacks, :metrics, :weights_column
     MODEL_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
       add_configuration_attributes attribute
     end

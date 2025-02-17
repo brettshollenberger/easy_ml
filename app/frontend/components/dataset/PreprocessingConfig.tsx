@@ -250,16 +250,17 @@ export function PreprocessingConfig({
     setIsEditingDescription(true);
   };
 
-  let nullCount = (column.statistics?.processed.null_count || column.statistics?.raw?.null_count) || 0;
-  const nullPercentage = nullCount && column.statistics?.raw.num_rows
-    ? ((nullCount / column.statistics.raw.num_rows) * 100)
+  let nullCount = (column.statistics?.processed?.null_count || column.statistics?.raw?.null_count) || 0;
+  let numRows = (column.statistics?.processed?.num_rows) || (column.statistics?.raw?.num_rows) || 0;
+  const nullPercentage = nullCount && numRows
+    ? ((nullCount / numRows) * 100)
     : 0;
 
-  const nullPercentageProcessed = column.statistics?.processed?.null_count && column.statistics?.raw.num_rows
-    ? ((column.statistics.processed.null_count / column.statistics.raw.num_rows) * 100)
+  const nullPercentageProcessed = column.statistics?.processed?.null_count && column.statistics?.processed?.num_rows
+    ? ((column.statistics.processed.null_count / column.statistics.processed.num_rows) * 100)
     : 0;
 
-  const totalRows = column.statistics?.raw.num_rows ?? 0;
+  const totalRows = numRows;
 
   const renderStrategySpecificInfo = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;

@@ -27,6 +27,7 @@ module EasyML
                :model_type,
                :task,
                :objective,
+               :weights_column,
                :metrics,
                :dataset_id,
                :status,

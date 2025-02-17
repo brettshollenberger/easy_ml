@@ -434,22 +434,28 @@ module EasyML
         [@d_train, @d_valid, @d_test]
       end
 
-      def preprocess(xs, ys = nil, weight_col: nil)
+      def preprocess(xs, ys = nil)
         return xs if xs.is_a?(::XGBoost::DMatrix)
+        weights_col = model.weights_column || nil
+
+        if weights_col == model.dataset.target
+          raise ArgumentError, "Weight column cannot be the target column"
+        end
 
         # Extract feature columns (all columns except label and weight)
         feature_cols = xs.columns
-        feature_cols -= [weight_col] if weight_col
+        feature_cols -= [weights_col] if weights_col
         lazy = xs.is_a?(Polars::LazyFrame)
 
         # Get features, labels and weights
         features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
+        weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
+        weights = weights.flatten if weights
         if ys.present?
           labels = lazy ? ys.collect.to_numo.flatten : ys.to_numo.flatten
         else
           labels = nil
         end
-        weights = weight_col ? (lazy ? xs.select(weight_col).collect.to_numo : xs.select(weight_col).to_numo) : nil
 
         kwargs = {
           label: labels,
@@ -463,42 +469,6 @@ module EasyML
         rescue StandardError => e
           problematic_columns = xs.schema.select { |k, v| [Polars::Categorical, Polars::String].include?(v) }
           problematic_xs = lazy ? xs.lazy.select(problematic_columns.keys).collect : xs.select(problematic_columns.keys)
-          raise %(
-            Error building data for XGBoost.
-            Apply preprocessing to columns 
-            >>>>><<<<<
-            #{problematic_columns.keys}
-            >>>>><<<<<
-            A sample of your dataset:
-            #{problematic_xs[0..5]}
-
-            #{if ys.present?
-                  %(
-                This may also be due to your targets:
-                #{ys[0..5]}
-              )
-                else
-                  ""
-                end}
-          )
-        end
-      end
-
-      def preprocess_slow(xs, ys = nil)
-        return xs if xs.is_a?(::XGBoost::DMatrix)
-
-        orig_xs = xs.dup
-        column_names = xs.columns
-        xs = _preprocess(xs)
-        ys = ys.nil? ? nil : _preprocess(ys).flatten
-        kwargs = { label: ys }.compact
-        begin
-          ::XGBoost::DMatrix.new(xs, **kwargs).tap do |dmat|
-            dmat.feature_names = column_names
-          end
-        rescue StandardError => e
-          problematic_columns = orig_xs.schema.select { |k, v| [Polars::Categorical, Polars::String].include?(v) }
-          problematic_xs = orig_xs.select(problematic_columns.keys)
           raise %(
             Error building data for XGBoost.
             Apply preprocessing to columns 

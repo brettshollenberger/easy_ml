@@ -180,6 +180,8 @@ module EasyML
       EasyML::Reaper.kill(EasyML::RefreshDatasetJob, id)
       update(workflow_status: :ready)
       unlock!
+      features.update_all(needs_fit: true, workflow_status: "ready")
+      features.each(&:wipe)
     end
 
     def refresh_async
@@ -199,12 +201,6 @@ module EasyML
       return @raw if @raw && @raw.dataset
 
       @raw = initialize_split("raw")
-    end
-
-    def clipped
-      return @clipped if @clipped && @clipped.dataset
-
-      @clipped = initialize_split("clipped")
     end
 
     def processed
@@ -266,7 +262,7 @@ module EasyML
     def refresh!(async: false)
       refreshing do
         prepare!
-        fit_features!(async: async)
+        fit_features!(async: false) #async)
       end
     end
 
@@ -275,7 +271,7 @@ module EasyML
 
       refreshing do
         prepare
-        fit_features(async: async)
+        fit_features(async: false) #async)
       end
     end
 
@@ -287,6 +283,7 @@ module EasyML
 
     def fit_features(async: false, features: self.features, force: false)
       features_to_compute = force ? features : features.needs_fit
+      puts "Features to compute.... #{features_to_compute}"
       return after_fit_features if features_to_compute.empty?
 
       features.first.fit(features: features_to_compute, async: async)
@@ -295,10 +292,12 @@ module EasyML
     measure_method_timing :fit_features
 
     def after_fit_features
+      puts "After fit features"
       unlock!
       reload
       return if failed?
 
+      puts "Actually refresh..."
       actually_refresh
     end
 
@@ -385,6 +384,7 @@ module EasyML
 
     def unlock!
       Support::Lockable.unlock!(lock_key)
+      features.each(&:unlock!)
     end
 
     def locked?
@@ -537,7 +537,6 @@ module EasyML
 
     def cleanup
       raw.cleanup
-      clipped.cleanup
       processed.cleanup
     end
 
@@ -730,10 +729,8 @@ module EasyML
 
     def initialize_splits
       @raw = nil
-      @clipped = nil
       @processed = nil
       raw
-      clipped
       processed
     end
 
@@ -778,7 +775,7 @@ module EasyML
       processed.cleanup
 
       SPLIT_ORDER.each do |segment|
-        df = clipped.read(segment)
+        df = raw.read(segment)
         learn_computed_columns(df) if segment == :train
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
@@ -825,25 +822,8 @@ module EasyML
     end
 
     def fit
-      apply_clip
       learn_statistics(type: :raw)
     end
-
-    def apply_clip
-      clipped.cleanup
-
-      SPLIT_ORDER.each do |segment|
-        df = raw.send(segment, lazy: true, all_columns: true)
-        clipped.save(
-          segment,
-          columns.apply_clip(df) # Ensuring this returns a LazyFrame means we'll automatically use sink_parquet
-        )
-      end
-    end
-
-    measure_method_timing :apply_clip
-
-    # log_method :fit, "Learning statistics", verbose: true
 
     def split_data!
       split_data(force: true)

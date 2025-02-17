@@ -24,14 +24,6 @@ module EasyML
         end
       end
 
-      def clipped
-        Selector.new(column, :raw) do |df|
-          column.imputers.training.clip(df)
-        end
-      end
-
-      measure_method_timing :clipped
-
       def processed
         Selector.new(column, :processed)
       end

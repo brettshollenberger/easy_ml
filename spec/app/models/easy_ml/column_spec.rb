@@ -198,13 +198,14 @@ RSpec.describe EasyML::Column do
         expect(EasyML::Column.has_clip.map(&:id)).to include(column.id)
       end
 
-      it "applies clip to dataset" do
+      it "applies clip to statistics & processed datasets" do
         dataset.refresh
-        expect(dataset.clipped.data(lazy: true).select(Polars.col("Age").max).collect.to_series.to_a.first).to eq(20)
-        expect(dataset.clipped.data(lazy: true).select(Polars.col("SibSp").max).collect.to_series.to_a.first).to eq(1)
+        expect(dataset.columns.find_by(name: "Age").statistics.dig(:raw, :max)).to eq(20)
+        expect(dataset.columns.find_by(name: "Age").statistics.dig(:raw, :median)).to eq(20)
+        expect(dataset.columns.find_by(name: "SibSp").statistics.dig(:raw, :max)).to eq(1)
 
-        # It does not apply clip to non-clip columns
-        expect(dataset.clipped.data(lazy: true).select(Polars.col("PassengerId").max).collect.to_series.to_a.first).to eq(891)
+        expect(dataset.processed.data(lazy: true).select("Age").max.collect.to_a.first.dig("Age")).to eq(20)
+        expect(dataset.processed.data(lazy: true).select("SibSp").max.collect.to_a.first.dig("SibSp")).to eq(1)
       end
     end
 

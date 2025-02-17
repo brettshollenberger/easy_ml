@@ -9,8 +9,8 @@ module EasyML
             {
               worker: worker,
               working: true,
-              class: args.dig("job_class"),
-              args: args.dig("arguments"),
+              class: args.is_a?(Hash) ? args.dig("job_class") : nil,
+              args: args.is_a?(Hash) ? args.dig("arguments") : nil,
               pid: worker.pid,
             }
           else
@@ -19,17 +19,23 @@ module EasyML
         end
       end
 
-      def find_job(worker_class, *args)
+      def find_job(worker_class, *args, &block)
         list_workers.select do |config|
-          config.dig(:class) == worker_class.to_s && config.dig(:args) == args
+          selected = config.dig(:class) == worker_class.to_s
+          if block_given?
+            selected &&= yield(config)
+          else
+            selected &= config.dig(:args) == args
+          end
+          selected
         end
       end
 
-      def kill(worker_class, *args)
-        find_job(worker_class, *args).each do |job|
+      def kill(worker_class, *args, &block)
+        find_job(worker_class, *args, &block).each do |job|
           begin
-            # Send TERM signal to the process
-            Process.kill("TERM", job[:pid])
+            # Send HUP signal to the process
+            Process.kill("USR1", job[:pid])
 
             # Remove the worker from Redis so it doesn't show up as a zombie
             # in the Resque web interface. This is important because:
@@ -37,12 +43,10 @@ module EasyML
             # 2. Prevents confusion about running workers
             # 3. Allows proper worker cleanup in Redis
             job[:worker].done_working
-            job[:worker].unregister_worker
           rescue Errno::ESRCH
             # Process already gone, but still try to clean up Redis
             begin
               job[:worker].done_working
-              job[:worker].unregister_worker
             rescue => e
               # Redis cleanup failed, worker might already be unregistered
               puts "Failed to unregister worker: #{e.message}"

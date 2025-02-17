@@ -19,7 +19,9 @@ module EasyML
         end
 
         def fetch_df(split, type)
-          @dataset.send(type).send(split, all_columns: true)
+          dataset.columns.apply_clip(
+            @dataset.send(type).send(split, all_columns: true)
+          )
         end
 
         def execute_queries(split, type)

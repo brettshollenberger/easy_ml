@@ -22,16 +22,12 @@ module EasyML
       end
 
       def self.lock_client(key, wait_timeout: 0.1, stale_timeout: 60 * 10, resources: 1)
-        Suo::Client::Redis.new(prefixed_key(key), {
+        Suo::Client::Redis.new(key, {
           acquisition_timeout: wait_timeout,
           stale_lock_expiry: stale_timeout,
           resources: resources,
           client: client,
         })
-      end
-
-      def self.prefixed_key(key)
-        "easy_ml:#{key}"
       end
 
       # Execute a block with a Redis lock

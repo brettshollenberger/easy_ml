@@ -8,7 +8,7 @@ module EasyML
                     :metrics, :objective, :n_trials, :direction, :evaluator,
                     :study, :results, :adapter, :tune_started_at, :x_valid, :y_valid,
                     :project_name, :job, :current_run, :trial_enumerator, :progress_block,
-                    :tuner_job, :dataset
+                    :tuner_job, :dataset, :x_normalized
 
       def initialize(options = {})
         @model = options[:model]
@@ -74,8 +74,11 @@ module EasyML
 
         model.dataset.refresh if model.dataset.needs_refresh?
         x_valid, y_valid = model.dataset.valid(split_ys: true, all_columns: true)
+        x_normalized = model.dataset.normalize(x_valid, inference: true)
+        x_normalized = model.preprocess(x_normalized)
         self.x_valid = x_valid
         self.y_valid = y_valid
+        self.x_normalized = x_normalized
         self.dataset = model.dataset.valid(all_columns: true)
         adapter.tune_started_at = tune_started_at
         adapter.x_valid = x_valid
@@ -138,7 +141,7 @@ module EasyML
           end
         end
 
-        y_pred = model.predict(x_valid)
+        y_pred = model.predict(x_normalized)
         model.metrics = metrics
         metrics = model.evaluate(y_pred: y_pred, y_true: y_valid, x_true: x_valid, dataset: dataset)
         metric = metrics.symbolize_keys.dig(model.evaluator[:metric].to_sym)

@@ -179,6 +179,8 @@ module EasyML
     end
 
     def actually_train(&progress_block)
+      raise untrainable_error unless trainable?
+
       lock_model do
         run = pending_run
         run.wrap_training do
@@ -279,6 +281,18 @@ module EasyML
 
     def trainable?
       adapter.trainable?
+    end
+
+    def untrainable_columns
+      adapter.untrainable_columns
+    end
+
+    def untrainable_error
+      %Q(
+        Cannot train dataset containing null values!
+        Apply preprocessing to the following columns:
+        #{untrainable_columns.join(", ")}
+      )
     end
 
     def predict(xs)

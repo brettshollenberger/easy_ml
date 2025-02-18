@@ -377,7 +377,7 @@ RSpec.describe EasyML::Deploy do
 
       expect(model_v1.dataset.processed).to receive(:download) do
         FileUtils.mv(
-          SPEC_ROOT.join("backups/datasets"),
+          SPEC_ROOT.join("backups/datasets/#{model_v1.dataset.version}"),
           model_v1.dataset.root_dir
         )
       end

@@ -441,28 +441,18 @@ module EasyML
       def untrainable_columns
         df = model.dataset.processed.data(lazy: true)
 
-        # Get all column names
         columns = df.columns
         selects = columns.map do |col|
-          Polars.col(col).null_count.alias("#{col}__null_count")
+          Polars.col(col).null_count.alias(col)
         end
         null_info = df.select(selects).collect
         null_info.to_hashes.first.compact
-        col_list = null_info.to_hashes.first.transform_values { |v| v > 0 ? v : nil }.compact.transform_keys { |k| k.gsub("__null_count", "") }.keys
+        col_list = null_info.to_hashes.first.transform_values { |v| v > 0 ? v : nil }.compact.keys
 
         model.dataset.regular_columns(col_list)
       end
 
-      def untrainable_error
-        %Q(
-          Cannot train dataset containing null values!
-          Apply preprocessing to the following columns:
-          #{untrainable_columns.join(", ")}
-        )
-      end
-
       def preprocess(xs, ys = nil)
-        raise untrainable_error unless trainable?
         return xs if xs.is_a?(::XGBoost::DMatrix)
         weights_col = model.weights_column || nil
 
@@ -548,29 +538,6 @@ module EasyML
         cb_container.before_iteration(@booster, current_iteration, d_train, evals)
         @booster.update(d_train, current_iteration)
         cb_container.after_iteration(@booster, current_iteration, d_train, evals)
-      end
-
-      def _preprocess(df)
-        return df if df.is_a?(Array)
-
-        df.to_a.map do |row|
-          row.values.map do |value|
-            case value
-            when Time
-              value.to_i # Convert Time to Unix timestamp
-            when Date
-              value.to_time.to_i # Convert Date to Unix timestamp
-            when String
-              value
-            when TrueClass, FalseClass
-              value ? 1.0 : 0.0 # Convert booleans to 1.0 and 0.0
-            when Integer
-              value
-            else
-              value.to_f # Ensure everything else is converted to a float
-            end
-          end
-        end
       end
 
       def initialize_model

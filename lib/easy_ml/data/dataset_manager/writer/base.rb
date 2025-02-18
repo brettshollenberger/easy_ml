@@ -36,6 +36,10 @@ module EasyML
             clear_unique_id
           end
 
+          def unlock!
+            clear_all_keys
+          end
+
           private
 
           def files
@@ -48,6 +52,10 @@ module EasyML
 
           def store_to_unique_file(subdir: nil)
             safe_write(df, unique_path(subdir: subdir))
+          end
+
+          def acquire_lock(key, &block)
+            Support::Lockable.with_lock("#{key}:lock", wait_timeout: 2, &block)
           end
 
           def unique_path(subdir: nil)
@@ -63,15 +71,18 @@ module EasyML
           end
 
           def clear_all_keys
-            keys = list_keys
-            Support::Lockable.with_lock(keys, wait_timeout: 2) do |suo|
-              suo.client.del(keys)
+            list_keys.each { |key| unlock_file(key) }
+          end
+
+          def unlock_file(key)
+            acquire_lock(key) do |suo|
+              suo.client.del(key)
             end
           end
 
           def clear_unique_id(subdir: nil)
             key = unique_id_key(subdir: subdir)
-            Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
+            acquire_lock(key) do |suo|
               suo.client.del(key)
             end
           end
@@ -83,7 +94,7 @@ module EasyML
           def add_key(key)
             keylist = unique_id_key(subdir: "keylist")
 
-            Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
+            acquire_lock(keylist) do |suo|
               suo.client.sadd(keylist, key)
             end
           end
@@ -91,14 +102,20 @@ module EasyML
           def list_keys
             keylist = unique_id_key(subdir: "keylist")
 
-            Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
-              suo.client.smembers(keylist)
+            acquire_lock(keylist) do |suo|
+              if suo.client.type(keylist) == "set"
+                suo.client.smembers(keylist)
+              else
+                suo.client.del(keylist)
+                []
+              end
             end
           end
 
           def key_exists?(key)
             keylist = unique_id_key(subdir: "keylist")
-            Support::Lockable.with_lock(keylist, wait_timeout: 2) do |suo|
+
+            acquire_lock(keylist) do |suo|
               suo.client.sismember(keylist, key)
             end
           end
@@ -107,7 +124,7 @@ module EasyML
             key = unique_id_key(subdir: subdir)
             add_key(key)
 
-            Support::Lockable.with_lock(key, wait_timeout: 2) do |suo|
+            acquire_lock(key) do |suo|
               redis = suo.client
 
               seq = (redis.get(key) || "0").to_i

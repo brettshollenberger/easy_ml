@@ -1,5 +1,7 @@
 module EasyML
   class RefreshDatasetJob < ApplicationJob
+    @queue = :easy_ml
+
     def perform(id)
       begin
         dataset = EasyML::Dataset.find(id)

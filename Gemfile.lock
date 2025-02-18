@@ -15,7 +15,7 @@ PATH
       numo-narray
       numpy
       parallel
-      polars-df (~> 0.16.0)
+      polars-df (~> 0.17.0)
       pycall
       rails
       red-optuna
@@ -1856,17 +1856,17 @@ GEM
       ast (~> 2.4.1)
       racc
     pg (1.5.9)
-    polars-df (0.16.0-aarch64-linux)
+    polars-df (0.17.0-aarch64-linux)
       bigdecimal
-    polars-df (0.16.0-aarch64-linux-musl)
+    polars-df (0.17.0-aarch64-linux-musl)
       bigdecimal
-    polars-df (0.16.0-arm64-darwin)
+    polars-df (0.17.0-arm64-darwin)
       bigdecimal
-    polars-df (0.16.0-x86_64-darwin)
+    polars-df (0.17.0-x86_64-darwin)
       bigdecimal
-    polars-df (0.16.0-x86_64-linux)
+    polars-df (0.17.0-x86_64-linux)
       bigdecimal
-    polars-df (0.16.0-x86_64-linux-musl)
+    polars-df (0.17.0-x86_64-linux-musl)
       bigdecimal
     pp (0.6.2)
       prettyprint
@@ -2090,7 +2090,6 @@ DEPENDENCIES
   numpy (~> 0.4.0)
   ostruct
   pg
-  polars-df (~> 0.16.0)
   pry
   rake (~> 13.0)
   rdoc

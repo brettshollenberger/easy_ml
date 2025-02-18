@@ -127,8 +127,10 @@ RSpec.describe EasyML::Column::Imputers do
 
     mean_raw = dataset.statistics.dig("raw", "annual_revenue", "mean")
     mean_processed = dataset.statistics.dig("processed", "annual_revenue", "mean")
-    expect(mean_raw).to be > mean_processed
-    expect(mean_raw).to eq dataset.columns.find_by(name: "annual_revenue").raw.data.mean
+    expect(mean_raw).to eq mean_processed
+    # The actual, un-clipped data has way higher mean
+    actual_data_mean = dataset.columns.find_by(name: "annual_revenue").raw.data.mean.to_a.first.dig("annual_revenue")
+    expect(actual_data_mean > 10).to be(true)
     expect(mean_processed).to eq 10
     expect(dataset.data["annual_revenue"].to_a).to all(eq 10)
   end

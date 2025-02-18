@@ -30,7 +30,7 @@ module EasyML
     def new
       render inertia: "pages/NewModelPage", props: {
         datasets: EasyML::Dataset.all.map do |dataset|
-          dataset.slice(:id, :name, :num_rows)
+          dataset_to_json(dataset)
         end,
         constants: EasyML::Model.constants,
       }
@@ -41,7 +41,7 @@ module EasyML
       render inertia: "pages/EditModelPage", props: {
         model: model_to_json(model),
         datasets: EasyML::Dataset.all.map do |dataset|
-          dataset.slice(:id, :name, :num_rows)
+          dataset_to_json(dataset)
         end,
         constants: EasyML::Model.constants,
       }
@@ -177,6 +177,7 @@ module EasyML
         :dataset_id,
         :task,
         :objective,
+        :weights_column,
         metrics: [],
         retraining_job_attributes: [
           :id,

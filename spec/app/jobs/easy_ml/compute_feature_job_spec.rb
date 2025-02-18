@@ -54,7 +54,8 @@ RSpec.describe "EasyML::Feature Computation" do
       }.to change { dataset.reload.workflow_status }.from("ready").to("analyzing")
 
       # Process all jobs in the queue
-      process_all_jobs
+      perform_enqueued_jobs # Refresh job
+      process_all_jobs # Compute feature jobs
 
       # Verify the results
       dataset.reload

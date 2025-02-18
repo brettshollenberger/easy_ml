@@ -15,7 +15,7 @@ module EasyML
         ]
 
         attr_accessor :filenames, :root_dir, :partition,
-                      :append_only, :primary_key, :options
+                      :primary_key, :options, :append_only, :named
 
         def initialize(options)
           @root_dir = options.dig(:root_dir)
@@ -25,6 +25,10 @@ module EasyML
           @primary_key = options.dig(:primary_key)
           @named = options.dig(:named) || false
           @options = options
+        end
+
+        def unlock!
+          adapter_class.new(options).unlock!
         end
 
         def store(df, *args)

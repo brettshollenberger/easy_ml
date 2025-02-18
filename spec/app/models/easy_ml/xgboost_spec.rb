@@ -188,6 +188,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         model.hyperparameters.n_estimators = 50
         model.hyperparameters.early_stopping_rounds = 10
         model.save
+
         x_test, = titanic_dataset.test(split_ys: true)
 
         # Train model normally

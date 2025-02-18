@@ -22,7 +22,6 @@ module EasyML
     DATASOURCE_OPTIONS = {
       "s3" => "EasyML::Datasources::S3Datasource",
       "file" => "EasyML::Datasources::FileDatasource",
-      "polars" => "EasyML::Datasources::PolarsDatasource",
     }
     DATASOURCE_TYPES = [
       {
@@ -34,11 +33,6 @@ module EasyML
         value: "file",
         label: "Local Files",
         description: "Connect to data stored in local files",
-      },
-      {
-        value: "polars",
-        label: "Polars DataFrame",
-        description: "In-memory dataframe storage using Polars",
       },
     ].freeze
     DATASOURCE_NAMES = DATASOURCE_OPTIONS.keys.freeze

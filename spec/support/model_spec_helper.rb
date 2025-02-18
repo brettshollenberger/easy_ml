@@ -269,7 +269,7 @@ module ModelSpecHelper
                                                   })
       dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
                                                          training: {
-                                                           method: :categorical,
+                                                           method: :most_frequent,
                                                            params: {
                                                              categorical_min: 2,
                                                              one_hot: true,

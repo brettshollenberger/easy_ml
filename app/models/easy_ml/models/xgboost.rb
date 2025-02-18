@@ -421,11 +421,11 @@ module EasyML
       def prepare_data
         if @d_train.nil?
           col_order = dataset.col_order
-          x_sample, y_sample = dataset.train(split_ys: true, limit: 5, select: col_order)
+          x_sample, y_sample = dataset.train(split_ys: true, limit: 5, select: col_order, lazy: true)
           preprocess(x_sample, y_sample) # Ensure we fail fast if the dataset is misconfigured
-          x_train, y_train = dataset.train(split_ys: true, select: col_order)
-          x_valid, y_valid = dataset.valid(split_ys: true, select: col_order)
-          x_test, y_test = dataset.test(split_ys: true, select: col_order)
+          x_train, y_train = dataset.train(split_ys: true, select: col_order, lazy: true)
+          x_valid, y_valid = dataset.valid(split_ys: true, select: col_order, lazy: true)
+          x_test, y_test = dataset.test(split_ys: true, select: col_order, lazy: true)
           @d_train = preprocess(x_train, y_train)
           @d_valid = preprocess(x_valid, y_valid)
           @d_test = preprocess(x_test, y_test)
@@ -434,21 +434,60 @@ module EasyML
         [@d_train, @d_valid, @d_test]
       end
 
+      def trainable?
+        untrainable_columns.empty?
+      end
+
+      def untrainable_columns
+        df = model.dataset.processed.data(lazy: true)
+
+        columns = df.columns
+        selects = columns.map do |col|
+          Polars.col(col).null_count.alias(col)
+        end
+        null_info = df.select(selects).collect
+        null_info.to_hashes.first.compact
+        col_list = null_info.to_hashes.first.transform_values { |v| v > 0 ? v : nil }.compact.keys
+
+        model.dataset.regular_columns(col_list)
+      end
+
       def preprocess(xs, ys = nil)
         return xs if xs.is_a?(::XGBoost::DMatrix)
+        weights_col = model.weights_column || nil
 
-        orig_xs = xs.dup
-        column_names = xs.columns
-        xs = _preprocess(xs)
-        ys = ys.nil? ? nil : _preprocess(ys).flatten
-        kwargs = { label: ys }.compact
+        if weights_col == model.dataset.target
+          raise ArgumentError, "Weight column cannot be the target column"
+        end
+
+        # Extract feature columns (all columns except label and weight)
+        feature_cols = xs.columns
+        feature_cols -= [weights_col] if weights_col
+        lazy = xs.is_a?(Polars::LazyFrame)
+
+        # Get features, labels and weights
+        features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
+        weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
+        weights = weights.flatten if weights
+        if ys.present?
+          ys = ys.is_a?(Array) ? Polars::Series.new(ys) : ys
+          labels = lazy ? ys.collect.to_numo.flatten : ys.to_numo.flatten
+        else
+          labels = nil
+        end
+
+        kwargs = {
+          label: labels,
+          weight: weights,
+        }.compact
+
         begin
-          ::XGBoost::DMatrix.new(xs, **kwargs).tap do |dmat|
-            dmat.feature_names = column_names
+          ::XGBoost::DMatrix.new(features, **kwargs).tap do |dmatrix|
+            dmatrix.feature_names = feature_cols
           end
         rescue StandardError => e
-          problematic_columns = orig_xs.schema.select { |k, v| [Polars::Categorical, Polars::String].include?(v) }
-          problematic_xs = orig_xs.select(problematic_columns.keys)
+          problematic_columns = xs.schema.select { |k, v| [Polars::Categorical, Polars::String].include?(v) }
+          problematic_xs = lazy ? xs.lazy.select(problematic_columns.keys).collect : xs.select(problematic_columns.keys)
           raise %(
             Error building data for XGBoost.
             Apply preprocessing to columns 
@@ -499,29 +538,6 @@ module EasyML
         cb_container.before_iteration(@booster, current_iteration, d_train, evals)
         @booster.update(d_train, current_iteration)
         cb_container.after_iteration(@booster, current_iteration, d_train, evals)
-      end
-
-      def _preprocess(df)
-        return df if df.is_a?(Array)
-
-        df.to_a.map do |row|
-          row.values.map do |value|
-            case value
-            when Time
-              value.to_i # Convert Time to Unix timestamp
-            when Date
-              value.to_time.to_i # Convert Date to Unix timestamp
-            when String
-              value
-            when TrueClass, FalseClass
-              value ? 1.0 : 0.0 # Convert booleans to 1.0 and 0.0
-            when Integer
-              value
-            else
-              value.to_f # Ensure everything else is converted to a float
-            end
-          end
-        end
       end
 
       def initialize_model

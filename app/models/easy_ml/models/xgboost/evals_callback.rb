@@ -36,7 +36,7 @@ module EasyML
           if tuner.present?
             [tuner.x_valid, tuner.y_valid]
           else
-            model.dataset.valid(split_ys: true)
+            model.dataset.valid(split_ys: true, lazy: true)
           end
         end
 
@@ -47,7 +47,8 @@ module EasyML
           if epoch % log_frequency == 0
             model.adapter.external_model = booster
             x_valid, y_valid = valid_dataset
-            @preprocessed ||= model.preprocess(x_valid)
+            x_valid = x_valid.select(model.dataset.col_order(inference: true))
+            @preprocessed ||= model.preprocess(x_valid, y_valid)
             y_pred = model.predict(@preprocessed)
             dataset = model.dataset.valid(all_columns: true)
 

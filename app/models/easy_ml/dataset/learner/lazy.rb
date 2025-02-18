@@ -21,7 +21,10 @@ module EasyML
 
         def run_queries(split, type)
           queries = build_queries(split, type)
-          @dataset.send(type).send(split, all_columns: true, lazy: true).select(queries).collect
+
+          dataset.columns.apply_clip(
+            @dataset.send(type).send(split, all_columns: true, lazy: true)
+          ).select(queries).collect
         end
 
         def get_column_statistics(query_results)

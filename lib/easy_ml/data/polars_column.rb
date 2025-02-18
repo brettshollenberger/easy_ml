@@ -124,11 +124,25 @@ module EasyML
       # @param series [Polars::Series] The string series to analyze
       # @return [Symbol] One of :datetime, :text, or :categorical
       def determine_string_type(series)
-        if EasyML::Data::DateConverter.maybe_convert_date(Polars::DataFrame.new({ temp: series }),
-                                                          :temp)[:temp].dtype.is_a?(Polars::Datetime)
-          :datetime
-        else
-          categorical_or_text?(series)
+        # Try to parse as numeric first
+        begin
+          # Try integer first
+          series.cast(Polars::Int64)
+          return :numeric
+        rescue StandardError
+          begin
+            # Try float if integer fails
+            series.cast(Polars::Float64)
+            return :numeric
+          rescue StandardError
+            # If not numeric, check for datetime or categorical
+            if EasyML::Data::DateConverter.maybe_convert_date(Polars::DataFrame.new({ temp: series }),
+                                                              :temp)[:temp].dtype.is_a?(Polars::Datetime)
+              :datetime
+            else
+              categorical_or_text?(series)
+            end
+          end
         end
       end
 

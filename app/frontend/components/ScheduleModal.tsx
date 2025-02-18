@@ -587,8 +587,6 @@ export function ScheduleModal({ isOpen, onClose, onSave, initialData, metrics, t
                           value={formData.retraining_job_attributes.threshold}
                           onChange={(e) => handleEvaluatorChange('threshold', parseFloat(e.target.value))}
                           step={0.01}
-                          min={0}
-                          max={1}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 py-2 px-4 shadow-sm border-gray-300 border"
                         />
                       </div>

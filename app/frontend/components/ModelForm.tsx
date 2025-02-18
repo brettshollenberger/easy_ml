@@ -16,6 +16,7 @@ interface ModelFormProps {
     task: string;
     objective?: string;
     metrics?: string[];
+    weights_column?: string;
     retraining_job?: {
       frequency: string;
       at: {
@@ -75,6 +76,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
       task: initialData?.task || 'classification',
       objective: initialData?.objective || 'binary:logistic',
       metrics: initialData?.metrics || ['accuracy_score'],
+      weights_column: initialData?.weights_column || '',
       retraining_job_attributes: initialData?.retraining_job ? {
         id: initialData.retraining_job.id,
         frequency: initialData.retraining_job.frequency,
@@ -165,6 +167,7 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
   };
 
   const selectedDataset = datasets.find(d => d.id === data.model.dataset_id);
+  const columns = selectedDataset?.columns || [];
 
   const filteredTunerJobConstants = constants.tuner_job_constants[data.model.model_type] || {};
 
@@ -244,6 +247,19 @@ export function ModelForm({ initialData, datasets, constants, isEditing, errors:
               />
             )}
             <ErrorDisplay error={errors.dataset_id} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Weights Column (Optional)
+            </label>
+            <SearchableSelect
+              value={data.model.weights_column}
+              options={columns.map(col => ({ value: col.name, label: col.name }))}
+              onChange={(value) => setData('model.weights_column', value)}
+              isClearable={true}
+            />
+            <ErrorDisplay error={errors.weights_column} />
           </div>
 
           <div>

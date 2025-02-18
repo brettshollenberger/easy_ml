@@ -35,42 +35,6 @@ RSpec.describe EasyML::Deploy do
     %w[Name Ticket Cabin]
   end
 
-  class FamilySizeFeature
-    include EasyML::Features
-
-    def fit(df, feature, options = {})
-      df.with_columns(
-        (Polars.col("SibSp") + Polars.col("Parch")).alias("FamilySize")
-      )[["PassengerId", "FamilySize"]]
-    end
-
-    def transform(df, feature)
-      if df.shape[0] == 1
-        df["PassengerId"] = (1..df.height).to_a
-        df = df.drop("FamilySize") # Drop nulled out version of column
-        merge = fit(df, feature)
-        df = df.join(merge, on: "PassengerId", how: "left")
-        return df
-      end
-
-      if df.columns.include?("FamilySize")
-        missing_family_size = df.filter(Polars.col("FamilySize").is_null)
-        return df if missing_family_size.empty?
-        passenger_ids = missing_family_size["PassengerId"]
-      else
-        passenger_ids = df["PassengerId"]
-      end
-      stored_df = feature.query(filter: Polars.col("PassengerId").is_in(passenger_ids))
-      return df if stored_df.empty?
-
-      df.join(stored_df, on: "PassengerId", how: "left")
-    end
-
-    feature name: "Family Size",
-            description: "Adds family size data",
-            primary_key: "PassengerId"
-  end
-
   let(:dataset) do
     mock_s3_download(day_1_dir)
     mock_s3_upload
@@ -82,12 +46,19 @@ RSpec.describe EasyML::Deploy do
         feature_class: FamilySizeFeature.to_s,
         name: "Family Size",
       )
+      dataset.unlock!
       dataset.refresh
       dataset.columns.find_by(name: target).update(is_target: true)
       dataset.columns.where(name: hidden_cols).update_all(hidden: true)
+      dataset.columns.find_by(name: "SibSp").update(preprocessing_steps: {
+                                                      training: { method: :median },
+                                                    })
+      dataset.columns.find_by(name: "Parch").update(preprocessing_steps: {
+                                                      training: { method: :median },
+                                                    })
       dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
                                                     training: {
-                                                      method: :categorical,
+                                                      method: :most_frequent,
                                                       params: {
                                                         one_hot: true,
                                                       },
@@ -95,7 +66,7 @@ RSpec.describe EasyML::Deploy do
                                                   })
       dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
                                                          training: {
-                                                           method: :categorical,
+                                                           method: :most_frequent,
                                                            params: {
                                                              one_hot: true,
                                                            },
@@ -142,71 +113,6 @@ RSpec.describe EasyML::Deploy do
     }
   end
 
-  let(:df) do
-    Polars::DataFrame.new({
-                            "id" => [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-                            "business_name" => ["Business A", "Business B", "Business C", "Business D", "Business E", "Business F",
-                                                "Business G", "Business H", "Business I", "Business J"],
-                            "annual_revenue" => [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10_000],
-                            "loan_purpose" => %w[payroll payroll payroll expansion payroll inventory equipment
-                                                 marketing equipment marketing],
-                            "state" => %w[VIRGINIA INDIANA WYOMING PA WA MN UT CA DE FL],
-                            "rev" => [100, 0, 0, 200, 0, 500, 7000, 0, 0, 10],
-                            "date" => %w[2021-01-01 2021-05-01 2022-01-01 2023-01-01 2024-01-01
-                                         2024-02-01 2024-02-01 2024-03-01 2024-05-01 2024-06-01],
-                          }).with_column(
-      Polars.col("date").str.strptime(Polars::Datetime, "%Y-%m-%d")
-    )
-  end
-
-  let(:polars_datasource) do
-    EasyML::Datasource.create!(
-      name: "Polars datasource",
-      datasource_type: "polars",
-      df: df,
-    )
-  end
-
-  let(:dataset2) do
-    config = dataset_config.merge(
-      datasource: polars_datasource,
-      splitter_attributes: {
-        splitter_type: "date",
-        today: today,
-        date_col: "date",
-        months_test: months_test,
-        months_valid: months_valid,
-      },
-    )
-    mock_s3_download(day_1_dir)
-    mock_s3_upload
-
-    EasyML::Dataset.create(**config).tap do |dataset|
-      dataset.refresh
-      dataset.columns.find_by(name: "rev").update(is_target: true)
-      dataset.columns.where(name: %w[business_name state date]).update_all(hidden: true)
-      dataset.columns.find_by(name: "annual_revenue").update(preprocessing_steps: {
-                                                               training: {
-                                                                 method: :median,
-                                                                 params: {
-                                                                   clip: {
-                                                                     min: 0, max: 1_000_000,
-                                                                   },
-                                                                 },
-                                                               },
-                                                             })
-      dataset.columns.find_by(name: "loan_purpose").update(preprocessing_steps: {
-                                                             training: {
-                                                               method: :categorical,
-                                                               params: {
-                                                                 categorical_min: 2,
-                                                                 one_hot: true,
-                                                               },
-                                                             },
-                                                           })
-    end
-  end
-
   let(:model) do
     EasyML::Model.new(model_config)
   end
@@ -232,11 +138,13 @@ RSpec.describe EasyML::Deploy do
       Timecop.freeze(@time)
 
       model.save
+      model.unlock!
       model.train(async: false)
       model.deploy(async: false)
       model_v1 = model.current_version
 
       Timecop.freeze(@time + 2.hours)
+
       x_test, y_valid = model.dataset.processed.test(split_ys: true)
       y_valid["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
@@ -469,7 +377,7 @@ RSpec.describe EasyML::Deploy do
 
       expect(model_v1.dataset.processed).to receive(:download) do
         FileUtils.mv(
-          SPEC_ROOT.join("backups/datasets"),
+          SPEC_ROOT.join("backups/datasets/#{model_v1.dataset.version}"),
           model_v1.dataset.root_dir
         )
       end

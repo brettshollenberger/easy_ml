@@ -88,6 +88,7 @@ module EasyML
     before_save :update_sha
     after_find :update_from_feature_class
     before_save :update_from_feature_class
+    before_destroy :wipe
 
     def feature_klass
       feature_class.constantize
@@ -197,7 +198,7 @@ module EasyML
       end
 
       EasyML::Data::Partition::Boundaries.new(
-        reader.data(lazy: true),
+        reader.data(lazy: true, all_columns: true),
         primary_key,
         batch_size
       ).to_a.map.with_index do |partition, idx|
@@ -207,7 +208,6 @@ module EasyML
           batch_end: partition[:partition_end],
           batch_number: feature_position,
           subbatch_number: idx,
-          parent_batch_id: Random.uuid,
         }
       end
     end
@@ -218,7 +218,12 @@ module EasyML
 
     def fit(features: [self], async: false)
       ordered_features = features.sort_by(&:feature_position)
-      jobs = ordered_features.map(&:build_batches)
+      parent_batch_id = Random.uuid
+      jobs = ordered_features.map do |feature|
+        feature.build_batches.map do |batch_args|
+          batch_args.merge(parent_batch_id: parent_batch_id)
+        end
+      end
       job_count = jobs.dup.flatten.size
 
       ordered_features.each(&:wipe)
@@ -452,6 +457,10 @@ module EasyML
         workflow_status: :ready,
       }.compact
       update!(updates)
+    end
+
+    def unlock!
+      feature_store.unlock!
     end
 
     UNCONFIGURABLE_COLUMNS = %w(

@@ -45,7 +45,7 @@ module EasyML
     MODEL_NAMES = MODEL_OPTIONS.keys.freeze
     MODEL_CONSTANTS = MODEL_OPTIONS.values.map(&:constantize)
 
-    add_configuration_attributes :task, :objective, :hyperparameters, :callbacks, :metrics
+    add_configuration_attributes :task, :objective, :hyperparameters, :callbacks, :metrics, :weights_column
     MODEL_CONSTANTS.flat_map(&:configuration_attributes).each do |attribute|
       add_configuration_attributes attribute
     end
@@ -179,6 +179,8 @@ module EasyML
     end
 
     def actually_train(&progress_block)
+      raise untrainable_error unless trainable?
+
       lock_model do
         run = pending_run
         run.wrap_training do
@@ -258,7 +260,7 @@ module EasyML
 
     def formatted_version
       return nil unless version
-      Time.strptime(version, "%Y%m%d%H%M%S").strftime("%B %-d, %Y at %-l:%M %p")
+      UTC.parse(version).in_time_zone(EasyML::Configuration.timezone).strftime("%B %-d, %Y at %-l:%M %p")
     end
 
     def last_run_at
@@ -276,6 +278,22 @@ module EasyML
     alias_method :current_version, :inference_version
     alias_method :latest_version, :inference_version
     alias_method :deployed, :inference_version
+
+    def trainable?
+      adapter.trainable?
+    end
+
+    def untrainable_columns
+      adapter.untrainable_columns
+    end
+
+    def untrainable_error
+      %Q(
+        Cannot train dataset containing null values!
+        Apply preprocessing to the following columns:
+        #{untrainable_columns.join(", ")}
+      )
+    end
 
     def predict(xs)
       load_model!

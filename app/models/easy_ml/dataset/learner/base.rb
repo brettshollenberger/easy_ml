@@ -15,8 +15,8 @@ module EasyML
             (column.one_hot? && type.to_sym == :processed)
         end
 
-        TYPES_ALL = %i(raw clipped processed)
-        TYPES_RAW = %i(raw clipped)
+        TYPES_ALL = %i(raw processed)
+        TYPES_RAW = %i(raw)
         TYPES_PROCESSED = %i(processed)
 
         def types(type = :all)

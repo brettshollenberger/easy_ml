@@ -450,6 +450,7 @@ module EasyML
     def after_fit
       update_sha
 
+      feature_store.compact
       updates = {
         fit_at: Time.current,
         needs_fit: false,

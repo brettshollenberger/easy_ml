@@ -258,7 +258,7 @@ module EasyML
 
     def formatted_version
       return nil unless version
-      Time.strptime(version, "%Y%m%d%H%M%S").strftime("%B %-d, %Y at %-l:%M %p")
+      UTC.parse(version).in_time_zone(EasyML::Configuration.timezone).strftime("%B %-d, %Y at %-l:%M %p")
     end
 
     def last_run_at

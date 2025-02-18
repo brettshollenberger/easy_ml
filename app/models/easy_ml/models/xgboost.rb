@@ -452,6 +452,7 @@ module EasyML
         weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
         weights = weights.flatten if weights
         if ys.present?
+          ys = ys.is_a?(Array) ? Polars::Series.new(ys) : ys
           labels = lazy ? ys.collect.to_numo.flatten : ys.to_numo.flatten
         else
           labels = nil

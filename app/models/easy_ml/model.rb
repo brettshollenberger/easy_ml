@@ -277,6 +277,10 @@ module EasyML
     alias_method :latest_version, :inference_version
     alias_method :deployed, :inference_version
 
+    def trainable?
+      adapter.trainable?
+    end
+
     def predict(xs)
       load_model!
       unless xs.is_a?(XGBoost::DMatrix)

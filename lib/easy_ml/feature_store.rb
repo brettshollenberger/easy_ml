@@ -33,7 +33,7 @@ module EasyML
       files_to_cp = Dir.glob(Pathname.new(old_dir).join("**/*")).select { |f| File.file?(f) }
 
       files_to_cp.each do |file|
-        target_file = file.gsub(old_version.to_s, new_version.to_s)
+        target_file = file.gsub(old_dir, new_dir)
         FileUtils.mkdir_p(File.dirname(target_file))
         FileUtils.cp(file, target_file)
       end

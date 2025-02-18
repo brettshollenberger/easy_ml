@@ -434,7 +434,35 @@ module EasyML
         [@d_train, @d_valid, @d_test]
       end
 
+      def trainable?
+        untrainable_columns.empty?
+      end
+
+      def untrainable_columns
+        df = model.dataset.processed.data(lazy: true)
+
+        # Get all column names
+        columns = df.columns
+        selects = columns.map do |col|
+          Polars.col(col).null_count.alias("#{col}__null_count")
+        end
+        null_info = df.select(selects).collect
+        null_info.to_hashes.first.compact
+        col_list = null_info.to_hashes.first.transform_values { |v| v > 0 ? v : nil }.compact.transform_keys { |k| k.gsub("__null_count", "") }.keys
+
+        model.dataset.regular_columns(col_list)
+      end
+
+      def untrainable_error
+        %Q(
+          Cannot train dataset containing null values!
+          Apply preprocessing to the following columns:
+          #{untrainable_columns.join(", ")}
+        )
+      end
+
       def preprocess(xs, ys = nil)
+        raise untrainable_error unless trainable?
         return xs if xs.is_a?(::XGBoost::DMatrix)
         weights_col = model.weights_column || nil
 

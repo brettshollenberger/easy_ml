@@ -490,6 +490,24 @@ module EasyML
       df
     end
 
+    # Massage out one-hot cats to their canonical name
+    #
+    # Takes: ["Sex_male", "Sex_female", "Embarked_c", "PassengerId"]
+    # Returns: ["Embarked", "Sex", "PassengerId"]
+    def regular_columns(col_list)
+      one_hot_cats = columns.allowed_categories.invert.reduce({}) do |h, (k, v)|
+        h.tap do
+          k.each do |k2|
+            h["#{v}_#{k2}"] = v
+          end
+        end
+      end
+
+      col_list.map do |col|
+        one_hot_cats.key?(col) ? one_hot_cats[col] : col
+      end.uniq.sort
+    end
+
     measure_method_timing :normalize
 
     def missing_required_fields(df)

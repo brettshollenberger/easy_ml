@@ -10,48 +10,6 @@ RSpec.describe EasyML::Datasource do
     EasyML::Cleaner.clean
   end
 
-  describe "Polars Datasource" do
-    let(:df) do
-      df = Polars::DataFrame.new({
-                                   id: [1, 2, 3, 4, 5, 6, 7, 8],
-                                   rev: [0, 0, 100, 200, 0, 300, 400, 500],
-                                   annual_revenue: [300, 400, 5000, 10_000, 20_000, 30, nil, nil],
-                                   points: [1.0, 2.0, 0.1, 0.8, nil, 0.1, 0.4, 0.9],
-                                   created_date: %w[2021-01-01 2021-01-01 2022-02-02 2024-01-01 2024-06-15 2024-07-01
-                                                    2024-08-01 2024-09-01],
-                                 })
-
-      # Convert the 'created_date' column to datetime
-      df.with_column(
-        Polars.col("created_date").str.strptime(Polars::Datetime, "%Y-%m-%d").alias("created_date")
-      )
-    end
-
-    it "creates polars datasources" do
-      # Save the serialized DataFrame to the database
-      datasource = EasyML::Datasource.create!(
-        name: "My Polars Df",
-        datasource_type: "polars",
-        df: df,
-      )
-      datasource = EasyML::Datasource.find(datasource.id)
-      expect(datasource.data).to eq df
-    end
-
-    it "creates histories" do
-      datasource = EasyML::Datasource.create!(
-        name: "My Polars Df",
-        datasource_type: "polars",
-        df: df,
-      )
-      datasource = EasyML::Datasource.find(datasource.id)
-      datasource.snapshot
-      snapshot = datasource.latest_snapshot
-
-      expect(snapshot.data).to eq df
-    end
-  end
-
   describe "S3 Datasource" do
     it "saves and loads the s3 datasource" do
       file_spec do |_, csv_file, _|

@@ -78,11 +78,18 @@ module EasyML
     scope :never_applied, -> { where(applied_at: nil) }
     scope :never_fit, -> do
             fittable = where(fit_at: nil)
-            fittable = fittable.select { |f| f.adapter.respond_to?(:fit) }
+            fittable = fittable.select(&:fittable?)
             where(id: fittable.map(&:id))
           end
     scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
-    scope :ready_to_apply, -> { where(needs_fit: false).where.not(id: has_changes.map(&:id)) }
+    scope :ready_to_apply, -> do
+            base = where(needs_fit: false).where.not(id: has_changes.map(&:id))
+            doesnt_fit = where_no_fit
+            where(id: base.map(&:id).concat(doesnt_fit.map(&:id)))
+          end
+
+    scope :fittable, -> { all.select(&:fittable?) }
+    scope :where_no_fit, -> { all.reject(&:fittable?) }
 
     before_save :apply_defaults, if: :new_record?
     before_save :update_sha
@@ -98,6 +105,10 @@ module EasyML
 
     def has_code?
       feature_klass.present?
+    end
+
+    def fittable?
+      adapter.respond_to?(:fit)
     end
 
     def adapter
@@ -213,13 +224,14 @@ module EasyML
     end
 
     def wipe
+      update(needs_fit: true) if fittable?
       feature_store.wipe
     end
 
     def fit(features: [self], async: false)
       ordered_features = features.sort_by(&:feature_position)
       parent_batch_id = Random.uuid
-      jobs = ordered_features.map do |feature|
+      jobs = ordered_features.select(&:fittable?).map do |feature|
         feature.build_batches.map do |batch_args|
           batch_args.merge(parent_batch_id: parent_batch_id)
         end
@@ -450,13 +462,17 @@ module EasyML
     def after_fit
       update_sha
 
-      feature_store.compact
+      feature_store.compact if fittable?
       updates = {
         fit_at: Time.current,
         needs_fit: false,
         workflow_status: :ready,
       }.compact
       update!(updates)
+    end
+
+    def after_transform
+      feature_store.compact if !fittable?
     end
 
     def unlock!
@@ -517,14 +533,14 @@ module EasyML
       new_sha = compute_sha
       if new_sha != self.sha
         self.sha = new_sha
-        self.needs_fit = true
+        self.needs_fit = fittable?
       end
     end
 
     def update_from_feature_class
       if read_attribute(:batch_size) != config.dig(:batch_size)
         write_attribute(:batch_size, config.dig(:batch_size))
-        self.needs_fit = true
+        self.needs_fit = fittable?
       end
 
       if self.primary_key != config.dig(:primary_key)

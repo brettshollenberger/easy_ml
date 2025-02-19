@@ -577,6 +577,25 @@ RSpec.describe EasyML::Dataset do
         perform_enqueued_jobs
         expect(dataset.data.count).to eq 16
       end
+
+      it "doesn't run transform on ANY feature before fit on ALL features" do
+        dataset = titanic_dataset
+        # This feature must be computed before the next one
+        dataset.features.create!(
+          name: "FamilySize",
+          feature_class: "FamilySizeFeature",
+          feature_position: 1,
+        )
+        # This feature only responds to transform, but transform is not called on this
+        # feature before fit on the previous feature
+        dataset.features.create!(
+          name: "TitanicDependentFeature",
+          feature_class: "TitanicDependentFeature",
+          feature_position: 2,
+        )
+        dataset.refresh
+        expect(dataset.data.columns).to include("FamilySizePlusOne")
+      end
     end
   end
 

@@ -54,6 +54,8 @@ module EasyML
           return df unless anything?
 
           adapters.reduce(df) do |df, adapter|
+            next df if df.columns.exclude?(column.name)
+
             adapter.transform(df)
           end
         end

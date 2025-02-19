@@ -232,20 +232,20 @@ module EasyML
       cleanup
       refresh_datasource!
       split_data
-      process_data
+      fit
     end
 
     def prepare
       prepare_features
       refresh_datasource
       split_data
-      process_data
+      fit
     end
 
     def actually_refresh
       refreshing do
-        learn(delete: false) # After syncing datasource, learn new statistics + sync columns
-        process_data
+        fit
+        normalize_all
         fully_reload
         learn
         learn_statistics(type: :processed) # After processing data, we learn any new statistics
@@ -385,6 +385,7 @@ module EasyML
     def unlock!
       Support::Lockable.unlock!(lock_key)
       features.each(&:unlock!)
+      true
     end
 
     def locked?
@@ -425,12 +426,6 @@ module EasyML
 
     def statistics
       (read_attribute(:statistics) || {}).with_indifferent_access
-    end
-
-    def process_data
-      learn(delete: false)
-      fit
-      normalize_all
     end
 
     def needs_learn?
@@ -722,6 +717,18 @@ module EasyML
       reload
     end
 
+    def list_nulls(input, list_raw = false)
+      case input
+      when Polars::DataFrame
+        input = input.lazy
+      when String, Symbol
+        input = input.to_sym
+        input = send(input).data(lazy: true)
+      end
+      col_list = EasyML::Data::DatasetManager.list_nulls(input)
+      list_raw ? col_list : regular_columns(col_list)
+    end
+
     private
 
     def apply_date_splitter_config
@@ -798,6 +805,7 @@ module EasyML
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
+      features.select { |f| !f.fittable? }.each(&:after_transform)
       @normalized = true
     end
 
@@ -840,6 +848,7 @@ module EasyML
     end
 
     def fit
+      learn(delete: false)
       learn_statistics(type: :raw)
     end
 

@@ -44,13 +44,21 @@ module EasyML
           Reader.schema(input, **kwargs, &block)
         end
 
+        def list_nulls(input = nil, **kwargs, &block)
+          Reader.list_nulls(input, **kwargs, &block)
+        end
+
         def num_rows
           Reader.num_rows
         end
       end
 
-      def num_rows
-        Reader.num_rows(root_dir)
+      def list_nulls(input = nil, **kwargs, &block)
+        Reader.list_nulls(input, **kwargs, &block)
+      end
+
+      def num_rows(input = nil, **kwargs, &block)
+        Reader.num_rows(input, **kwargs, &block)
       end
 
       def query(input = nil, **kwargs, &block)

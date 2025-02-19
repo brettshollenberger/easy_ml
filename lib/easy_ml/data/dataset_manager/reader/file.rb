@@ -15,6 +15,11 @@ module EasyML
             return Batch.new(options, &block).query
           end
 
+          def list_nulls
+            df = dataframe.lazy
+            list_df_nulls(df)
+          end
+
           def schema
             @schema ||= files.any? ? Polars.read_parquet_schema(files.first) : nil
           end

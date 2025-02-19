@@ -37,6 +37,20 @@ module EasyML
                 max: 10,
                 step: 0.1,
               },
+              scale_pos_weight: {
+                label: "Scale Pos Weight",
+                description: "Balance of positive and negative weights",
+                min: 0,
+                max: 200,
+                step: 1,
+              },
+              max_delta_step: {
+                label: "Max Delta Step",
+                description: "Maximum delta step",
+                min: 0,
+                max: 10,
+                step: 1,
+              },
               gamma: {
                 label: "Gamma",
                 description: "Minimum loss reduction required to make a further partition",
@@ -81,11 +95,13 @@ module EasyML
                     label: "Histogram",
                     description: "Fast histogram optimized approximate greedy algorithm",
                   },
-                  {
-                    value: "gpu_hist",
-                    label: "GPU Histogram",
-                    description: "GPU implementation of hist algorithm",
-                  },
+                # Only when compiled wih GPU support...
+                # How to make this not a default optoin
+                # {
+                #   value: "gpu_hist",
+                #   label: "GPU Histogram",
+                #   description: "GPU implementation of hist algorithm",
+                # },
                 ],
               },
             )

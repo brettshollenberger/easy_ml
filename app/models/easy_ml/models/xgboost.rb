@@ -439,21 +439,18 @@ module EasyML
       end
 
       def untrainable_columns
-        df = model.dataset.processed.data(lazy: true)
+        model.dataset.refresh if model.dataset.processed.nil?
 
-        columns = df.columns
-        selects = columns.map do |col|
-          Polars.col(col).null_count.alias(col)
-        end
-        null_info = df.select(selects).collect
-        null_info.to_hashes.first.compact
-        col_list = null_info.to_hashes.first.transform_values { |v| v > 0 ? v : nil }.compact.keys
-
-        model.dataset.regular_columns(col_list)
+        model.dataset.list_nulls(
+          model.dataset.processed.data(lazy: true)
+        )
       end
 
       def preprocess(xs, ys = nil)
         return xs if xs.is_a?(::XGBoost::DMatrix)
+        lazy = xs.is_a?(Polars::LazyFrame)
+        return xs if (lazy ? xs.limit(1).collect : xs).shape[0] == 0
+
         weights_col = model.weights_column || nil
 
         if weights_col == model.dataset.target
@@ -463,10 +460,13 @@ module EasyML
         # Extract feature columns (all columns except label and weight)
         feature_cols = xs.columns
         feature_cols -= [weights_col] if weights_col
-        lazy = xs.is_a?(Polars::LazyFrame)
 
         # Get features, labels and weights
-        features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
+        begin
+          features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
+        rescue => e
+          binding.pry
+        end
         weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
         weights = weights.flatten if weights
         if ys.present?

@@ -80,7 +80,7 @@ module EasyML
       if dataset_params[:features_attributes].present?
         # Clean up any feature IDs that don't exist anymore
         feature_ids = dataset_params[:features_attributes].map { |attrs| attrs[:id] }.compact
-        existing_feature_ids = Feature.where(id: feature_ids).pluck(:id)
+        existing_feature_ids = dataset.features.where(id: feature_ids).pluck(:id)
 
         params[:dataset][:features_attributes].each do |attrs|
           if attrs[:id].present? && !existing_feature_ids.include?(attrs[:id].to_i)
@@ -93,7 +93,7 @@ module EasyML
           attrs[:feature_class] if attrs[:id].blank?
         }.compact
 
-        existing_features = Feature.where(feature_class: feature_classes)
+        existing_features = dataset.features.where(feature_class: feature_classes)
 
         # Update params with existing feature IDs
         existing_features.each do |feature|

@@ -32,8 +32,7 @@ module EasyML
       end
 
       by_name = cols.index_by(&:name)
-      df.columns.each do |col|
-        column = by_name[col]
+      cols.each do |column|
         df = column.transform(df, inference: inference, computed: computed) if column
       end
 

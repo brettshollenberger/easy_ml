@@ -717,7 +717,9 @@ module EasyML
       reload
     end
 
-    def list_nulls(input, list_raw = false)
+    def list_nulls(input = nil, list_raw = false)
+      input = data(lazy: true) if input.nil?
+
       case input
       when Polars::DataFrame
         input = input.lazy

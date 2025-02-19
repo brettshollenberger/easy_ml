@@ -135,6 +135,12 @@ module EasyML
         end
       end
 
+      def cleanup
+        model.callbacks.each do |callback|
+          callback.cleanup if callback.respond_to?(:cleanup)
+        end
+      end
+
       def prepare_callbacks(tuner)
         set_wandb_project(tuner.project_name)
 

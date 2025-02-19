@@ -187,9 +187,10 @@ module EasyML
           best_params = nil
           if run.should_tune?
             best_params = hyperparameter_search(&progress_block)
+          else
+            fit(&progress_block)
+            save
           end
-          fit(&progress_block)
-          save
           [self, best_params]
         end
         update(is_training: false)
@@ -391,6 +392,10 @@ module EasyML
 
     def after_tuning
       adapter.after_tuning
+    end
+
+    def cleanup
+      adapter.cleanup
     end
 
     def fit_in_batches(tuning: false, batch_size: nil, batch_overlap: nil, batch_key: nil, checkpoint_dir: Rails.root.join("tmp", "xgboost_checkpoints"), &progress_block)

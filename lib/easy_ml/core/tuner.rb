@@ -108,7 +108,6 @@ module EasyML
           end
         end
 
-        model.after_tuning
         return nil if tuner_job.tuner_runs.all?(&:failed?)
 
         best_run = tuner_job.best_run
@@ -118,6 +117,13 @@ module EasyML
           status: :success,
           completed_at: Time.current,
         )
+        model.after_tuning
+        if best_run&.hyperparameters.present?
+          model.hyperparameters = best_run.hyperparameters
+          model.fit
+          model.save
+        end
+        model.cleanup
 
         best_run&.hyperparameters
       rescue StandardError => e

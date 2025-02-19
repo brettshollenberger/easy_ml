@@ -103,7 +103,7 @@ module EasyML
           model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
         end
 
-        def track_cumulative_feature_importance(finish = true)
+        def track_cumulative_feature_importance
           return unless @feature_importances
 
           project_name = model.adapter.get_wandb_project
@@ -127,12 +127,15 @@ module EasyML
             "feature_importance" => bar_plot.__pyptr__,
           }
           Wandb.log(log_data)
-          model.adapter.delete_wandb_project if finish
-          Wandb.finish if finish
         end
 
         def after_tuning
           track_cumulative_feature_importance
+        end
+
+        def cleanup
+          model.adapter.delete_wandb_project
+          Wandb.finish
         end
       end
     end

@@ -28,7 +28,7 @@ module EasyML
       if computed
         cols = column_list.computed
       else
-        cols = column_list.raw
+        cols = column_list
       end
 
       by_name = cols.index_by(&:name)

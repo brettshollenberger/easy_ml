@@ -478,7 +478,7 @@ module EasyML
       df = apply_missing_columns(df, inference: inference)
       df = columns.transform(df, inference: inference)
       df = apply_features(df, features)
-      df = columns.transform(df, inference: inference, computed: true)
+      df = columns.transform(df, inference: inference)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df = drop_nulls(df) unless inference
       df, = processed.split_features_targets(df, true, target) if split_ys

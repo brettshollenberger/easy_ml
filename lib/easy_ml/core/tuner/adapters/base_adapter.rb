@@ -18,12 +18,22 @@ module EasyML
           end
 
           def defaults
-            {}
+            model.adapter.hyperparameters.class.hyperparameter_constants.transform_values do |constant|
+              values = constant.slice(:min, :max, :step, :options)
+              if values.key?(:options)
+                values[:options] = values[:options].map { |option| option[:value] }
+              end
+              values
+            end
           end
 
           def run_trial(trial)
             config = deep_merge_defaults(self.config.clone.deep_symbolize_keys)
-            suggest_parameters(trial, config)
+            # For first trial, re-use the original hyperparameters, so they
+            # serve as our starting point/imputers
+            unless trial == 1
+              suggest_parameters(trial, config)
+            end
             yield model
           end
 
@@ -57,8 +67,11 @@ module EasyML
             min = param_config[:min]
             max = param_config[:max]
             log = param_config[:log]
+            options = param_config[:options]
 
-            if log
+            if options
+              trial.suggest_categorical(param_name.to_s, options)
+            elsif log
               trial.suggest_loguniform(param_name.to_s, min, max)
             elsif max.is_a?(Integer) && min.is_a?(Integer)
               trial.suggest_int(param_name.to_s, min, max)

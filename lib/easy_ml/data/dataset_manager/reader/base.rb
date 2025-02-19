@@ -35,6 +35,18 @@ module EasyML
 
           private
 
+          def list_df_nulls(df)
+            df = df.lazy
+
+            columns = df.columns
+            selects = columns.map do |col|
+              Polars.col(col).null_count.alias(col)
+            end
+            null_info = df.select(selects).collect
+            null_info.to_hashes.first.compact
+            null_info.to_hashes.first.transform_values { |v| v > 0 ? v : nil }.compact.keys
+          end
+
           def apply_defaults(kwargs)
             options = kwargs.dup
 

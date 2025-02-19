@@ -17,10 +17,16 @@ module EasyML
           ).query
         end
 
-        def self.schema(input, **kwargs, &block)
+        def self.schema(input = nil, **kwargs, &block)
           adapter(input).new(
             kwargs.merge!(input: input), &block
           ).schema
+        end
+
+        def self.list_nulls(input = nil, **kwargs, &block)
+          adapter(input).new(
+            kwargs.merge!(input: input), &block
+          ).list_nulls
         end
 
         def self.files(dir)

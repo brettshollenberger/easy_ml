@@ -41,7 +41,7 @@ module EasyML
       render inertia: "pages/EditModelPage", props: {
         model: model_to_json(model),
         datasets: EasyML::Dataset.all.map do |dataset|
-          dataset_to_json(dataset)
+          dataset_to_json_small(dataset)
         end,
         constants: EasyML::Model.constants,
       }
@@ -167,7 +167,7 @@ module EasyML
     private
 
     def includes_list
-      [:retraining_runs, :retraining_job, dataset: [:columns, :features, :splitter]]
+      [:retraining_runs, :retraining_job, dataset: [:features, :splitter, columns: [:lineages]]]
     end
 
     def model_params

@@ -179,11 +179,11 @@ module EasyML
     end
 
     def actually_train(&progress_block)
-      raise untrainable_error unless trainable?
-
       lock_model do
         run = pending_run
         run.wrap_training do
+          raise untrainable_error unless trainable?
+
           best_params = nil
           if run.should_tune?
             best_params = hyperparameter_search(&progress_block)

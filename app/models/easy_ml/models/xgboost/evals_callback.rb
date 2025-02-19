@@ -50,7 +50,7 @@ module EasyML
             x_valid = x_valid.select(model.dataset.col_order(inference: true))
             @preprocessed ||= model.preprocess(x_valid, y_valid)
             y_pred = model.predict(@preprocessed)
-            dataset = model.dataset.valid(all_columns: true)
+            dataset = model.dataset.processed.valid(all_columns: true)
 
             metrics = model.evaluate(y_pred: y_pred, y_true: y_valid, x_true: x_valid, dataset: dataset)
             Wandb.log(metrics)

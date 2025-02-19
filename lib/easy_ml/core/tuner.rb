@@ -73,13 +73,13 @@ module EasyML
         model.task = task
 
         model.dataset.refresh if model.dataset.needs_refresh?
-        x_valid, y_valid = model.dataset.valid(split_ys: true, all_columns: true)
+        x_valid, y_valid = model.dataset.processed.valid(split_ys: true, all_columns: true)
         x_normalized = model.dataset.normalize(x_valid, inference: true)
         x_normalized = model.preprocess(x_normalized)
         self.x_valid = x_valid
         self.y_valid = y_valid
         self.x_normalized = x_normalized
-        self.dataset = model.dataset.valid(all_columns: true)
+        self.dataset = model.dataset.processed.valid(all_columns: true)
         adapter.tune_started_at = tune_started_at
         adapter.x_valid = x_valid
         adapter.y_valid = y_valid

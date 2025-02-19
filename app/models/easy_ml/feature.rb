@@ -81,7 +81,10 @@ module EasyML
             fittable = fittable.select(&:fittable?)
             where(id: fittable.map(&:id))
           end
-    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
+    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit).or(datasource_was_refreshed) }
+    scope :datasource_was_refreshed, -> do
+            where(id: all.select(&:datasource_was_refreshed?).map(&:id))
+          end
     scope :ready_to_apply, -> do
             base = where(needs_fit: false).where.not(id: has_changes.map(&:id))
             doesnt_fit = where_no_fit
@@ -144,6 +147,7 @@ module EasyML
     end
 
     def datasource_was_refreshed?
+      return false unless fittable?
       return true if fit_at.nil?
       return false if dataset.datasource.refreshed_at.nil?
 

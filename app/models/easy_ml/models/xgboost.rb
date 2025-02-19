@@ -427,11 +427,11 @@ module EasyML
       def prepare_data
         if @d_train.nil?
           col_order = dataset.col_order
-          x_sample, y_sample = dataset.train(split_ys: true, limit: 5, select: col_order, lazy: true)
+          x_sample, y_sample = dataset.processed.train(split_ys: true, limit: 5, select: col_order, lazy: true)
           preprocess(x_sample, y_sample) # Ensure we fail fast if the dataset is misconfigured
-          x_train, y_train = dataset.train(split_ys: true, select: col_order, lazy: true)
-          x_valid, y_valid = dataset.valid(split_ys: true, select: col_order, lazy: true)
-          x_test, y_test = dataset.test(split_ys: true, select: col_order, lazy: true)
+          x_train, y_train = dataset.processed.train(split_ys: true, select: col_order, lazy: true)
+          x_valid, y_valid = dataset.processed.valid(split_ys: true, select: col_order, lazy: true)
+          x_test, y_test = dataset.processed.test(split_ys: true, select: col_order, lazy: true)
           @d_train = preprocess(x_train, y_train)
           @d_valid = preprocess(x_valid, y_valid)
           @d_test = preprocess(x_test, y_test)

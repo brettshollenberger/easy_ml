@@ -741,5 +741,26 @@ RSpec.describe EasyML::Datasource do
         expect(feature.refresh_every).to be_a(Integer)
       end
     end
+
+    describe "Deleting features" do
+      let(:feature) do
+        dataset.features.create!(
+          name: "FamilySize",
+          feature_class: "FamilySizeFeature",
+        )
+      end
+
+      it "lets you load the feature" do
+        feature
+        orig_location = Module.const_source_location("FamilySizeFeature").first
+        filename = File.basename(orig_location)
+        backup_location = Rails.root.join(SPEC_ROOT.join("backups", filename)).to_s
+        FileUtils.mv(orig_location, backup_location)
+
+        expect { feature.destroy }.to_not raise_error
+      ensure
+        FileUtils.mv(backup_location, orig_location)
+      end
+    end
   end
 end

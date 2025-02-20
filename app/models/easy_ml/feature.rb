@@ -34,6 +34,7 @@ module EasyML
       def compute_sha(feature_class)
         require "digest"
         path = feature_class.constantize.instance_method(:transform).source_location.first
+        return nil unless File.exist?(path)
         current_mtime = File.mtime(path)
         cache_key = "feature_sha/#{path}"
 

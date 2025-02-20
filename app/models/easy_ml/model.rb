@@ -624,8 +624,8 @@ module EasyML
     private
 
     def default_evaluation_inputs
-      x_true, y_true = dataset.test(split_ys: true)
-      ds = dataset.test(all_columns: true)
+      x_true, y_true = dataset.processed.test(split_ys: true, all_columns: true)
+      ds = dataset.processed.test(all_columns: true)
       y_pred = predict(x_true)
       {
         x_true: x_true,

@@ -457,7 +457,7 @@ module EasyML
         lazy = xs.is_a?(Polars::LazyFrame)
         return xs if (lazy ? xs.limit(1).collect : xs).shape[0] == 0
 
-        weights_col = model.weights_column || nil
+        weights_col = (model.weights_column.nil? || model.weights_column.blank?) ? nil : model.weights_column
 
         if weights_col == model.dataset.target
           raise ArgumentError, "Weight column cannot be the target column"
@@ -468,11 +468,7 @@ module EasyML
         feature_cols -= [weights_col] if weights_col
 
         # Get features, labels and weights
-        begin
-          features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
-        rescue => e
-          binding.pry
-        end
+        features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
         weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
         weights = weights.flatten if weights
         if ys.present?

@@ -1,17 +1,21 @@
 module EasyML
   module Data
     class Embeddings
+      require_relative "embeddings/compressor"
+      require_relative "embeddings/adapters"
+
       COMPRESSION_DEFAULT = {
         present: :balanced,
       }
 
       attr_reader :df, :column, :model, :adapter, :compression,
-                  :embeddings, :compressed_embeddings
+                  :embeddings, :compressed_embeddings, :config,
+                  :llm
 
       def initialize(options = {})
         @df = options[:df]
         @column = options[:column]
-        @model = options[:model]
+        @llm = options[:llm] || "openai"
         @config = options[:config] || {}
         @compression = options[:compression] || COMPRESSION_DEFAULT
       end
@@ -32,7 +36,7 @@ module EasyML
       private
 
       def adapter
-        @adapter ||= EasyML::Data::Embeddings::Adapters.new(model, config)
+        @adapter ||= EasyML::Data::Embeddings::Adapters.new(llm, config)
       end
 
       def compressor

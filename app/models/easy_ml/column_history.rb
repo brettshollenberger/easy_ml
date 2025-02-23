@@ -30,6 +30,7 @@
 #  last_datasource_sha :string
 #  last_feature_sha    :string
 #  in_raw_dataset      :boolean
+#  is_primary_key      :boolean
 #
 module EasyML
   class ColumnHistory < ActiveRecord::Base

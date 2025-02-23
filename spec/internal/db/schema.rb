@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
+ActiveRecord::Schema[7.2].define(version: 2025_02_23_135620) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -42,6 +42,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.string "last_datasource_sha"
     t.string "last_feature_sha"
     t.boolean "in_raw_dataset"
+    t.boolean "is_primary_key"
     t.index ["column_id"], name: "index_easy_ml_column_histories_on_column_id"
     t.index ["computed_by"], name: "index_easy_ml_column_histories_on_computed_by"
     t.index ["dataset_id", "name"], name: "index_easy_ml_column_histories_on_dataset_id_and_name"
@@ -56,6 +57,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.index ["is_computed"], name: "index_easy_ml_column_histories_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_column_histories_on_is_date_column"
     t.index ["is_learning"], name: "index_easy_ml_column_histories_on_is_learning"
+    t.index ["is_primary_key"], name: "index_easy_ml_column_histories_on_is_primary_key"
     t.index ["is_target"], name: "index_easy_ml_column_histories_on_is_target"
     t.index ["last_datasource_sha"], name: "index_easy_ml_column_histories_on_last_datasource_sha"
     t.index ["last_feature_sha"], name: "index_easy_ml_column_histories_on_last_feature_sha"
@@ -87,6 +89,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.string "last_datasource_sha"
     t.string "last_feature_sha"
     t.boolean "in_raw_dataset"
+    t.boolean "is_primary_key"
     t.index ["computed_by"], name: "index_easy_ml_columns_on_computed_by"
     t.index ["dataset_id", "name"], name: "index_easy_ml_columns_on_dataset_id_and_name", unique: true
     t.index ["datatype"], name: "index_easy_ml_columns_on_datatype"
@@ -97,6 +100,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.index ["is_computed"], name: "index_easy_ml_columns_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_columns_on_is_date_column"
     t.index ["is_learning"], name: "index_easy_ml_columns_on_is_learning"
+    t.index ["is_primary_key"], name: "index_easy_ml_columns_on_is_primary_key"
     t.index ["is_target"], name: "index_easy_ml_columns_on_is_target"
     t.index ["last_datasource_sha"], name: "index_easy_ml_columns_on_last_datasource_sha"
     t.index ["last_feature_sha"], name: "index_easy_ml_columns_on_last_feature_sha"

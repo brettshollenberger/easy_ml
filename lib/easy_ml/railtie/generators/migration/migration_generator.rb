@@ -54,6 +54,7 @@ module EasyML
             add_raw_schema_to_datasets
             remove_evaluator_from_retraining_jobs
             add_unique_constraint_to_easy_ml_model_names
+            add_is_primary_key_to_easy_ml_columns
           ].freeze
 
           # Specify the next migration number

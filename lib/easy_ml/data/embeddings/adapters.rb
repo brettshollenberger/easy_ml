@@ -2,7 +2,7 @@ module EasyML
   module Data
     class Embeddings
       class Adapters
-        attr_accessor :model, :config
+        attr_accessor :llm, :config, :adapter
 
         ADAPTERS = {
           anthropic: Langchain::LLM::Anthropic,
@@ -20,8 +20,8 @@ module EasyML
           },
         }
 
-        def initialize(model, config = {})
-          @model = model.to_sym
+        def initialize(llm, config = {})
+          @llm = llm.to_sym
           @config = config.symbolize_keys
           apply_defaults
         end
@@ -29,15 +29,25 @@ module EasyML
         def embed(df, col)
           pick
           texts = df[col].to_a
+          embeddings = unpack(adapter.embed(text: texts))
           df = df.with_column(
-            embeddings: adapter.embed(text: texts),
+            Polars.lit(embeddings).alias("embeddings")
           )
         end
 
         private
 
+        def unpack(embeddings)
+          case llm.to_sym
+          when :openai
+            embeddings.raw_response.dig("data").map { |e| e["embedding"] }
+          else
+            embeddings
+          end
+        end
+
         def pick
-          @adapter ||= ADAPTERS[@model].new(config)
+          @adapter ||= ADAPTERS[@llm].new(**config)
           self
         end
 
@@ -46,7 +56,7 @@ module EasyML
 
           DEFAULTS.each do |k, v|
             unless @config.key?(k)
-              @config[k] = v[@model]
+              @config[k] = v[@llm]
             end
           end
         end

@@ -22,6 +22,7 @@ module EasyML
         def ordered_adapters
           [
             Clip,
+            Embedding,
             Mean,
             Median,
             Constant,

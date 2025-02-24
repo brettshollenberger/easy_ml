@@ -600,6 +600,10 @@ module EasyML
       }.compact.deep_symbolize_keys
     end
 
+    def dataset_primary_key
+      @dataset_primary_key ||= preloaded_columns.find(&:is_primary_key)&.name
+    end
+
     def target
       @target ||= preloaded_columns.find(&:is_target)&.name
     end

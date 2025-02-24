@@ -32,6 +32,8 @@ module EasyML
         end
 
         def store(df, *args)
+          return df if df.empty?
+
           adapter_class.new(options.merge!(df: df)).store(*args)
         end
 

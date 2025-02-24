@@ -43,7 +43,7 @@ module EasyML
     validates :name, uniqueness: { scope: :dataset_id }
 
     before_save :ensure_valid_datatype
-    after_save :handle_date_column_change
+    after_save :handle_unique_attrs
     before_save :set_defaults
     before_save :set_feature_lineage
     before_save :set_polars_datatype
@@ -136,6 +136,8 @@ module EasyML
     def virtual_columns
       if one_hot?
         allowed_categories.map { |cat| "#{name}_#{cat}" }
+      elsif embedded?
+        ["#{name}_embedding"]
       else
         []
       end
@@ -350,6 +352,71 @@ module EasyML
       preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :ordinal_encoding) == true
     end
 
+    def embedded?
+      preprocessing_steps.deep_symbolize_keys.dig(:training, :method)&.to_sym == :embedding
+    end
+
+    def dataset_primary_key
+      dataset.dataset_primary_key
+    end
+
+    def embed(df)
+      return df unless dataset_primary_key.present?
+      return df unless embedded?
+
+      if embedding_store.empty?
+        needs_embed = df
+      else
+        stored_embeddings = embedding_store.query(lazy: true)
+        needs_embed = df.join(
+          stored_embeddings.select(dataset_primary_key),
+          on: dataset_primary_key,
+          how: "anti",
+        )
+      end
+
+      needs_embed = actually_generate_embeddings(needs_embed)
+      embedding_store.store(needs_embed)
+      df = df.join(
+        embedding_store.query(lazy: true),
+        on: dataset_primary_key,
+        how: "left",
+      )
+    end
+
+    def embedding_column
+      return nil unless embedded?
+      virtual_columns.first
+    end
+
+    def store_embeddings(df)
+      return unless embedded?
+
+      df = df[[dataset.dataset_primary_key, embedding_column]]
+      embedding_store.store(df)
+    end
+
+    def embedding_config
+      return nil unless embedded?
+      preprocessing_steps = self.preprocessing_steps.deep_symbolize_keys
+
+      preprocessing_steps.dig(:training, :params).slice(:llm, :preset, :dimensions).merge!(
+        column: self.name,
+        output_column: "#{self.name}_embedding",
+        config: {
+          default_options: {
+            embeddings_model_name: preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :model),
+          },
+        },
+      )
+    end
+
+    def embedding_store
+      return nil unless embedded?
+
+      @embedding_store ||= EasyML::EmbeddingStore.new(self)
+    end
+
     def encoding
       return nil unless categorical?
       return :ordinal if ordinal_encoding?
@@ -461,6 +528,16 @@ module EasyML
 
     private
 
+    def actually_generate_embeddings(df)
+      return df if df.empty?
+
+      EasyML::Data::Embeddings.new(
+        embedding_config.merge!(
+          df: df,
+        )
+      ).embed
+    end
+
     def set_defaults
       self.preprocessing_steps = set_preprocessing_steps_defaults
     end
@@ -474,6 +551,7 @@ module EasyML
     end
 
     ALLOWED_PARAMS = {
+      embedding: [:llm, :model, :dimension, :preset],
       constant: [:constant],
       categorical: %i[categorical_min one_hot ordinal_encoding],
       most_frequent: %i[one_hot ordinal_encoding],
@@ -482,6 +560,7 @@ module EasyML
     }
 
     REQUIRED_PARAMS = {
+      embedding: %i[llm model],
       constant: [:constant],
       categorical: %i[categorical_min one_hot ordinal_encoding],
     }
@@ -492,6 +571,9 @@ module EasyML
       ordinal_encoding: false,
       clip: { min: 0, max: 1_000_000_000 },
       constant: nil,
+      llm: "openai",
+      model: "text-embedding-3-small",
+      preset: :full,
     }
 
     XOR_PARAMS = [{
@@ -539,14 +621,54 @@ module EasyML
       config.merge!(params: params)
     end
 
-    def handle_date_column_change
-      return unless saved_change_to_is_date_column? && is_date_column?
+    def handle_unique_attrs
+      return unless primary_key_changed? || target_changed? || is_date_column_changed?
 
       Column.transaction do
-        dataset.columns.where.not(id: id).update_all(is_date_column: false)
-        dataset.learn_statistics
-        dataset.columns.sync
+        handle_date_column_change
+        handle_primary_key_change
+        handle_target_change
+        resync_dataset
       end
+    end
+
+    def target_changed?
+      saved_change_to_is_target? && is_target?
+    end
+
+    def primary_key_changed?
+      saved_change_to_is_primary_key? && is_primary_key?
+    end
+
+    def is_date_column_changed?
+      saved_change_to_is_date_column? && is_date_column?
+    end
+
+    def handle_target_change
+      return unless target_changed?
+
+      dataset.columns.where.not(id: id).update_all(is_target: false)
+    end
+
+    def primary_key_changed?
+      saved_change_to_is_primary_key? && is_primary_key?
+    end
+
+    def handle_primary_key_change
+      return unless primary_key_changed?
+
+      dataset.columns.where.not(id: id).update_all(is_primary_key: false)
+    end
+
+    def handle_date_column_change
+      return unless is_date_column_changed?
+
+      dataset.columns.where.not(id: id).update_all(is_date_column: false)
+    end
+
+    def resync_dataset
+      dataset.learn_statistics
+      dataset.columns.sync
     end
 
     def ensure_valid_datatype

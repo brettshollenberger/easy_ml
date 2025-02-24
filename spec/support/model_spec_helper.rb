@@ -249,6 +249,7 @@ module ModelSpecHelper
       )
       dataset.unlock!
       dataset.refresh
+      dataset.columns.find_by(name: "PassengerId").update(is_primary_key: true)
       dataset.columns.find_by(name: "Survived").update(is_target: true)
       dataset.columns.find_by(name: "Name").update(hidden: true)
       dataset.columns.find_by(name: "Cabin").update(hidden: true)

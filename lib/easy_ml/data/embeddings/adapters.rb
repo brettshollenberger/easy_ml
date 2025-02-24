@@ -26,26 +26,32 @@ module EasyML
           apply_defaults
         end
 
-        def embed(df, col)
+        def embed(df, col, output_column)
           pick
           texts = df[col].to_a
           embeddings = unpack(adapter.embed(text: texts))
           df = df.with_column(
-            Polars.lit(embeddings).alias("embeddings")
+            Polars.lit(embeddings).alias(output_column)
           )
         end
 
         private
 
         def unpack(embeddings)
+          raw_response = embeddings.raw_response.deep_symbolize_keys
           case llm.to_sym
           when :openai
-            embeddings.raw_response.dig("data").map { |e| e["embedding"] }
+            raw_response.dig(:data).map { |e| e[:embedding] }
           else
             embeddings
           end
         end
 
+        # These options are pulled from Langchain
+        #
+        # default_options: {
+        #   embeddings_model_name: "text-embedding-3-small",
+        # },
         def pick
           @adapter ||= ADAPTERS[@llm].new(**config)
           self

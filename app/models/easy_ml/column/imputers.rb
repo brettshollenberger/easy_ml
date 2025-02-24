@@ -7,6 +7,7 @@ module EasyML
         constant: [:constant],
         categorical: %i[categorical_min one_hot ordinal_encoding],
         most_frequent: %i[one_hot ordinal_encoding],
+        embedding: %i[embedding],
         mean: [:clip],
         median: [:clip],
       }

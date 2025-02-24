@@ -4,6 +4,10 @@ module EasyML
       class Compressor
         # Quality presets with their respective variance preservation targets
         PRESETS = {
+          full: {
+            variance_target: 1.0,
+            description: "Preserves all information while reducing dimensions",
+          },
           high_quality: {
             variance_target: 0.95,
             description: "Preserves 95% of information while reducing dimensions",
@@ -21,7 +25,13 @@ module EasyML
         attr_reader :original_dimensions, :reduced_dimensions, :preserved_variance
         attr_reader :compression_ratio, :storage_savings, :preset_used
 
-        def initialize
+        def initialize(config = {})
+          @preset = config.dig(:preset)
+          @dimensions = config.dig(:dimensions)
+
+          unless @preset || @dimensions
+            @preset = :full
+          end
           @reducer = nil
           @original_dimensions = nil
           @reduced_dimensions = nil

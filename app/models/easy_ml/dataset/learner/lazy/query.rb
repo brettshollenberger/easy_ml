@@ -15,6 +15,8 @@ module EasyML
               Lazy::Datetime
             when :boolean
               Lazy::Boolean
+            when :embedding
+              Lazy::Embedding
             when :null
               Lazy::Null
             else

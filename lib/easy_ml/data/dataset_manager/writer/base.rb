@@ -95,7 +95,7 @@ module EasyML
             keylist = unique_id_key(subdir: "keylist")
 
             acquire_lock(keylist) do |suo|
-              suo.client.sadd(keylist, key)
+              suo.client.sadd?(keylist, key)
             end
           end
 

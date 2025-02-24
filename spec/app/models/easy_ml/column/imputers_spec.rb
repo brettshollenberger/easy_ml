@@ -699,4 +699,27 @@ RSpec.describe EasyML::Column::Imputers do
       expect(normalized["created_date"].to_a).to all(eq UTC.today.beginning_of_day)
     end
   end
+
+  describe "Embedding preprocessing", :focus do
+    it "preprocesses embeddings" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        preprocessing_steps: {
+          training: {
+            method: :embedding,
+            params: {
+              embedding: {
+                llm: "openai",
+                model: "text-embedding-model-name",
+                dimension: 10,
+              },
+            },
+          },
+        },
+      )
+
+      titanic_dataset.refresh
+
+      expect(titanic_dataset.data.columns).to include("Name_embedding")
+    end
+  end
 end

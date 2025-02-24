@@ -65,7 +65,6 @@ module EasyML
               partition_df = df.filter(Polars.col(primary_key).is_between(partition_start, partition_end))
               num_rows = lazy? ? partition_df.select(Polars.length).collect[0, 0] : partition_df.shape[0]
 
-              binding.pry if num_rows == 0
               next if num_rows == 0
               yield partition_df, partition
             end

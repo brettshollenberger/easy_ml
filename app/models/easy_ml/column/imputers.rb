@@ -35,16 +35,19 @@ module EasyML
           { value: "today", label: "Current Date" },
         ],
         string: [
+          { value: "embedding", label: "Embedding" },
           { value: "ffill", label: "Forward Fill" },
           { value: "most_frequent", label: "Most Frequent" },
           { value: "constant", label: "Constant Value" },
         ],
         text: [
+          { value: "embedding", label: "Embedding" },
           { value: "ffill", label: "Forward Fill" },
           { value: "most_frequent", label: "Most Frequent" },
           { value: "constant", label: "Constant Value" },
         ],
         categorical: [
+          { value: "embedding", label: "Embedding" },
           { value: "ffill", label: "Forward Fill" },
           { value: "categorical", label: "Categorical" },
           { value: "most_frequent", label: "Most Frequent" },

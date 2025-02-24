@@ -2137,6 +2137,7 @@ DEPENDENCIES
   rspec (~> 3.0)
   rspec-rails
   rubocop (~> 1.21)
+  ruby-openai
   spring
   spring-commands-rspec
   sprockets-rails

@@ -26,6 +26,7 @@ gem "zhong"
 gem "rollbar"
 gem "rdoc"
 gem "langchainrb"
+gem "ruby-openai"
 
 group :development, :test do
   gem "combustion"

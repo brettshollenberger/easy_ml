@@ -16,6 +16,7 @@ module EasyML
         @config = options[:config] || {}
         @preset = options.dig(:preset)
         @dimensions = options.dig(:dimensions)
+        @pca_model = options.dig(:pca_model)
       end
 
       def create
@@ -32,7 +33,10 @@ module EasyML
       end
 
       def pca_model
-        compressor.pca_model
+        return @pca_model if @pca_model.present?
+        return @compressor.pca_model if @compressor
+
+        nil
       end
 
       private
@@ -45,6 +49,7 @@ module EasyML
         {
           preset: preset,
           dimensions: dimensions,
+          pca_model: pca_model,
         }.compact
       end
 

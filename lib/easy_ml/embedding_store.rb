@@ -15,15 +15,31 @@ module EasyML
       false
     end
 
+    def wipe
+      full_store.wipe
+      compressed_store.wipe
+    end
+
     def files
       full_store.files + compressed_store.files
     end
 
-    def empty?
-      full_store.empty?
+    def empty?(compressed: false)
+      if compressed
+        compressed_store.empty?
+      else
+        full_store.empty?
+      end
+    end
+
+    def compact
+      full_store.compact
+      compressed_store.compact
     end
 
     def store(df, compressed: false)
+      df = df.select(column.name, column.embedding_column)
+
       if compressed
         compressed_store.store(df)
       else
@@ -48,7 +64,7 @@ module EasyML
         options = {
           filenames: "embedding",
           append_only: true,
-          primary_key: dataset.dataset_primary_key,
+          primary_key: column.name,
           s3_bucket: datasource_config.dig("s3_bucket") || EasyML::Configuration.s3_bucket,
           s3_prefix: s3_prefix,
           polars_args: datasource_config.dig("polars_args"),

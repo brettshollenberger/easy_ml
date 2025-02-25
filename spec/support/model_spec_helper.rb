@@ -253,6 +253,10 @@ module ModelSpecHelper
       end
     end
 
+    def expect_no_embeddings_request!
+      expect_any_instance_of(Langchain::LLM::OpenAI).not_to receive(:embed)
+    end
+
     def make_titanic_dataset(datasource_location = nil, splitter_attributes)
       dataset = EasyML::Dataset.create(
         name: "Titanic",

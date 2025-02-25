@@ -27,6 +27,8 @@ gem "rollbar"
 gem "rdoc"
 gem "langchainrb"
 gem "ruby-openai"
+gem "rumale"
+gem "numo-linalg"
 
 group :development, :test do
   gem "combustion"

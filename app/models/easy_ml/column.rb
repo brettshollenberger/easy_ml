@@ -358,44 +358,31 @@ module EasyML
       preprocessing_steps.deep_symbolize_keys.dig(:training, :method)&.to_sym == :embedding
     end
 
-    def dataset_primary_key
-      dataset.dataset_primary_key
-    end
-
-    def embed(df, fit: false)
-      return df unless dataset_primary_key.present?
-      return df unless embedded?
-
-      if fit
-        pca_model = get_pca_model
-        # Don't double fit
-        return if pca_model.fit_at.present? && pca_model.fit_at > dataset.datasource.refreshed_at
-      end
-
-      if embedding_store.empty?
-        needs_embed = df
-      else
-        stored_embeddings = embedding_store.query(lazy: true)
-        needs_embed = df.join(
-          stored_embeddings.select(dataset_primary_key),
-          on: dataset_primary_key,
-          how: "anti",
-        )
-      end
-
-      df = actually_generate_embeddings(df, fit: fit)
-    end
-
     def embedding_column
       return nil unless embedded?
       virtual_columns.first
     end
 
-    def store_embeddings(df)
+    def embed(df, fit: false)
+      return df if df.columns.include?(embedding_column) && df.filter(Polars.col(embedding_column).is_null).empty?
+      return df unless name.present?
+      return df unless embedded?
+
+      if fit
+        pca_model = get_pca_model
+        return if pca_model.fit_at.present? && pca_model.fit_at > dataset.datasource.refreshed_at && !pca_model_outdated?
+      end
+
+      actually_generate_embeddings(df, fit: fit)
+
+      df = decorate_embeddings(df, compressed: true)
+      df
+    end
+
+    def store_embeddings(df, compressed: false)
       return unless embedded?
 
-      df = df[[dataset.dataset_primary_key, embedding_column]]
-      embedding_store.store(df)
+      embedding_store.store(df, compressed: compressed)
     end
 
     def embedding_config
@@ -532,34 +519,97 @@ module EasyML
       pca_model || build_pca_model
     end
 
+    def n_dimensions
+      return nil unless embedded?
+
+      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :dimensions)
+    end
+
     private
+
+    def pca_model_outdated?
+      pca_model = get_pca_model
+      return false unless pca_model.persisted?
+
+      pca_model.model.params.dig(:n_components) != n_dimensions
+    end
+
+    def needs_embed(df, compressed: false)
+      if df.columns.exclude?(name)
+        Polars::DataFrame.new
+      elsif embedding_store.empty?(compressed: compressed)
+        df
+      else
+        stored_embeddings = embedding_store.query(lazy: true, compressed: compressed)
+        df.join(
+          stored_embeddings.select(name),
+          on: name,
+          how: "anti",
+        )
+      end
+    end
+
+    def decorate_embeddings(df, compressed: false)
+      if df.columns.include?(embedding_column)
+        orig_col_order = df.columns
+        df = df.drop(embedding_column) if df.columns.include?(embedding_column)
+      else
+        orig_col_order = df.columns + [embedding_column]
+      end
+
+      df = df.join(
+        embedding_store.query(lazy: true, compressed: compressed),
+        on: name,
+        how: "left",
+      ).select(orig_col_order)
+      df
+    end
+
+    def embed_and_compress(df, fit: false)
+      needs_embed = self.needs_embed(df, compressed: false)
+      needs_recompress = fit && pca_model_outdated?
+
+      extra_params = {
+        df: needs_embed,
+        pca_model: fit ? nil : pca_model.model,
+      }.compact
+      generator = EasyML::Data::Embeddings.new(embedding_config.merge!(extra_params))
+
+      if needs_embed.shape[0] > 0
+        needs_embed = generator.embed
+        store_embeddings(needs_embed, compressed: false)
+      end
+
+      # When the PCA model is outdated, we need to re-fit the PCA model and re-compress,
+      # but we don't need to re-generate the full embeddings again
+      if needs_recompress
+        needs_embed = decorate_embeddings(df.clone, compressed: false)
+        embedding_store.compressed_store.wipe
+      end
+
+      needs_embed = self.needs_embed(df, compressed: true)
+      return df if needs_embed.empty?
+      if needs_embed.columns.exclude?(embedding_column)
+        needs_embed = decorate_embeddings(needs_embed, compressed: false)
+      end
+      compressed = generator.compress(needs_embed, fit: fit)
+      store_embeddings(compressed, compressed: true)
+
+      if fit
+        embedding_store.compact
+
+        get_pca_model.update(
+          model: generator.pca_model,
+          fit_at: Time.now,
+        )
+        update(pca_model_id: get_pca_model.id)
+      end
+    end
 
     def actually_generate_embeddings(df, fit: false)
       return df if df.empty?
 
-      extra_params = {
-        df: df,
-        pca_model: fit ? nil : pca_model,
-      }.compact
-      generator = EasyML::Data::Embeddings.new(embedding_config.merge!(extra_params))
-      df = generator.embed
-      embedding_store.store(df, compressed: false)
-      compressed = generator.compress(df, fit: fit)
-      embedding_store.store(compressed, compressed: true)
-      df = df.drop([embedding_column])
-
-      if fit
-        get_pca_model.assign_attributes(
-          model: generator.pca_model,
-          fit_at: Time.now,
-        )
-      end
-
-      df = df.join(
-        embedding_store.query(lazy: true, compressed: true),
-        on: dataset_primary_key,
-        how: "left",
-      )
+      embed_and_compress(df, fit: fit)
     end
 
     def set_defaults

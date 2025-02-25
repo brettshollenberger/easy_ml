@@ -53,6 +53,8 @@ Gem::Specification.new do |spec|
   spec.add_dependency "zhong"
   spec.add_dependency "langchainrb"
   spec.add_dependency "ruby-openai"
+  spec.add_dependency "rumale"
+  spec.add_dependency "numo-linalg"
 
   spec.add_development_dependency "annotate"
   spec.add_development_dependency "appraisal"

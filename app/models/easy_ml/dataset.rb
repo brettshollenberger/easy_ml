@@ -625,20 +625,7 @@ module EasyML
       scope = preloaded_columns.reject(&:hidden)
       scope = scope.reject(&:is_target) if inference
 
-      # Get one_hot columns for category mapping
-      one_hots = scope.select(&:one_hot?)
-      one_hot_cats = columns.allowed_categories.symbolize_keys
-
-      # Map columns to names, handling one_hot expansion
-      scope.flat_map do |col|
-        if col.one_hot?
-          one_hot_cats[col.name.to_sym].map do |cat|
-            "#{col.name}_#{cat}"
-          end
-        else
-          col.name
-        end
-      end.sort
+      scope.flat_map(&:aliases).uniq.sort
     end
 
     def column_mask(df, inference: false)

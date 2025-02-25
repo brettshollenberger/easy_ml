@@ -15,7 +15,7 @@ module EasyML
     end
 
     def model=(model)
-      write_attribute(:model, Marshal.dump(model))
+      write_attribute(:model, Marshal.dump(model.dup))
     end
   end
 end

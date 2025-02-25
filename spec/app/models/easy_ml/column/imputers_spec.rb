@@ -743,7 +743,7 @@ RSpec.describe EasyML::Column::Imputers do
       titanic_dataset.refresh
     end
 
-    it "compresses embeddings using PCA", :focus do
+    it "compresses embeddings using PCA" do
       titanic_dataset.columns.find_by(name: "Name").update(
         preprocessing_steps: {
           training: {
@@ -759,11 +759,108 @@ RSpec.describe EasyML::Column::Imputers do
 
       mock_embeddings_request!
       titanic_dataset.refresh
-      expect(titanic_dataset.data(all_columns: true).columns).to include("Name_embedding")
-      expect(titanic_dataset.columns.reload.map(&:name)).to_not include("Name_embedding") # It's a virtual column
+      embeddings = titanic_dataset.data(all_columns: true)["Name_embedding"]
+      expect(embeddings[0].size).to eq 10
+    end
+
+    it "re-uses learned PCA to compress future embeddings" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 10,
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      expect_any_instance_of(EasyML::Data::Embeddings::Compressor).to receive(:initialize) do |compressor, options|
+        pca_model = options[:pca_model]
+        expect(pca_model).to be_a(Rumale::Decomposition::PCA)
+        # It re-uses the same PCA model
+        expect(pca_model).to receive(:transform).and_call_original
+      end.and_call_original
+      normalized_df = titanic_dataset.normalize(Polars::DataFrame.new({ "Name": ["Mr. Wigglesworth"] }))
+
+      expect(normalized_df["Name_embedding"][0].size).to eq 10
     end
 
     it "stores full embeddings + compressed embeddings separately" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 10,
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      name_column = titanic_dataset.columns.find_by(name: "Name")
+      expect(
+        name_column.embedding_store.query(compressed: false, lazy: true).limit(1).collect["Name_embedding"][0].size
+      ).to eq 1024
+
+      expect(
+        name_column.embedding_store.query(compressed: true, lazy: true).limit(1).collect["Name_embedding"][0].size
+      ).to eq 10
+    end
+
+    it "re-computes compressed embeddings when dimensions change" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 10,
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 24,
+            },
+          },
+        },
+      )
+      expect_no_embeddings_request!
+      expect_any_instance_of(Rumale::Decomposition::PCA).to receive(:fit_transform).and_call_original
+      titanic_dataset.refresh
+
+      df = titanic_dataset.data(all_columns: true)
+      expect(df.columns).to include("Name_embedding")
+      expect(df["Name_embedding"][0].size).to eq 24
+
+      any_missing = df.filter(Polars.col("Name_embedding").is_null)
+      expect(any_missing.count).to eq 0
     end
   end
 end

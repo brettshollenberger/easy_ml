@@ -700,7 +700,7 @@ RSpec.describe EasyML::Column::Imputers do
     end
   end
 
-  describe "Embedding preprocessing" do
+  describe "Embedding preprocessing", :focus do
     it "preprocesses embeddings" do
       titanic_dataset.columns.find_by(name: "Name").update(
         preprocessing_steps: {

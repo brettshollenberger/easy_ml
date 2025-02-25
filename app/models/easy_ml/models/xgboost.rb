@@ -452,6 +452,24 @@ module EasyML
         )
       end
 
+      def explode_embeddings(df)
+        embedding_cols = dataset.columns.select(&:embedded?)
+
+        select_statements = embedding_cols.flat_map do |col|
+          dims = col.n_dimensions
+          (0...dims).map do |i|
+            Polars.col(col.embedding_column).arr.get(i).alias("#{col.embedding_column}_#{i}")
+          end
+        end
+
+        base_cols = df.schema.keys - embedding_cols.map(&:embedding_column)
+
+        df.select([
+          Polars.col(base_cols),
+          *select_statements,
+        ])
+      end
+
       def preprocess(xs, ys = nil)
         return xs if xs.is_a?(::XGBoost::DMatrix)
         lazy = xs.is_a?(Polars::LazyFrame)
@@ -468,7 +486,10 @@ module EasyML
         feature_cols -= [weights_col] if weights_col
 
         # Get features, labels and weights
-        features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
+        exploded = explode_embeddings(xs.select(feature_cols))
+        feature_cols = exploded.columns
+        features = lazy ? exploded.collect.to_numo : exploded.to_numo
+
         weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
         weights = weights.flatten if weights
         if ys.present?

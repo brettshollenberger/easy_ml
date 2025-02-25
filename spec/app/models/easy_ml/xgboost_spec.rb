@@ -46,6 +46,28 @@ RSpec.describe "EasyML::Models::XGBoost" do
         model.fit
         expect { model.fit }.to_not raise_error
       end
+
+      it "explodes embedding columns", :focus do
+        dataset.columns.find_by(name: "loan_purpose").update(
+          preprocessing_steps: {
+            training: {
+              method: :embedding,
+              params: {
+                llm: "openai",
+                model: "text-embedding-3-small",
+                dimensions: 10,
+              },
+            },
+          },
+        )
+        mock_embeddings_request!
+
+        dataset.refresh
+        d_train, d_valid, d_test = model.prepare_data
+        expect(d_train.feature_names).to eq(%w(
+                                           annual_revenue
+                                         ).concat((0..9).to_a.map { |i| "loan_purpose_embedding_#{i}" }))
+      end
     end
 
     describe "#model_changed?" do

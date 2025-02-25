@@ -6,7 +6,7 @@ module EasyML
 
       attr_reader :df, :column, :model, :adapter, :compression,
                   :embeddings, :compressed_embeddings, :config,
-                  :llm, :output_column
+                  :llm, :output_column, :preset, :dimensions
 
       def initialize(options = {})
         @df = options[:df]
@@ -14,23 +14,25 @@ module EasyML
         @output_column = options[:output_column]
         @llm = options[:llm] || "openai"
         @config = options[:config] || {}
-        @compression = {
-          preset: options.dig(:preset),
-          dimensions: options.dig(:dimensions),
-        }.compact
+        @preset = options.dig(:preset)
+        @dimensions = options.dig(:dimensions)
       end
 
       def create
         embed
-        compress
+        compress(embeddings)
       end
 
       def embed
         @embeddings ||= adapter.embed(df, column, output_column)
       end
 
-      def compress
-        @compressed_embeddings ||= compressor.compress(embeddings)
+      def compress(embeddings, fit: false)
+        @compressed_embeddings ||= compressor.compress(embeddings, column, output_column, fit: fit)
+      end
+
+      def pca_model
+        compressor.pca_model
       end
 
       private
@@ -39,8 +41,15 @@ module EasyML
         @adapter ||= EasyML::Data::Embeddings::Adapters.new(llm, config)
       end
 
+      def compressor_args
+        {
+          preset: preset,
+          dimensions: dimensions,
+        }.compact
+      end
+
       def compressor
-        @compressor ||= EasyML::Data::Embeddings::Compressor.new(**compression)
+        @compressor ||= EasyML::Data::Embeddings::Compressor.new(compressor_args)
       end
     end
   end

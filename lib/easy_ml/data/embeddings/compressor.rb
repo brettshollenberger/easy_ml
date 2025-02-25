@@ -22,8 +22,9 @@ module EasyML
           },
         }
 
-        attr_reader :original_dimensions, :reduced_dimensions, :preserved_variance
-        attr_reader :compression_ratio, :storage_savings, :preset_used
+        attr_reader :original_dimensions, :reduced_dimensions, :preserved_variance,
+                    :compression_ratio, :storage_savings, :preset_used
+        attr_accessor :preset, :dimensions, :column, :embedding_column, :fit, :pca_model
 
         def initialize(config = {})
           @preset = config.dig(:preset)
@@ -32,7 +33,7 @@ module EasyML
           unless @preset || @dimensions
             @preset = :full
           end
-          @reducer = nil
+          @pca_model = config.dig(:pca_model)
           @original_dimensions = nil
           @reduced_dimensions = nil
           @preserved_variance = nil
@@ -43,6 +44,18 @@ module EasyML
 
         def inspect
           "#<#{self.class.name} original_dimensions=#{@original_dimensions}, reduced_dimensions=#{@reduced_dimensions}, preserved_variance=#{@preserved_variance}, compression_ratio=#{@compression_ratio}, storage_savings=#{@storage_savings}, preset_used=#{@preset_used}>"
+        end
+
+        def compress(df, column, embedding_column, fit: false)
+          @column = column
+          @embedding_column = embedding_column
+          @fit = fit
+
+          if preset.present?
+            reduce_with_preset(df, preset: preset)
+          else
+            reduce_to_dimensions(df, target_dimensions: dimensions)
+          end
         end
 
         # Reduce dimensions using a preset quality level
@@ -61,28 +74,20 @@ module EasyML
         def reduce_to_dimensions(embeddings_df, target_dimensions:)
           validate_input(embeddings_df)
 
-          embedding_columns = get_embedding_columns(embeddings_df)
-          @original_dimensions = embedding_columns.length
+          # Convert embedding columns to Numo::NArray for Rumale
+          x = df_to_narray(embeddings_df, embedding_column)
+          @original_dimensions = x.shape[1]
 
           if target_dimensions >= @original_dimensions
             return embeddings_df.clone()
           end
 
-          # Convert embedding columns to Numo::NArray for Rumale
-          x = df_to_narray(embeddings_df, embedding_columns)
-
           # Initialize and fit PCA
-          @reducer = Rumale::Decomposition::PCA.new(n_components: target_dimensions)
-          transformed = @reducer.fit_transform(x)
-
-          # Calculate variance explained
-          @preserved_variance = @reducer.explained_variance_ratio.sum
-          @reduced_dimensions = target_dimensions
-          @compression_ratio = @original_dimensions.to_f / @reduced_dimensions
-          @storage_savings = 1.0 - (1.0 / @compression_ratio)
+          @pca_model = Rumale::Decomposition::PCA.new(n_components: target_dimensions)
+          transformed = @pca_model.fit_transform(x)
 
           # Create new dataframe with reduced embeddings
-          result_df = create_result_dataframe(embeddings_df, embedding_columns, transformed)
+          result_df = create_result_dataframe(embeddings_df, embedding_column, transformed)
 
           result_df
         end
@@ -91,71 +96,34 @@ module EasyML
         def reduce_to_variance(embeddings_df, target_variance:)
           validate_input(embeddings_df)
 
-          embedding_columns = get_embedding_columns(embeddings_df)
-          @original_dimensions = embedding_columns.length
-
           # Convert embedding columns to Numo::NArray for Rumale
-          x = df_to_narray(embeddings_df, embedding_columns)
+          x = df_to_narray(embeddings_df, embedding_column)
+
+          # Get original dimensions from the first embedding
+          @original_dimensions = x.shape[1]
+
+          # Calculate the target number of components based on variance preservation
+          target_components = (@original_dimensions * target_variance).ceil
 
           # First fit PCA with all components to analyze variance
-          temp_pca = Rumale::Decomposition::PCA.new(n_components: @original_dimensions)
-          temp_pca.fit(x)
+          @pca_model = Rumale::Decomposition::PCA.new(n_components: target_components)
+          x = @pca_model.fit_transform(x)
 
-          # Find number of components needed for target variance
-          cumulative_variance = Numo::NArray.cast(temp_pca.explained_variance_ratio).cumsum
-          n_components = (cumulative_variance >= target_variance).where[0]
-          n_components = n_components.nil? ? @original_dimensions : n_components + 1
+          # # Find number of components needed for target variance
+          # cumulative_variance = Numo::NArray.cast(@reducer.explained_variance_ratio).cumsum
+          # n_components = (cumulative_variance >= target_variance).where[0]
+          # n_components = n_components.nil? ? @original_dimensions : n_components + 1
 
-          # Apply PCA with determined number of components
-          @reducer = Rumale::Decomposition::PCA.new(n_components: n_components)
-          transformed = @reducer.fit_transform(x)
+          # # Apply PCA with determined number of components
+          # @reducer = Rumale::Decomposition::PCA.new(n_components: n_components)
+          # transformed = @reducer.fit_transform(x)
 
-          @preserved_variance = @reducer.explained_variance_ratio.sum
-          @reduced_dimensions = n_components
-          @compression_ratio = @original_dimensions.to_f / @reduced_dimensions
-          @storage_savings = 1.0 - (1.0 / @compression_ratio)
+          # Explainer.new(@reducer, @original_dimensions, n_components)
 
           # Create new dataframe with reduced embeddings
-          result_df = create_result_dataframe(embeddings_df, embedding_columns, transformed)
+          result_df = create_result_dataframe(embeddings_df, embedding_column, x)
 
           result_df
-        end
-
-        # Get user-friendly stats about the reduction
-        def reduction_stats
-          return nil unless @reducer
-
-          {
-            original_dimensions: @original_dimensions,
-            reduced_dimensions: @reduced_dimensions,
-            preserved_information: "#{(@preserved_variance * 100).round(1)}%",
-            compression_ratio: "#{@compression_ratio.round(1)}x",
-            storage_savings: "#{(@storage_savings * 100).round(1)}%",
-            preset_used: @preset_used,
-            preset_description: @preset_used ? PRESETS[@preset_used][:description] : nil,
-          }
-        end
-
-        # Generate a human-readable summary of the reduction
-        def summary
-          stats = reduction_stats
-          return "No reduction performed yet" unless stats
-
-          <<~SUMMARY
-            Embedding Reduction Summary:
-            ----------------------------
-            
-            #{stats[:preset_used] ? "Quality Preset: #{stats[:preset_used].to_s.gsub("_", " ").capitalize}" : "Custom Reduction"}
-            #{stats[:preset_description] ? "\n#{stats[:preset_description]}\n" : ""}
-            
-            • Original embeddings: #{stats[:original_dimensions]} dimensions
-            • Reduced embeddings: #{stats[:reduced_dimensions]} dimensions
-            • Information preserved: #{stats[:preserved_information]}
-            • Size reduction: #{stats[:compression_ratio]} (#{stats[:storage_savings]} saved)
-            
-            This means your dataset is now #{stats[:compression_ratio]} times smaller
-            while preserving #{stats[:preserved_information]} of the important information.
-          SUMMARY
         end
 
         private
@@ -172,40 +140,14 @@ module EasyML
           df.columns.select { |col| col.match(/^embedding_\d+$/) || col.match(/^vector_\d+$/) }
         end
 
-        def df_to_narray(df, embedding_columns)
-          # Convert embedding columns from DataFrame to Numo::NArray
-          x = Numo::DFloat.zeros([df.height, embedding_columns.length])
-
-          embedding_columns.each_with_index do |col, i|
-            x[true, i] = Numo::NArray.cast(df[col].to_a)
-          end
-
-          x
+        def df_to_narray(df, embedding_column)
+          Numo::DFloat.cast(df[embedding_column].to_a)
         end
 
-        def create_result_dataframe(original_df, embedding_columns, transformed_data)
-          # Create a copy of the original DataFrame without the embedding columns
-          non_embedding_cols = original_df.columns - embedding_columns
-          result_df = original_df.select(non_embedding_cols)
-
-          # Add the reduced embedding columns
-          transformed_data.shape[1].times do |i|
-            col_name = "reduced_embedding_#{i}"
-            result_df = result_df.with_column(
-              Polars.lit(transformed_data[true, i].to_a).alias(col_name)
-            )
-          end
-
-          # Add metadata columns about the reduction
-          result_df = result_df.with_column(
-            Polars.lit(@original_dimensions).alias("original_embedding_dim")
-          ).with_column(
-            Polars.lit(@reduced_dimensions).alias("reduced_embedding_dim")
-          ).with_column(
-            Polars.lit(@preserved_variance).alias("preserved_variance")
+        def create_result_dataframe(original_df, embedding_column, transformed_data)
+          original_df.with_column(
+            Polars.lit(transformed_data).alias(embedding_column)
           )
-
-          result_df
         end
       end
     end

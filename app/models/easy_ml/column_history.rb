@@ -31,6 +31,7 @@
 #  last_feature_sha    :string
 #  in_raw_dataset      :boolean
 #  is_primary_key      :boolean
+#  pca_model_id        :integer
 #
 module EasyML
   class ColumnHistory < ActiveRecord::Base

@@ -709,24 +709,12 @@ RSpec.describe EasyML::Column::Imputers do
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
-              dimension: 10,
             },
           },
         },
       )
 
-      allow_any_instance_of(Langchain::LLM::OpenAI).to receive(:embed).with(any_args) do |llm, kwargs|
-        texts = kwargs[:text]
-
-        json = {
-          data: texts.map.with_index do |text, idx|
-            {
-              embedding: Array.new(1024).map { idx },
-            }
-          end,
-        }
-        OpenStruct.new(raw_response: json)
-      end
+      mock_embeddings_request!
       titanic_dataset.refresh
       expect(titanic_dataset.data(all_columns: true).columns).to include("Name_embedding")
       expect(titanic_dataset.columns.reload.map(&:name)).to_not include("Name_embedding") # It's a virtual column
@@ -747,23 +735,35 @@ RSpec.describe EasyML::Column::Imputers do
       )
 
       # First refresh to generate initial embeddings
-      allow_any_instance_of(Langchain::LLM::OpenAI).to receive(:embed).with(any_args) do |llm, kwargs|
-        texts = kwargs[:text]
-
-        json = {
-          data: texts.map.with_index do |text, idx|
-            {
-              embedding: Array.new(1024).map { idx },
-            }
-          end,
-        }
-        OpenStruct.new(raw_response: json)
-      end
+      mock_embeddings_request!
       titanic_dataset.refresh
 
       # Second refresh should not call embed again
       expect_any_instance_of(Langchain::LLM::OpenAI).not_to receive(:embed)
       titanic_dataset.refresh
+    end
+
+    it "compresses embeddings using PCA", :focus do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        preprocessing_steps: {
+          training: {
+            method: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 10,
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+      expect(titanic_dataset.data(all_columns: true).columns).to include("Name_embedding")
+      expect(titanic_dataset.columns.reload.map(&:name)).to_not include("Name_embedding") # It's a virtual column
+    end
+
+    it "stores full embeddings + compressed embeddings separately" do
     end
   end
 end

@@ -14,6 +14,7 @@ module EasyML
           inflect.acronym "HTML"
           inflect.acronym "API"
           inflect.acronym "APIs"
+          inflect.acronym "PCA"
         end
       end
     end

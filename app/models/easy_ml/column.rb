@@ -26,6 +26,7 @@
 #  last_feature_sha    :string
 #  in_raw_dataset      :boolean
 #  is_primary_key      :boolean
+#  pca_model_id        :integer
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -37,6 +38,7 @@ module EasyML
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
     belongs_to :feature, class_name: "EasyML::Feature", optional: true
+    belongs_to :pca_model, class_name: "EasyML::PCAModel", optional: true
     has_many :lineages, class_name: "EasyML::Lineage"
 
     validates :name, presence: true
@@ -360,9 +362,15 @@ module EasyML
       dataset.dataset_primary_key
     end
 
-    def embed(df)
+    def embed(df, fit: false)
       return df unless dataset_primary_key.present?
       return df unless embedded?
+
+      if fit
+        pca_model = get_pca_model
+        # Don't double fit
+        return if pca_model.fit_at.present? && pca_model.fit_at > dataset.datasource.refreshed_at
+      end
 
       if embedding_store.empty?
         needs_embed = df
@@ -375,13 +383,7 @@ module EasyML
         )
       end
 
-      needs_embed = actually_generate_embeddings(needs_embed)
-      embedding_store.store(needs_embed)
-      df = df.join(
-        embedding_store.query(lazy: true),
-        on: dataset_primary_key,
-        how: "left",
-      )
+      df = actually_generate_embeddings(df, fit: fit)
     end
 
     def embedding_column
@@ -526,16 +528,38 @@ module EasyML
       value
     end
 
+    def get_pca_model
+      pca_model || build_pca_model
+    end
+
     private
 
-    def actually_generate_embeddings(df)
+    def actually_generate_embeddings(df, fit: false)
       return df if df.empty?
 
-      EasyML::Data::Embeddings.new(
-        embedding_config.merge!(
-          df: df,
+      extra_params = {
+        df: df,
+        pca_model: fit ? nil : pca_model,
+      }.compact
+      generator = EasyML::Data::Embeddings.new(embedding_config.merge!(extra_params))
+      df = generator.embed
+      embedding_store.store(df, compressed: false)
+      compressed = generator.compress(df, fit: fit)
+      embedding_store.store(compressed, compressed: true)
+      df = df.drop([embedding_column])
+
+      if fit
+        get_pca_model.assign_attributes(
+          model: generator.pca_model,
+          fit_at: Time.now,
         )
-      ).embed
+      end
+
+      df = df.join(
+        embedding_store.query(lazy: true, compressed: true),
+        on: dataset_primary_key,
+        how: "left",
+      )
     end
 
     def set_defaults
@@ -551,7 +575,7 @@ module EasyML
     end
 
     ALLOWED_PARAMS = {
-      embedding: [:llm, :model, :dimension, :preset],
+      embedding: [:llm, :model, :dimensions, :preset],
       constant: [:constant],
       categorical: %i[categorical_min one_hot ordinal_encoding],
       most_frequent: %i[one_hot ordinal_encoding],

@@ -20,6 +20,8 @@ require "resque/tasks"
 require "zhong"
 require "dotenv"
 require "langchainrb"
+require "rumale"
+require "numo/linalg"
 
 module EasyML
   class Engine < Rails::Engine

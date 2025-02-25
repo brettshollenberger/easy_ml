@@ -69,7 +69,7 @@ module EasyML
             time_unit: dtype.time_unit,
             time_zone: dtype.time_zone,
           }
-        when Polars::List
+        when Polars::List, Polars::Array
           {
             inner: PolarsColumn.polars_to_sym(dtype.inner),
           }

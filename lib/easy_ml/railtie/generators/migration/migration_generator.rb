@@ -55,6 +55,8 @@ module EasyML
             remove_evaluator_from_retraining_jobs
             add_unique_constraint_to_easy_ml_model_names
             add_is_primary_key_to_easy_ml_columns
+            create_easy_ml_pca_models
+            add_pca_model_id_to_easy_ml_columns
           ].freeze
 
           # Specify the next migration number

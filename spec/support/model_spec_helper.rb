@@ -238,6 +238,21 @@ module ModelSpecHelper
       loans_model
     end
 
+    def mock_embeddings_request!
+      allow_any_instance_of(Langchain::LLM::OpenAI).to receive(:embed).with(any_args) do |llm, kwargs|
+        texts = kwargs[:text]
+
+        json = {
+          data: texts.map.with_index do |text, idx|
+            {
+              embedding: Array.new(1024).map { Random.rand },
+            }
+          end,
+        }
+        OpenStruct.new(raw_response: json)
+      end
+    end
+
     def make_titanic_dataset(datasource_location = nil, splitter_attributes)
       dataset = EasyML::Dataset.create(
         name: "Titanic",

@@ -716,7 +716,7 @@ export function PreprocessingConfig({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Null Values:</span>
-                <span className="font-medium text-gray-900">{column.statistics?.raw?.null_count.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">{column.statistics?.raw?.null_count?.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Total Rows:</span>
@@ -821,11 +821,15 @@ export function PreprocessingConfig({
             <h4 className="text-sm font-medium text-gray-700 mb-2">Sample Values</h4>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex flex-wrap gap-2">
-                {column.statistics?.raw?.sample_data && column.statistics.raw.sample_data.map((value, index) => (
-                  <span key={index} className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-700">
-                    {String(value)}
+                {Array.isArray(column.sample_values) ? column.sample_values.slice(0, 3).map((value: any, index: number) => (
+                  <span key={index} className="m-1 flex-items items-center">
+                    <Badge>
+                      {typeof value === 'string' 
+                        ? value.split(/\s+/).slice(0, 10).join(' ') + (value.split(/\s+/).length > 10 ? '...' : '')
+                        : String(value)}
+                    </Badge>
                   </span>
-                ))}
+                )) : []}
               </div>
             </div>
           </div>
@@ -912,7 +916,9 @@ export function PreprocessingConfig({
               {Array.isArray(column.sample_values) ? column.sample_values.slice(0, 3).map((value: any, index: number) => (
                 <span key={index} className="m-1 flex-items items-center">
                   <Badge>
-                    {String(value)}
+                    {typeof value === 'string' 
+                      ? value.split(/\s+/).slice(0, 10).join(' ') + (value.split(/\s+/).length > 10 ? '...' : '')
+                      : String(value)}
                   </Badge>
                 </span>
               )) : []}

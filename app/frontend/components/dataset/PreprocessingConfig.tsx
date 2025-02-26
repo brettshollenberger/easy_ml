@@ -237,7 +237,7 @@ export function PreprocessingConfig({
 
   const renderEncodingConfig = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
-    if (!strategy || strategy.method === 'embedding') return null;
+    if (!strategy || strategy.method === 'embedding' || selectedType !== 'categorical') return null;
 
     return (
       <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
@@ -797,7 +797,7 @@ export function PreprocessingConfig({
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Null Distribution</span>
               <span className="text-sm text-gray-500">
-                {nullPercentage}% of values are null
+                {nullPercentage.toFixed(2)}% of values are null
               </span>
             </div>
             <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">

@@ -853,6 +853,7 @@ RSpec.describe EasyML::Column::Imputers do
       )
       expect_no_embeddings_request!
       expect_any_instance_of(Rumale::Decomposition::PCA).to receive(:fit_transform).and_call_original
+      Thread.current[:stop] = true
       titanic_dataset.refresh
 
       df = titanic_dataset.data(all_columns: true)
@@ -861,6 +862,39 @@ RSpec.describe EasyML::Column::Imputers do
 
       any_missing = df.filter(Polars.col("Name_embedding").is_null)
       expect(any_missing.count).to eq 0
+    end
+
+    it "stores uncompressed embeddings when no dimensions are specified" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+            },
+          },
+        },
+      )
+
+      # Verify compressor is not called since we're not compressing
+      expect_any_instance_of(EasyML::Data::Embeddings::Compressor).not_to receive(:compress)
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      name_column = titanic_dataset.columns.find_by(name: "Name")
+
+      # Verify uncompressed embeddings are stored with full dimensions (48 for text-embedding-3-small)
+      embeddings = name_column.embedding_store.query(compressed: false, lazy: true).limit(1).collect["Name_embedding"]
+      expect(embeddings[0].size).to eq 48
+
+      expect(name_column.embedding_store.query(compressed: true, lazy: true).collect.count).to eq 891
+
+      # Verify the data accessor returns uncompressed embeddings
+      df = titanic_dataset.data(all_columns: true)
+      expect(df["Name_embedding"][0].size).to eq 48
     end
 
     it "filters out duplicate inputs when embedding" do

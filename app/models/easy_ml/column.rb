@@ -597,8 +597,13 @@ module EasyML
       if needs_embed.columns.exclude?(embedding_column)
         needs_embed = decorate_embeddings(needs_embed, compressed: false)
       end
-      compressed = generator.compress(needs_embed, fit: fit)
-      store_embeddings(compressed, compressed: true)
+
+      if n_dimensions.present? && needs_embed.shape[0] > 0 && n_dimensions < needs_embed[embedding_column][0].count
+        compressed = generator.compress(needs_embed, fit: fit)
+        store_embeddings(compressed, compressed: true)
+      else
+        store_embeddings(needs_embed, compressed: true)
+      end
 
       if fit
         embedding_store.compact

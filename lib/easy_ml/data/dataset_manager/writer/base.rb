@@ -66,7 +66,20 @@ module EasyML
 
           def safe_write(df, path)
             FileUtils.mkdir_p(File.dirname(path))
-            df.is_a?(Polars::LazyFrame) ? df.sink_parquet(path) : df.write_parquet(path)
+            if df.is_a?(Polars::LazyFrame)
+              # Depending on the query plan, sometimes sink_parquet will throw an error...
+              # in this case we have to collect first and fallback to write_parquet
+              begin
+                # Try the faster sink_parquet first
+                df.sink_parquet(path)
+              rescue Polars::InvalidOperationError => e
+                # Fall back to collect().write_parquet()
+                df.collect.write_parquet(path)
+              end
+            else
+              # Already a materialized DataFrame
+              df.write_parquet(path)
+            end
             path
           end
 

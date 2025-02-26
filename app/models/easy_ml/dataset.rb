@@ -84,6 +84,7 @@ module EasyML
         preprocessing_strategies: EasyML::Column::Imputers.constants[:preprocessing_strategies],
         feature_options: EasyML::Features::Registry.list_flat,
         splitter_constants: EasyML::Splitter.constants,
+        embedding_constants: EasyML::Data::Embeddings::Embedder.constants,
       }
     end
 

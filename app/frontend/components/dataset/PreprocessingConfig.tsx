@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, Wrench, ArrowRight, Pencil, Trash2, Database, Calculator, GitBranch } from 'lucide-react';
+import { Settings2, Wrench, ArrowRight, Pencil, Trash2, Database, Calculator, GitBranch, Brain, HardDrive, Maximize2, Minimize2 } from 'lucide-react';
 import type { Dataset, Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
 import { Badge } from "@/components/ui/badge";
+import { SearchableSelect } from '../SearchableSelect';
 
 interface PreprocessingConfigProps {
   column: Column;
@@ -177,6 +178,29 @@ export function PreprocessingConfig({
     }
   };
 
+  const handleEmbeddingParamChange = (
+    type: 'training' | 'inference',
+    updates: Partial<PreprocessingStep['params']>
+  ) => {
+    const strategy = type === 'training' ? training : inference;
+    const setStrategy = type === 'training' ? setTraining : setInference;
+    
+    const newStrategy: PreprocessingStep = {
+      ...strategy,
+      params: {
+        ...strategy.params,
+        ...updates
+      }
+    };
+
+    setStrategy(newStrategy);
+    if (type === 'training') {
+      onUpdate(newStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
+    } else {
+      onUpdate(training, newStrategy, useDistinctInference);
+    }
+  };
+
   const renderConstantValueInput = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
     if (strategy.method !== 'constant') return null;
@@ -203,6 +227,261 @@ export function PreprocessingConfig({
             placeholder="Enter a value..."
           />
         )}
+      </div>
+    );
+  };
+
+  const renderEncodingConfig = (type: 'training' | 'inference') => {
+    const strategy = type === 'training' ? training : inference;
+    if (!strategy || strategy.method === 'embedding') return null;
+
+    return (
+      <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Encoding</h4>
+        <div className="flex items-center gap-2">
+          <input
+            type="radio"
+            id="oneHotEncode"
+            name="encoding"
+            checked={strategy.params.one_hot}
+            onChange={() => handleCategoricalParamChange(type, {
+              one_hot: true,
+              ordinal_encoding: false
+            })}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <label htmlFor="oneHotEncode" className="text-sm text-gray-700">
+            One-hot encode categories
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="radio"
+            id="ordinalEncode"
+            name="encoding"
+            checked={strategy.params.ordinal_encoding}
+            onChange={() => handleCategoricalParamChange(type, {
+              one_hot: false,
+              ordinal_encoding: true
+            })}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <label htmlFor="ordinalEncode" className="text-sm text-gray-700">
+            Ordinal encode categories
+          </label>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEmbeddingConfig = (type: 'training' | 'inference') => {
+    const strategy = type === 'training' ? training : inference;
+    if (strategy.method !== 'embedding') return null;
+
+    const embeddingConstants = constants.embedding_constants;
+    const providers = embeddingConstants.providers;
+    const models = embeddingConstants.models;
+    const compressionPresets = Object.entries(embeddingConstants.compression_presets).map(([key, preset]) => ({
+      value: key,
+      label: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+      description: preset.description,
+      variance_target: preset.variance_target,
+    }));
+
+    const getModelsForProvider = (provider: string) => {
+      return models[provider] || [];
+    };
+
+    const getCurrentModelDimensions = () => {
+      const provider = strategy.params?.llm || 'openai';
+      const modelValue = strategy.params?.model || getModelsForProvider(strategy.params?.llm || 'openai')[0]?.value;
+      const model = getModelsForProvider(provider).find(m => m.value === modelValue);
+      return model?.dimensions || 1536; // Default to 1536 if not found
+    };
+
+    const getPresetForVariance = (variance: number) => {
+      return compressionPresets.find(preset => 
+        Math.abs(preset.variance_target - variance) < 0.05
+      )?.value || null;
+    };
+
+    const getVarianceForPreset = (presetValue: string) => {
+      return compressionPresets.find(preset => 
+        preset.value === presetValue
+      )?.variance_target || 0.85; // Default to balanced
+    };
+
+    const handleDimensionsChange = (dimensions: number) => {
+      const variance = dimensions / getCurrentModelDimensions(); // Normalize to 0-1
+      const matchingPreset = getPresetForVariance(variance);
+      
+      handleEmbeddingParamChange(type, { 
+        dimensions,
+        preset: matchingPreset,
+      });
+    };
+
+    const handlePresetChange = (presetValue: string) => {
+      const variance = getVarianceForPreset(presetValue);
+      const dimensions = Math.round(variance * getCurrentModelDimensions());
+      
+      handleEmbeddingParamChange(type, {
+        dimensions,
+        preset: presetValue,
+      });
+    };
+
+    return (
+      <div className="space-y-6 mt-8">
+        <div className="bg-blue-50 rounded-lg p-4">
+          <div className="flex gap-2">
+            <Brain className="w-5 h-5 text-blue-500 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-blue-900">Text Embeddings</h4>
+              <p className="text-sm text-blue-700 mt-1">
+                Convert text into numerical vectors for machine learning, preserving semantic meaning while optimizing for storage and performance.
+
+
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Embedding Provider
+            </label>
+            <SearchableSelect
+              value={strategy.params?.llm || 'openai'}
+              onChange={(value) => handleEmbeddingParamChange(type, { llm: value })}
+              options={providers}
+              placeholder="Select a provider"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Model
+            </label>
+            <SearchableSelect
+              value={strategy.params?.model || getModelsForProvider(strategy.params?.llm || 'openai')[0]?.value}
+              onChange={(value) => handleEmbeddingParamChange(type, { model: value })}
+              options={getModelsForProvider(strategy.params?.llm || 'openai')}
+              placeholder="Select a model"
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-gray-900">
+                Storage & Quality
+              </h4>
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Minimize2 className="w-4 h-4" />
+                <span>Storage</span>
+                <span className="mx-2">•</span>
+                <span>Quality</span>
+                <Maximize2 className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-600">Target Dimensions</span>
+                  <span className="text-sm font-medium text-gray-900">{strategy.params?.dimensions || 24}</span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max={getCurrentModelDimensions()}
+                  value={strategy.params?.dimensions || 24}
+                  onChange={(e) => handleDimensionsChange(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>2</span>
+                  <span>{getCurrentModelDimensions()}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h5 className="text-sm font-medium text-gray-900">Quality Presets</h5>
+                {compressionPresets.map((preset) => (
+                  <div
+                    key={preset.value}
+                    onClick={() => handlePresetChange(preset.value)}
+                    className={`p-4 rounded-lg border transition-colors cursor-pointer
+                      ${strategy.params?.preset === preset.value
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          checked={strategy.params?.preset === preset.value}
+                          onChange={() => handlePresetChange(preset.value)}
+                          className="rounded-full border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="font-medium text-gray-900">{preset.label}</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 ml-6">{preset.description}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <HardDrive className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h5 className="text-sm font-medium text-gray-900">Storage Efficiency</h5>
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="h-full bg-green-600 rounded-full"
+                            style={{ width: `${100 - ((strategy.params?.dimensions || 24) / getCurrentModelDimensions()) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2">
+                          {strategy.params?.dimensions && strategy.params.dimensions <= getCurrentModelDimensions() * 0.25
+                            ? "Optimized for storage. Maintains core meaning while significantly reducing storage requirements."
+                            : strategy.params?.dimensions && strategy.params.dimensions <= getCurrentModelDimensions() * 0.5
+                            ? "Balanced approach. Good compromise between quality and storage efficiency."
+                            : "Prioritizes quality. Preserves more nuanced relationships but requires more storage."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <Brain className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h5 className="text-sm font-medium text-gray-900">Information Preservation</h5>
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                            style={{ width: `${((strategy.params?.dimensions || 24) / getCurrentModelDimensions()) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Preserves approximately {Math.round(((strategy.params?.dimensions || 24) / getCurrentModelDimensions()) * 100)}% of the original information
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   };
@@ -392,7 +671,7 @@ export function PreprocessingConfig({
                 <span className="font-medium text-gray-900">{nullPercentage.toFixed(2)}%</span>
               </div>
               <div className="mt-2">
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div 
                     className="h-full bg-blue-600 rounded-full"
                     style={{ width: `${nullPercentage}%` }}
@@ -422,7 +701,7 @@ export function PreprocessingConfig({
                   <span className="font-medium text-gray-900">{nullPercentageProcessed.toFixed(2)}%</span>
                 </div>
                 <div className="mt-2">
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div 
                       className="h-full bg-blue-600 rounded-full"
                       style={{ width: `${nullPercentageProcessed}%` }}
@@ -637,7 +916,9 @@ export function PreprocessingConfig({
 
                 {renderStrategySpecificInfo('training')}
                 {renderConstantValueInput('training')}
-               {(column.datatype === 'categorical' && training.method === 'categorical') && (
+                {renderEncodingConfig('training')}
+                {renderEmbeddingConfig('training')}
+                {(column.datatype === 'categorical' && training.method === 'categorical') && (
                   <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -655,43 +936,6 @@ export function PreprocessingConfig({
                       <p className="mt-1 text-sm text-gray-500">
                         Categories with fewer instances will be grouped as "OTHER"
                       </p>
-                    </div>
-                  </div>
-                )}
-                {(column.datatype === 'categorical' && training.method !== 'none') && (
-                  <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Encoding</h4>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="oneHotEncode"
-                        name="encoding"
-                        checked={training.params.one_hot}
-                        onChange={() => handleCategoricalParamChange('training', {
-                          one_hot: true,
-                          ordinal_encoding: false
-                        })}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="oneHotEncode" className="text-sm text-gray-700">
-                        One-hot encode categories
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="ordinalEncode"
-                        name="encoding"
-                        checked={training.params.ordinal_encoding}
-                        onChange={() => handleCategoricalParamChange('training', {
-                          one_hot: false,
-                          ordinal_encoding: true
-                        })}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="ordinalEncode" className="text-sm text-gray-700">
-                        Ordinal encode categories
-                      </label>
                     </div>
                   </div>
                 )}
@@ -719,6 +963,8 @@ export function PreprocessingConfig({
                   </select>
 
                   {renderConstantValueInput('inference')}
+                  {renderEncodingConfig('inference')}
+                  {renderEmbeddingConfig('inference')}
                 </div>
               )}
             </div>

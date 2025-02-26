@@ -163,6 +163,48 @@ module EasyML
             end
           end
         end
+
+        def self.constants
+          {
+            providers: [
+              { value: 'openai', label: 'OpenAI' },
+              { value: 'anthropic', label: 'Anthropic' },
+              { value: 'ollama', label: 'Ollama (Local)' },
+            ],
+            models: {
+              openai: [
+                { value: 'text-embedding-3-small', label: 'text-embedding-3-small', dimensions: 1536 },
+                { value: 'text-embedding-3-large', label: 'text-embedding-3-large', dimensions: 3072 },
+                { value: 'text-embedding-ada-002', label: 'text-embedding-ada-002', dimensions: 1536 },
+              ],
+              anthropic: [
+                { value: 'claude-3', label: 'Claude 3', dimensions: 3072 },
+                { value: 'claude-2', label: 'Claude 2', dimensions: 1536 },
+              ],
+              ollama: [
+                { value: 'llama2', label: 'Llama 2', dimensions: 4096 },
+                { value: 'mistral', label: 'Mistral', dimensions: 4096 },
+                { value: 'mixtral', label: 'Mixtral', dimensions: 4096 },
+                { value: 'nomic-embed-text', label: 'Nomic Embed', dimensions: 768 },
+                { value: 'starling-lm', label: 'Starling', dimensions: 4096 },
+              ],
+            },
+            compression_presets: {
+              high_quality: {
+                description: "Preserves subtle relationships and nuanced meaning",
+                variance_target: 0.95,
+              },
+              balanced: {
+                description: "Good balance of quality and storage efficiency",
+                variance_target: 0.85,
+              },
+              storage_optimized: {
+                description: "Maximizes storage efficiency while maintaining core meaning",
+                variance_target: 0.75,
+              },
+            },
+          }
+        end
       end
     end
   end

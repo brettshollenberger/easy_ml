@@ -165,7 +165,7 @@ module EasyML
     private
 
     def preprocessing_params
-      [:method, { params: [:constant, :categorical_min, :one_hot, :ordinal_encoding, { clip: %i[min max] }] }]
+      [:method, { params: [:constant, :categorical_min, :one_hot, :ordinal_encoding, :llm, :model, :preset, :dimensions, { clip: %i[min max] }] }]
     end
 
     def dataset_params

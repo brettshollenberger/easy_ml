@@ -534,6 +534,7 @@ module EasyML
     def pca_model_outdated?
       pca_model = get_pca_model
       return false unless pca_model.persisted?
+      return false unless n_dimensions.present?
 
       pca_model.model.params.dig(:n_components) != n_dimensions
     end

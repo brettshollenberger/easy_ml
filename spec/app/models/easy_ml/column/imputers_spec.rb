@@ -863,7 +863,7 @@ RSpec.describe EasyML::Column::Imputers do
       expect(any_missing.count).to eq 0
     end
 
-    it "filters out duplicate inputs when embedding", :focus do
+    it "filters out duplicate inputs when embedding" do
       # Create a spy on the Embedder's process_batch method to track actual inputs
       process_batch_spy = spy("process_batch")
 
@@ -934,7 +934,7 @@ RSpec.describe EasyML::Column::Imputers do
       expect(col.embedding_store.compressed_store.query.count).to eq(col.embedding_store.full_store.query.count)
     end
 
-    it "creates only the necessary number of batches based on inputs and processes" do
+    describe "creates only the necessary number of batches based on inputs and processes" do
       # Test scenarios for batch creation optimization
       [
         # If there is < 500 inputs, we should create only 1 batch
@@ -967,46 +967,18 @@ RSpec.describe EasyML::Column::Imputers do
               }
             )
 
-            # Mock the process_batch method to avoid actual API calls
+            # Track batches
+            batches = []
             allow(embedder).to receive(:process_batch) do |batch|
+              batches << batch
               batch.map { |_| Array.new(10) { rand } }
             end
 
-            # Spy on the each_slice method to verify batch creation
-            batches = []
-            allow(input_texts).to receive(:each_slice).and_wrap_original do |original, batch_size|
-              result = original.call(batch_size)
-              batches = input_texts.each_slice(batch_size).to_a
-              result
-            end
+            # Call the method under test
+            embedder.send(:batch_embed, input_texts)
 
-            # For parallel processing, we need to spy on Parallel.map
-            if test_case[:processes] > 1
-              # Mock the Parallel.map call to avoid actual parallel processing
-              # but still verify the number of batches passed to it
-              parallel_batches = nil
-              allow(Parallel).to receive(:map).and_wrap_original do |original, items, options|
-                parallel_batches = items
-                items.map { |batch| batch.map { |_| Array.new(10) { rand } } }
-              end
-
-              # Call the method under test
-              embedder.send(:batch_embed, input_texts)
-
-              # Verify the correct number of batches were created
-              expect(batches.size).to eq((test_case[:input_size].to_f / 500).ceil)
-
-              # Verify parallel processing used the correct number of batches
-              if batches.size > 1
-                expect(parallel_batches.size).to eq(test_case[:expected_batches])
-              else
-                expect(batches.size).to eq(test_case[:expected_batches])
-              end
-            else
-              # For single process case, just verify the number of batches
-              embedder.send(:batch_embed, input_texts)
-              expect(batches.size).to eq(test_case[:expected_batches])
-            end
+            # Verify the correct number of batches were created
+            expect(batches.size).to eq(test_case[:expected_batches])
           end
         end
       end

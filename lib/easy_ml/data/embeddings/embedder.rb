@@ -71,17 +71,24 @@ module EasyML
           # Get batch size based on provider
           batch_size = config[:batch_size] || BATCH_SIZES[@llm] || BATCH_SIZES[:default]
 
-          # Create batches based on the configured batch size
-          batches = texts.each_slice(batch_size).to_a
-
           # Get parallel processing settings
           parallel_processes = config[:parallel_processes] || 4
           parallelism_mode = (config[:parallelism_mode] || :threads).to_sym
 
+          # Calculate optimal number of batches based on input size and processes
+          total_batches = (texts.size.to_f / batch_size).ceil
+          num_batches = [total_batches, parallel_processes].min
+          optimal_batch_size = (texts.size.to_f / num_batches).ceil
+
+          # Create batches based on the optimal batch size
+          batches = texts.each_slice(optimal_batch_size).to_a
+
+          parallel_processes = [parallel_processes, num_batches].min
+
           # Process in parallel with appropriate error handling
           all_embeddings = []
 
-          if parallel_processes > 1 && batches.size > 1
+          if parallel_processes > 1 && num_batches > 1
             case parallelism_mode
             when :threads
               all_embeddings = Parallel.map(batches, in_threads: parallel_processes) do |batch|

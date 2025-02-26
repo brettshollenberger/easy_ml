@@ -248,7 +248,7 @@ module ModelSpecHelper
         json = {
           data: texts.map do |text|
             # Generate and store a consistent embedding for each unique text
-            @mock_embeddings[text] ||= Array.new(2048) { Random.rand }
+            @mock_embeddings[text] ||= Array.new(48) { Random.rand }
             {
               embedding: @mock_embeddings[text],
             }

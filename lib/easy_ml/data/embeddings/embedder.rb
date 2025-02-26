@@ -37,11 +37,25 @@ module EasyML
 
         def embed(df, col, output_column)
           pick
-          texts = df[col].to_a
-          embeddings = batch_embed(texts)
-          df = df.with_column(
-            Polars.lit(embeddings).alias(output_column)
+
+          # Create a dataframe of unique texts and their embeddings
+          unique_df = df.select(col)
+            .filter(Polars.col(col).is_not_null & (Polars.col(col) != ""))
+            .unique
+
+          unique_texts = unique_df[col].to_a
+          unique_embeddings = batch_embed(unique_texts)
+
+          # Create a new dataframe with text-embedding pairs
+          embeddings_df = Polars::DataFrame.new(
+            { col => unique_texts, output_column => unique_embeddings }
           )
+          embeddings_df = embeddings_df.with_columns(
+            Polars.col(col).cast(df.schema[col]).alias(col)
+          )
+
+          # Join the original dataframe with the embeddings
+          df.join(embeddings_df, on: col, how: "left")
         end
 
         private

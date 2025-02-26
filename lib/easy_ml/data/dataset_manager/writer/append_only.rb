@@ -13,7 +13,7 @@ module EasyML
           end
 
           def store
-            # If there are no existing files, just store as normal
+            @df = @df.unique(subset: [primary_key])
             return super if files.empty?
 
             # Get existing data lazily

@@ -51,11 +51,20 @@ module EasyML
           @embedding_column = embedding_column
           @fit = fit
 
-          if preset.present?
-            reduce_with_preset(df, preset: preset)
-          else
-            reduce_to_dimensions(df, target_dimensions: dimensions)
-          end
+          # Create a dataframe of unique texts and their embeddings
+          unique_df = df.select([column, embedding_column])
+            .filter(Polars.col(column).is_not_null & (Polars.col(column) != ""))
+            .unique
+
+          # Compress the unique embeddings
+          compressed_df = if preset.present?
+              reduce_with_preset(unique_df, preset: preset)
+            else
+              reduce_to_dimensions(unique_df, target_dimensions: dimensions)
+            end
+
+          # Join back to original dataframe to maintain all rows
+          df.join(compressed_df, on: column, how: "left")
         end
 
         # Reduce dimensions using a preset quality level

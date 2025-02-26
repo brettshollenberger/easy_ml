@@ -862,5 +862,154 @@ RSpec.describe EasyML::Column::Imputers do
       any_missing = df.filter(Polars.col("Name_embedding").is_null)
       expect(any_missing.count).to eq 0
     end
+
+    it "filters out duplicate inputs when embedding", :focus do
+      # Create a spy on the Embedder's process_batch method to track actual inputs
+      process_batch_spy = spy("process_batch")
+
+      # Store the original method
+      original_method = EasyML::Data::Embeddings::Embedder.instance_method(:process_batch)
+
+      # Allow the spy to track calls but use the original implementation
+      allow_any_instance_of(EasyML::Data::Embeddings::Embedder).to receive(:process_batch) do |instance, batch|
+        process_batch_spy.process_batch(batch)
+        # Call the original method instead of creating an infinite loop
+        original_method.bind(instance).call(batch)
+      end
+
+      # Path to the datasource with duplicates
+      duplicates_dir = SPEC_ROOT.join("internal/easy_ml/datasources/source_with_duplicates")
+
+      # Create a file datasource with the duplicated data
+      datasource = EasyML::Datasource.create(
+        name: "Source With Duplicates",
+        datasource_type: "file",
+      )
+
+      dataset = EasyML::Dataset.create(
+        name: "Duplicates Test Dataset",
+        datasource: datasource,
+        splitter_attributes: { splitter_type: "random", seed: 40 },
+      )
+
+      dataset.refresh
+
+      # Set up embedding preprocessing
+      dataset.columns.find_by(name: "Name").update(
+        preprocessing_steps: {
+          training: {
+            method: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+            },
+          },
+        },
+      )
+
+      # Mock the embeddings request
+      mock_embeddings_request!
+
+      # Process the dataset
+      dataset.refresh
+
+      # Verify that only unique inputs were processed
+      # The Embedder should have filtered out duplicates before processing
+      unique_names = ["John Smith", "Jane Doe", "Unique Person"]
+      seen_items = []
+
+      # Check that each process_batch call only contains unique inputs
+      expect(process_batch_spy).to have_received(:process_batch).at_least(:once) do |batch|
+        seen_items.concat(batch)
+      end
+      expect(seen_items.sort).to eq(unique_names.sort)
+
+      # Verify all rows have embeddings despite deduplication during processing
+      expect(dataset.data(all_columns: true).columns).to include("Name_embedding")
+      expect(dataset.data(all_columns: true).filter(Polars.col("Name_embedding").is_null).count).to eq(0)
+      expect(dataset.raw.data.count).to eq(dataset.processed.data.count)
+
+      col = dataset.columns.find_by(name: "Name")
+      # All compressed embeddings are pre-stored as well
+      expect(col.embedding_store.compressed_store.query.count).to eq(col.embedding_store.full_store.query.count)
+    end
+
+    it "creates only the necessary number of batches based on inputs and processes" do
+      # Test scenarios for batch creation optimization
+      [
+        # If there is < 500 inputs, we should create only 1 batch
+        { input_size: 200, processes: 4, expected_batches: 1 },
+
+        # If there is 500-1000 inputs, we should create 2 batches
+        { input_size: 600, processes: 4, expected_batches: 2 },
+
+        # If there is 1000-1500 inputs, we should create 3 batches
+        { input_size: 1200, processes: 4, expected_batches: 3 },
+
+        # If there is > 1500 inputs, we should create 4 batches (capped at process count)
+        { input_size: 2000, processes: 4, expected_batches: 4 },
+
+        # Should cap at process count even with more inputs
+        { input_size: 3000, processes: 4, expected_batches: 4 },
+      ].each do |test_case|
+        # For clearer test output
+        context "with #{test_case[:input_size]} inputs and #{test_case[:processes]} processes" do
+          it "creates #{test_case[:expected_batches]} batches" do
+            # Generate test data with the specified number of inputs
+            input_texts = (1..test_case[:input_size]).map { |i| "Text #{i}" }
+
+            # Create a test embedder with the specified number of processes
+            embedder = EasyML::Data::Embeddings::Embedder.new(
+              :openai,
+              {
+                parallel_processes: test_case[:processes],
+                batch_size: 500,  # Using OpenAI's recommended batch size
+              }
+            )
+
+            # Mock the process_batch method to avoid actual API calls
+            allow(embedder).to receive(:process_batch) do |batch|
+              batch.map { |_| Array.new(10) { rand } }
+            end
+
+            # Spy on the each_slice method to verify batch creation
+            batches = []
+            allow(input_texts).to receive(:each_slice).and_wrap_original do |original, batch_size|
+              result = original.call(batch_size)
+              batches = input_texts.each_slice(batch_size).to_a
+              result
+            end
+
+            # For parallel processing, we need to spy on Parallel.map
+            if test_case[:processes] > 1
+              # Mock the Parallel.map call to avoid actual parallel processing
+              # but still verify the number of batches passed to it
+              parallel_batches = nil
+              allow(Parallel).to receive(:map).and_wrap_original do |original, items, options|
+                parallel_batches = items
+                items.map { |batch| batch.map { |_| Array.new(10) { rand } } }
+              end
+
+              # Call the method under test
+              embedder.send(:batch_embed, input_texts)
+
+              # Verify the correct number of batches were created
+              expect(batches.size).to eq((test_case[:input_size].to_f / 500).ceil)
+
+              # Verify parallel processing used the correct number of batches
+              if batches.size > 1
+                expect(parallel_batches.size).to eq(test_case[:expected_batches])
+              else
+                expect(batches.size).to eq(test_case[:expected_batches])
+              end
+            else
+              # For single process case, just verify the number of batches
+              embedder.send(:batch_embed, input_texts)
+              expect(batches.size).to eq(test_case[:expected_batches])
+            end
+          end
+        end
+      end
+    end
   end
 end

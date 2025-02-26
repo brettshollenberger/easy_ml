@@ -12,49 +12,33 @@ module EasyML
         median: [:clip],
       }
 
+      LABELS = {
+        ffill: "Forward Fill",
+        categorical: "Categorical",
+        mean: "Mean",
+        median: "Median",
+        constant: "Constant Value",
+        most_frequent: "Most Frequent",
+        today: "Current Date",
+        embedding: "Text Embedding",
+      }
+
       PREPROCESSING_STRATEGIES = {
-        float: [
-          { value: "ffill", label: "Forward Fill" },
-          { value: "mean", label: "Mean" },
-          { value: "median", label: "Median" },
-          { value: "constant", label: "Constant Value" },
-        ],
-        integer: [
-          { value: "ffill", label: "Forward Fill" },
-          { value: "mean", label: "Mean" },
-          { value: "median", label: "Median" },
-          { value: "constant", label: "Constant Value" },
-        ],
-        boolean: [
-          { value: "ffill", label: "Forward Fill" },
-          { value: "most_frequent", label: "Most Frequent" },
-          { value: "constant", label: "Constant Value" },
-        ],
-        datetime: [
-          { value: "ffill", label: "Forward Fill" },
-          { value: "constant", label: "Constant Value" },
-          { value: "today", label: "Current Date" },
-        ],
-        string: [
-          { value: "embedding", label: "Embedding" },
-          { value: "ffill", label: "Forward Fill" },
-          { value: "most_frequent", label: "Most Frequent" },
-          { value: "constant", label: "Constant Value" },
-        ],
-        text: [
-          { value: "embedding", label: "Embedding" },
-          { value: "ffill", label: "Forward Fill" },
-          { value: "most_frequent", label: "Most Frequent" },
-          { value: "constant", label: "Constant Value" },
-        ],
-        categorical: [
-          { value: "embedding", label: "Embedding" },
-          { value: "ffill", label: "Forward Fill" },
-          { value: "categorical", label: "Categorical" },
-          { value: "most_frequent", label: "Most Frequent" },
-          { value: "constant", label: "Constant Value" },
-        ],
-      }.freeze
+        float: %w(ffill mean median constant),
+        integer: %w(ffill mean median constant),
+        boolean: %w(ffill most_frequent constant),
+        datetime: %w(ffill today constant),
+        string: %w(embedding ffill most_frequent constant),
+        text: %w(embedding ffill most_frequent constant),
+        categorical: %w(embedding ffill categorical most_frequent constant),
+      }.transform_values do |strategies|
+        strategies.map do |strategy|
+          {
+            value: strategy,
+            label: LABELS[strategy],
+          }
+        end
+      end
 
       def self.constants
         {

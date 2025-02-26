@@ -354,7 +354,19 @@ export function PreprocessingConfig({
             </label>
             <SearchableSelect
               value={strategy.params?.llm || 'openai'}
-              onChange={(value) => handleEmbeddingParamChange(type, { llm: value })}
+              onChange={(value) => {
+                const newModels = getModelsForProvider(value);
+                const firstModel = newModels[0]?.value;
+                const dimensions = newModels[0]?.dimensions || 1536;
+                
+                handleEmbeddingParamChange(type, {
+                  ...strategy.params,
+                  llm: value,
+                  model: firstModel,
+                  dimensions: dimensions,
+                  preset: 'high_quality',
+                });
+              }}
               options={providers}
               placeholder="Select a provider"
             />
@@ -366,7 +378,17 @@ export function PreprocessingConfig({
             </label>
             <SearchableSelect
               value={strategy.params?.model || getModelsForProvider(strategy.params?.llm || 'openai')[0]?.value}
-              onChange={(value) => handleEmbeddingParamChange(type, { model: value })}
+              onChange={(value) => {
+                const model = getModelsForProvider(strategy.params?.llm || 'openai').find(m => m.value === value);
+                const dimensions = model?.dimensions || 1536;
+                
+                handleEmbeddingParamChange(type, {
+                  ...strategy.params,
+                  model: value,
+                  dimensions: dimensions,
+                  preset: 'high_quality',
+                });
+              }}
               options={getModelsForProvider(strategy.params?.llm || 'openai')}
               placeholder="Select a model"
             />

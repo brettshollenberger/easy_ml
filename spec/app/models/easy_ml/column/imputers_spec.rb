@@ -813,7 +813,7 @@ RSpec.describe EasyML::Column::Imputers do
       name_column = titanic_dataset.columns.find_by(name: "Name")
       expect(
         name_column.embedding_store.query(compressed: false, lazy: true).limit(1).collect["Name_embedding"][0].size
-      ).to eq 1024
+      ).to eq 48
 
       expect(
         name_column.embedding_store.query(compressed: true, lazy: true).limit(1).collect["Name_embedding"][0].size

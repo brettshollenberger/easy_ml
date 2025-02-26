@@ -2215,7 +2215,6 @@ DEPENDENCIES
   inertia_rails
   jsonapi-serializer
   langchainrb
-  numo-linalg
   numpy (~> 0.4.0)
   ostruct
   pg

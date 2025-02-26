@@ -118,19 +118,8 @@ module EasyML
             transformed = @pca_model.fit_transform(x)
           end
 
-          # # Find number of components needed for target variance
-          # cumulative_variance = Numo::NArray.cast(@reducer.explained_variance_ratio).cumsum
-          # n_components = (cumulative_variance >= target_variance).where[0]
-          # n_components = n_components.nil? ? @original_dimensions : n_components + 1
-
-          # # Apply PCA with determined number of components
-          # @reducer = Rumale::Decomposition::PCA.new(n_components: n_components)
-          # transformed = @reducer.fit_transform(x)
-
-          # Explainer.new(@reducer, @original_dimensions, n_components)
-
           # Create new dataframe with reduced embeddings
-          result_df = create_result_dataframe(embeddings_df, embedding_column, x)
+          result_df = create_result_dataframe(embeddings_df, embedding_column, transformed)
 
           result_df
         end

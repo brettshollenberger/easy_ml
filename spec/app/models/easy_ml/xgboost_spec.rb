@@ -1,15 +1,10 @@
 require "spec_helper"
 require "support/model_spec_helper"
 
+Process.setrlimit(Process::RLIMIT_CORE, Process::RLIM_INFINITY)
+
 RSpec.describe "EasyML::Models::XGBoost" do
   include ModelSpecHelper
-
-  before(:each) do
-    EasyML::Cleaner.clean
-  end
-  after(:each) do
-    EasyML::Cleaner.clean
-  end
 
   describe "XGBoost" do
     let(:booster) do
@@ -47,7 +42,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         expect { model.fit }.to_not raise_error
       end
 
-      it "explodes embedding columns" do
+      it "explodes embedding columns", :focus do
         dataset.columns.find_by(name: "loan_purpose").update(
           preprocessing_steps: {
             training: {

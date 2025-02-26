@@ -2,7 +2,7 @@ module EasyML
   module Data
     class Embeddings
       require_relative "embeddings/compressor"
-      require_relative "embeddings/adapters"
+      require_relative "embeddings/embedder"
 
       attr_reader :df, :column, :model, :adapter, :compression,
                   :embeddings, :compressed_embeddings, :config,
@@ -42,7 +42,7 @@ module EasyML
       private
 
       def adapter
-        @adapter ||= EasyML::Data::Embeddings::Adapters.new(llm, config)
+        @adapter ||= EasyML::Data::Embeddings::Embedder.new(llm, config)
       end
 
       def compressor_args

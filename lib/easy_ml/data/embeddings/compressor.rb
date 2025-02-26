@@ -72,6 +72,7 @@ module EasyML
 
         # Reduce dimensions to a specific number
         def reduce_to_dimensions(embeddings_df, target_dimensions:)
+          puts "reducing model dims..."
           validate_input(embeddings_df)
 
           # Convert embedding columns to Numo::NArray for Rumale
@@ -79,7 +80,7 @@ module EasyML
           @original_dimensions = x.shape[1]
 
           if target_dimensions >= @original_dimensions
-            return embeddings_df.clone()
+            raise ArgumentError, "Target dimensions must be less than original dimensions"
           end
 
           # Initialize and fit PCA

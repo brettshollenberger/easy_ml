@@ -49,7 +49,8 @@ module EasyML
             SUMMARY
           end
 
-        private
+          private
+
           def explain
             # Get centered data
             centered_x = x - @pca.mean
@@ -80,3 +81,4 @@ module EasyML
       end
     end
   end
+end

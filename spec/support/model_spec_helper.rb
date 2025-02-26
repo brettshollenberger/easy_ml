@@ -239,13 +239,18 @@ module ModelSpecHelper
     end
 
     def mock_embeddings_request!
+      # Store embeddings by text to ensure consistency
+      @mock_embeddings ||= {}
+
       allow_any_instance_of(Langchain::LLM::OpenAI).to receive(:embed).with(any_args) do |llm, kwargs|
         texts = kwargs[:text]
 
         json = {
-          data: texts.map.with_index do |text, idx|
+          data: texts.map do |text|
+            # Generate and store a consistent embedding for each unique text
+            @mock_embeddings[text] ||= Array.new(2048) { Random.rand }
             {
-              embedding: Array.new(1024).map { Random.rand },
+              embedding: @mock_embeddings[text],
             }
           end,
         }

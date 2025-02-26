@@ -1,7 +1,7 @@
 module EasyML
   module Data
     class Embeddings
-      class Adapters
+      class Embedder
         attr_accessor :llm, :config, :adapter
 
         ADAPTERS = {

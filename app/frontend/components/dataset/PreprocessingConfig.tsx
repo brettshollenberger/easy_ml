@@ -335,16 +335,6 @@ export function PreprocessingConfig({
       });
     };
 
-    useEffect(() => {
-      if (strategy.method === 'embedding' && !strategy.params?.dimensions) {
-        handleEmbeddingParamChange(type, {
-          ...strategy.params,
-          dimensions: getCurrentModelDimensions(),
-          preset: 'high_quality',
-        });
-      }
-    }, [strategy.method, strategy.params?.llm, strategy.params?.model]);
-
     return (
       <div className="space-y-6 mt-8">
         <div className="bg-blue-50 rounded-lg p-4">
@@ -519,6 +509,38 @@ export function PreprocessingConfig({
       </div>
     );
   };
+
+  useEffect(() => {
+    // Handle training strategy
+    if (training.method === 'embedding' && !training.params?.dimensions) {
+      const provider = training.params?.llm || 'openai';
+      const modelValue = training.params?.model || (constants.embedding_constants.models[provider] || [])[0]?.value;
+      const model = (constants.embedding_constants.models[provider] || []).find(m => m.value === modelValue);
+      const dimensions = model?.dimensions || 1536;
+
+      handleEmbeddingParamChange('training', {
+        ...training.params,
+        dimensions,
+        preset: 'high_quality',
+      });
+    }
+    
+    // Handle inference strategy
+    if (useDistinctInference && inference.method === 'embedding' && !inference.params?.dimensions) {
+      const provider = inference.params?.llm || 'openai';
+      const modelValue = inference.params?.model || (constants.embedding_constants.models[provider] || [])[0]?.value;
+      const model = (constants.embedding_constants.models[provider] || []).find(m => m.value === modelValue);
+      const dimensions = model?.dimensions || 1536;
+
+      handleEmbeddingParamChange('inference', {
+        ...inference.params,
+        dimensions,
+        preset: 'high_quality',
+      });
+    }
+  }, [training.method, training.params?.llm, training.params?.model,
+      inference.method, inference.params?.llm, inference.params?.model,
+      useDistinctInference]);
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
 

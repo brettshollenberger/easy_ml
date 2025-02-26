@@ -47,7 +47,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
         expect { model.fit }.to_not raise_error
       end
 
-      it "explodes embedding columns", :focus do
+      it "explodes embedding columns" do
         dataset.columns.find_by(name: "loan_purpose").update(
           preprocessing_steps: {
             training: {

@@ -454,20 +454,23 @@ module EasyML
 
       def explode_embeddings(df)
         embedding_cols = dataset.columns.select(&:embedded?)
+        # Create all extraction expressions at once
+        select_expressions = []
 
-        select_statements = embedding_cols.flat_map do |col|
+        # Retain all non-embedding columns
+        base_cols = df.schema.keys - embedding_cols.map(&:embedding_column)
+        select_expressions << Polars.col(base_cols)
+
+        # Add all embedding extraction expressions
+        embedding_cols.each do |col|
           dims = col.n_dimensions
-          (0...dims).map do |i|
-            Polars.col(col.embedding_column).arr.get(i).alias("#{col.embedding_column}_#{i}")
+          (0...dims).each do |i|
+            # Create a single expression that extracts one element
+            select_expressions << Polars.col(col.embedding_column).arr.get(i).alias("#{col.embedding_column}_#{i}")
           end
         end
 
-        base_cols = df.schema.keys - embedding_cols.map(&:embedding_column)
-
-        df.select([
-          Polars.col(base_cols),
-          *select_statements,
-        ])
+        df.select(select_expressions)
       end
 
       def preprocess(xs, ys = nil)

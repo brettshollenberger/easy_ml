@@ -113,7 +113,6 @@ module EasyML
           if @pca_model.present?
             transformed = @pca_model.transform(x)
           else
-            binding.pry if Thread.current[:stop]
             @pca_model = Rumale::Decomposition::PCA.new(n_components: target_components)
             transformed = @pca_model.fit_transform(x)
           end

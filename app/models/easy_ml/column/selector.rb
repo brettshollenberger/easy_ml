@@ -62,8 +62,8 @@ module EasyML
           kwargs[:select] = []
         end
 
-        if (selected == :processed || (selected.nil? && !dataset.needs_refresh?)) && column.one_hot?
-          kwargs[:select] << column.virtual_columns
+        if (selected == :processed || (selected.nil? && !dataset.needs_refresh?)) && column.has_virtual_columns?
+          kwargs[:select] << column.aliases
         else
           kwargs[:select] << column.name
         end

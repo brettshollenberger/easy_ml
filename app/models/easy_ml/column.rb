@@ -135,6 +135,10 @@ module EasyML
       [name].concat(virtual_columns)
     end
 
+    def has_virtual_columns?
+      one_hot? || embedded?
+    end
+
     def virtual_columns
       if one_hot?
         allowed_categories.map { |cat| "#{name}_#{cat}" }

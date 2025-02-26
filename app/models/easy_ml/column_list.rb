@@ -90,9 +90,15 @@ module EasyML
       end
     end
 
+    def embedded?(column)
+      column_list.select(&:embedded?).detect do |col|
+        column == col.embedding_column
+      end
+    end
+
     def syncable
       dataset.processed_schema.keys.select do |col|
-        !one_hot?(col)
+        !one_hot?(col) && !embedded?(col)
       end
     end
 

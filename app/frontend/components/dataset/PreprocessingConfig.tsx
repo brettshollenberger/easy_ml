@@ -625,6 +625,47 @@ export function PreprocessingConfig({
     );
   };
 
+  const renderLineageInfo = () => {
+    return (
+      <div className="space-y-4">
+        {column.lineage.map((step, index) => (
+          <div key={index} className="flex items-start gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              step.key === 'raw_dataset' 
+                ? 'bg-gray-100' 
+                : step.key === 'computed_by_feature'
+                ? 'bg-purple-100'
+                : 'bg-blue-100'
+            }`}>
+              {step.key === 'raw_dataset' ? (
+                <Database className="w-4 h-4 text-gray-600" />
+              ) : step.key === 'computed_by_feature' ? (
+                <Calculator className="w-4 h-4 text-purple-600" />
+              ) : (
+                <Settings2 className="w-4 h-4 text-blue-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-900">
+                  {step.description}
+                </p>
+                {step.timestamp && (
+                  <span className="text-xs text-gray-500">
+                    {new Date(step.timestamp).toLocaleString()}
+                  </span>
+                )}
+              </div>
+              {index < column.lineage.length - 1 && (
+                <div className="ml-4 mt-2 mb-2 w-0.5 h-4 bg-gray-200" />
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-8">
       {/* Column Header Section */}
@@ -836,52 +877,6 @@ export function PreprocessingConfig({
         )}
       </div>
 
-      {/* Column Lineage Section */}
-      {column.lineage && column.lineage.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-            <GitBranch className="w-5 h-5 text-gray-500" />
-            Column Lineage
-          </h3>
-          <div className="space-y-4">
-            {column.lineage.map((step, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  step.key === 'raw_dataset' 
-                    ? 'bg-gray-100' 
-                    : step.key === 'computed_by_feature'
-                    ? 'bg-purple-100'
-                    : 'bg-blue-100'
-                }`}>
-                  {step.key === 'raw_dataset' ? (
-                    <Database className="w-4 h-4 text-gray-600" />
-                  ) : step.key === 'computed_by_feature' ? (
-                    <Calculator className="w-4 h-4 text-purple-600" />
-                  ) : (
-                    <Settings2 className="w-4 h-4 text-blue-600" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">
-                      {step.description}
-                    </p>
-                    {step.timestamp && (
-                      <span className="text-xs text-gray-500">
-                        {new Date(step.timestamp).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                  {index < column.lineage.length - 1 && (
-                    <div className="ml-4 mt-2 mb-2 w-0.5 h-4 bg-gray-200" />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Data Type Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
@@ -894,20 +889,14 @@ export function PreprocessingConfig({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Column Type
             </label>
-            <select
+            <SearchableSelect
               value={selectedType}
-              disabled
-              className="w-full rounded-md border-gray-300 bg-gray-50 shadow-sm text-gray-700 cursor-not-allowed"
-            >
-              {constants.column_types.map(type => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-sm text-gray-500">
-              Column type cannot be changed after creation
-            </p>
+              onChange={(value) => setColumnType(column.name, value)}
+              options={constants.column_types.map(type => ({
+                value: type.value,
+                label: type.label
+              }))}
+            />
           </div>
 
           <div className="bg-gray-50 rounded-md p-4">
@@ -962,19 +951,19 @@ export function PreprocessingConfig({
             </div>
 
             <div className={useDistinctInference ? "grid grid-cols-2 gap-6" : ""}>
-              <div>
-                <select
+              <div className="relative z-50">
+                <SearchableSelect
                   value={training.method}
-                  onChange={(e) => handleStrategyChange('training', e.target.value as PreprocessingStep['method'])}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="none">No preprocessing</option>
-                  {constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => (
-                    <option key={strategy.value} value={strategy.value}>
-                      {strategy.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => handleStrategyChange('training', value as PreprocessingStep['method'])}
+                  options={[
+                    { value: 'none', label: 'No preprocessing' },
+                    ...(constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => ({
+                      value: strategy.value,
+                      label: strategy.label
+                    })) || [])
+                  ]}
+                  options={constants.preprocessing_strategies[selectedType]}
+                />
 
                 {renderStrategySpecificInfo('training')}
                 {renderConstantValueInput('training')}
@@ -1011,18 +1000,18 @@ export function PreprocessingConfig({
                       Inference Strategy
                     </span>
                   </div>
-                  <select
+                  <SearchableSelect
                     value={inference.method}
-                    onChange={(e) => handleStrategyChange('inference', e.target.value as PreprocessingStep['method'])}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  >
-                    <option value="none">No preprocessing</option>
-                    {constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => (
-                      <option key={strategy.value} value={strategy.value}>
-                        {strategy.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleStrategyChange('inference', value as PreprocessingStep['method'])}
+                    options={[
+                      { value: 'none', label: 'No preprocessing' },
+                      ...(constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => ({
+                        value: strategy.value,
+                        label: strategy.label
+                      })) || [])
+                    ]}
+                    options={constants.preprocessing_strategies[selectedType]}
+                  />
 
                   {renderConstantValueInput('inference')}
                   {renderEncodingConfig('inference')}
@@ -1074,6 +1063,17 @@ export function PreprocessingConfig({
         </div>
       </div>
 
+      {/* Column Lineage Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <GitBranch className="w-5 h-5 text-gray-500" />
+          Column Lineage
+        </h3>
+
+        <div className="space-y-4">
+          {renderLineageInfo()}
+        </div>
+      </div>
     </div>
   );
 }

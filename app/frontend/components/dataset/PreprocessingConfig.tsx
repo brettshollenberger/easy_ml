@@ -27,8 +27,12 @@ const createPreprocessingStep = (steps?: PreprocessingStep): PreprocessingStep =
     categorical_min: steps?.params?.categorical_min ?? 100,
     one_hot: steps?.params?.one_hot ?? true,
     ordinal_encoding: steps?.params?.ordinal_encoding ?? false,
-    clip: steps?.params?.clip
-  }
+    clip: steps?.params?.clip,
+    llm: steps?.params?.llm,
+    model: steps?.params?.model,
+    dimensions: steps?.params?.dimensions,
+    preset: steps?.params?.preset,
+  },
 });
 
 export function PreprocessingConfig({ 
@@ -294,7 +298,7 @@ export function PreprocessingConfig({
 
     const getCurrentModelDimensions = () => {
       const provider = strategy.params?.llm || 'openai';
-      const modelValue = strategy.params?.model || getModelsForProvider(strategy.params?.llm || 'openai')[0]?.value;
+      const modelValue = strategy.params?.model || getModelsForProvider(provider)[0]?.value;
       const model = getModelsForProvider(provider).find(m => m.value === modelValue);
       return model?.dimensions || 1536; // Default to 1536 if not found
     };
@@ -331,6 +335,16 @@ export function PreprocessingConfig({
       });
     };
 
+    useEffect(() => {
+      if (strategy.method === 'embedding' && !strategy.params?.dimensions) {
+        handleEmbeddingParamChange(type, {
+          ...strategy.params,
+          dimensions: getCurrentModelDimensions(),
+          preset: 'high_quality',
+        });
+      }
+    }, [strategy.method, strategy.params?.llm, strategy.params?.model]);
+
     return (
       <div className="space-y-6 mt-8">
         <div className="bg-blue-50 rounded-lg p-4">
@@ -340,8 +354,6 @@ export function PreprocessingConfig({
               <h4 className="text-sm font-medium text-blue-900">Text Embeddings</h4>
               <p className="text-sm text-blue-700 mt-1">
                 Convert text into numerical vectors for machine learning, preserving semantic meaning while optimizing for storage and performance.
-
-
               </p>
             </div>
           </div>
@@ -412,13 +424,13 @@ export function PreprocessingConfig({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-600">Target Dimensions</span>
-                  <span className="text-sm font-medium text-gray-900">{strategy.params?.dimensions || 24}</span>
+                  <span className="text-sm font-medium text-gray-900">{strategy.params?.dimensions || getCurrentModelDimensions()}</span>
                 </div>
                 <input
                   type="range"
                   min="2"
                   max={getCurrentModelDimensions()}
-                  value={strategy.params?.dimensions || 24}
+                  value={strategy.params?.dimensions || getCurrentModelDimensions()}
                   onChange={(e) => handleDimensionsChange(parseInt(e.target.value))}
                   className="w-full"
                 />

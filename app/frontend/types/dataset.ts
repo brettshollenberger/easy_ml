@@ -47,6 +47,10 @@ export type PreprocessingStep = {
     };
     one_hot?: boolean;
     ordinal_encoding?: boolean;
+    llm?: string;
+    model?: string;
+    dimensions?: number;
+    preset?: string;
   };
 };
 

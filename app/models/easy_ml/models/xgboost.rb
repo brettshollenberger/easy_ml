@@ -466,7 +466,7 @@ module EasyML
           dims = col.n_dimensions
           (0...dims).each do |i|
             # Create a single expression that extracts one element
-            select_expressions << Polars.col(col.embedding_column).arr.get(i).alias("#{col.embedding_column}_#{i}")
+            select_expressions << Polars.col(col.embedding_column).list.get(i).alias("#{col.embedding_column}_#{i}")
           end
         end
 

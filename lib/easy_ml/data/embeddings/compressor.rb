@@ -57,11 +57,10 @@ module EasyML
             .unique
 
           # Compress the unique embeddings
-          compressed_df = if preset.present?
-              reduce_with_preset(unique_df, preset: preset)
-            else
-              reduce_to_dimensions(unique_df, target_dimensions: dimensions)
-            end
+          compressed_df = reduce_to_dimensions(unique_df, target_dimensions: dimensions)
+          compressed_df = compressed_df.with_columns(Polars.col(embedding_column).cast(df.schema[embedding_column]).alias(embedding_column))
+
+          df = df.drop(embedding_column)
 
           # Join back to original dataframe to maintain all rows
           df.join(compressed_df, on: column, how: "left")

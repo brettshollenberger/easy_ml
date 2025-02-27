@@ -84,6 +84,22 @@ module EasyML
       end
     end
 
+    def cast
+      columns = where(is_computed: false)
+      columns.reduce({}) do |h, col|
+        h.tap do
+          dtype = col.read_attribute(:polars_datatype)
+          h[col.name] = dtype ? dtype.constantize : nil
+        end
+      end.compact
+    end
+
+    def one_hot?(column)
+      one_hots.map(&:name).detect do |one_hot_col|
+        column.start_with?(one_hot_col)
+      end
+    end
+
     def one_hot?(column)
       one_hots.map(&:name).detect do |one_hot_col|
         column.start_with?(one_hot_col)

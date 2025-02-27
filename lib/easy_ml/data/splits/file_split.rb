@@ -136,7 +136,8 @@ module EasyML
             batch_size: batch_size,
             batch_start: batch_start,
             batch_key: batch_key,
-            lazy: lazy,
+            cast: dataset.columns.cast,
+            lazy: lazy
           }.compact
 
           if batch_size.present?

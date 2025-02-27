@@ -68,7 +68,7 @@ RSpec.describe EasyML::Column do
         expect(stats.dig(:raw, :null_count)).to eq 0
         expect(stats.dig(:raw, :unique_count)).to eq 2
         expect(stats.dig(:raw, :most_frequent_value)).to eq "male"
-        expect(stats.dig(:raw, :allowed_categories)).to eq ["female", "male"]
+        expect(stats.dig(:raw, :allowed_categories)).to eq %w[female male]
       end
 
       it "ordinal encodes" do
@@ -82,7 +82,7 @@ RSpec.describe EasyML::Column do
                       })
         dataset.refresh
         stats = column.reload.statistics
-        expect(column.decode_labels([0, 1])).to eq(["female", "male"])
+        expect(column.decode_labels([0, 1])).to eq(%w[female male])
       end
 
       it "one_hot encodes" do
@@ -97,7 +97,7 @@ RSpec.describe EasyML::Column do
         dataset.refresh
         column.reload
         expect(column.raw.data.columns.sort).to eq(["Sex"])
-        expect(column.processed.data.columns.sort).to eq(["Sex_female", "Sex_male", "Sex_other"])
+        expect(column.processed.data.columns.sort).to eq(%w[Sex_female Sex_male Sex_other])
       end
     end
 
@@ -187,7 +187,9 @@ RSpec.describe EasyML::Column do
 
       before do
         column.update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 20 } } } })
-        dataset.columns.find_by(name: "SibSp").update(preprocessing_steps: { training: { method: "mean", params: { clip: { min: 0, max: 1 } } } })
+        dataset.columns.find_by(name: "SibSp").update(preprocessing_steps: { training: { method: "mean",
+                                                                                       params: { clip: { min: 0,
+                                                                                                        max: 1 } } } })
       end
 
       it "includes preprocessing steps in lineage" do
@@ -232,8 +234,12 @@ RSpec.describe EasyML::Column do
         dataset.refresh
         lineage = column.lineages
 
-        expect(lineage.detect { |l| l.key.to_sym == :computed_by_feature }.description).to include("Computed by FamilySize")
-        expect(lineage.detect { |l| l.key.to_sym == :preprocessed }.description).to include("Preprocessed using Clip, Mean imputation")
+        expect(lineage.detect do |l|
+          l.key.to_sym == :computed_by_feature
+        end.description).to include("Computed by FamilySize")
+        expect(lineage.detect do |l|
+          l.key.to_sym == :preprocessed
+        end.description).to include("Preprocessed using Clip, Mean imputation")
         expect(lineage.length).to eq(2)
       end
     end
@@ -316,6 +322,38 @@ RSpec.describe EasyML::Column do
 
         # Should not include preprocessed columns
         expect(required_columns).not_to include(dataset.columns.find_by(name: "Age"))
+      end
+    end
+  end
+
+  describe "Changing column datatypes" do
+    describe "Changing from string to categorical" do
+      let(:column) { dataset.columns.find_by(name: "Sex") }
+
+      it "updates the underlying datasource representation" do
+        column.update(datatype: "string")
+        expect(dataset.raw.data["Sex"].dtype).to eq(Polars::Utf8)
+
+        column.update(datatype: "categorical")
+        expect(dataset.raw.data["Sex"].dtype).to eq(Polars::Categorical)
+      end
+    end
+
+    describe "Changing from string to int/float", :focus do
+      let(:column) { dataset.columns.find_by(name: "Age") }
+
+      it "updates the underlying datasource representation" do
+        column.update(datatype: "string")
+        expect(dataset.raw.data["Age"].dtype).to eq(Polars::Utf8)
+
+        column.update(datatype: "integer")
+        expect(dataset.raw.data["Age"].dtype).to eq(Polars::Int64)
+
+        column.update(datatype: "float")
+        expect(dataset.raw.data["Age"].dtype).to eq(Polars::Float64)
+
+        column.update(datatype: "null")
+        expect(column.errors.map(&:message)).to include("Can't cast from float to null")
       end
     end
   end

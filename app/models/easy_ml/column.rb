@@ -49,6 +49,7 @@ module EasyML
     before_save :set_defaults
     before_save :set_feature_lineage
     before_save :set_polars_datatype
+    before_save :ensure_cast_works
     # after_find :ensure_feature_exists
 
     # Scopes
@@ -530,6 +531,17 @@ module EasyML
     end
 
     private
+
+    def ensure_cast_works
+      begin
+        data(cast: { name => polars_datatype })
+      rescue => e
+        raw_dtype = EasyML::Data::PolarsColumn.polars_to_sym(
+          data(cast: false, limit: 1).schema[name]
+        )
+        errors.add(:datatype, "Can't cast from #{raw_dtype} to #{datatype}")
+      end
+    end
 
     def pca_model_outdated?
       pca_model = get_pca_model

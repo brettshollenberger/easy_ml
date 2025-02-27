@@ -30,9 +30,7 @@ module EasyML
           @preset = config.dig(:preset)
           @dimensions = config.dig(:dimensions)
 
-          unless @preset || @dimensions
-            @preset = :full
-          end
+          @preset = :full unless @preset || @dimensions
           @pca_model = config.dig(:pca_model)
           @original_dimensions = nil
           @reduced_dimensions = nil
@@ -46,15 +44,28 @@ module EasyML
           "#<#{self.class.name} original_dimensions=#{@original_dimensions}, reduced_dimensions=#{@reduced_dimensions}, preserved_variance=#{@preserved_variance}, compression_ratio=#{@compression_ratio}, storage_savings=#{@storage_savings}, preset_used=#{@preset_used}>"
         end
 
+        # Right now, enabling OpenBLAS as the Numo::LinAlg backend causes
+        # memory issues with XGBoost due to conflicts with libomp.
+        # Since arm-based OSX has doesn't have support for MKL, we have to fall back to
+        # a very slow matrix factorization implementation which doesn't seem sustainable.
+        #
+        # One potential solution is to create an accelerate backend for Numo::LinAlg,
+        # or compiling OpenBLAS without USE_OPENMP=0,
+        # but for now I'm just disabling compression support.
+        #
+        COMPRESSION_ENABLED = false
+
         def compress(df, column, embedding_column, fit: false)
+          return df unless COMPRESSION_ENABLED
+
           @column = column
           @embedding_column = embedding_column
           @fit = fit
 
           # Create a dataframe of unique texts and their embeddings
           unique_df = df.select([column, embedding_column])
-            .filter(Polars.col(column).is_not_null & (Polars.col(column) != ""))
-            .unique
+                        .filter(Polars.col(column).is_not_null & (Polars.col(column) != ""))
+                        .unique
 
           # Compress the unique embeddings
           compressed_df = reduce_to_dimensions(unique_df, target_dimensions: dimensions)
@@ -100,9 +111,7 @@ module EasyML
           end
 
           # Create new dataframe with reduced embeddings
-          result_df = create_result_dataframe(embeddings_df, embedding_column, transformed)
-
-          result_df
+          create_result_dataframe(embeddings_df, embedding_column, transformed)
         end
 
         # Reduce dimensions to preserve a target variance
@@ -127,17 +136,15 @@ module EasyML
           end
 
           # Create new dataframe with reduced embeddings
-          result_df = create_result_dataframe(embeddings_df, embedding_column, transformed)
-
-          result_df
+          create_result_dataframe(embeddings_df, embedding_column, transformed)
         end
 
         private
 
         def validate_input(df)
-          unless df.is_a?(Polars::DataFrame)
-            raise ArgumentError, "Input must be a Polars DataFrame"
-          end
+          return if df.is_a?(Polars::DataFrame)
+
+          raise ArgumentError, "Input must be a Polars DataFrame"
         end
 
         def get_embedding_columns(df)

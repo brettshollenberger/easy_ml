@@ -662,24 +662,17 @@ module EasyML
     REQUIRED_PARAMS = {
       embedding: %i[llm model],
       constant: [:constant],
-      categorical: %i[categorical_min one_hot ordinal_encoding],
+      categorical: %i[categorical_min],
     }
 
     DEFAULT_PARAMS = {
       categorical_min: 1,
-      one_hot: true,
-      ordinal_encoding: false,
       clip: { min: 0, max: 1_000_000_000 },
       constant: nil,
       llm: "openai",
       model: "text-embedding-3-small",
       preset: :full,
     }
-
-    XOR_PARAMS = [{
-      params: [:one_hot, :ordinal_encoding],
-      default: :one_hot,
-    }]
 
     def set_preprocessing_step_defaults(config)
       config.deep_symbolize_keys!
@@ -689,27 +682,8 @@ module EasyML
       required = REQUIRED_PARAMS.fetch(config[:method].to_sym, [])
 
       missing = required - params.keys
-      missing.reject! do |param|
-        XOR_PARAMS.any? do |rule|
-          if rule[:params].include?(param)
-            missing_param = rule[:params].find { |p| p != param }
-            params[missing_param] == true
-          else
-            false
-          end
-        end
-      end
-
       missing.each do |key|
         params[key] = DEFAULT_PARAMS.fetch(key)
-      end
-
-      # Only set one of one_hot or ordinal_encoding to true,
-      # by default set one_hot to true
-      xor = XOR_PARAMS.find { |rule| rule[:params] & params.keys == rule[:params] }
-      if xor && xor[:params].all? { |param| params[param] }
-        xor[:params].each { |param| params[param] = false }
-        params[xor[:default]] = true
       end
 
       config.merge!(params: params)

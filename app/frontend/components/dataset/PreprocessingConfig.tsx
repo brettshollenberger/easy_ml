@@ -20,14 +20,16 @@ interface PreprocessingConfigProps {
 const isNumericType = (type: ColumnType): boolean => 
   type === 'float' || type === 'integer';
 
+const canUseEmbedding = (type: ColumnType): boolean =>
+  type === 'text' || type === 'string' || type === 'categorical';
+
 const createPreprocessingStep = (steps?: PreprocessingStep): PreprocessingStep => ({
   method: steps?.method || 'none',
+  encoding: steps?.encoding,
   params: {
-    constant: steps?.params?.constant,
     categorical_min: steps?.params?.categorical_min ?? 100,
-    one_hot: steps?.params?.one_hot ?? true,
-    ordinal_encoding: steps?.params?.ordinal_encoding ?? false,
     clip: steps?.params?.clip,
+    constant: steps?.params?.constant,
     llm: steps?.params?.llm,
     model: steps?.params?.model,
     dimensions: steps?.params?.dimensions,
@@ -69,31 +71,27 @@ export function PreprocessingConfig({
     method: PreprocessingStep['method']
   ) => {
     let defaultParams: PreprocessingStep['params'] = {};
+    let defaultEncoding: string | null = null;
 
     if (selectedType === 'categorical') {
       if (method === 'categorical') {
         defaultParams = {
           ...defaultParams,
           categorical_min: 100,
-          one_hot: true
         };
-      } else if (method != 'none') {
-        defaultParams = {
-          ...defaultParams,
-          one_hot: true
-        };
+        defaultEncoding = 'one_hot';
+      } else if (method !== 'none') {
+        defaultEncoding = 'one_hot';
       }
     }
 
     if (column.is_target) {
-      defaultParams = {
-        ...defaultParams,
-        ordinal_encoding: true
-      };
+      defaultEncoding = 'ordinal';
     }
 
     const newStrategy: PreprocessingStep = {
       method,
+      encoding: defaultEncoding,
       params: defaultParams
     };
 
@@ -118,8 +116,12 @@ export function PreprocessingConfig({
       ...strategy,
       params: {
         categorical_min: strategy.params.categorical_min,
-        one_hot: strategy.params.one_hot,
-        ordinal_encoding: strategy.params.ordinal_encoding,
+        clip: strategy.params.clip,
+        constant: strategy.params.constant,
+        llm: strategy.params.llm,
+        model: strategy.params.model,
+        dimensions: strategy.params.dimensions,
+        preset: strategy.params.preset,
         ...updates
       }
     };
@@ -205,6 +207,26 @@ export function PreprocessingConfig({
     }
   };
 
+  const handleEncodingChange = (
+    type: 'training' | 'inference',
+    encoding: string | null
+  ) => {
+    const strategy = type === 'training' ? training : inference;
+    const setStrategy = type === 'training' ? setTraining : setInference;
+    
+    const newStrategy: PreprocessingStep = {
+      ...strategy,
+      encoding: encoding === 'none' ? null : encoding
+    };
+
+    setStrategy(newStrategy);
+    if (type === 'training') {
+      onUpdate(newStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
+    } else {
+      onUpdate(training, newStrategy, useDistinctInference);
+    }
+  };
+
   const renderConstantValueInput = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
     if (strategy.method !== 'constant') return null;
@@ -237,7 +259,7 @@ export function PreprocessingConfig({
 
   const renderEncodingConfig = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
-    if (!strategy || strategy.method === 'embedding' || selectedType !== 'categorical') return null;
+    if (!strategy || !canUseEmbedding(selectedType)) return null;
 
     return (
       <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
@@ -245,33 +267,57 @@ export function PreprocessingConfig({
         <div className="flex items-center gap-2">
           <input
             type="radio"
-            id="oneHotEncode"
+            id="noneEncode"
             name="encoding"
-            checked={strategy.params.one_hot}
-            onChange={() => handleCategoricalParamChange(type, {
-              one_hot: true,
-              ordinal_encoding: false
-            })}
+            checked={strategy.encoding === null}
+            onChange={() => handleEncodingChange(type, 'none')}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <label htmlFor="oneHotEncode" className="text-sm text-gray-700">
-            One-hot encode categories
+          <label htmlFor="noneEncode" className="text-sm text-gray-700">
+            No encoding
           </label>
         </div>
+        {selectedType === 'categorical' && (
+          <>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="oneHotEncode"
+                name="encoding"
+                checked={strategy.encoding === 'one_hot'}
+                onChange={() => handleEncodingChange(type, 'one_hot')}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="oneHotEncode" className="text-sm text-gray-700">
+                One-hot encode categories
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="ordinalEncode"
+                name="encoding"
+                checked={strategy.encoding === 'ordinal'}
+                onChange={() => handleEncodingChange(type, 'ordinal')}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="ordinalEncode" className="text-sm text-gray-700">
+                Ordinal encode categories
+              </label>
+            </div>
+          </>
+        )}
         <div className="flex items-center gap-2">
           <input
             type="radio"
-            id="ordinalEncode"
+            id="embeddingEncode"
             name="encoding"
-            checked={strategy.params.ordinal_encoding}
-            onChange={() => handleCategoricalParamChange(type, {
-              one_hot: false,
-              ordinal_encoding: true
-            })}
+            checked={strategy.encoding === 'embedding'}
+            onChange={() => handleEncodingChange(type, 'embedding')}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <label htmlFor="ordinalEncode" className="text-sm text-gray-700">
-            Ordinal encode categories
+          <label htmlFor="embeddingEncode" className="text-sm text-gray-700">
+            Embedding encode
           </label>
         </div>
       </div>
@@ -280,12 +326,12 @@ export function PreprocessingConfig({
 
   const renderEmbeddingConfig = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
-    if (strategy.method !== 'embedding') return null;
+    if (!strategy || strategy.encoding !== 'embedding' || !constants.embedding_constants) return null;
 
     const embeddingConstants = constants.embedding_constants;
-    const providers = embeddingConstants.providers;
-    const models = embeddingConstants.models;
-    const compressionPresets = Object.entries(embeddingConstants.compression_presets).map(([key, preset]) => ({
+    const providers = embeddingConstants.providers || [];
+    const models = embeddingConstants.models || {};
+    const compressionPresets = Object.entries(embeddingConstants.compression_presets || {}).map(([key, preset]) => ({
       value: key,
       label: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
       description: preset.description,
@@ -511,36 +557,29 @@ export function PreprocessingConfig({
   };
 
   useEffect(() => {
-    // Handle training strategy
-    if (training.method === 'embedding' && !training.params?.dimensions) {
+    // When component mounts or when column changes, update default dimensions
+    if (training.encoding === 'embedding' && !training.params?.dimensions) {
       const provider = training.params?.llm || 'openai';
-      const modelValue = training.params?.model || (constants.embedding_constants.models[provider] || [])[0]?.value;
-      const model = (constants.embedding_constants.models[provider] || []).find(m => m.value === modelValue);
-      const dimensions = model?.dimensions || 1536;
+      const modelValue = training.params?.model || (constants.embedding_constants?.models[provider] || [])[0]?.value;
+      const model = (constants.embedding_constants?.models[provider] || []).find(m => m.value === modelValue);
+      const defaultDimensions = model?.dimensions || 1536;
 
       handleEmbeddingParamChange('training', {
-        ...training.params,
-        dimensions,
-        preset: 'high_quality',
+        dimensions: defaultDimensions
       });
     }
-    
-    // Handle inference strategy
-    if (useDistinctInference && inference.method === 'embedding' && !inference.params?.dimensions) {
+
+    if (useDistinctInference && inference.encoding === 'embedding' && !inference.params?.dimensions) {
       const provider = inference.params?.llm || 'openai';
-      const modelValue = inference.params?.model || (constants.embedding_constants.models[provider] || [])[0]?.value;
-      const model = (constants.embedding_constants.models[provider] || []).find(m => m.value === modelValue);
-      const dimensions = model?.dimensions || 1536;
+      const modelValue = inference.params?.model || (constants.embedding_constants?.models[provider] || [])[0]?.value;
+      const model = (constants.embedding_constants?.models[provider] || []).find(m => m.value === modelValue);
+      const defaultDimensions = model?.dimensions || 1536;
 
       handleEmbeddingParamChange('inference', {
-        ...inference.params,
-        dimensions,
-        preset: 'high_quality',
+        dimensions: defaultDimensions
       });
     }
-  }, [training.method, training.params?.llm, training.params?.model,
-      inference.method, inference.params?.llm, inference.params?.model,
-      useDistinctInference]);
+  }, [training.encoding, inference.encoding, column.id]);
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
 

@@ -20,7 +20,6 @@ module EasyML
         constant: "Constant Value",
         most_frequent: "Most Frequent",
         today: "Current Date",
-        embedding: "Text Embedding",
       }
 
       PREPROCESSING_STRATEGIES = {
@@ -28,9 +27,9 @@ module EasyML
         integer: %w(ffill mean median constant),
         boolean: %w(ffill most_frequent constant),
         datetime: %w(ffill today constant),
-        string: %w(embedding ffill most_frequent constant),
-        text: %w(embedding ffill most_frequent constant),
-        categorical: %w(embedding ffill categorical most_frequent constant),
+        string: %w(ffill most_frequent constant),
+        text: %w(ffill most_frequent constant),
+        categorical: %w(ffill categorical most_frequent constant),
       }.transform_values do |strategies|
         strategies.map do |strategy|
           {
@@ -41,7 +40,7 @@ module EasyML
       end
 
       ENCODING_STRATEGIES = {
-        categorical: %w(one_hot ordinal),
+        categorical: %w(embedding one_hot ordinal),
         string: %w(embedding),
         text: %w(embedding),
       }

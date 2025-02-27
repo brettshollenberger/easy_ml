@@ -86,9 +86,10 @@ module EasyML
 
     def cast(processed_or_raw)
       columns = where(is_computed: false)
+      is_processed = processed_or_raw == :processed
       columns.reduce({}) do |h, col|
         h.tap do
-          dtype = col.ordinal_encoding? ? nil : col.read_attribute(:polars_datatype)
+          dtype = (col.ordinal_encoding? && is_processed) ? nil : col.read_attribute(:polars_datatype)
           next if dtype.nil? || dtype.blank?
 
           h[col.name] = dtype.constantize

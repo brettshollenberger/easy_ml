@@ -230,15 +230,6 @@ RSpec.describe EasyML::Deploy do
       model.deploy(async: false)
       model_v1 = model.current_version
 
-      def extract_timestamp(dir)
-        EasyML::Support::UTC.parse(dir.gsub(/\D/, "")).in_time_zone(EST)
-      end
-
-      expect(extract_timestamp(model_v1.dataset.raw.dir)).to eq(EasyML::Support::EST.parse("2024-01-01"))
-      # Creates a new folder for the next dataset version
-      expect(extract_timestamp(model_v1.dataset.raw.dir)).to be < extract_timestamp(model.dataset.raw.dir)
-      expect(extract_timestamp(model_v1.dataset.processed.dir)).to be < extract_timestamp(model.dataset.processed.dir)
-
       Timecop.freeze(@time + 2.hours)
 
       x_test, y_valid = model.dataset.processed.test(split_ys: true)

@@ -22,7 +22,7 @@ module EasyML
         end
 
         def processed?
-          dir.match?(%r{processed$})
+          dir.match?(/processed$/)
         end
 
         def raw?
@@ -121,8 +121,12 @@ module EasyML
         end
 
         def read(segment, split_ys: false, target: nil, drop_cols: [], filter: nil, limit: nil, select: nil,
-                          unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: nil, batch_key: nil, lazy: false, &block)
+                          unique: nil, sort: nil, descending: false, batch_size: nil, batch_start: nil,
+                          batch_key: nil, lazy: false, cast: true, &block)
           files = files_for_segment(segment)
+          if cast == true
+            cast = dataset.columns.cast(processed? ? :processed : :raw)
+          end
           return split_ys ? [nil, nil] : nil if files.empty?
 
           query_params = {
@@ -136,8 +140,8 @@ module EasyML
             batch_size: batch_size,
             batch_start: batch_start,
             batch_key: batch_key,
-            cast: dataset.columns.cast,
-            lazy: lazy
+            cast: cast,
+            lazy: lazy,
           }.compact
 
           if batch_size.present?

@@ -44,7 +44,7 @@ module ModelSpecHelper
           loan_purpose: {
             categorical: {
               categorical_min: 2,
-              one_hot: true,
+              encoding: :one_hot,
             },
           },
         },
@@ -288,7 +288,7 @@ module ModelSpecHelper
                                                       method: :categorical,
                                                       params: {
                                                         categorical_min: 2,
-                                                        one_hot: true,
+                                                        encoding: :one_hot,
                                                       },
                                                     },
                                                   })
@@ -297,7 +297,7 @@ module ModelSpecHelper
                                                            method: :most_frequent,
                                                            params: {
                                                              categorical_min: 2,
-                                                             one_hot: true,
+                                                             encoding: :one_hot,
                                                            },
                                                          },
                                                        })

@@ -140,6 +140,7 @@ RSpec.describe EasyML::Column::Imputers do
       preprocessing_steps: {
         training: {
           method: :categorical,
+          encoding: :one_hot,
           params: {
             categorical_min: 3,
           },
@@ -465,9 +466,9 @@ RSpec.describe EasyML::Column::Imputers do
         preprocessing_steps: {
           training: {
             method: :categorical,
+            encoding: :one_hot,
             params: {
               categorical_min: 1,
-              one_hot: true,
             },
           },
         },
@@ -486,9 +487,9 @@ RSpec.describe EasyML::Column::Imputers do
         preprocessing_steps: {
           training: {
             method: :categorical,
+            encoding: :ordinal,
             params: {
               categorical_min: 1,
-              ordinal_encoding: true,
             },
           },
         },
@@ -504,9 +505,9 @@ RSpec.describe EasyML::Column::Imputers do
         preprocessing_steps: {
           training: {
             method: :categorical,
+            encoding: :one_hot,
             params: {
               categorical_min: 3,
-              one_hot: true,
             },
           },
         },
@@ -705,7 +706,8 @@ RSpec.describe EasyML::Column::Imputers do
       titanic_dataset.columns.find_by(name: "Name").update(
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
@@ -724,7 +726,8 @@ RSpec.describe EasyML::Column::Imputers do
       titanic_dataset.columns.find_by(name: "Name").update(
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
@@ -747,7 +750,8 @@ RSpec.describe EasyML::Column::Imputers do
       titanic_dataset.columns.find_by(name: "Name").update(
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
@@ -760,15 +764,17 @@ RSpec.describe EasyML::Column::Imputers do
       mock_embeddings_request!
       titanic_dataset.refresh
       embeddings = titanic_dataset.data(all_columns: true)["Name_embedding"]
-      expect(embeddings[0].size).to eq 10
+      expect(embeddings[0].size).to eq 48 # 10 — Once we re-enable compression, it should be 10
     end
 
-    it "re-uses learned PCA to compress future embeddings" do
+    # Once we re-enable compression, re-enable this test
+    xit "re-uses learned PCA to compress future embeddings" do
       titanic_dataset.columns.find_by(name: "Name").update(
         hidden: false,
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
@@ -789,7 +795,7 @@ RSpec.describe EasyML::Column::Imputers do
       end.and_call_original
       normalized_df = titanic_dataset.normalize(Polars::DataFrame.new({ "Name": ["Mr. Wigglesworth"] }))
 
-      expect(normalized_df["Name_embedding"][0].size).to eq 10
+      expect(normalized_df["Name_embedding"][0].size).to eq 48 # 10 — Once we re-enable compression, it should be 10
     end
 
     it "stores full embeddings + compressed embeddings separately" do
@@ -797,7 +803,8 @@ RSpec.describe EasyML::Column::Imputers do
         hidden: false,
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
@@ -817,15 +824,16 @@ RSpec.describe EasyML::Column::Imputers do
 
       expect(
         name_column.embedding_store.query(compressed: true, lazy: true).limit(1).collect["Name_embedding"][0].size
-      ).to eq 10
+      ).to eq 48 # 10 - Once we re-enable compression, it should be 10
     end
 
-    it "re-computes compressed embeddings when dimensions change" do
+    xit "re-computes compressed embeddings when dimensions change" do
       titanic_dataset.columns.find_by(name: "Name").update(
         hidden: false,
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
@@ -842,7 +850,8 @@ RSpec.describe EasyML::Column::Imputers do
         hidden: false,
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
@@ -853,12 +862,11 @@ RSpec.describe EasyML::Column::Imputers do
       )
       expect_no_embeddings_request!
       expect_any_instance_of(Rumale::Decomposition::PCA).to receive(:fit_transform).and_call_original
-      Thread.current[:stop] = true
       titanic_dataset.refresh
 
       df = titanic_dataset.data(all_columns: true)
       expect(df.columns).to include("Name_embedding")
-      expect(df["Name_embedding"][0].size).to eq 24
+      expect(df["Name_embedding"][0].size).to eq 48 # 24 - Once we re-enable compression, it should be 24
 
       any_missing = df.filter(Polars.col("Name_embedding").is_null)
       expect(any_missing.count).to eq 0
@@ -869,7 +877,8 @@ RSpec.describe EasyML::Column::Imputers do
         hidden: false,
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",
@@ -932,7 +941,8 @@ RSpec.describe EasyML::Column::Imputers do
       dataset.columns.find_by(name: "Name").update(
         preprocessing_steps: {
           training: {
-            method: :embedding,
+            method: :most_frequent,
+            encoding: :embedding,
             params: {
               llm: "openai",
               model: "text-embedding-3-small",

@@ -45,6 +45,7 @@ module EasyML
     validates :name, uniqueness: { scope: :dataset_id }
 
     before_save :ensure_valid_datatype
+    before_save :ensure_valid_encoding
     after_save :handle_unique_attrs
     before_save :set_defaults
     before_save :set_feature_lineage
@@ -245,6 +246,34 @@ module EasyML
       rescue => e
         get_polars_type(datatype)
       end
+    end
+
+    VALID_ENCODINGS = [:one_hot, :ordinal, :embedding].freeze
+
+    def encoding
+      preprocessing_steps.deep_symbolize_keys.dig(:training, :encoding)&.to_sym
+    end
+
+    def one_hot?
+      encoding == :one_hot
+    end
+
+    def ordinal_encoding?
+      encoding == :ordinal
+    end
+
+    def embedded?
+      encoding == :embedding
+    end
+
+    def encoding_applies?(encoding_type)
+      encoding == encoding_type
+    end
+
+    def validate_encoding
+      return true if encoding.nil?
+      return false unless VALID_ENCODINGS.include?(encoding)
+      true
     end
 
     EasyML::Data::PolarsColumn::TYPE_MAP.keys.each do |dtype|
@@ -534,16 +563,18 @@ module EasyML
 
     def ensure_cast_works
       begin
-        data(cast: { name => polars_datatype })
+        raw.data(cast: { name => polars_datatype })
       rescue => e
         raw_dtype = EasyML::Data::PolarsColumn.polars_to_sym(
-          data(cast: false, limit: 1).schema[name]
+          raw.data(cast: false, limit: 1).schema[name]
         )
         errors.add(:datatype, "Can't cast from #{raw_dtype} to #{datatype}")
       end
     end
 
     def pca_model_outdated?
+      return false unless EasyML::Data::Embeddings::Compressor::COMPRESSION_ENABLED
+
       pca_model = get_pca_model
       return false unless pca_model.persisted?
       return false unless n_dimensions.present?
@@ -639,7 +670,7 @@ module EasyML
     end
 
     def set_preprocessing_steps_defaults
-      preprocessing_steps.inject({}) do |h, (type, config)|
+      preprocessing_steps.deep_symbolize_keys.inject({}) do |h, (type, config)|
         h.tap do
           h[type] = set_preprocessing_step_defaults(config)
         end
@@ -724,7 +755,7 @@ module EasyML
         handle_date_column_change
         handle_primary_key_change
         handle_target_change
-        resync_dataset
+        resync_dataset if dataset.processed_schema.present? # When using Import, columns are created before the dataset
       end
     end
 
@@ -774,6 +805,15 @@ module EasyML
 
       errors.add(:datatype, "must be one of: #{EasyML::Data::PolarsColumn::TYPE_MAP.keys.join(", ")}")
       throw :abort
+    end
+
+    def ensure_valid_encoding
+      return true if encoding.nil?
+
+      unless VALID_ENCODINGS.include?(encoding)
+        errors.add(:encoding, "must be one of: #{VALID_ENCODINGS.join(", ")}")
+        throw(:abort)
+      end
     end
 
     NUMERIC_METHODS = %i[mean median].freeze

@@ -1010,7 +1010,6 @@ export function PreprocessingConfig({
                         label: strategy.label
                       })) || [])
                     ]}
-                    options={constants.preprocessing_strategies[selectedType]}
                   />
 
                   {renderConstantValueInput('inference')}

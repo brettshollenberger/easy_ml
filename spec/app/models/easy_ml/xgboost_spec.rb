@@ -42,11 +42,12 @@ RSpec.describe "EasyML::Models::XGBoost" do
         expect { model.fit }.to_not raise_error
       end
 
-      it "explodes embedding columns", :focus do
+      it "explodes embedding columns" do
         dataset.columns.find_by(name: "loan_purpose").update(
           preprocessing_steps: {
             training: {
-              method: :embedding,
+              method: :most_frequent,
+              encoding: :embedding,
               params: {
                 llm: "openai",
                 model: "text-embedding-3-small",
@@ -146,15 +147,17 @@ RSpec.describe "EasyML::Models::XGBoost" do
                 clip: { min: 0, max: 1_000_000 },
               },
               loan_purpose: {
-                categorical: {
+                method: :most_frequent,
+                encoding: :one_hot,
+                params: {
                   categorical_min: 2,
-                  one_hot: true,
                 },
               },
               did_convert: {
-                categorical: {
+                method: :most_frequent,
+                encoding: :ordinal,
+                params: {
                   categorical_min: 1,
-                  ordinal_encoding: true,
                 },
               },
             },

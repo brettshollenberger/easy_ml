@@ -53,11 +53,22 @@ module EasyML
         # or compiling OpenBLAS without USE_OPENMP=0,
         # but for now I'm just disabling compression support.
         #
+        # http://pypackaging-native.github.io/key-issues/native-dependencies/blas_openmp/
+        #
         COMPRESSION_ENABLED = false
 
         def compress(df, column, embedding_column, fit: false)
-          return df unless COMPRESSION_ENABLED
+          # begin
+          #   result = actually_compress(df, column, embedding_column, fit: fit)
+          #   GC.start # This might allow us to cleanup after OpenBLAS and fix the thread pool
+          # end
 
+          # result
+          return df unless COMPRESSION_ENABLED
+          actually_compress(df, column, embedding_column, fit: fit)
+        end
+
+        def actually_compress(df, column, embedding_column, fit: false)
           @column = column
           @embedding_column = embedding_column
           @fit = fit

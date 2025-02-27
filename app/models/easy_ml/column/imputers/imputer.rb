@@ -22,7 +22,6 @@ module EasyML
         def ordered_adapters
           [
             Clip,
-            Embedding,
             Mean,
             Median,
             Constant,
@@ -32,6 +31,7 @@ module EasyML
             Today,
             OneHotEncoder,
             OrdinalEncoder,
+            EmbeddingEncoder,
           ]
         end
 

@@ -15,6 +15,12 @@ module EasyML
             Imputers.methods_by_class[self] << m.to_sym
           end
 
+          def encoding_applies(e)
+            Imputers.supported_encodings << e.to_sym
+            Imputers.encodings_by_class[self] ||= []
+            Imputers.encodings_by_class[self] << e.to_sym
+          end
+
           def description
             "Unknown preprocessing method"
           end
@@ -32,7 +38,7 @@ module EasyML
         end
 
         def applies?
-          method_applies? || param_applies?
+          method_applies? || param_applies? || encoding_applies?
         end
 
         def method_applies?
@@ -43,6 +49,12 @@ module EasyML
           params.keys.any? { |p| imputers_own_params.include?(p.to_sym) && params[p] != false }
         end
 
+        def encoding_applies?
+          return false unless encoding.present?
+
+          imputers_own_encodings.include?(encoding.to_sym)
+        end
+
         def imputers_own_methods
           Imputers.methods_by_class[self.class] || []
         end
@@ -51,12 +63,20 @@ module EasyML
           Imputers.params_by_class[self.class] || []
         end
 
+        def imputers_own_encodings
+          Imputers.encodings_by_class[self.class] || []
+        end
+
         def params
           @preprocessing_step.dig(:params)
         end
 
         def method
           @preprocessing_step.dig(:method)
+        end
+
+        def encoding
+          @preprocessing_step.dig(:encoding)
         end
 
         def statistics(*args)
@@ -74,8 +94,9 @@ module EasyML
         def inspect
           params_str = params ? params.map { |k, v| "#{k}: #{v}" }.join(", ") : "none"
           method_str = method ? method : "none"
+          encoding_str = encoding ? encoding : "none"
 
-          "#<#{self.class.name} method=#{method_str.inspect} params={#{params_str}}>"
+          "#<#{self.class.name} method=#{method_str.inspect} encoding=#{encoding_str.inspect} params={#{params_str}}>"
         end
 
         alias_method :to_s, :inspect

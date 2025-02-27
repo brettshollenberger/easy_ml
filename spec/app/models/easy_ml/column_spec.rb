@@ -74,9 +74,10 @@ RSpec.describe EasyML::Column do
       it "ordinal encodes" do
         column.update(preprocessing_steps: {
                         training: {
-                          method: :categorical,
+                          method: :most_frequent,
+                          encoding: :ordinal,
                           params: {
-                            ordinal_encoding: true,
+                            categorical_min: 2,
                           },
                         },
                       })
@@ -88,9 +89,10 @@ RSpec.describe EasyML::Column do
       it "one_hot encodes" do
         column.update(preprocessing_steps: {
                         training: {
-                          method: :categorical,
+                          method: :most_frequent,
+                          encoding: :one_hot,
                           params: {
-                            one_hot: true,
+                            categorical_min: 2,
                           },
                         },
                       })
@@ -334,23 +336,68 @@ RSpec.describe EasyML::Column do
         column.update(datatype: "string")
         expect(dataset.raw.data["Sex"].dtype).to eq(Polars::Utf8)
 
+        dataset.refresh
+        expect(dataset.statistics.dig(:raw, :Sex).keys.map(&:to_sym)).to include(*[
+                                                                           :most_frequent_value,
+                                                                           :num_rows,
+                                                                           :null_count,
+                                                                           :unique_count,
+                                                                         ])
+
         column.update(datatype: "categorical")
         expect(dataset.raw.data["Sex"].dtype).to eq(Polars::Categorical)
+
+        dataset.refresh
+        expect(dataset.statistics.dig(:raw, :Sex).keys.map(&:to_sym)).to include(*[
+                                                                           :most_frequent_value,
+                                                                           :num_rows,
+                                                                           :null_count,
+                                                                           :unique_count,
+                                                                         ])
       end
     end
 
-    describe "Changing from string to int/float", :focus do
+    describe "Changing from string to int/float" do
       let(:column) { dataset.columns.find_by(name: "Age") }
 
       it "updates the underlying datasource representation" do
         column.update(datatype: "string")
         expect(dataset.raw.data["Age"].dtype).to eq(Polars::Utf8)
+        dataset.refresh
+        expect(dataset.statistics.dig(:raw, :Age).keys.map(&:to_sym)).to include(*[
+                                                                           :most_frequent_value,
+                                                                           :num_rows,
+                                                                           :null_count,
+                                                                           :unique_count,
+                                                                         ])
+        expect(dataset.statistics.dig(:raw, :Age).keys).to_not include(*[
+                                                                 :mean,
+                                                                 :median,
+                                                                 :min,
+                                                                 :max,
+                                                               ])
 
         column.update(datatype: "integer")
         expect(dataset.raw.data["Age"].dtype).to eq(Polars::Int64)
 
+        dataset.refresh
+        expect(dataset.statistics.dig(:raw, :Age).keys.map(&:to_sym)).to include(*[
+                                                                           :mean,
+                                                                           :median,
+                                                                           :min,
+                                                                           :max,
+                                                                         ])
+
         column.update(datatype: "float")
         expect(dataset.raw.data["Age"].dtype).to eq(Polars::Float64)
+
+        dataset.refresh
+        expect(dataset.statistics.dig(:raw, :Age).keys.map(&:to_sym)).to include(*[
+                                                                           :mean,
+                                                                           :median,
+                                                                           :min,
+                                                                           :max,
+                                                                         ])
 
         column.update(datatype: "null")
         expect(column.errors.map(&:message)).to include("Can't cast from float to null")

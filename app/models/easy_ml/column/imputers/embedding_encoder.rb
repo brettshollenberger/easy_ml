@@ -1,8 +1,8 @@
 module EasyML
   class Column
     class Imputers
-      class Embedding < Base
-        method_applies :embedding
+      class EmbeddingEncoder < Base
+        encoding_applies :embedding
 
         def self.description
           "Generate embeddings"

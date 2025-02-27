@@ -394,7 +394,6 @@ module EasyML
     end
 
     def lock_dataset
-      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
       with_lock do |client|
         yield
       end

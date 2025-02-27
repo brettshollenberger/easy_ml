@@ -5,8 +5,8 @@ module EasyML
 
       ALLOWED_PARAMS = {
         constant: [:constant],
-        categorical: %i[categorical_min one_hot ordinal_encoding],
-        most_frequent: %i[one_hot ordinal_encoding],
+        categorical: %i[categorical_min],
+        most_frequent: [],
         embedding: %i[llm model preset dimensions],
         mean: [:clip],
         median: [:clip],
@@ -40,9 +40,16 @@ module EasyML
         end
       end
 
+      ENCODING_STRATEGIES = {
+        categorical: %w(one_hot ordinal),
+        string: %w(embedding),
+        text: %w(embedding),
+      }
+
       def self.constants
         {
           preprocessing_strategies: PREPROCESSING_STRATEGIES,
+          encoding_strategies: ENCODING_STRATEGIES,
         }
       end
 
@@ -54,12 +61,20 @@ module EasyML
         @methods_by_class ||= {}
       end
 
+      def self.encodings_by_class
+        @encodings_by_class ||= {}
+      end
+
       def self.supported_params
         @supported_params ||= []
       end
 
       def self.supported_methods
         @supported_methods ||= []
+      end
+
+      def self.supported_encodings
+        @supported_encodings ||= []
       end
 
       def initialize(column, imputers: [])
@@ -75,6 +90,10 @@ module EasyML
 
         def supported_methods
           @supported_methods ||= []
+        end
+
+        def supported_encodings
+          @supported_encodings ||= []
         end
       end
 

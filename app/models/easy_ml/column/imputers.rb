@@ -23,8 +23,8 @@ module EasyML
       }
 
       PREPROCESSING_STRATEGIES = {
-        float: %w(ffill mean median constant),
-        integer: %w(ffill mean median constant),
+        float: %w(most_frequent ffill mean median constant),
+        integer: %w(most_frequent ffill mean median constant),
         boolean: %w(ffill most_frequent constant),
         datetime: %w(ffill today constant),
         string: %w(ffill most_frequent constant),

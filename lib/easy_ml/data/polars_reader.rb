@@ -180,6 +180,19 @@ module EasyML
           )
         end
 
+        str_types = [Polars::Utf8, Polars::String, Polars::Categorical]
+        str_keys = combined_lazy_df.schema.select { |k, v| v.class.in?(str_types) }
+        # Cast empty strings to null
+        str_keys.each do |k, v|
+          combined_lazy_df = combined_lazy_df.with_columns(
+            Polars.when(
+              Polars.col(k).eq("")
+            ).then(nil)
+              .otherwise(Polars.col(k))
+              .alias(k)
+          )
+        end
+
         # Collect the DataFrame (execute the lazy operations)
         combined_lazy_df = combined_lazy_df.limit(limit) if limit
         combined_lazy_df

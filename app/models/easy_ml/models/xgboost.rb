@@ -453,7 +453,7 @@ module EasyML
       end
 
       def explode_embeddings(df)
-        embedding_cols = dataset.columns.select(&:embedded?)
+        embedding_cols = dataset.columns.where.not(hidden: true).select(&:embedded?)
         # Create all extraction expressions at once
         select_expressions = []
 

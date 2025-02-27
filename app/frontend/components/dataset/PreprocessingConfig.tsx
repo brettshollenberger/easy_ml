@@ -666,7 +666,7 @@ export function PreprocessingConfig({
   const renderStrategySpecificInfo = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
     let content;
-    if (strategy.method === 'most_frequent' && column.statistics?.raw.most_frequent_value !== undefined) {
+    if (strategy.method === 'most_frequent' && column.statistics?.raw?.most_frequent_value !== undefined) {
       content = `Most Frequent Value: ${column.statistics.raw.most_frequent_value}`
     } else if (strategy.method === 'ffill') {
       const lastValue = column.statistics?.raw.last_value;

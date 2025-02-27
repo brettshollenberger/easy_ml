@@ -143,8 +143,10 @@ RSpec.describe "EasyML::Models::XGBoost" do
           {
             training: {
               annual_revenue: {
-                median: true,
-                clip: { min: 0, max: 1_000_000 },
+                method: :median,
+                params: {
+                  clip: { min: 0, max: 1_000_000 },
+                },
               },
               loan_purpose: {
                 method: :most_frequent,

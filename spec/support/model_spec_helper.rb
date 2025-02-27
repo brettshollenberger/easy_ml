@@ -38,13 +38,16 @@ module ModelSpecHelper
       {
         training: {
           annual_revenue: {
-            median: true,
-            clip: { min: 0, max: 1_000_000 },
+            method: :median,
+            params: {
+              clip: { min: 0, max: 1_000_000 },
+            },
           },
           loan_purpose: {
-            categorical: {
+            method: :most_frequent,
+            encoding: :one_hot,
+            params: {
               categorical_min: 2,
-              encoding: :one_hot,
             },
           },
         },
@@ -286,18 +289,18 @@ module ModelSpecHelper
       dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
                                                     training: {
                                                       method: :categorical,
+                                                      encoding: :one_hot,
                                                       params: {
                                                         categorical_min: 2,
-                                                        encoding: :one_hot,
                                                       },
                                                     },
                                                   })
       dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
                                                          training: {
                                                            method: :most_frequent,
+                                                           encoding: :one_hot,
                                                            params: {
                                                              categorical_min: 2,
-                                                             encoding: :one_hot,
                                                            },
                                                          },
                                                        })
@@ -356,14 +359,9 @@ module ModelSpecHelper
       column = dataset.columns.find_by(name: column_name.to_s)
       next unless column
 
-      method, params = extract_preprocessing_config(config)
-
       column.update(
         preprocessing_steps: {
-          training: {
-            method: method,
-            params: params,
-          },
+          training: config,
         },
       )
     end

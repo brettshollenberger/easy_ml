@@ -380,18 +380,6 @@ module EasyML
       (read_attribute(:preprocessing_steps) || {}).symbolize_keys
     end
 
-    def one_hot?
-      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :one_hot) == true
-    end
-
-    def ordinal_encoding?
-      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :ordinal_encoding) == true
-    end
-
-    def embedded?
-      preprocessing_steps.deep_symbolize_keys.dig(:training, :method)&.to_sym == :embedding
-    end
-
     def embedding_column
       return nil unless embedded?
       virtual_columns.first
@@ -438,12 +426,6 @@ module EasyML
       return nil unless embedded?
 
       @embedding_store ||= EasyML::EmbeddingStore.new(self)
-    end
-
-    def encoding
-      return nil unless categorical?
-      return :ordinal if ordinal_encoding?
-      return :one_hot
     end
 
     def categorical_min
@@ -677,15 +659,6 @@ module EasyML
       end
     end
 
-    ALLOWED_PARAMS = {
-      embedding: [:llm, :model, :dimensions, :preset],
-      constant: [:constant],
-      categorical: %i[categorical_min one_hot ordinal_encoding],
-      most_frequent: %i[one_hot ordinal_encoding],
-      mean: [:clip],
-      median: [:clip],
-    }
-
     REQUIRED_PARAMS = {
       embedding: %i[llm model],
       constant: [:constant],
@@ -711,10 +684,9 @@ module EasyML
     def set_preprocessing_step_defaults(config)
       config.deep_symbolize_keys!
       config[:params] ||= {}
-      params = config[:params].symbolize_keys
+      params = config[:params].deep_symbolize_keys
 
       required = REQUIRED_PARAMS.fetch(config[:method].to_sym, [])
-      allowed = ALLOWED_PARAMS.fetch(config[:method].to_sym, [])
 
       missing = required - params.keys
       missing.reject! do |param|
@@ -727,14 +699,9 @@ module EasyML
           end
         end
       end
-      extra = params.keys - allowed
 
       missing.each do |key|
         params[key] = DEFAULT_PARAMS.fetch(key)
-      end
-
-      extra.each do |key|
-        params.delete(key)
       end
 
       # Only set one of one_hot or ordinal_encoding to true,

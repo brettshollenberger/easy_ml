@@ -629,17 +629,18 @@ module EasyML
       one_hot_cats = columns.allowed_categories.symbolize_keys
 
       # Map columns to names, handling one_hot expansion
-      scope.flat_map do |col|
+      scope.map do |col|
         if col.one_hot?
           one_hot_cats[col.name.to_sym].map do |cat|
-            "#{col.name}_#{cat}"
+            name = "#{col.name}_#{cat}"
           end
         elsif col.embedded?
-          col.embedding_column
+          name = col.embedding_column
         else
-          col.name
+          name = col.name
         end
-      end.uniq.sort
+        [col.id, name]
+      end.sort.map { |arr| arr[1] }.uniq
     end
 
     def column_mask(df, inference: false)

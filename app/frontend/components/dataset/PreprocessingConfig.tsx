@@ -71,9 +71,15 @@ export function PreprocessingConfig({
     method: PreprocessingStep['method']
   ) => {
     let defaultParams: PreprocessingStep['params'] = {};
+    const strategy = type === 'training' ? training : inference;
+    
+    // Preserve existing encoding for text/string columns if it's already set
     let defaultEncoding: string | null = null;
-
-    if (selectedType === 'categorical') {
+    
+    if (canUseEmbedding(selectedType) && strategy.encoding) {
+      // Keep the existing encoding if it's already set
+      defaultEncoding = strategy.encoding;
+    } else if (selectedType === 'categorical') {
       if (method === 'categorical') {
         defaultParams = {
           ...defaultParams,
@@ -214,9 +220,30 @@ export function PreprocessingConfig({
     const strategy = type === 'training' ? training : inference;
     const setStrategy = type === 'training' ? setTraining : setInference;
     
+    let updatedParams = { ...strategy.params };
+    
+    // If selecting embedding encoding, ensure we have default llm and model params
+    if (encoding === 'embedding') {
+      const embeddingConstants = constants.embedding_constants;
+      if (embeddingConstants) {
+        const defaultProvider = 'openai';
+        const defaultModel = (embeddingConstants.models[defaultProvider] || [])[0]?.value;
+        const defaultDimensions = (embeddingConstants.models[defaultProvider] || []).find(m => m.value === defaultModel)?.dimensions || 1536;
+        
+        updatedParams = {
+          ...updatedParams,
+          llm: updatedParams.llm || defaultProvider,
+          model: updatedParams.model || defaultModel,
+          dimensions: updatedParams.dimensions || defaultDimensions,
+          preset: updatedParams.preset || 'high_quality',
+        };
+      }
+    }
+    
     const newStrategy: PreprocessingStep = {
       ...strategy,
-      encoding: encoding === 'none' ? null : encoding
+      encoding: encoding === 'none' ? null : encoding,
+      params: updatedParams
     };
 
     setStrategy(newStrategy);

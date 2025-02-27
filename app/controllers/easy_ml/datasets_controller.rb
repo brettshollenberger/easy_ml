@@ -73,7 +73,23 @@ module EasyML
 
       # Iterate over columns to check and update preprocessing_steps
       dataset_params[:columns_attributes]&.each do |_, column_attrs|
-        column_attrs[:preprocessing_steps] = nil if column_attrs.dig(:preprocessing_steps, :training, :method) == "none"
+        if column_attrs.dig(:preprocessing_steps, :training, :method) == "none"
+          column_attrs[:preprocessing_steps] = nil
+        elsif column_attrs.dig(:preprocessing_steps, :training)
+          # Ensure encoding is properly set for categorical columns
+          training_config = column_attrs.dig(:preprocessing_steps, :training)
+          if training_config[:params]
+            # Remove old encoding params as they're now part of the encoding field
+            training_config[:params].delete(:one_hot)
+            training_config[:params].delete(:ordinal_encoding)
+          end
+
+          # Ensure embedding params are present when encoding is embedding
+          if training_config[:encoding] == "embedding" && training_config[:params]
+            training_config[:params][:llm] ||= "openai"
+            training_config[:params][:model] ||= "text-embedding-3-small"
+          end
+        end
       end
 
       # Handle feature ID assignment for existing features

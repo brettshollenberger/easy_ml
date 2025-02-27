@@ -571,7 +571,7 @@ module EasyML
         df
       else
         stored_embeddings = embedding_store.query(lazy: true, compressed: compressed)
-        df.join(
+        df.filter(Polars.col(name).is_null.not_).join(
           stored_embeddings.select(name),
           on: name,
           how: "anti",

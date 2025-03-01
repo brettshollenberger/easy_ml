@@ -55,7 +55,22 @@ module EasyML
           )
 
           # Join the original dataframe with the embeddings
-          df.join(embeddings_df, on: col, how: "left")
+          df = df.join(embeddings_df, on: col, how: "left")
+
+          if df.columns.include?("#{output_column}_right")
+            df = df.with_columns(
+              Polars.when(
+                Polars.col(output_column).is_null.not_
+              ).then(
+                Polars.col(output_column)
+              ).otherwise(
+                Polars.col("#{output_column}_right")
+              )
+            )
+            df = df.drop("#{output_column}_right")
+          end
+
+          df
         end
 
         private
@@ -167,26 +182,26 @@ module EasyML
         def self.constants
           {
             providers: [
-              { value: 'openai', label: 'OpenAI' },
-              { value: 'anthropic', label: 'Anthropic' },
-              { value: 'ollama', label: 'Ollama (Local)' },
+              { value: "openai", label: "OpenAI" },
+              { value: "anthropic", label: "Anthropic" },
+              { value: "ollama", label: "Ollama (Local)" },
             ],
             models: {
               openai: [
-                { value: 'text-embedding-3-small', label: 'text-embedding-3-small', dimensions: 1536 },
-                { value: 'text-embedding-3-large', label: 'text-embedding-3-large', dimensions: 3072 },
-                { value: 'text-embedding-ada-002', label: 'text-embedding-ada-002', dimensions: 1536 },
+                { value: "text-embedding-3-small", label: "text-embedding-3-small", dimensions: 1536 },
+                { value: "text-embedding-3-large", label: "text-embedding-3-large", dimensions: 3072 },
+                { value: "text-embedding-ada-002", label: "text-embedding-ada-002", dimensions: 1536 },
               ],
               anthropic: [
-                { value: 'claude-3', label: 'Claude 3', dimensions: 3072 },
-                { value: 'claude-2', label: 'Claude 2', dimensions: 1536 },
+                { value: "claude-3", label: "Claude 3", dimensions: 3072 },
+                { value: "claude-2", label: "Claude 2", dimensions: 1536 },
               ],
               ollama: [
-                { value: 'llama2', label: 'Llama 2', dimensions: 4096 },
-                { value: 'mistral', label: 'Mistral', dimensions: 4096 },
-                { value: 'mixtral', label: 'Mixtral', dimensions: 4096 },
-                { value: 'nomic-embed-text', label: 'Nomic Embed', dimensions: 768 },
-                { value: 'starling-lm', label: 'Starling', dimensions: 4096 },
+                { value: "llama2", label: "Llama 2", dimensions: 4096 },
+                { value: "mistral", label: "Mistral", dimensions: 4096 },
+                { value: "mixtral", label: "Mixtral", dimensions: 4096 },
+                { value: "nomic-embed-text", label: "Nomic Embed", dimensions: 768 },
+                { value: "starling-lm", label: "Starling", dimensions: 4096 },
               ],
             },
             compression_presets: {

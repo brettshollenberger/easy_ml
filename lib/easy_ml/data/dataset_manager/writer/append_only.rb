@@ -17,17 +17,15 @@ module EasyML
             return super if files.empty?
 
             # Get existing data lazily
-            existing_keys = query(lazy: true)
-              .select(primary_key)
-              .collect[primary_key]
-              .to_a
+            existing_keys = query(lazy: true).select(primary_key)
 
             # Convert input to lazy if it isn't already
             input_data = df.is_a?(Polars::LazyFrame) ? df : df.lazy
 
-            # Filter out records that already exist
-            new_records = input_data.filter(
-              Polars.col(primary_key).is_in(existing_keys).not_
+            new_records = input_data.join(
+              existing_keys,
+              on: primary_key,
+              how: "anti",
             )
 
             # If we have new records, store them

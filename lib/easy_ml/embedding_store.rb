@@ -38,7 +38,7 @@ module EasyML
     end
 
     def store(df, compressed: false)
-      df = df.select(column.name, column.embedding_column)
+      df = df.select(column.name, column.embedding_column).filter(Polars.col(column.embedding_column).is_not_null)
 
       if compressed
         compressed_store.store(df)
@@ -50,9 +50,9 @@ module EasyML
     def query(**kwargs)
       compressed = kwargs.delete(:compressed) || false
       if compressed
-        compressed_store.query(**kwargs)
+        compressed_store.query(**kwargs).filter(Polars.col(column.embedding_column).is_not_null)
       else
-        full_store.query(**kwargs)
+        full_store.query(**kwargs).filter(Polars.col(column.embedding_column).is_not_null)
       end
     end
 

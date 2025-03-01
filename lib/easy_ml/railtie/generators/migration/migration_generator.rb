@@ -57,6 +57,7 @@ module EasyML
             add_is_primary_key_to_easy_ml_columns
             create_easy_ml_pca_models
             add_pca_model_id_to_easy_ml_columns
+            add_workflow_status_to_easy_ml_dataset_histories
           ].freeze
 
           # Specify the next migration number

@@ -29,7 +29,7 @@ export const SearchableSelect = forwardRef<HTMLButtonElement, SearchableSelectPr
 
     const filteredOptions = options.filter(option =>
       option.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (option.description && option.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      option.description?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     useEffect(() => {

@@ -89,4 +89,58 @@ RSpec.describe EasyML::Predict do
       end.to raise_error(ActiveRecord::RecordNotFound)
     end
   end
+
+  describe ".predict_proba" do
+    it "loads model and makes probability predictions" do
+      mock_s3_upload
+
+      model.save
+      model.train(async: false)
+      model.deploy(async: false)
+      expect(model.weights).to eq(model.inference_version.weights)
+
+      df, = model.dataset.test(split_ys: true)
+      model_probas = model.predict_proba(df).map do |proba|
+        proba.map { |p| p.round(4) }
+      end
+      expect(model.predict_proba(df)).to eq(model.inference_version.predict_proba(df))
+
+      live_probas = described_class.predict_proba(model.slug, df)
+      expect(live_probas.map(&:probabilities)).to eq model_probas
+      expect(model_probas.length).to eq(df.length)
+
+      # Verify probabilities are valid
+      model_probas.each do |proba|
+        expect(proba).to be_a(Array)
+        expect(proba.length).to eq(2) # Binary classification
+        expect(proba.sum).to be_within(0.0001).of(1.0) # Probabilities sum to 1
+        expect(proba).to all(be_between(0, 1)) # Valid probabilities
+      end
+
+      # Verify predictions are recorded in database
+      predictions = EasyML::Prediction.joins(:model).where("easy_ml_models.slug = ?", model.slug).last(df.length)
+      expect(predictions.map { |p| p.metadata["probabilities"] }).to eq(model_probas)
+    end
+
+    it "doesn't reload the model when model already loaded" do
+      mock_s3_upload
+
+      model.save
+      model.train(async: false)
+      model.deploy(async: false)
+
+      df, = model.dataset.test(split_ys: true)
+      expect_any_instance_of(EasyML::Models::XGBoost).to receive(:initialize_model).once.and_call_original
+
+      3.times do
+        described_class.predict_proba(model.slug, df)
+      end
+    end
+
+    it "raises error for non-existent model" do
+      expect do
+        described_class.predict_proba("non_existent_model", model.dataset.test(split_ys: true).first)
+      end.to raise_error(ActiveRecord::RecordNotFound)
+    end
+  end
 end

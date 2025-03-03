@@ -196,7 +196,7 @@ RSpec.describe "EasyML::Models::XGBoost" do
           expect(preds).to eq([false, false])
         end
 
-        it "predicts probabilities", :focus do
+        it "predicts probabilities" do
           dataset.refresh
           x_test, = dataset.test(split_ys: true)
           model.fit

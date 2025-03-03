@@ -19,29 +19,23 @@ module EasyML
 
     def self.predict(model_name, df, serialize: false)
       df = normalize_input(df)
-      raw_input = df.to_hashes
-
-      df = instance.normalize(model_name, df)
-      normalized_input = df.to_hashes
-      preds = instance.predict(model_name, df)
-      current_version = instance.get_model(model_name)
-
-      output = preds.zip(raw_input, normalized_input).map do |pred, raw, norm|
-        EasyML::Prediction.create!(
-          model: current_version.model,
-          model_history: current_version,
-          prediction_type: current_version.model.task,
-          prediction_value: pred,
-          raw_input: raw,
-          normalized_input: norm,
-        )
+      output = make_predictions(model_name, df) do |model, normalized_df|
+        model.predict(normalized_df)
       end
 
-      output = if output.is_a?(Array) && output.count == 1
-          output.first
-        else
-          output
-        end
+      if serialize
+        EasyML::PredictionSerializer.new(output).serializable_hash
+      else
+        output
+      end
+    end
+
+    def self.predict_proba(model_name, df, serialize: false)
+      df = normalize_input(df)
+      output = make_predictions(model_name, df) do |model, normalized_df|
+        probas = model.predict_proba(normalized_df)
+        probas.map { |proba_array| proba_array.map { |p| p.round(4) } }
+      end
 
       if serialize
         EasyML::PredictionSerializer.new(output).serializable_hash
@@ -56,6 +50,10 @@ module EasyML
 
     def predict(model_name, df)
       get_model(model_name).predict(df)
+    end
+
+    def predict_proba(model_name, df)
+      get_model(model_name).predict_proba(df)
     end
 
     def self.validate_input(model_name, df)
@@ -81,6 +79,30 @@ module EasyML
     end
 
     private
+
+    def self.make_predictions(model_name, df)
+      raw_input = df.to_hashes
+      normalized_df = instance.normalize(model_name, df)
+      normalized_input = normalized_df.to_hashes
+      current_version = instance.get_model(model_name)
+
+      predictions = yield(current_version, normalized_df)
+      proba = predictions.is_a?(Array) ? predictions : nil
+
+      output = predictions.zip(raw_input, normalized_input).map do |pred, raw, norm|
+        EasyML::Prediction.create!(
+          model: current_version.model,
+          model_history: current_version,
+          prediction_type: current_version.model.task,
+          prediction_value: pred,
+          raw_input: raw,
+          normalized_input: norm,
+          metadata: proba ? { probabilities: pred } : {},
+        )
+      end
+
+      output.count == 1 ? output.first : output
+    end
 
     def load_model(model_name)
       current_model = EasyML::Model.find_by!(slug: model_name).inference_version

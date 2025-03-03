@@ -162,7 +162,6 @@ curl --location 'http://127.0.0.1:3000/easy_ml/predictions' \
 --data '{
 
     "model": "article_traffic",
-    "type": "predict_proba",
     "input": {
         "Author": "John Doe",
         "Category": "Banking",
@@ -171,6 +170,8 @@ curl --location 'http://127.0.0.1:3000/easy_ml/predictions' \
     }
 }'
 ```
+
+You can also pass `type: "predict_proba"` to get probability predictions
 
 ## Advanced Techniques
 

@@ -84,6 +84,16 @@ module EasyML
       end
     end
 
+    def col_order(inference: false)
+      scope = reject(&:hidden)
+      scope = scope.reject(&:is_target) if inference
+      scope.flat_map do |col|
+        col.processed_columns.map do |name|
+          [col.id, name]
+        end
+      end.sort.map { |arr| arr[1] }.uniq
+    end
+
     def cast(processed_or_raw)
       columns = where(is_computed: false)
       is_processed = processed_or_raw == :processed

@@ -133,6 +133,10 @@ module EasyML
       "#<#{self.class.name} #{display_attributes.map { |k, v| "#{k}: #{v}" }.join(", ")}>"
     end
 
+    def processed_columns
+      has_virtual_columns? ? virtual_columns : [name]
+    end
+
     def aliases
       [name].concat(virtual_columns)
     end

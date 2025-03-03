@@ -13,7 +13,7 @@ module EasyML
 
           most_frequent = statistics(:most_frequent_value)
           df = df.with_column(
-            Polars.col(column.name).fill_null(Polars.lit(most_frequent)).alias(column.name)
+            Polars.col(column.name).fill_null(Polars.lit(most_frequent).cast(column.polars_datatype)).alias(column.name)
           )
           df
         end

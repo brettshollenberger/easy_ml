@@ -621,26 +621,7 @@ module EasyML
     end
 
     def col_order(inference: false)
-      # Filter preloaded columns in memory
-      scope = preloaded_columns.reject(&:hidden)
-      scope = scope.reject(&:is_target) if inference
-
-      one_hots = scope.select(&:one_hot?)
-      one_hot_cats = columns.allowed_categories.symbolize_keys
-
-      # Map columns to names, handling one_hot expansion
-      scope.map do |col|
-        if col.one_hot?
-          one_hot_cats[col.name.to_sym].map do |cat|
-            name = "#{col.name}_#{cat}"
-          end
-        elsif col.embedded?
-          name = col.embedding_column
-        else
-          name = col.name
-        end
-        [col.id, name]
-      end.sort.map { |arr| arr[1] }.uniq
+      preloaded_columns.col_order(inference: inference)
     end
 
     def column_mask(df, inference: false)

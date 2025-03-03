@@ -195,6 +195,16 @@ RSpec.describe "EasyML::Models::XGBoost" do
           expect(preds_orig).to eq([0, 0])
           expect(preds).to eq([false, false])
         end
+
+        it "predicts probabilities" do
+          dataset.refresh
+          x_test, = dataset.test(split_ys: true)
+          model.fit
+          probas = model.predict_proba(x_test)
+          expect(probas).to be_a(Array)
+          expect(probas).to all(be_a(Float))
+          expect(probas).to all(be_between(0, 1))
+        end
       end
     end
 

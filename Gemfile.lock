@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc88)
+    easy_ml (0.2.0.pre.rc89)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -2234,6 +2234,7 @@ DEPENDENCIES
   suo
   tailwindcss-rails
   timecop
+  uri (= 1.0.2)
   vite_rails
   wandb
   xgb (~> 0.9.0)

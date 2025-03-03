@@ -28,6 +28,8 @@ gem "rdoc"
 gem "langchainrb"
 gem "ruby-openai"
 gem "rumale"
+gem "uri", "1.0.2"
+gem "vite_rails"
 
 group :development, :test do
   gem "combustion"

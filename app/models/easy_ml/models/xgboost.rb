@@ -315,12 +315,12 @@ module EasyML
         end
       end
 
-      def predict(xs)
+      def predicting(xs, &block)
         raise "No trained model! Train a model before calling predict" unless @booster.present?
         raise "Cannot predict on nil — XGBoost" if xs.nil?
 
         begin
-          y_pred = @booster.predict(preprocess(xs))
+          y_pred = yield(preprocess(xs))
         rescue StandardError => e
           raise e unless e.message.match?(/Number of columns does not match/)
 
@@ -335,6 +335,12 @@ module EasyML
               #{xs.columns}
             )
         end
+      end
+
+      def predict(xs)
+        y_pred = predicting(xs) do |d_matrix|
+          @booster.predict(d_matrix)
+        end
 
         case task.to_sym
         when :classification
@@ -344,12 +350,12 @@ module EasyML
         end
       end
 
-      def predict_proba(data)
-        dmat = DMatrix.new(data)
-        y_pred = @booster.predict(dmat)
+      def predict_proba(xs)
+        y_pred = predicting(xs) do |d_matrix|
+          @booster.predict(d_matrix)
+        end
 
         if y_pred.first.is_a?(Array)
-          # multiple classes
           y_pred
         else
           y_pred.map { |v| [1 - v, v] }

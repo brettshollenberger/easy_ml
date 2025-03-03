@@ -135,7 +135,7 @@ model.deploy
 
 In `app/evaluators`, create a custom evaluator. This will be used during hyperparameter tuning to find the model that maximizes your objectives!
 
-`````ruby
+```ruby
 class MaximizeRevenue < EasyML::Evaluators::Base
   def direction
     :maximize # or minimize
@@ -374,7 +374,7 @@ def batch(reader, feature)
 end
 
 feature name: "My Feature", batch_size: 1_000
-`````
+````
 
 ### Production Considerations
 

@@ -20,7 +20,7 @@ module EasyML
     def self.predict(model_name, df, serialize: false)
       df = normalize_input(df)
       output = make_predictions(model_name, df) do |model, normalized_df|
-        model.predict(normalized_df)
+        model.predict(normalized_df, normalized: true)
       end
 
       if serialize
@@ -33,7 +33,7 @@ module EasyML
     def self.predict_proba(model_name, df, serialize: false)
       df = normalize_input(df)
       output = make_predictions(model_name, df) do |model, normalized_df|
-        probas = model.predict_proba(normalized_df)
+        probas = model.predict_proba(normalized_df, normalized: true)
         probas.map { |proba_array| proba_array.map { |p| p.round(4) } }
       end
 

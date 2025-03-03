@@ -41,4 +41,6 @@ group :development, :test do
   gem "spring-commands-rspec"
   gem "sprockets-rails"
   gem "timecop"
+  gem "guard"
+  gem "guard-rspec"
 end

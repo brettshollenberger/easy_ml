@@ -1794,6 +1794,11 @@ GEM
       pry (>= 0.13.0)
       shellany (~> 0.0)
       thor (>= 0.18.1)
+    guard-compat (1.2.1)
+    guard-rspec (4.7.3)
+      guard (~> 2.1)
+      guard-compat (~> 1.1)
+      rspec (>= 2.99.0, < 4.0)
     historiographer (4.1.14)
       activerecord (>= 6)
       activerecord-import
@@ -2208,6 +2213,7 @@ DEPENDENCIES
   date (~> 3.4.1)
   easy_ml!
   guard
+  guard-rspec
   historiographer (~> 4.1.14)
   inertia_rails
   jsonapi-serializer

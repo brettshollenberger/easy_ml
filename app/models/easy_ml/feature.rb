@@ -82,7 +82,7 @@ module EasyML
             fittable = fittable.select(&:fittable?)
             where(id: fittable.map(&:id))
           end
-    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit).or(datasource_was_refreshed) }
+    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit).or(datasource_was_refreshed).or(where(needs_fit: true)) }
     scope :datasource_was_refreshed, -> do
             where(id: all.select(&:datasource_was_refreshed?).map(&:id))
           end
@@ -379,6 +379,7 @@ module EasyML
       return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
       df_len_was = df.shape[0]
+      orig_df = df.clone
       begin
         result = adapter.transform(df, self)
       rescue => e
@@ -386,7 +387,9 @@ module EasyML
       end
       raise "Feature '#{name}' must return a Polars::DataFrame, got #{result.class}" unless result.is_a?(Polars::DataFrame)
       df_len_now = result.shape[0]
-      raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if df_len_now != df_len_was
+      missing_columns = orig_df.columns - result.columns
+      raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if (df_len_now != df_len_was)
+      raise "Feature #{feature_class} removed #{missing_columns} columns" if missing_columns.any?
       update!(applied_at: Time.current)
       result
     end

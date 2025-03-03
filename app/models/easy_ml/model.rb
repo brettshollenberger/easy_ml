@@ -296,21 +296,21 @@ module EasyML
       )
     end
 
-    def prepare_predict(xs)
+    def prepare_predict(xs, normalized: false)
       load_model!
-      unless xs.is_a?(XGBoost::DMatrix)
+      if !normalized
         xs = dataset.normalize(xs, inference: true)
       end
       xs
     end
 
-    def predict(xs)
-      xs = prepare_predict(xs)
+    def predict(xs, normalized: false)
+      xs = prepare_predict(xs, normalized: normalized)
       adapter.predict(xs)
     end
 
-    def predict_proba(xs)
-      xs = prepare_predict(xs)
+    def predict_proba(xs, normalized: false)
+      xs = prepare_predict(xs, normalized: normalized)
       adapter.predict_proba(xs)
     end
 

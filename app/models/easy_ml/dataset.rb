@@ -478,11 +478,20 @@ module EasyML
       df = apply_missing_columns(df, inference: inference)
       df = columns.transform(df, inference: inference)
       df = apply_features(df, features)
+      df = apply_cast(df) if inference
       df = columns.transform(df, inference: inference)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df = drop_nulls(df) unless inference
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
+    end
+
+    def apply_cast(df)
+      s = schema
+      cast_statements = (df.columns & s.keys.map(&:to_s)).map do |column|
+        Polars.col(column).cast(s[column.to_sym].class)
+      end
+      df = df.with_columns(cast_statements)
     end
 
     # Massage out one-hot cats to their canonical name

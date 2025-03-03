@@ -147,7 +147,7 @@ module EasyML
           end
         end
 
-        y_pred = model.predict(x_normalized)
+        y_pred = model.predict(x_normalized, normalized: true)
         model.metrics = metrics
         metrics = model.evaluate(y_pred: y_pred, y_true: y_valid, x_true: x_valid, dataset: dataset)
         metric = metrics.symbolize_keys.dig(model.evaluator[:metric].to_sym)

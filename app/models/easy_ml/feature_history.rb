@@ -44,6 +44,10 @@ module EasyML
     scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
     scope :ready_to_apply, -> { where.not(id: needs_fit.map(&:id)) }
 
+    def wipe
+      false
+    end
+
     def download_remote_files
       feature_store&.download
     end

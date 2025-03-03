@@ -129,6 +129,49 @@ model.train
 model.deploy
 ```
 
+## Running Predictions
+
+There are two ways to run predictions, via ActiveRecord, or via API:
+
+### Using ActiveRecord
+
+Prefer to use `EasyML::Predict` over directly accessing `EasyML::Model`, because:
+
+1. Predict uses a singleton to keep the model `preloaded`, avoiding expensive initializations
+2. Predict records predictions in the `predictions` table
+3. Predict uses the latest deployed model version, whereas `EasyML::Model` loads the most recent version regardless of deployment status
+
+```ruby
+EasyML::Predict.predict(model.slug, {"Age": 30, "Sex": "male"})
+```
+
+### Using The API
+
+First, you can use the `describe` API to get a list of accepted inputs
+
+```bash
+curl -L 127.0.0.1:3000/easy_ml/api?model=MODEL_SLUG
+```
+
+Then, POST your inputs to `localhost:3000/easy_ml/predictions`
+
+```bash
+curl --location 'http://127.0.0.1:3000/easy_ml/predictions' \
+--X POST \
+--header 'Content-Type: application/json' \
+--data '{
+
+    "model": "article_traffic",
+    "type": "predict_proba",
+    "input": {
+        "Author": "John Doe",
+        "Category": "Banking",
+        "Title": "Best Bank Account: Up to 3.46%",
+        "Top keyword": "Hidden benefits of high yield savings accounts"
+    }
+}'
+```
+
 ## Advanced Techniques
 
 ### 1. Create Custom Evaluators

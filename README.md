@@ -61,7 +61,7 @@ mount EasyML::Engine, at: "easy_ml"
 ```
 
 ```bash
-rails generate easy_ml:migrations
+rails generate easy_ml:migration
 bundle exec rake db:migrate
 ```
 

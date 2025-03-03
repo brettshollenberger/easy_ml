@@ -61,10 +61,10 @@ RSpec.describe EasyML::Models do
                                                              })
       dataset.columns.find_by(name: "loan_purpose").update(preprocessing_steps: {
                                                              training: {
-                                                               method: :categorical,
+                                                               method: :most_frequent,
+                                                               encoding: :one_hot,
                                                                params: {
                                                                  categorical_min: 2,
-                                                                 one_hot: true,
                                                                },
                                                              },
                                                            })

@@ -18,11 +18,22 @@ module EasyML
 
       def learn
         prepare
+        fit_models
         learn_statistics
         save_statistics
       end
 
       private
+
+      def fit_models
+        fit_embedding_models
+      end
+
+      def fit_embedding_models
+        columns.select(&:embedded?).each do |col|
+          col.embed(dataset.train(all_columns: true), fit: true)
+        end
+      end
 
       def save_statistics
         columns.each do |col|

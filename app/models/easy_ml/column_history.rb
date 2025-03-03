@@ -30,6 +30,8 @@
 #  last_datasource_sha :string
 #  last_feature_sha    :string
 #  in_raw_dataset      :boolean
+#  is_primary_key      :boolean
+#  pca_model_id        :integer
 #
 module EasyML
   class ColumnHistory < ActiveRecord::Base
@@ -38,5 +40,9 @@ module EasyML
     scope :required, -> { where(is_computed: false, hidden: false, is_target: false).where("preprocessing_steps IS NULL OR preprocessing_steps::text = '{}'::text") }
     scope :computed, -> { where(is_computed: true) }
     scope :raw, -> { where(is_computed: false) }
+
+    def get_pca_model
+      column.pca_model
+    end
   end
 end

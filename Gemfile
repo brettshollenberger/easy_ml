@@ -25,6 +25,9 @@ gem "resque-pool"
 gem "zhong"
 gem "rollbar"
 gem "rdoc"
+gem "langchainrb"
+gem "ruby-openai"
+gem "rumale"
 
 group :development, :test do
   gem "combustion"

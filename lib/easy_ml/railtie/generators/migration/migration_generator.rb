@@ -54,6 +54,11 @@ module EasyML
             add_raw_schema_to_datasets
             remove_evaluator_from_retraining_jobs
             add_unique_constraint_to_easy_ml_model_names
+            add_is_primary_key_to_easy_ml_columns
+            create_easy_ml_pca_models
+            add_pca_model_id_to_easy_ml_columns
+            add_workflow_status_to_easy_ml_dataset_histories
+            add_metadata_to_easy_ml_predictions
           ].freeze
 
           # Specify the next migration number

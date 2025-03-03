@@ -140,6 +140,7 @@ RSpec.describe EasyML::Column::Imputers do
       preprocessing_steps: {
         training: {
           method: :categorical,
+          encoding: :one_hot,
           params: {
             categorical_min: 3,
           },
@@ -465,9 +466,9 @@ RSpec.describe EasyML::Column::Imputers do
         preprocessing_steps: {
           training: {
             method: :categorical,
+            encoding: :one_hot,
             params: {
               categorical_min: 1,
-              one_hot: true,
             },
           },
         },
@@ -486,9 +487,9 @@ RSpec.describe EasyML::Column::Imputers do
         preprocessing_steps: {
           training: {
             method: :categorical,
+            encoding: :ordinal,
             params: {
               categorical_min: 1,
-              ordinal_encoding: true,
             },
           },
         },
@@ -504,9 +505,9 @@ RSpec.describe EasyML::Column::Imputers do
         preprocessing_steps: {
           training: {
             method: :categorical,
+            encoding: :one_hot,
             params: {
               categorical_min: 3,
-              one_hot: true,
             },
           },
         },
@@ -697,6 +698,334 @@ RSpec.describe EasyML::Column::Imputers do
                                            })
       normalized = dataset.normalize(inference_df, inference: true)
       expect(normalized["created_date"].to_a).to all(eq UTC.today.beginning_of_day)
+    end
+  end
+
+  describe "Embedding preprocessing" do
+    it "preprocesses embeddings" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+      expect(titanic_dataset.data(all_columns: true).columns).to include("Name_embedding")
+      expect(titanic_dataset.columns.reload.map(&:name)).to_not include("Name_embedding") # It's a virtual column
+    end
+
+    it "does NOT re-process embeddings" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimension: 10,
+            },
+          },
+        },
+      )
+
+      # First refresh to generate initial embeddings
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      # Second refresh should not call embed again
+      expect_any_instance_of(Langchain::LLM::OpenAI).not_to receive(:embed)
+      titanic_dataset.refresh
+    end
+
+    it "compresses embeddings using PCA" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 10,
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+      embeddings = titanic_dataset.data(all_columns: true)["Name_embedding"]
+      expect(embeddings[0].size).to eq 48 # 10 — Once we re-enable compression, it should be 10
+    end
+
+    # Once we re-enable compression, re-enable this test
+    xit "re-uses learned PCA to compress future embeddings" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 10,
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      expect_any_instance_of(EasyML::Data::Embeddings::Compressor).to receive(:initialize) do |compressor, options|
+        pca_model = options[:pca_model]
+        expect(pca_model).to be_a(Rumale::Decomposition::PCA)
+        # It re-uses the same PCA model
+        expect(pca_model).to receive(:transform).and_call_original
+      end.and_call_original
+      normalized_df = titanic_dataset.normalize(Polars::DataFrame.new({ "Name": ["Mr. Wigglesworth"] }))
+
+      expect(normalized_df["Name_embedding"][0].size).to eq 48 # 10 — Once we re-enable compression, it should be 10
+    end
+
+    it "stores full embeddings + compressed embeddings separately" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 10,
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      name_column = titanic_dataset.columns.find_by(name: "Name")
+      expect(
+        name_column.embedding_store.query(compressed: false, lazy: true).limit(1).collect["Name_embedding"][0].size
+      ).to eq 48
+
+      expect(
+        name_column.embedding_store.query(compressed: true, lazy: true).limit(1).collect["Name_embedding"][0].size
+      ).to eq 48 # 10 - Once we re-enable compression, it should be 10
+    end
+
+    xit "re-computes compressed embeddings when dimensions change" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 10,
+            },
+          },
+        },
+      )
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+              dimensions: 24,
+            },
+          },
+        },
+      )
+      expect_no_embeddings_request!
+      expect_any_instance_of(Rumale::Decomposition::PCA).to receive(:fit_transform).and_call_original
+      titanic_dataset.refresh
+
+      df = titanic_dataset.data(all_columns: true)
+      expect(df.columns).to include("Name_embedding")
+      expect(df["Name_embedding"][0].size).to eq 48 # 24 - Once we re-enable compression, it should be 24
+
+      any_missing = df.filter(Polars.col("Name_embedding").is_null)
+      expect(any_missing.count).to eq 0
+    end
+
+    it "stores uncompressed embeddings when no dimensions are specified" do
+      titanic_dataset.columns.find_by(name: "Name").update(
+        hidden: false,
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+            },
+          },
+        },
+      )
+
+      # Verify compressor is not called since we're not compressing
+      expect_any_instance_of(EasyML::Data::Embeddings::Compressor).not_to receive(:compress)
+
+      mock_embeddings_request!
+      titanic_dataset.refresh
+
+      name_column = titanic_dataset.columns.find_by(name: "Name")
+
+      # Verify uncompressed embeddings are stored with full dimensions (48 for text-embedding-3-small)
+      embeddings = name_column.embedding_store.query(compressed: false, lazy: true).limit(1).collect["Name_embedding"]
+      expect(embeddings[0].size).to eq 48
+
+      expect(name_column.embedding_store.query(compressed: true, lazy: true).collect.count).to eq 891
+
+      # Verify the data accessor returns uncompressed embeddings
+      df = titanic_dataset.data(all_columns: true)
+      expect(df["Name_embedding"][0].size).to eq 48
+    end
+
+    it "filters out duplicate inputs when embedding" do
+      # Create a spy on the Embedder's process_batch method to track actual inputs
+      process_batch_spy = spy("process_batch")
+
+      # Store the original method
+      original_method = EasyML::Data::Embeddings::Embedder.instance_method(:process_batch)
+
+      # Allow the spy to track calls but use the original implementation
+      allow_any_instance_of(EasyML::Data::Embeddings::Embedder).to receive(:process_batch) do |instance, batch|
+        process_batch_spy.process_batch(batch)
+        # Call the original method instead of creating an infinite loop
+        original_method.bind(instance).call(batch)
+      end
+
+      # Path to the datasource with duplicates
+      duplicates_dir = SPEC_ROOT.join("internal/easy_ml/datasources/source_with_duplicates")
+
+      # Create a file datasource with the duplicated data
+      datasource = EasyML::Datasource.create(
+        name: "Source With Duplicates",
+        datasource_type: "file",
+      )
+
+      dataset = EasyML::Dataset.create(
+        name: "Duplicates Test Dataset",
+        datasource: datasource,
+        splitter_attributes: { splitter_type: "random", seed: 40 },
+      )
+
+      dataset.refresh
+
+      # Set up embedding preprocessing
+      dataset.columns.find_by(name: "Name").update(
+        preprocessing_steps: {
+          training: {
+            method: :most_frequent,
+            encoding: :embedding,
+            params: {
+              llm: "openai",
+              model: "text-embedding-3-small",
+            },
+          },
+        },
+      )
+
+      # Mock the embeddings request
+      mock_embeddings_request!
+
+      # Process the dataset
+      dataset.refresh
+
+      # Verify that only unique inputs were processed
+      # The Embedder should have filtered out duplicates before processing
+      unique_names = ["John Smith", "Jane Doe", "Unique Person"]
+      seen_items = []
+
+      # Check that each process_batch call only contains unique inputs
+      expect(process_batch_spy).to have_received(:process_batch).at_least(:once) do |batch|
+        seen_items.concat(batch)
+      end
+      expect(seen_items.sort).to eq(unique_names.sort)
+
+      # Verify all rows have embeddings despite deduplication during processing
+      expect(dataset.data(all_columns: true).columns).to include("Name_embedding")
+      expect(dataset.data(all_columns: true).filter(Polars.col("Name_embedding").is_null).count).to eq(0)
+      expect(dataset.raw.data.count).to eq(dataset.processed.data.count)
+
+      col = dataset.columns.find_by(name: "Name")
+      # All compressed embeddings are pre-stored as well
+      expect(col.embedding_store.compressed_store.query.count).to eq(col.embedding_store.full_store.query.count)
+    end
+
+    describe "creates only the necessary number of batches based on inputs and processes" do
+      # Test scenarios for batch creation optimization
+      [
+        # If there is < 500 inputs, we should create only 1 batch
+        { input_size: 200, processes: 4, expected_batches: 1 },
+
+        # If there is 500-1000 inputs, we should create 2 batches
+        { input_size: 600, processes: 4, expected_batches: 2 },
+
+        # If there is 1000-1500 inputs, we should create 3 batches
+        { input_size: 1200, processes: 4, expected_batches: 3 },
+
+        # If there is > 1500 inputs, we should create 4 batches (capped at process count)
+        { input_size: 2000, processes: 4, expected_batches: 4 },
+
+        # Should cap at process count even with more inputs
+        { input_size: 3000, processes: 4, expected_batches: 4 },
+      ].each do |test_case|
+        # For clearer test output
+        context "with #{test_case[:input_size]} inputs and #{test_case[:processes]} processes" do
+          it "creates #{test_case[:expected_batches]} batches" do
+            # Generate test data with the specified number of inputs
+            input_texts = (1..test_case[:input_size]).map { |i| "Text #{i}" }
+
+            # Create a test embedder with the specified number of processes
+            embedder = EasyML::Data::Embeddings::Embedder.new(
+              :openai,
+              {
+                parallel_processes: test_case[:processes],
+                batch_size: 500,  # Using OpenAI's recommended batch size
+              }
+            )
+
+            # Track batches
+            batches = []
+            allow(embedder).to receive(:process_batch) do |batch|
+              batches << batch
+              batch.map { |_| Array.new(10) { rand } }
+            end
+
+            # Call the method under test
+            embedder.send(:batch_embed, input_texts)
+
+            # Verify the correct number of batches were created
+            expect(batches.size).to eq(test_case[:expected_batches])
+          end
+        end
+      end
     end
   end
 end

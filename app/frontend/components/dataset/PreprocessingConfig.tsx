@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Settings2, Wrench, ArrowRight, Pencil, Trash2, Database, Calculator, GitBranch } from 'lucide-react';
+import { Settings2, Wrench, ArrowRight, Pencil, Trash2, Database, Calculator, GitBranch, Brain, HardDrive, Maximize2, Minimize2 } from 'lucide-react';
 import type { Dataset, Column, ColumnType, PreprocessingConstants, PreprocessingSteps, PreprocessingStep } from '../../types/dataset';
 import { Badge } from "@/components/ui/badge";
+import { SearchableSelect } from '../SearchableSelect';
 
 interface PreprocessingConfigProps {
   column: Column;
@@ -19,15 +20,21 @@ interface PreprocessingConfigProps {
 const isNumericType = (type: ColumnType): boolean => 
   type === 'float' || type === 'integer';
 
+const canUseEmbedding = (type: ColumnType): boolean =>
+  type === 'text' || type === 'string' || type === 'categorical';
+
 const createPreprocessingStep = (steps?: PreprocessingStep): PreprocessingStep => ({
   method: steps?.method || 'none',
+  encoding: steps?.encoding,
   params: {
-    constant: steps?.params?.constant,
     categorical_min: steps?.params?.categorical_min ?? 100,
-    one_hot: steps?.params?.one_hot ?? true,
-    ordinal_encoding: steps?.params?.ordinal_encoding ?? false,
-    clip: steps?.params?.clip
-  }
+    clip: steps?.params?.clip,
+    constant: steps?.params?.constant,
+    llm: steps?.params?.llm,
+    model: steps?.params?.model,
+    dimensions: steps?.params?.dimensions,
+    preset: steps?.params?.preset,
+  },
 });
 
 export function PreprocessingConfig({ 
@@ -64,31 +71,33 @@ export function PreprocessingConfig({
     method: PreprocessingStep['method']
   ) => {
     let defaultParams: PreprocessingStep['params'] = {};
-
-    if (selectedType === 'categorical') {
+    const strategy = type === 'training' ? training : inference;
+    
+    // Preserve existing encoding for text/string columns if it's already set
+    let defaultEncoding: string | null = null;
+    
+    if (canUseEmbedding(selectedType) && strategy.encoding) {
+      // Keep the existing encoding if it's already set
+      defaultEncoding = strategy.encoding;
+    } else if (selectedType === 'categorical') {
       if (method === 'categorical') {
         defaultParams = {
           ...defaultParams,
           categorical_min: 100,
-          one_hot: true
         };
-      } else if (method != 'none') {
-        defaultParams = {
-          ...defaultParams,
-          one_hot: true
-        };
+        defaultEncoding = 'one_hot';
+      } else if (method !== 'none') {
+        defaultEncoding = 'one_hot';
       }
     }
 
     if (column.is_target) {
-      defaultParams = {
-        ...defaultParams,
-        ordinal_encoding: true
-      };
+      defaultEncoding = 'ordinal';
     }
 
     const newStrategy: PreprocessingStep = {
       method,
+      encoding: defaultEncoding,
       params: defaultParams
     };
 
@@ -113,8 +122,12 @@ export function PreprocessingConfig({
       ...strategy,
       params: {
         categorical_min: strategy.params.categorical_min,
-        one_hot: strategy.params.one_hot,
-        ordinal_encoding: strategy.params.ordinal_encoding,
+        clip: strategy.params.clip,
+        constant: strategy.params.constant,
+        llm: strategy.params.llm,
+        model: strategy.params.model,
+        dimensions: strategy.params.dimensions,
+        preset: strategy.params.preset,
         ...updates
       }
     };
@@ -177,6 +190,70 @@ export function PreprocessingConfig({
     }
   };
 
+  const handleEmbeddingParamChange = (
+    type: 'training' | 'inference',
+    updates: Partial<PreprocessingStep['params']>
+  ) => {
+    const strategy = type === 'training' ? training : inference;
+    const setStrategy = type === 'training' ? setTraining : setInference;
+    
+    const newStrategy: PreprocessingStep = {
+      ...strategy,
+      params: {
+        ...strategy.params,
+        ...updates
+      }
+    };
+
+    setStrategy(newStrategy);
+    if (type === 'training') {
+      onUpdate(newStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
+    } else {
+      onUpdate(training, newStrategy, useDistinctInference);
+    }
+  };
+
+  const handleEncodingChange = (
+    type: 'training' | 'inference',
+    encoding: string | null
+  ) => {
+    const strategy = type === 'training' ? training : inference;
+    const setStrategy = type === 'training' ? setTraining : setInference;
+    
+    let updatedParams = { ...strategy.params };
+    
+    // If selecting embedding encoding, ensure we have default llm and model params
+    if (encoding === 'embedding') {
+      const embeddingConstants = constants.embedding_constants;
+      if (embeddingConstants) {
+        const defaultProvider = 'openai';
+        const defaultModel = (embeddingConstants.models[defaultProvider] || [])[0]?.value;
+        const defaultDimensions = (embeddingConstants.models[defaultProvider] || []).find(m => m.value === defaultModel)?.dimensions || 1536;
+        
+        updatedParams = {
+          ...updatedParams,
+          llm: updatedParams.llm || defaultProvider,
+          model: updatedParams.model || defaultModel,
+          dimensions: updatedParams.dimensions || defaultDimensions,
+          preset: updatedParams.preset || 'high_quality',
+        };
+      }
+    }
+    
+    const newStrategy: PreprocessingStep = {
+      ...strategy,
+      encoding: encoding === 'none' ? null : encoding,
+      params: updatedParams
+    };
+
+    setStrategy(newStrategy);
+    if (type === 'training') {
+      onUpdate(newStrategy, useDistinctInference ? inference : undefined, useDistinctInference);
+    } else {
+      onUpdate(training, newStrategy, useDistinctInference);
+    }
+  };
+
   const renderConstantValueInput = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
     if (strategy.method !== 'constant') return null;
@@ -206,6 +283,330 @@ export function PreprocessingConfig({
       </div>
     );
   };
+
+  const renderEncodingConfig = (type: 'training' | 'inference') => {
+    const strategy = type === 'training' ? training : inference;
+    if (!strategy || !canUseEmbedding(selectedType)) return null;
+
+    return (
+      <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-gray-900 mb-2">Encoding</h4>
+        <div className="flex items-center gap-2">
+          <input
+            type="radio"
+            id="noneEncode"
+            name="encoding"
+            checked={strategy.encoding === null}
+            onChange={() => handleEncodingChange(type, 'none')}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <label htmlFor="noneEncode" className="text-sm text-gray-700">
+            No encoding
+          </label>
+        </div>
+        {selectedType === 'categorical' && (
+          <>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="oneHotEncode"
+                name="encoding"
+                checked={strategy.encoding === 'one_hot'}
+                onChange={() => handleEncodingChange(type, 'one_hot')}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="oneHotEncode" className="text-sm text-gray-700">
+                One-hot encode categories
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                id="ordinalEncode"
+                name="encoding"
+                checked={strategy.encoding === 'ordinal'}
+                onChange={() => handleEncodingChange(type, 'ordinal')}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="ordinalEncode" className="text-sm text-gray-700">
+                Ordinal encode categories
+              </label>
+            </div>
+          </>
+        )}
+        <div className="flex items-center gap-2">
+          <input
+            type="radio"
+            id="embeddingEncode"
+            name="encoding"
+            checked={strategy.encoding === 'embedding'}
+            onChange={() => handleEncodingChange(type, 'embedding')}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <label htmlFor="embeddingEncode" className="text-sm text-gray-700">
+            Embedding encode
+          </label>
+        </div>
+      </div>
+    );
+  };
+
+  const renderEmbeddingConfig = (type: 'training' | 'inference') => {
+    const strategy = type === 'training' ? training : inference;
+    if (!strategy || strategy.encoding !== 'embedding' || !constants.embedding_constants) return null;
+
+    const embeddingConstants = constants.embedding_constants;
+    const providers = embeddingConstants.providers || [];
+    const models = embeddingConstants.models || {};
+    const compressionPresets = Object.entries(embeddingConstants.compression_presets || {}).map(([key, preset]) => ({
+      value: key,
+      label: key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+      description: preset.description,
+      variance_target: preset.variance_target,
+    }));
+
+    const getModelsForProvider = (provider: string) => {
+      return models[provider] || [];
+    };
+
+    const getCurrentModelDimensions = () => {
+      const provider = strategy.params?.llm || 'openai';
+      const modelValue = strategy.params?.model || getModelsForProvider(provider)[0]?.value;
+      const model = getModelsForProvider(provider).find(m => m.value === modelValue);
+      return model?.dimensions || 1536; // Default to 1536 if not found
+    };
+
+    const getPresetForVariance = (variance: number) => {
+      return compressionPresets.find(preset => 
+        Math.abs(preset.variance_target - variance) < 0.05
+      )?.value || null;
+    };
+
+    const getVarianceForPreset = (presetValue: string) => {
+      return compressionPresets.find(preset => 
+        preset.value === presetValue
+      )?.variance_target || 0.85; // Default to balanced
+    };
+
+    const handleDimensionsChange = (dimensions: number) => {
+      const variance = dimensions / getCurrentModelDimensions(); // Normalize to 0-1
+      const matchingPreset = getPresetForVariance(variance);
+      
+      handleEmbeddingParamChange(type, { 
+        dimensions,
+        preset: matchingPreset,
+      });
+    };
+
+    const handlePresetChange = (presetValue: string) => {
+      const variance = getVarianceForPreset(presetValue);
+      const dimensions = Math.round(variance * getCurrentModelDimensions());
+      
+      handleEmbeddingParamChange(type, {
+        dimensions,
+        preset: presetValue,
+      });
+    };
+
+    return (
+      <div className="space-y-6 mt-8">
+        <div className="bg-blue-50 rounded-lg p-4">
+          <div className="flex gap-2">
+            <Brain className="w-5 h-5 text-blue-500 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium text-blue-900">Text Embeddings</h4>
+              <p className="text-sm text-blue-700 mt-1">
+                Convert text into numerical vectors for machine learning, preserving semantic meaning while optimizing for storage and performance.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Embedding Provider
+            </label>
+            <SearchableSelect
+              value={strategy.params?.llm || 'openai'}
+              onChange={(value) => {
+                const newModels = getModelsForProvider(value);
+                const firstModel = newModels[0]?.value;
+                const dimensions = newModels[0]?.dimensions || 1536;
+                
+                handleEmbeddingParamChange(type, {
+                  ...strategy.params,
+                  llm: value,
+                  model: firstModel,
+                  dimensions: dimensions,
+                  preset: 'high_quality',
+                });
+              }}
+              options={providers}
+              placeholder="Select a provider"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Model
+            </label>
+            <SearchableSelect
+              value={strategy.params?.model || getModelsForProvider(strategy.params?.llm || 'openai')[0]?.value}
+              onChange={(value) => {
+                const model = getModelsForProvider(strategy.params?.llm || 'openai').find(m => m.value === value);
+                const dimensions = model?.dimensions || 1536;
+                
+                handleEmbeddingParamChange(type, {
+                  ...strategy.params,
+                  model: value,
+                  dimensions: dimensions,
+                  preset: 'high_quality',
+                });
+              }}
+              options={getModelsForProvider(strategy.params?.llm || 'openai')}
+              placeholder="Select a model"
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-medium text-gray-900">
+                Storage & Quality
+              </h4>
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Minimize2 className="w-4 h-4" />
+                <span>Storage</span>
+                <span className="mx-2">•</span>
+                <span>Quality</span>
+                <Maximize2 className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-600">Target Dimensions</span>
+                  <span className="text-sm font-medium text-gray-900">{strategy.params?.dimensions || getCurrentModelDimensions()}</span>
+                </div>
+                <input
+                  type="range"
+                  min="2"
+                  max={getCurrentModelDimensions()}
+                  value={strategy.params?.dimensions || getCurrentModelDimensions()}
+                  onChange={(e) => handleDimensionsChange(parseInt(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>2</span>
+                  <span>{getCurrentModelDimensions()}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h5 className="text-sm font-medium text-gray-900">Quality Presets</h5>
+                {compressionPresets.map((preset) => (
+                  <div
+                    key={preset.value}
+                    onClick={() => handlePresetChange(preset.value)}
+                    className={`p-4 rounded-lg border transition-colors cursor-pointer
+                      ${strategy.params?.preset === preset.value
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300 bg-white'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          checked={strategy.params?.preset === preset.value}
+                          onChange={() => handlePresetChange(preset.value)}
+                          className="rounded-full border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="font-medium text-gray-900">{preset.label}</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1 ml-6">{preset.description}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <HardDrive className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h5 className="text-sm font-medium text-gray-900">Storage Efficiency</h5>
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="h-full bg-green-600 rounded-full"
+                            style={{ width: `${100 - ((strategy.params?.dimensions || 24) / getCurrentModelDimensions()) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2">
+                          {strategy.params?.dimensions && strategy.params.dimensions <= getCurrentModelDimensions() * 0.25
+                            ? "Optimized for storage. Maintains core meaning while significantly reducing storage requirements."
+                            : strategy.params?.dimensions && strategy.params.dimensions <= getCurrentModelDimensions() * 0.5
+                            ? "Balanced approach. Good compromise between quality and storage efficiency."
+                            : "Prioritizes quality. Preserves more nuanced relationships but requires more storage."}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-start gap-2">
+                    <Brain className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <h5 className="text-sm font-medium text-gray-900">Information Preservation</h5>
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                          <div 
+                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-300"
+                            style={{ width: `${((strategy.params?.dimensions || 24) / getCurrentModelDimensions()) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-sm text-gray-600 mt-2">
+                          Preserves approximately {Math.round(((strategy.params?.dimensions || 24) / getCurrentModelDimensions()) * 100)}% of the original information
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  useEffect(() => {
+    // When component mounts or when column changes, update default dimensions
+    if (training.encoding === 'embedding' && !training.params?.dimensions) {
+      const provider = training.params?.llm || 'openai';
+      const modelValue = training.params?.model || (constants.embedding_constants?.models[provider] || [])[0]?.value;
+      const model = (constants.embedding_constants?.models[provider] || []).find(m => m.value === modelValue);
+      const defaultDimensions = model?.dimensions || 1536;
+
+      handleEmbeddingParamChange('training', {
+        dimensions: defaultDimensions
+      });
+    }
+
+    if (useDistinctInference && inference.encoding === 'embedding' && !inference.params?.dimensions) {
+      const provider = inference.params?.llm || 'openai';
+      const modelValue = inference.params?.model || (constants.embedding_constants?.models[provider] || [])[0]?.value;
+      const model = (constants.embedding_constants?.models[provider] || []).find(m => m.value === modelValue);
+      const defaultDimensions = model?.dimensions || 1536;
+
+      handleEmbeddingParamChange('inference', {
+        dimensions: defaultDimensions
+      });
+    }
+  }, [training.encoding, inference.encoding, column.id]);
 
   const [isEditingDescription, setIsEditingDescription] = useState(false);
 
@@ -265,7 +666,7 @@ export function PreprocessingConfig({
   const renderStrategySpecificInfo = (type: 'training' | 'inference') => {
     const strategy = type === 'training' ? training : inference;
     let content;
-    if (strategy.method === 'most_frequent' && column.statistics?.raw.most_frequent_value !== undefined) {
+    if (strategy.method === 'most_frequent' && column.statistics?.raw?.most_frequent_value !== undefined) {
       content = `Most Frequent Value: ${column.statistics.raw.most_frequent_value}`
     } else if (strategy.method === 'ffill') {
       const lastValue = column.statistics?.raw.last_value;
@@ -286,6 +687,47 @@ export function PreprocessingConfig({
         <span className="text-sm font-medium text-yellow-700">
           {content}
         </span>
+      </div>
+    );
+  };
+
+  const renderLineageInfo = () => {
+    return (
+      <div className="space-y-4">
+        {column.lineage.map((step, index) => (
+          <div key={index} className="flex items-start gap-3">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+              step.key === 'raw_dataset' 
+                ? 'bg-gray-100' 
+                : step.key === 'computed_by_feature'
+                ? 'bg-purple-100'
+                : 'bg-blue-100'
+            }`}>
+              {step.key === 'raw_dataset' ? (
+                <Database className="w-4 h-4 text-gray-600" />
+              ) : step.key === 'computed_by_feature' ? (
+                <Calculator className="w-4 h-4 text-purple-600" />
+              ) : (
+                <Settings2 className="w-4 h-4 text-blue-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-900">
+                  {step.description}
+                </p>
+                {step.timestamp && (
+                  <span className="text-xs text-gray-500">
+                    {new Date(step.timestamp).toLocaleString()}
+                  </span>
+                )}
+              </div>
+              {index < column.lineage.length - 1 && (
+                <div className="ml-4 mt-2 mb-2 w-0.5 h-4 bg-gray-200" />
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     );
   };
@@ -381,7 +823,7 @@ export function PreprocessingConfig({
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Null Values:</span>
-                <span className="font-medium text-gray-900">{column.statistics?.raw?.null_count.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">{column.statistics?.raw?.null_count?.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Total Rows:</span>
@@ -392,7 +834,7 @@ export function PreprocessingConfig({
                 <span className="font-medium text-gray-900">{nullPercentage.toFixed(2)}%</span>
               </div>
               <div className="mt-2">
-                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div 
                     className="h-full bg-blue-600 rounded-full"
                     style={{ width: `${nullPercentage}%` }}
@@ -422,7 +864,7 @@ export function PreprocessingConfig({
                   <span className="font-medium text-gray-900">{nullPercentageProcessed.toFixed(2)}%</span>
                 </div>
                 <div className="mt-2">
-                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div 
                       className="h-full bg-blue-600 rounded-full"
                       style={{ width: `${nullPercentageProcessed}%` }}
@@ -462,7 +904,7 @@ export function PreprocessingConfig({
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700">Null Distribution</span>
               <span className="text-sm text-gray-500">
-                {nullPercentage}% of values are null
+                {nullPercentage.toFixed(2)}% of values are null
               </span>
             </div>
             <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -486,62 +928,20 @@ export function PreprocessingConfig({
             <h4 className="text-sm font-medium text-gray-700 mb-2">Sample Values</h4>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="flex flex-wrap gap-2">
-                {column.statistics?.raw?.sample_data && column.statistics.raw.sample_data.map((value, index) => (
-                  <span key={index} className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-700">
-                    {String(value)}
+                {Array.isArray(column.sample_values) ? column.sample_values.slice(0, 3).map((value: any, index: number) => (
+                  <span key={index} className="m-1 flex-items items-center">
+                    <Badge>
+                      {typeof value === 'string' 
+                        ? value.split(/\s+/).slice(0, 10).join(' ') + (value.split(/\s+/).length > 10 ? '...' : '')
+                        : String(value)}
+                    </Badge>
                   </span>
-                ))}
+                )) : []}
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {/* Column Lineage Section */}
-      {column.lineage && column.lineage.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-            <GitBranch className="w-5 h-5 text-gray-500" />
-            Column Lineage
-          </h3>
-          <div className="space-y-4">
-            {column.lineage.map((step, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  step.key === 'raw_dataset' 
-                    ? 'bg-gray-100' 
-                    : step.key === 'computed_by_feature'
-                    ? 'bg-purple-100'
-                    : 'bg-blue-100'
-                }`}>
-                  {step.key === 'raw_dataset' ? (
-                    <Database className="w-4 h-4 text-gray-600" />
-                  ) : step.key === 'computed_by_feature' ? (
-                    <Calculator className="w-4 h-4 text-purple-600" />
-                  ) : (
-                    <Settings2 className="w-4 h-4 text-blue-600" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">
-                      {step.description}
-                    </p>
-                    {step.timestamp && (
-                      <span className="text-xs text-gray-500">
-                        {new Date(step.timestamp).toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                  {index < column.lineage.length - 1 && (
-                    <div className="ml-4 mt-2 mb-2 w-0.5 h-4 bg-gray-200" />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Data Type Section */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -555,20 +955,14 @@ export function PreprocessingConfig({
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Column Type
             </label>
-            <select
+            <SearchableSelect
               value={selectedType}
-              disabled
-              className="w-full rounded-md border-gray-300 bg-gray-50 shadow-sm text-gray-700 cursor-not-allowed"
-            >
-              {constants.column_types.map(type => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-sm text-gray-500">
-              Column type cannot be changed after creation
-            </p>
+              onChange={(value) => setColumnType(column.name, value)}
+              options={constants.column_types.map(type => ({
+                value: type.value,
+                label: type.label
+              }))}
+            />
           </div>
 
           <div className="bg-gray-50 rounded-md p-4">
@@ -577,7 +971,9 @@ export function PreprocessingConfig({
               {Array.isArray(column.sample_values) ? column.sample_values.slice(0, 3).map((value: any, index: number) => (
                 <span key={index} className="m-1 flex-items items-center">
                   <Badge>
-                    {String(value)}
+                    {typeof value === 'string' 
+                      ? value.split(/\s+/).slice(0, 10).join(' ') + (value.split(/\s+/).length > 10 ? '...' : '')
+                      : String(value)}
                   </Badge>
                 </span>
               )) : []}
@@ -621,23 +1017,25 @@ export function PreprocessingConfig({
             </div>
 
             <div className={useDistinctInference ? "grid grid-cols-2 gap-6" : ""}>
-              <div>
-                <select
+              <div className="relative z-50">
+                <SearchableSelect
                   value={training.method}
-                  onChange={(e) => handleStrategyChange('training', e.target.value as PreprocessingStep['method'])}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                >
-                  <option value="none">No preprocessing</option>
-                  {constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => (
-                    <option key={strategy.value} value={strategy.value}>
-                      {strategy.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => handleStrategyChange('training', value as PreprocessingStep['method'])}
+                  options={[
+                    { value: 'none', label: 'No preprocessing' },
+                    ...(constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => ({
+                      value: strategy.value,
+                      label: strategy.label
+                    })) || [])
+                  ]}
+                  options={constants.preprocessing_strategies[selectedType]}
+                />
 
                 {renderStrategySpecificInfo('training')}
                 {renderConstantValueInput('training')}
-               {(column.datatype === 'categorical' && training.method === 'categorical') && (
+                {renderEncodingConfig('training')}
+                {renderEmbeddingConfig('training')}
+                {(column.datatype === 'categorical' && training.method === 'categorical') && (
                   <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -658,43 +1056,6 @@ export function PreprocessingConfig({
                     </div>
                   </div>
                 )}
-                {(column.datatype === 'categorical' && training.method !== 'none') && (
-                  <div className="mt-4 space-y-4 bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-2">Encoding</h4>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="oneHotEncode"
-                        name="encoding"
-                        checked={training.params.one_hot}
-                        onChange={() => handleCategoricalParamChange('training', {
-                          one_hot: true,
-                          ordinal_encoding: false
-                        })}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="oneHotEncode" className="text-sm text-gray-700">
-                        One-hot encode categories
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        id="ordinalEncode"
-                        name="encoding"
-                        checked={training.params.ordinal_encoding}
-                        onChange={() => handleCategoricalParamChange('training', {
-                          one_hot: false,
-                          ordinal_encoding: true
-                        })}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label htmlFor="ordinalEncode" className="text-sm text-gray-700">
-                        Ordinal encode categories
-                      </label>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {useDistinctInference && (
@@ -705,20 +1066,21 @@ export function PreprocessingConfig({
                       Inference Strategy
                     </span>
                   </div>
-                  <select
+                  <SearchableSelect
                     value={inference.method}
-                    onChange={(e) => handleStrategyChange('inference', e.target.value as PreprocessingStep['method'])}
-                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                  >
-                    <option value="none">No preprocessing</option>
-                    {constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => (
-                      <option key={strategy.value} value={strategy.value}>
-                        {strategy.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => handleStrategyChange('inference', value as PreprocessingStep['method'])}
+                    options={[
+                      { value: 'none', label: 'No preprocessing' },
+                      ...(constants.preprocessing_strategies[selectedType]?.map((strategy: { value: string; label: string; }) => ({
+                        value: strategy.value,
+                        label: strategy.label
+                      })) || [])
+                    ]}
+                  />
 
                   {renderConstantValueInput('inference')}
+                  {renderEncodingConfig('inference')}
+                  {renderEmbeddingConfig('inference')}
                 </div>
               )}
             </div>
@@ -766,6 +1128,17 @@ export function PreprocessingConfig({
         </div>
       </div>
 
+      {/* Column Lineage Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <GitBranch className="w-5 h-5 text-gray-500" />
+          Column Lineage
+        </h3>
+
+        <div className="space-y-4">
+          {renderLineageInfo()}
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ module EasyML
   class Column
     class Imputers
       class OneHotEncoder < Base
-        param_applies :one_hot
+        encoding_applies :one_hot
 
         def self.description
           "One-hot encoder"

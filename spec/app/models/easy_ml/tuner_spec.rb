@@ -89,7 +89,7 @@ RSpec.describe EasyML::Core::Tuner do
     end
 
     it "recommends hyperparameters within range" do
-      expect(::XGBoost).to receive(:train).exactly(n_trials).times do |hyperparams, _dmat, _evals|
+      expect(::XGBoost).to receive(:train).exactly(n_trials + 1).times do |hyperparams, _dmat, _evals|
         expect(hyperparams["learning_rate"]).to be_between(0.01, 0.1)
       end.and_call_original
 
@@ -107,7 +107,7 @@ RSpec.describe EasyML::Core::Tuner do
     end
 
     it "returns best params" do
-      best_params = EasyML::Core::Tuner.new(tuner_params).tune
+      best_params = EasyML::Core::Tuner.new(tuner_params).tune.with_indifferent_access
 
       expect(best_params["learning_rate"]).to be_between(0.01, 0.1)
       expect(best_params["n_estimators"]).to be_between(0, 2)
@@ -122,7 +122,7 @@ RSpec.describe EasyML::Core::Tuner do
       tuner = EasyML::Core::Tuner.new(tuner_params)
       wandb_callback = model.callbacks.detect { |cb| cb.class == Wandb::XGBoostCallback }
 
-      expect(wandb_callback).to receive(:before_training).exactly(5).times.and_call_original
+      expect(wandb_callback).to receive(:before_training).exactly(n_trials + 1).times.and_call_original
       puts tuner.project_name
       expect(Wandb).to receive(:init).with(project: tuner.project_name).at_least(:once).and_return(false)
 

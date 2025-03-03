@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc85)
+    easy_ml (0.2.0.pre.rc87)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -12,6 +12,7 @@ PATH
       historiographer (~> 4.1.14)
       inertia_rails
       jsonapi-serializer
+      langchainrb
       numo-narray
       numpy
       parallel
@@ -23,6 +24,8 @@ PATH
       resque-batched-job
       resque-pool
       resque-scheduler
+      ruby-openai
+      rumale
       suo
       wandb (~> 0.1.13)
       xgb (~> 0.9.0)
@@ -104,6 +107,8 @@ GEM
       minitest (>= 5.1)
       securerandom (>= 0.3)
       tzinfo (~> 2.0, >= 2.0.5)
+    addressable (2.8.7)
+      public_suffix (>= 2.0.2, < 7.0)
     annotate (3.2.0)
       activerecord (>= 3.2, < 8.0)
       rake (>= 10.4, < 14.0)
@@ -1730,6 +1735,7 @@ GEM
     aws-sigv2 (1.2.0)
     aws-sigv4 (1.11.0)
       aws-eventstream (~> 1, >= 1.0.2)
+    baran (0.1.12)
     base64 (0.2.0)
     benchmark (0.4.0)
     bigdecimal (3.1.9)
@@ -1742,6 +1748,7 @@ GEM
     concurrent-ruby (1.3.5)
     connection_pool (2.5.0)
     crass (1.0.6)
+    csv (3.3.2)
     dalli (3.2.8)
     database_cleaner-active_record (2.2.0)
       activerecord (>= 5.a)
@@ -1755,6 +1762,15 @@ GEM
     erubi (1.13.1)
     et-orbi (1.2.11)
       tzinfo
+    event_stream_parser (1.0.0)
+    faraday (2.12.2)
+      faraday-net_http (>= 2.0, < 3.5)
+      json
+      logger
+    faraday-multipart (1.1.0)
+      multipart-post (~> 2.0)
+    faraday-net_http (3.4.0)
+      net-http (>= 0.5.0)
     ffi (1.17.1-aarch64-linux-gnu)
     ffi (1.17.1-aarch64-linux-musl)
     ffi (1.17.1-arm64-darwin)
@@ -1795,9 +1811,20 @@ GEM
       reline (>= 0.4.2)
     jmespath (1.6.2)
     json (2.9.1)
+    json-schema (4.3.1)
+      addressable (>= 2.8)
     jsonapi-serializer (2.2.0)
       activesupport (>= 4.2)
+    langchainrb (0.19.4)
+      baran (~> 0.1.9)
+      csv
+      json-schema (~> 4)
+      matrix
+      pragmatic_segmenter (~> 0.3.0)
+      zeitwerk (~> 2.5)
     language_server-protocol (3.17.0.4)
+    lbfgsb (0.6.0)
+      numo-narray (>= 0.9.1)
     listen (3.9.0)
       rb-fsevent (~> 0.10, >= 0.10.3)
       rb-inotify (~> 0.9, >= 0.9.10)
@@ -1812,16 +1839,21 @@ GEM
       net-pop
       net-smtp
     marcel (1.0.4)
+    matrix (0.4.2)
     method_source (1.1.0)
     mini_mime (1.1.5)
     minitest (5.25.4)
+    mmh3 (1.2.0)
     mono_logger (1.1.2)
     msgpack (1.7.5)
     multi_json (1.15.0)
+    multipart-post (2.4.1)
     mustermann (3.0.3)
       ruby2_keywords (~> 0.0.1)
     mutex_m (0.3.0)
     nenv (0.3.0)
+    net-http (0.6.0)
+      uri
     net-imap (0.5.5)
       date
       net-protocol
@@ -1870,6 +1902,7 @@ GEM
       bigdecimal
     pp (0.6.2)
       prettyprint
+    pragmatic_segmenter (0.3.24)
     prettyprint (0.2.0)
     pry (0.15.2)
       coderay (~> 1.1)
@@ -1877,6 +1910,7 @@ GEM
     psych (5.2.3)
       date
       stringio
+    public_suffix (6.0.1)
     pycall (1.5.2)
     raabro (1.4.0)
     racc (1.8.1)
@@ -1995,10 +2029,99 @@ GEM
       unicode-display_width (>= 2.4.0, < 4.0)
     rubocop-ast (1.38.0)
       parser (>= 3.3.1.0)
+    ruby-openai (7.4.0)
+      event_stream_parser (>= 0.3.0, < 2.0.0)
+      faraday (>= 1)
+      faraday-multipart (>= 1)
     ruby-progressbar (1.13.0)
     ruby2_keywords (0.0.5)
     rufus-scheduler (3.9.2)
       fugit (~> 1.1, >= 1.11.1)
+    rumale (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-clustering (~> 1.0.0)
+      rumale-core (~> 1.0.0)
+      rumale-decomposition (~> 1.0.0)
+      rumale-ensemble (~> 1.0.0)
+      rumale-evaluation_measure (~> 1.0.0)
+      rumale-feature_extraction (~> 1.0.0)
+      rumale-kernel_approximation (~> 1.0.0)
+      rumale-kernel_machine (~> 1.0.0)
+      rumale-linear_model (~> 1.0.0)
+      rumale-manifold (~> 1.0.0)
+      rumale-metric_learning (~> 1.0.0)
+      rumale-model_selection (~> 1.0.0)
+      rumale-naive_bayes (~> 1.0.0)
+      rumale-nearest_neighbors (~> 1.0.0)
+      rumale-neural_network (~> 1.0.0)
+      rumale-pipeline (~> 1.0.0)
+      rumale-preprocessing (~> 1.0.0)
+      rumale-tree (~> 1.0.0)
+    rumale-clustering (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-core (1.0.0)
+      csv (>= 3.1.9)
+      numo-narray (>= 0.9.1)
+    rumale-decomposition (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-ensemble (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+      rumale-linear_model (~> 1.0.0)
+      rumale-model_selection (~> 1.0.0)
+      rumale-preprocessing (~> 1.0.0)
+      rumale-tree (~> 1.0.0)
+    rumale-evaluation_measure (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-feature_extraction (1.0.0)
+      mmh3 (~> 1.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-kernel_approximation (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-kernel_machine (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-linear_model (1.0.0)
+      lbfgsb (>= 0.3.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-manifold (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+      rumale-decomposition (~> 1.0.0)
+    rumale-metric_learning (1.0.0)
+      lbfgsb (>= 0.3.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+      rumale-decomposition (~> 1.0.0)
+    rumale-model_selection (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+      rumale-evaluation_measure (~> 1.0.0)
+      rumale-preprocessing (~> 1.0.0)
+    rumale-naive_bayes (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-nearest_neighbors (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-neural_network (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-pipeline (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-preprocessing (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
+    rumale-tree (1.0.0)
+      numo-narray (>= 0.9.1)
+      rumale-core (~> 1.0.0)
     securerandom (0.4.1)
     shellany (0.0.1)
     sinatra (4.1.1)
@@ -2039,6 +2162,7 @@ GEM
     unicode-display_width (3.1.4)
       unicode-emoji (~> 4.0, >= 4.0.4)
     unicode-emoji (4.0.4)
+    uri (1.0.2)
     useragent (0.16.11)
     vite_rails (3.0.19)
       railties (>= 5.1, < 9)
@@ -2087,6 +2211,7 @@ DEPENDENCIES
   historiographer (~> 4.1.14)
   inertia_rails
   jsonapi-serializer
+  langchainrb
   numpy (~> 0.4.0)
   ostruct
   pg
@@ -2101,6 +2226,8 @@ DEPENDENCIES
   rspec (~> 3.0)
   rspec-rails
   rubocop (~> 1.21)
+  ruby-openai
+  rumale
   spring
   spring-commands-rspec
   sprockets-rails

@@ -38,13 +38,16 @@ module ModelSpecHelper
       {
         training: {
           annual_revenue: {
-            median: true,
-            clip: { min: 0, max: 1_000_000 },
+            method: :median,
+            params: {
+              clip: { min: 0, max: 1_000_000 },
+            },
           },
           loan_purpose: {
-            categorical: {
+            method: :most_frequent,
+            encoding: :one_hot,
+            params: {
               categorical_min: 2,
-              one_hot: true,
             },
           },
         },
@@ -238,6 +241,30 @@ module ModelSpecHelper
       loans_model
     end
 
+    def mock_embeddings_request!
+      # Store embeddings by text to ensure consistency
+      @mock_embeddings ||= {}
+
+      allow_any_instance_of(Langchain::LLM::OpenAI).to receive(:embed).with(any_args) do |llm, kwargs|
+        texts = kwargs[:text]
+
+        json = {
+          data: texts.map do |text|
+            # Generate and store a consistent embedding for each unique text
+            @mock_embeddings[text] ||= Array.new(48) { Random.rand }
+            {
+              embedding: @mock_embeddings[text],
+            }
+          end,
+        }
+        OpenStruct.new(raw_response: json)
+      end
+    end
+
+    def expect_no_embeddings_request!
+      expect_any_instance_of(Langchain::LLM::OpenAI).not_to receive(:embed)
+    end
+
     def make_titanic_dataset(datasource_location = nil, splitter_attributes)
       dataset = EasyML::Dataset.create(
         name: "Titanic",
@@ -249,6 +276,7 @@ module ModelSpecHelper
       )
       dataset.unlock!
       dataset.refresh
+      dataset.columns.find_by(name: "PassengerId").update(is_primary_key: true)
       dataset.columns.find_by(name: "Survived").update(is_target: true)
       dataset.columns.find_by(name: "Name").update(hidden: true)
       dataset.columns.find_by(name: "Cabin").update(hidden: true)
@@ -261,18 +289,18 @@ module ModelSpecHelper
       dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
                                                     training: {
                                                       method: :categorical,
+                                                      encoding: :one_hot,
                                                       params: {
                                                         categorical_min: 2,
-                                                        one_hot: true,
                                                       },
                                                     },
                                                   })
       dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
                                                          training: {
                                                            method: :most_frequent,
+                                                           encoding: :one_hot,
                                                            params: {
                                                              categorical_min: 2,
-                                                             one_hot: true,
                                                            },
                                                          },
                                                        })
@@ -331,14 +359,9 @@ module ModelSpecHelper
       column = dataset.columns.find_by(name: column_name.to_s)
       next unless column
 
-      method, params = extract_preprocessing_config(config)
-
       column.update(
         preprocessing_steps: {
-          training: {
-            method: method,
-            params: params,
-          },
+          training: config,
         },
       )
     end

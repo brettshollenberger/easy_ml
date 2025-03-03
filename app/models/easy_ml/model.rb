@@ -296,12 +296,22 @@ module EasyML
       )
     end
 
-    def predict(xs)
+    def prepare_predict(xs)
       load_model!
       unless xs.is_a?(XGBoost::DMatrix)
         xs = dataset.normalize(xs, inference: true)
       end
+      xs
+    end
+
+    def predict(xs)
+      xs = prepare_predict(xs)
       adapter.predict(xs)
+    end
+
+    def predict_proba(xs)
+      xs = prepare_predict(xs)
+      adapter.predict_proba(xs)
     end
 
     def save_model_file

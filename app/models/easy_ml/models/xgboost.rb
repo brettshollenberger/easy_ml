@@ -315,12 +315,12 @@ module EasyML
         end
       end
 
-      def predict(xs)
+      def predicting(xs, &block)
         raise "No trained model! Train a model before calling predict" unless @booster.present?
         raise "Cannot predict on nil — XGBoost" if xs.nil?
 
         begin
-          y_pred = @booster.predict(preprocess(xs))
+          y_pred = yield(preprocess(xs))
         rescue StandardError => e
           raise e unless e.message.match?(/Number of columns does not match/)
 
@@ -335,6 +335,12 @@ module EasyML
               #{xs.columns}
             )
         end
+      end
+
+      def predict(xs)
+        y_pred = predicting(xs) do |d_matrix|
+          @booster.predict(d_matrix)
+        end
 
         case task.to_sym
         when :classification
@@ -344,12 +350,12 @@ module EasyML
         end
       end
 
-      def predict_proba(data)
-        dmat = DMatrix.new(data)
-        y_pred = @booster.predict(dmat)
+      def predict_proba(xs)
+        y_pred = predicting(xs) do |d_matrix|
+          @booster.predict(d_matrix)
+        end
 
         if y_pred.first.is_a?(Array)
-          # multiple classes
           y_pred
         else
           y_pred.map { |v| [1 - v, v] }
@@ -452,6 +458,27 @@ module EasyML
         )
       end
 
+      def explode_embeddings(df)
+        embedding_cols = dataset.columns.where.not(hidden: true).select(&:embedded?)
+        # Create all extraction expressions at once
+        select_expressions = []
+
+        # Retain all non-embedding columns
+        base_cols = df.schema.keys - embedding_cols.map(&:embedding_column)
+        select_expressions << Polars.col(base_cols)
+
+        # Add all embedding extraction expressions
+        embedding_cols.each do |col|
+          dims = col.n_dimensions || 1
+          (0...dims).each do |i|
+            # Create a single expression that extracts one element
+            select_expressions << Polars.col(col.embedding_column).list.get(i).alias("#{col.embedding_column}_#{i}")
+          end
+        end
+
+        df.select(select_expressions)
+      end
+
       def preprocess(xs, ys = nil)
         return xs if xs.is_a?(::XGBoost::DMatrix)
         lazy = xs.is_a?(Polars::LazyFrame)
@@ -468,7 +495,10 @@ module EasyML
         feature_cols -= [weights_col] if weights_col
 
         # Get features, labels and weights
-        features = lazy ? xs.select(feature_cols).collect.to_numo : xs.select(feature_cols).to_numo
+        exploded = explode_embeddings(xs.select(feature_cols))
+        feature_cols = exploded.columns
+        features = lazy ? exploded.collect.to_numo : exploded.to_numo
+
         weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
         weights = weights.flatten if weights
         if ys.present?

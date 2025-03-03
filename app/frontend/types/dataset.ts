@@ -37,6 +37,7 @@ export type PreprocessingStep = {
     | "categorical"
     | "constant"
     | "today";
+  encoding?: "one_hot" | "ordinal" | "embedding" | null;
   params: {
     value?: number;
     constant?: string;
@@ -45,8 +46,10 @@ export type PreprocessingStep = {
       min?: number;
       max?: number;
     };
-    one_hot?: boolean;
-    ordinal_encoding?: boolean;
+    llm?: string;
+    model?: string;
+    dimensions?: number;
+    preset?: string;
   };
 };
 

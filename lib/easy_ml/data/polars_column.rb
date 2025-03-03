@@ -13,6 +13,7 @@ module EasyML
         text: Polars::String,
         categorical: Polars::Categorical,
         null: Polars::Null,
+        array: Polars::List,
       }
       POLARS_MAP = {
         Polars::Float64 => :float,
@@ -25,6 +26,8 @@ module EasyML
         Polars::String => :string,
         Polars::Categorical => :categorical,
         Polars::Null => :null,
+        Polars::List => :array,
+        Polars::Array => :array,
       }.stringify_keys
       include EasyML::Timing
 

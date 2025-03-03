@@ -1,15 +1,10 @@
 require "spec_helper"
 require "support/model_spec_helper"
 
+Process.setrlimit(Process::RLIMIT_CORE, Process::RLIM_INFINITY)
+
 RSpec.describe "EasyML::Models::XGBoost" do
   include ModelSpecHelper
-
-  before(:each) do
-    EasyML::Cleaner.clean
-  end
-  after(:each) do
-    EasyML::Cleaner.clean
-  end
 
   describe "XGBoost" do
     let(:booster) do
@@ -45,6 +40,29 @@ RSpec.describe "EasyML::Models::XGBoost" do
       it "calls fit multiple times" do
         model.fit
         expect { model.fit }.to_not raise_error
+      end
+
+      it "explodes embedding columns" do
+        dataset.columns.find_by(name: "loan_purpose").update(
+          preprocessing_steps: {
+            training: {
+              method: :most_frequent,
+              encoding: :embedding,
+              params: {
+                llm: "openai",
+                model: "text-embedding-3-small",
+                dimensions: 10,
+              },
+            },
+          },
+        )
+        mock_embeddings_request!
+
+        dataset.refresh
+        d_train, d_valid, d_test = model.prepare_data
+        expect(d_train.feature_names).to eq(%w(
+                                           annual_revenue
+                                         ).concat((0..9).to_a.map { |i| "loan_purpose_embedding_#{i}" }))
       end
     end
 
@@ -125,19 +143,23 @@ RSpec.describe "EasyML::Models::XGBoost" do
           {
             training: {
               annual_revenue: {
-                median: true,
-                clip: { min: 0, max: 1_000_000 },
+                method: :median,
+                params: {
+                  clip: { min: 0, max: 1_000_000 },
+                },
               },
               loan_purpose: {
-                categorical: {
+                method: :most_frequent,
+                encoding: :one_hot,
+                params: {
                   categorical_min: 2,
-                  one_hot: true,
                 },
               },
               did_convert: {
-                categorical: {
+                method: :most_frequent,
+                encoding: :ordinal,
+                params: {
                   categorical_min: 1,
-                  ordinal_encoding: true,
                 },
               },
             },
@@ -172,6 +194,17 @@ RSpec.describe "EasyML::Models::XGBoost" do
           preds = model.decode_labels(preds_orig)
           expect(preds_orig).to eq([0, 0])
           expect(preds).to eq([false, false])
+        end
+
+        it "predicts probabilities" do
+          dataset.refresh
+          x_test, = dataset.test(split_ys: true)
+          model.fit
+          probas = model.predict_proba(x_test)
+          flat_probs = probas.flatten
+          expect(probas).to be_a(Array)
+          expect(flat_probs).to all(be_a(Float))
+          expect(flat_probs).to all(be_between(0, 1))
         end
       end
     end

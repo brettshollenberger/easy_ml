@@ -27,11 +27,23 @@ module EasyML
     include JSONAPI::Serializer
 
     attributes :id, :name, :description, :dataset_id, :datatype, :polars_datatype, :preprocessing_steps,
-               :hidden, :drop_if_null, :sample_values, :statistics, :is_target,
+               :hidden, :drop_if_null, :sample_values, :is_target,
                :is_computed, :computed_by
 
     attribute :required do |object|
       object.required?
+    end
+
+    attribute :statistics do |column|
+      if column.is_computed?
+        stats = column.statistics
+        {
+          raw: stats[:processed],
+          processed: stats[:processed],
+        }
+      else
+        column.statistics
+      end
     end
 
     attribute :lineage do |column|

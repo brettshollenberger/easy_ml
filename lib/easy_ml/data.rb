@@ -3,6 +3,7 @@ module EasyML
     require_relative "data/utils"
     require_relative "data/polars_reader"
     require_relative "data/polars_in_memory"
+    require_relative "data/embeddings"
     require_relative "data/synced_directory"
     require_relative "data/splits"
     require_relative "data/polars_column"

@@ -84,6 +84,7 @@ module EasyML
         preprocessing_strategies: EasyML::Column::Imputers.constants[:preprocessing_strategies],
         feature_options: EasyML::Features::Registry.list_flat,
         splitter_constants: EasyML::Splitter.constants,
+        embedding_constants: EasyML::Data::Embeddings::Embedder.constants,
       }
     end
 
@@ -393,7 +394,6 @@ module EasyML
     end
 
     def lock_dataset
-      data = processed.data(limit: 1).to_a.any? ? processed.data : raw.data
       with_lock do |client|
         yield
       end
@@ -600,6 +600,10 @@ module EasyML
       }.compact.deep_symbolize_keys
     end
 
+    def dataset_primary_key
+      @dataset_primary_key ||= preloaded_columns.find(&:is_primary_key)&.name
+    end
+
     def target
       @target ||= preloaded_columns.find(&:is_target)&.name
     end
@@ -617,24 +621,7 @@ module EasyML
     end
 
     def col_order(inference: false)
-      # Filter preloaded columns in memory
-      scope = preloaded_columns.reject(&:hidden)
-      scope = scope.reject(&:is_target) if inference
-
-      # Get one_hot columns for category mapping
-      one_hots = scope.select(&:one_hot?)
-      one_hot_cats = columns.allowed_categories.symbolize_keys
-
-      # Map columns to names, handling one_hot expansion
-      scope.flat_map do |col|
-        if col.one_hot?
-          one_hot_cats[col.name.to_sym].map do |cat|
-            "#{col.name}_#{cat}"
-          end
-        else
-          col.name
-        end
-      end.sort
+      preloaded_columns.col_order(inference: inference)
     end
 
     def column_mask(df, inference: false)

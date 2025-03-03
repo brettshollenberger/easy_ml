@@ -25,6 +25,8 @@
 #  last_datasource_sha :string
 #  last_feature_sha    :string
 #  in_raw_dataset      :boolean
+#  is_primary_key      :boolean
+#  pca_model_id        :integer
 #
 module EasyML
   class Column < ActiveRecord::Base
@@ -36,16 +38,19 @@ module EasyML
 
     belongs_to :dataset, class_name: "EasyML::Dataset"
     belongs_to :feature, class_name: "EasyML::Feature", optional: true
+    belongs_to :pca_model, class_name: "EasyML::PCAModel", optional: true
     has_many :lineages, class_name: "EasyML::Lineage"
 
     validates :name, presence: true
     validates :name, uniqueness: { scope: :dataset_id }
 
     before_save :ensure_valid_datatype
-    after_save :handle_date_column_change
+    before_save :ensure_valid_encoding
+    after_save :handle_unique_attrs
     before_save :set_defaults
     before_save :set_feature_lineage
     before_save :set_polars_datatype
+    before_save :ensure_cast_works
     # after_find :ensure_feature_exists
 
     # Scopes
@@ -128,13 +133,23 @@ module EasyML
       "#<#{self.class.name} #{display_attributes.map { |k, v| "#{k}: #{v}" }.join(", ")}>"
     end
 
+    def processed_columns
+      has_virtual_columns? ? virtual_columns : [name]
+    end
+
     def aliases
       [name].concat(virtual_columns)
+    end
+
+    def has_virtual_columns?
+      one_hot? || embedded?
     end
 
     def virtual_columns
       if one_hot?
         allowed_categories.map { |cat| "#{name}_#{cat}" }
+      elsif embedded?
+        ["#{name}_embedding"]
       else
         []
       end
@@ -235,6 +250,34 @@ module EasyML
       rescue => e
         get_polars_type(datatype)
       end
+    end
+
+    VALID_ENCODINGS = [:one_hot, :ordinal, :embedding].freeze
+
+    def encoding
+      preprocessing_steps.deep_symbolize_keys.dig(:training, :encoding)&.to_sym
+    end
+
+    def one_hot?
+      encoding == :one_hot
+    end
+
+    def ordinal_encoding?
+      encoding == :ordinal
+    end
+
+    def embedded?
+      encoding == :embedding
+    end
+
+    def encoding_applies?(encoding_type)
+      encoding == encoding_type
+    end
+
+    def validate_encoding
+      return true if encoding.nil?
+      return false unless VALID_ENCODINGS.include?(encoding)
+      true
     end
 
     EasyML::Data::PolarsColumn::TYPE_MAP.keys.each do |dtype|
@@ -341,18 +384,52 @@ module EasyML
       (read_attribute(:preprocessing_steps) || {}).symbolize_keys
     end
 
-    def one_hot?
-      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :one_hot) == true
+    def embedding_column
+      return nil unless embedded?
+      virtual_columns.first
     end
 
-    def ordinal_encoding?
-      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :ordinal_encoding) == true
+    def embed(df, fit: false)
+      return df if df.columns.include?(embedding_column) && df.filter(Polars.col(embedding_column).is_null).empty?
+      return df unless name.present?
+      return df unless embedded?
+
+      if fit
+        pca_model = get_pca_model
+        return if pca_model.fit_at.present? && pca_model.fit_at > dataset.datasource.refreshed_at && !pca_model_outdated?
+      end
+
+      actually_generate_embeddings(df, fit: fit)
+
+      df = decorate_embeddings(df, compressed: true)
+      df
     end
 
-    def encoding
-      return nil unless categorical?
-      return :ordinal if ordinal_encoding?
-      return :one_hot
+    def store_embeddings(df, compressed: false)
+      return unless embedded?
+
+      embedding_store.store(df, compressed: compressed)
+    end
+
+    def embedding_config
+      return nil unless embedded?
+      preprocessing_steps = self.preprocessing_steps.deep_symbolize_keys
+
+      preprocessing_steps.dig(:training, :params).slice(:llm, :preset, :dimensions).merge!(
+        column: self.name,
+        output_column: "#{self.name}_embedding",
+        config: {
+          default_options: {
+            embeddings_model_name: preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :model),
+          },
+        },
+      )
+    end
+
+    def embedding_store
+      return nil unless embedded?
+
+      @embedding_store ||= EasyML::EmbeddingStore.new(self)
     end
 
     def categorical_min
@@ -458,94 +535,212 @@ module EasyML
       value
     end
 
+    def get_pca_model
+      pca_model || build_pca_model
+    end
+
+    def n_dimensions
+      return nil unless embedded?
+
+      preprocessing_steps.deep_symbolize_keys.dig(:training, :params, :dimensions)
+    end
+
     private
+
+    def ensure_cast_works
+      begin
+        raw.data(cast: { name => polars_datatype })
+      rescue => e
+        raw_dtype = EasyML::Data::PolarsColumn.polars_to_sym(
+          raw.data(cast: false, limit: 1).schema[name]
+        )
+        errors.add(:datatype, "Can't cast from #{raw_dtype} to #{datatype}")
+      end
+    end
+
+    def pca_model_outdated?
+      return false unless EasyML::Data::Embeddings::Compressor::COMPRESSION_ENABLED
+
+      pca_model = get_pca_model
+      return false unless pca_model.persisted?
+      return false unless n_dimensions.present?
+
+      pca_model.model.params.dig(:n_components) != n_dimensions
+    end
+
+    def needs_embed(df, compressed: false)
+      if df.columns.exclude?(name)
+        Polars::DataFrame.new
+      elsif embedding_store.empty?(compressed: compressed)
+        df
+      else
+        stored_embeddings = embedding_store.query(lazy: true, compressed: compressed)
+        df.filter(Polars.col(name).is_null.not_).join(
+          stored_embeddings.select(name),
+          on: name,
+          how: "anti",
+        )
+      end
+    end
+
+    def decorate_embeddings(df, compressed: false)
+      if df.columns.include?(embedding_column)
+        orig_col_order = df.columns
+        df = df.drop(embedding_column) if df.columns.include?(embedding_column)
+      else
+        orig_col_order = df.columns + [embedding_column]
+      end
+
+      df = df.join(
+        embedding_store.query(lazy: true, compressed: compressed),
+        on: name,
+        how: "left",
+      ).select(orig_col_order)
+      df
+    end
+
+    def embed_and_compress(df, fit: false)
+      needs_embed = self.needs_embed(df, compressed: false)
+      needs_recompress = fit && pca_model_outdated?
+
+      extra_params = {
+        df: needs_embed,
+        pca_model: fit ? nil : get_pca_model.model,
+      }.compact
+      generator = EasyML::Data::Embeddings.new(embedding_config.merge!(extra_params))
+
+      if needs_embed.shape[0] > 0
+        needs_embed = generator.embed
+        store_embeddings(needs_embed, compressed: false)
+      end
+
+      # When the PCA model is outdated, we need to re-fit the PCA model and re-compress,
+      # but we don't need to re-generate the full embeddings again
+      if needs_recompress
+        needs_embed = decorate_embeddings(df.clone, compressed: false)
+        embedding_store.compressed_store.wipe
+      end
+
+      needs_embed = self.needs_embed(df, compressed: true)
+      return df if needs_embed.empty?
+      if needs_embed.columns.exclude?(embedding_column) || ((needs_embed.shape[0] == 1) && needs_embed.filter(Polars.col(embedding_column).is_null).count == 1)
+        needs_embed = decorate_embeddings(needs_embed, compressed: false)
+      end
+
+      if (n_dimensions.present? && needs_embed.shape[1] > 0 && n_dimensions < needs_embed[embedding_column][0].count)
+        compressed = generator.compress(needs_embed, fit: fit)
+        store_embeddings(compressed, compressed: true)
+      else
+        store_embeddings(needs_embed, compressed: true)
+      end
+
+      if fit
+        embedding_store.compact
+
+        get_pca_model.update(
+          model: generator.pca_model,
+          fit_at: Time.now,
+        )
+        update(pca_model_id: get_pca_model.id)
+      end
+    end
+
+    def actually_generate_embeddings(df, fit: false)
+      return df if df.empty?
+
+      embed_and_compress(df, fit: fit)
+    end
 
     def set_defaults
       self.preprocessing_steps = set_preprocessing_steps_defaults
     end
 
     def set_preprocessing_steps_defaults
-      preprocessing_steps.inject({}) do |h, (type, config)|
+      preprocessing_steps.deep_symbolize_keys.inject({}) do |h, (type, config)|
         h.tap do
           h[type] = set_preprocessing_step_defaults(config)
         end
       end
     end
 
-    ALLOWED_PARAMS = {
-      constant: [:constant],
-      categorical: %i[categorical_min one_hot ordinal_encoding],
-      most_frequent: %i[one_hot ordinal_encoding],
-      mean: [:clip],
-      median: [:clip],
-    }
-
     REQUIRED_PARAMS = {
+      embedding: %i[llm model],
       constant: [:constant],
-      categorical: %i[categorical_min one_hot ordinal_encoding],
+      categorical: %i[categorical_min],
     }
 
     DEFAULT_PARAMS = {
       categorical_min: 1,
-      one_hot: true,
-      ordinal_encoding: false,
       clip: { min: 0, max: 1_000_000_000 },
       constant: nil,
+      llm: "openai",
+      model: "text-embedding-3-small",
+      preset: :full,
     }
-
-    XOR_PARAMS = [{
-      params: [:one_hot, :ordinal_encoding],
-      default: :one_hot,
-    }]
 
     def set_preprocessing_step_defaults(config)
       config.deep_symbolize_keys!
       config[:params] ||= {}
-      params = config[:params].symbolize_keys
+      params = config[:params].deep_symbolize_keys
 
       required = REQUIRED_PARAMS.fetch(config[:method].to_sym, [])
-      allowed = ALLOWED_PARAMS.fetch(config[:method].to_sym, [])
 
       missing = required - params.keys
-      missing.reject! do |param|
-        XOR_PARAMS.any? do |rule|
-          if rule[:params].include?(param)
-            missing_param = rule[:params].find { |p| p != param }
-            params[missing_param] == true
-          else
-            false
-          end
-        end
-      end
-      extra = params.keys - allowed
-
       missing.each do |key|
         params[key] = DEFAULT_PARAMS.fetch(key)
-      end
-
-      extra.each do |key|
-        params.delete(key)
-      end
-
-      # Only set one of one_hot or ordinal_encoding to true,
-      # by default set one_hot to true
-      xor = XOR_PARAMS.find { |rule| rule[:params] & params.keys == rule[:params] }
-      if xor && xor[:params].all? { |param| params[param] }
-        xor[:params].each { |param| params[param] = false }
-        params[xor[:default]] = true
       end
 
       config.merge!(params: params)
     end
 
-    def handle_date_column_change
-      return unless saved_change_to_is_date_column? && is_date_column?
+    def handle_unique_attrs
+      return unless primary_key_changed? || target_changed? || is_date_column_changed?
 
       Column.transaction do
-        dataset.columns.where.not(id: id).update_all(is_date_column: false)
-        dataset.learn_statistics
-        dataset.columns.sync
+        handle_date_column_change
+        handle_primary_key_change
+        handle_target_change
+        resync_dataset if dataset.processed_schema.present? # When using Import, columns are created before the dataset
       end
+    end
+
+    def target_changed?
+      saved_change_to_is_target? && is_target?
+    end
+
+    def primary_key_changed?
+      saved_change_to_is_primary_key? && is_primary_key?
+    end
+
+    def is_date_column_changed?
+      saved_change_to_is_date_column? && is_date_column?
+    end
+
+    def handle_target_change
+      return unless target_changed?
+
+      dataset.columns.where.not(id: id).update_all(is_target: false)
+    end
+
+    def primary_key_changed?
+      saved_change_to_is_primary_key? && is_primary_key?
+    end
+
+    def handle_primary_key_change
+      return unless primary_key_changed?
+
+      dataset.columns.where.not(id: id).update_all(is_primary_key: false)
+    end
+
+    def handle_date_column_change
+      return unless is_date_column_changed?
+
+      dataset.columns.where.not(id: id).update_all(is_date_column: false)
+    end
+
+    def resync_dataset
+      dataset.learn_statistics
+      dataset.columns.sync
     end
 
     def ensure_valid_datatype
@@ -555,6 +750,15 @@ module EasyML
 
       errors.add(:datatype, "must be one of: #{EasyML::Data::PolarsColumn::TYPE_MAP.keys.join(", ")}")
       throw :abort
+    end
+
+    def ensure_valid_encoding
+      return true if encoding.nil?
+
+      unless VALID_ENCODINGS.include?(encoding)
+        errors.add(:encoding, "must be one of: #{VALID_ENCODINGS.join(", ")}")
+        throw(:abort)
+      end
     end
 
     NUMERIC_METHODS = %i[mean median].freeze

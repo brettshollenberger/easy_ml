@@ -2,7 +2,7 @@ module EasyML
   class Column
     class Imputers
       class OrdinalEncoder < Base
-        param_applies :ordinal_encoding
+        encoding_applies :ordinal
 
         def self.description
           "Ordinal encoder"

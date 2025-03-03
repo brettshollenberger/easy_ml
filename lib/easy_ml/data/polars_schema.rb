@@ -22,9 +22,9 @@ module EasyML
         schema.reduce({}) do |h, (key, type_info)|
           h.tap do
             polars_type = PolarsColumn.sym_to_polars(type_info[:type].to_sym)
-            params = type_info[:params]&.transform_keys(&:to_sym) || {}
+            params = deserialize_params(type_info[:params])
 
-            h[key] = polars_type.new(**params)
+            h[key] = initialize_polars_type(polars_type, params)
           end
         end
       end
@@ -38,6 +38,28 @@ module EasyML
 
       private
 
+      def self.initialize_polars_type(polars_type, params)
+        case polars_type.name
+        when "Polars::List"
+          polars_type.new(params[:inner])
+        else
+          polars_type.new(**params)
+        end
+      end
+
+      def self.deserialize_params(params)
+        params.reduce({}) do |h, (k, param)|
+          h.tap do
+            case k.to_sym
+            when :inner
+              h[:inner] = PolarsColumn.sym_to_polars(param.to_sym)
+            else
+              h[k] = param
+            end
+          end
+        end
+      end
+
       def self.dtype_params(dtype)
         case dtype
         when Polars::Categorical
@@ -46,6 +68,10 @@ module EasyML
           {
             time_unit: dtype.time_unit,
             time_zone: dtype.time_zone,
+          }
+        when Polars::List, Polars::Array
+          {
+            inner: PolarsColumn.polars_to_sym(dtype.inner),
           }
         else
           {}

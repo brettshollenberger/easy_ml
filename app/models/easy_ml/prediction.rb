@@ -11,6 +11,7 @@
 #  normalized_input :jsonb
 #  created_at       :datetime         not null
 #  updated_at       :datetime         not null
+#  metadata         :jsonb            not null
 #
 module EasyML
   class Prediction < ActiveRecord::Base
@@ -30,7 +31,7 @@ module EasyML
     end
 
     def probabilities
-      prediction_value["probabilities"]
+      metadata["probabilities"]
     end
 
     def regression?

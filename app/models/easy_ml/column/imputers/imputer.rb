@@ -31,6 +31,7 @@ module EasyML
             Today,
             OneHotEncoder,
             OrdinalEncoder,
+            EmbeddingEncoder,
           ]
         end
 

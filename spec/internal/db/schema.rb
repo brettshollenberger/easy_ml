@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
+ActiveRecord::Schema[7.2].define(version: 2025_03_03_152007) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -42,6 +42,8 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.string "last_datasource_sha"
     t.string "last_feature_sha"
     t.boolean "in_raw_dataset"
+    t.boolean "is_primary_key"
+    t.integer "pca_model_id"
     t.index ["column_id"], name: "index_easy_ml_column_histories_on_column_id"
     t.index ["computed_by"], name: "index_easy_ml_column_histories_on_computed_by"
     t.index ["dataset_id", "name"], name: "index_easy_ml_column_histories_on_dataset_id_and_name"
@@ -56,10 +58,12 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.index ["is_computed"], name: "index_easy_ml_column_histories_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_column_histories_on_is_date_column"
     t.index ["is_learning"], name: "index_easy_ml_column_histories_on_is_learning"
+    t.index ["is_primary_key"], name: "index_easy_ml_column_histories_on_is_primary_key"
     t.index ["is_target"], name: "index_easy_ml_column_histories_on_is_target"
     t.index ["last_datasource_sha"], name: "index_easy_ml_column_histories_on_last_datasource_sha"
     t.index ["last_feature_sha"], name: "index_easy_ml_column_histories_on_last_feature_sha"
     t.index ["learned_at"], name: "index_easy_ml_column_histories_on_learned_at"
+    t.index ["pca_model_id"], name: "index_easy_ml_column_histories_on_pca_model_id"
     t.index ["preprocessing_steps"], name: "index_easy_ml_column_histories_on_preprocessing_steps_gin", using: :gin
     t.index ["snapshot_id"], name: "index_easy_ml_column_histories_on_snapshot_id"
   end
@@ -87,6 +91,8 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.string "last_datasource_sha"
     t.string "last_feature_sha"
     t.boolean "in_raw_dataset"
+    t.boolean "is_primary_key"
+    t.integer "pca_model_id"
     t.index ["computed_by"], name: "index_easy_ml_columns_on_computed_by"
     t.index ["dataset_id", "name"], name: "index_easy_ml_columns_on_dataset_id_and_name", unique: true
     t.index ["datatype"], name: "index_easy_ml_columns_on_datatype"
@@ -97,10 +103,12 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.index ["is_computed"], name: "index_easy_ml_columns_on_is_computed"
     t.index ["is_date_column"], name: "index_easy_ml_columns_on_is_date_column"
     t.index ["is_learning"], name: "index_easy_ml_columns_on_is_learning"
+    t.index ["is_primary_key"], name: "index_easy_ml_columns_on_is_primary_key"
     t.index ["is_target"], name: "index_easy_ml_columns_on_is_target"
     t.index ["last_datasource_sha"], name: "index_easy_ml_columns_on_last_datasource_sha"
     t.index ["last_feature_sha"], name: "index_easy_ml_columns_on_last_feature_sha"
     t.index ["learned_at"], name: "index_easy_ml_columns_on_learned_at"
+    t.index ["pca_model_id"], name: "index_easy_ml_columns_on_pca_model_id"
     t.index ["preprocessing_steps"], name: "index_easy_ml_columns_on_preprocessing_steps_gin", using: :gin
   end
 
@@ -473,6 +481,15 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.index ["version"], name: "index_easy_ml_models_on_version"
   end
 
+  create_table "easy_ml_pca_models", force: :cascade do |t|
+    t.binary "model", null: false
+    t.datetime "fit_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["created_at"], name: "index_easy_ml_pca_models_on_created_at"
+    t.index ["fit_at"], name: "index_easy_ml_pca_models_on_fit_at"
+  end
+
   create_table "easy_ml_predictions", force: :cascade do |t|
     t.bigint "model_id", null: false
     t.bigint "model_history_id"
@@ -482,7 +499,9 @@ ActiveRecord::Schema[7.2].define(version: 2025_02_13_154611) do
     t.jsonb "normalized_input"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "metadata", default: {}, null: false
     t.index ["created_at"], name: "index_easy_ml_predictions_on_created_at"
+    t.index ["metadata"], name: "index_easy_ml_predictions_on_metadata", using: :gin
     t.index ["model_history_id"], name: "index_easy_ml_predictions_on_model_history_id"
     t.index ["model_id"], name: "index_easy_ml_predictions_on_model_id"
   end

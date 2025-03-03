@@ -88,32 +88,34 @@ module EasyML
       end
 
       def query(files = nil, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
-                             batch_size: nil, batch_start: nil, batch_key: nil, lazy: false, &block)
+                             batch_size: nil, batch_start: nil, batch_key: nil, lazy: false, cast: nil, &block)
         files ||= self.files
         PolarsReader.query(files, drop_cols: drop_cols, filter: filter, limit: limit,
                                   select: select, unique: unique, sort: sort, descending: descending,
-                                  batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, lazy: lazy, &block)
+                                  batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, lazy: lazy, cast: cast, &block)
       end
 
       def self.query(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
-                            batch_size: nil, batch_start: nil, batch_key: nil, lazy: false, &block)
+                            batch_size: nil, batch_start: nil, batch_key: nil, lazy: false, cast: nil, &block)
         unless batch_size.present?
           result = query_files(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select,
-                                      unique: unique, sort: sort, descending: descending)
+                                      unique: unique, sort: sort, descending: descending, cast: cast)
           return lazy ? result : result.collect
         end
 
-        return batch_enumerator(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select, unique: unique, sort: sort, descending: descending,
-                                       batch_size: batch_size, batch_start: batch_start, batch_key: batch_key) unless block_given?
+        unless block_given?
+          return batch_enumerator(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select, unique: unique, sort: sort, descending: descending,
+                                         batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, cast: cast)
+        end
 
         process_batches(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select, unique: unique, sort: sort, descending: descending,
-                               batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, &block)
+                               batch_size: batch_size, batch_start: batch_start, batch_key: batch_key, cast: cast, &block)
       end
 
       private
 
       def self.batch_enumerator(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
-                                       batch_size: nil, batch_start: nil, batch_key: nil, &block)
+                                       batch_size: nil, batch_start: nil, batch_key: nil, cast: nil, &block)
         Enumerator.new do |yielder|
           process_batches(files, drop_cols: drop_cols, filter: filter, limit: limit, select: select, unique: unique, sort: sort, descending: descending,
                                  batch_size: batch_size, batch_start: batch_start, batch_key: batch_key) do |batch|
@@ -123,27 +125,32 @@ module EasyML
       end
 
       def self.process_batches(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false,
-                                      batch_size: nil, batch_start: nil, batch_key: nil, &block)
+                                      batch_size: nil, batch_start: nil, batch_key: nil, cast: nil, &block)
         batch_key ||= identify_primary_key(files, select: select)
         raise "When using batch_size, sort must match primary key (#{batch_key})" if sort.present? && batch_key != sort
 
         sort = batch_key
-        batch_start = query_files(files, sort: sort, descending: descending, select: batch_key, limit: 1).collect[batch_key].to_a.last unless batch_start
-        final_value = query_files(files, sort: sort, descending: !descending, select: batch_key, limit: 1).collect[batch_key].to_a.last
+        batch_start ||= query_files(files, sort: sort, descending: descending, select: batch_key, cast: cast,
+                                           limit: 1).collect[batch_key].to_a.last
+        final_value = query_files(files, sort: sort, descending: !descending, select: batch_key, cast: cast,
+                                         limit: 1).collect[batch_key].to_a.last
 
         is_first_batch = true
         current_start = batch_start
 
         while current_start < final_value
           filter = is_first_batch ? Polars.col(sort) >= current_start : Polars.col(sort) > current_start
-          batch = query_files(files, drop_cols: drop_cols, filter: filter, limit: batch_size, select: select, unique: unique, sort: sort, descending: descending)
+          batch = query_files(files, drop_cols: drop_cols, filter: filter, limit: batch_size, select: select,
+                                     unique: unique, sort: sort, descending: descending, cast: cast)
           yield batch
-          current_start = query_files(files, sort: sort, descending: descending, limit: batch_size, filter: filter).sort(sort, reverse: !descending).limit(1).select(batch_key).collect[batch_key].to_a.last
+          current_start = query_files(files, sort: sort, descending: descending, limit: batch_size, filter: filter, cast: cast).sort(
+            sort, reverse: !descending,
+          ).limit(1).select(batch_key).collect[batch_key].to_a.last
           is_first_batch = false
         end
       end
 
-      def self.query_files(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false)
+      def self.query_files(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false, cast: nil)
         lazy_frames = to_lazy_frames(files)
         combined_lazy_df = Polars.concat(lazy_frames)
 
@@ -159,6 +166,32 @@ module EasyML
         # Apply drop columns
         drop_cols &= combined_lazy_df.columns
         combined_lazy_df = combined_lazy_df.drop(drop_cols) unless drop_cols.empty?
+
+        if cast && cast.keys.any?
+          schema = combined_lazy_df.schema
+          in_schema = schema.keys & cast.keys
+          cast = cast.select do |col, dtype|
+            in_schema.include?(col) && dtype != schema[col]
+          end
+          combined_lazy_df = combined_lazy_df.with_columns(
+            cast.map do |col, dtype|
+              Polars.col(col).cast(dtype).alias(col)
+            end
+          )
+        end
+
+        str_types = [Polars::Utf8, Polars::String, Polars::Categorical]
+        str_keys = combined_lazy_df.schema.select { |k, v| v.class.in?(str_types) }
+        # Cast empty strings to null
+        str_keys.each do |k, v|
+          combined_lazy_df = combined_lazy_df.with_columns(
+            Polars.when(
+              Polars.col(k).eq("")
+            ).then(nil)
+              .otherwise(Polars.col(k))
+              .alias(k)
+          )
+        end
 
         # Collect the DataFrame (execute the lazy operations)
         combined_lazy_df = combined_lazy_df.limit(limit) if limit
@@ -184,16 +217,12 @@ module EasyML
 
         if primary_keys.count > 1
           key = primary_keys.detect { |key| key.underscore.split("_").any? { |k| k.match?(/id/) } }
-          if key
-            primary_keys = [key]
-          end
+          primary_keys = [key] if key
         end
 
-        if primary_keys.count != 1
-          raise "Unable to determine primary key for dataset"
-        end
+        raise "Unable to determine primary key for dataset" if primary_keys.count != 1
 
-        return primary_keys.first
+        primary_keys.first
       end
 
       def self.lazy_schema(files)
@@ -249,7 +278,7 @@ module EasyML
         date_cols = (filtered[:dtypes] || {}).select { |k, v| v.class == Polars::Datetime }.keys
         filtered[:dtypes] = (filtered[:dtypes] || {}).reject { |k, v| v.class == Polars::Datetime }.compact.to_h
         filtered = filtered.select { |k, _| supported_params.include?(k) }
-        return filtered, date_cols
+        [filtered, date_cols]
       end
 
       def csv_files
@@ -261,7 +290,9 @@ module EasyML
       end
 
       def columns_to_dtypes(columns)
-        columns.reduce({}) { |h, c| h[c.name] = c.polars_type; h }
+        columns.each_with_object({}) do |c, h|
+          h[c.name] = c.polars_type
+        end
       end
 
       def cast(df, columns = [])

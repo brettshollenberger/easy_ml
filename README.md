@@ -50,155 +50,112 @@ _Note: Features marked with ❌ are part of the roadmap and are not yet implemen
 
 Building a Production pipeline is as easy as 1,2,3!
 
-### 1. Create Your Dataset
+### 1. Install EasyML In Your Existing Rails App
+
+```bash
+gem install easy_ml
+```
 
 ```ruby
-class MyDataset < EasyML::Data::Dataset
-  datasource :s3, s3_bucket: "my-bucket" # Every time the data changes, we'll pull new data
-  target "revenue" # What are we trying to predict?
-  splitter :date, date_column: "created_at" # How should we partition data into training, test, and validation datasets?
-  transforms DataPipeline # Class that manages data transformation, adding new columns, etc.
-  preprocessing_steps({
+mount EasyML::Engine, at: "easy_ml"
+```
+
+```bash
+rails generate easy_ml:migrations
+bundle exec rake db:migrate
+```
+
+Add a `.env` file with the following contents:
+
+```bash
+S3_ACCESS_KEY_ID=<your_key>
+S3_SECRET_ACCESS_KEY=<your_secret>
+WANDB_API_KEY=<your_api_key> # if you want to use Wandb for logging
+```
+
+And make sure you run the `easy_ml` queue to process jobs, or run via `docker`
+
+```bash
+bundle exec rake resque:workers QUEUE=easy_ml COUNT=5
+# or
+docker compose up
+```
+
+### 2. Create Your Dataset
+
+Navigate to `localhost:3000/easy_ml`, and use the web UI to build your datasource + dataset, or create them in your rails console:
+
+```ruby
+datasource = EasyML::Datasource.create(name: "My Datasource", datasource_type: "s3", s3_bucket: "my-bucket", s3_prefix: "my-prefix")
+dataset = EasyML::Dataset.create(name: "My Dataset", datasource: datasource)
+dataset.refresh # Sync datasource. If you do via web UI, this will happen automatically
+```
+
+Once your dataset is created, preprocess your features to remove any nulls and encode string/categorical features. The web UI is your best friend here!
+
+Alternatively, you can do it directly in your console:
+
+```ruby
+dataset.columns.find_by(name: "Sex").update({
+  preprocessing_steps: {
     training: {
-      annual_revenue: { median: true, clip: { min: 0, max: 500_000 } }
-    }
-  }) # If annual revenue is missing, use the median value, after clipping the values into the approved list
-end
-```
-
-### 2. Create a Model
-
-```ruby
-class MyModel < EasyML::Models::XGBoost
-  dataset MyDataset
-  task :regression # Or classification
-  hyperparameters({
-    max_depth: 5,
-    learning_rate: 0.1,
-    objective: "reg:squarederror"
-  })
-end
-```
-
-### 3. Create a Trainer
-
-```ruby
-class MyTrainer < EasyML::Trainer
-  model MyModel
-  evaluator MyMetrics
-end
-
-class MyMetrics
-  def metric_we_make_money(y_pred, y_true)
-    return true if model_makes_money?
-    return false if model_lose_money?
-  end
-
-  def metric_sales_team_has_enough_leads(y_pred, y_true)
-    return false if sales_will_be_sitting_on_their_hands?
-  end
-end
-```
-
-Now you're ready to predict in production!
-
-```ruby
-MyTrainer.train # Yay, we did it!
-MyTrainer.deploy # Let the production hosts know it's live!
-MyTrainer.predict(customer_data: "I am worth a lot of money")
-# prediction: true!
-```
-
-## Mount The Engine
-
-```ruby
-Rails.application.routes.draw do
-  mount EasyML::Engine, at: "easy_ml"
-end
-```
-
-## Data Management
-
-EasyML provides a comprehensive data management system that handles all preprocessing tasks, including splitting data into train, test, and validation sets, and avoiding data leakage. The primary abstraction for data handling is the `Dataset` class, which ensures data is properly managed and prepared for machine learning tasks.
-
-### Preprocessing Features
-
-EasyML offers a variety of preprocessing features to prepare your data for machine learning models. Here's a complete list of available preprocessing steps and examples of when to use them:
-
-- **Mean Imputation**: Replace missing values with the mean of the feature. Use this when you want to maintain the average value of the data.
-
-  ```ruby
-  annual_revenue: {
-    mean: true
-  }
-  ```
-
-- **Median Imputation**: Replace missing values with the median of the feature. This is useful when you want to maintain the central tendency of the data without being affected by outliers.
-
-  ```ruby
-  annual_revenue: {
-    median: true
-  }
-  ```
-
-- **Forward Fill (ffill)**: Fill missing values with the last observed value. Use this for time series data where the last known value is a reasonable estimate for missing values.
-
-  ```ruby
-  created_date: {
-    ffill: true
-  }
-  ```
-
-- **Most Frequent Imputation**: Replace missing values with the most frequently occurring value. This is useful for categorical data where the mode is a reasonable estimate for missing values.
-
-  ```ruby
-  loan_purpose: {
-    most_frequent: true
-  }
-  ```
-
-- **Constant Imputation**: Replace missing values with a constant value. Use this when you have a specific value that should be used for missing data.
-
-  ```ruby
-  loan_purpose: {
-    constant: { fill_value: 'unknown' }
-  }
-  ```
-
-- **Today Imputation**: Fill missing date values with the current date. Use this for features that should default to the current date.
-
-  ```ruby
-  created_date: {
-    today: true
-  }
-  ```
-
-- **One-Hot Encoding**: Convert categorical variables into a set of binary variables. Use this when you have categorical data that needs to be converted into a numerical format for model training.
-
-  ```ruby
-  loan_purpose: {
-    one_hot: true
-  }
-  ```
-
-- **Ordinal Encoding**: Convert categorical variables into integer labels. Use this when you have categorical data that can be ordinally encoded.
-
-  ```ruby
-  loan_purpose: {
-    categorical: {
-      ordinal_encoding: true
+      method: "most_frequent",
+      encoding: "one_hot",
+      params: {
+        categorical_min: 2 # How many instances need to be present to define a category? E.g. If at least 2 rows are "Male", then "Sex_male" is a category.
+      }
     }
   }
-  ```
+})
+```
 
-### Other Dataset Features
+### 3. Train a Model
 
-- **Data Splitting**: Automatically split data into train, test, and validation sets using various strategies, such as date-based splitting.
-- **Data Synchronization**: Ensure data is synced from its source, such as S3 or local files.
-- **Batch Processing**: Process data in batches to handle large datasets efficiently.
-- **Null Handling**: Alert and handle null values in datasets to ensure data quality.
+The web UI is always the move! But you can also do it directly in your console:
 
-## Feature Store
+```ruby
+model = EasyML::Model.create(
+  model_type: "xgboost",
+  task: "classification", # or regression
+  objective: "binary:logistic", # or "reg:squarederror"
+  dataset: dataset,
+  hyperparameters: {
+    learning_rate: 0.05,
+    max_depth: 8,
+    n_estimators: 10,
+  },
+)
+model.train
+model.deploy
+```
+
+## Advanced Techniques
+
+### 1. Create Custom Evaluators
+
+In `app/evaluators`, create a custom evaluator. This will be used during hyperparameter tuning to find the model that maximizes your objectives!
+
+`````ruby
+class MaximizeRevenue < EasyML::Evaluators::Base
+  def direction
+    :maximize # or minimize
+  end
+
+  def description
+    "Maximize revenue based on lead segmentation"
+  end
+
+  def self.supports_task?(task)
+    task == "classification"
+  end
+
+  def evaluate(y_pred: [], y_true: [], x_true: nil, dataset: nil)
+    # Your evaluation logic here
+  end
+end
+```
+
+### 2. Using The Feature Store
 
 The Feature Store is a powerful component of EasyML that helps you manage, compute, and serve features for your machine learning models. Here's how to use it effectively:
 
@@ -417,7 +374,7 @@ def batch(reader, feature)
 end
 
 feature name: "My Feature", batch_size: 1_000
-````
+`````
 
 ### Production Considerations
 

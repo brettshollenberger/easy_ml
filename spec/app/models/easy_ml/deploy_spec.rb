@@ -59,16 +59,18 @@ RSpec.describe EasyML::Deploy do
       dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
                                                     training: {
                                                       method: :most_frequent,
+                                                      encoding: :one_hot,
                                                       params: {
-                                                        one_hot: true,
+                                                        categorical_min: 2,
                                                       },
                                                     },
                                                   })
       dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
                                                          training: {
                                                            method: :most_frequent,
+                                                           encoding: :one_hot,
                                                            params: {
-                                                             one_hot: true,
+                                                             categorical_min: 2,
                                                            },
                                                          },
                                                        })

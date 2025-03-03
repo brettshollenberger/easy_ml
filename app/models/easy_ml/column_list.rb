@@ -84,15 +84,44 @@ module EasyML
       end
     end
 
+    def col_order(inference: false)
+      scope = reject(&:hidden)
+      scope = scope.reject(&:is_target) if inference
+      scope.flat_map do |col|
+        col.processed_columns.map do |name|
+          [col.id, name]
+        end
+      end.sort.map { |arr| arr[1] }.uniq
+    end
+
+    def cast(processed_or_raw)
+      columns = where(is_computed: false)
+      is_processed = processed_or_raw == :processed
+      columns.reduce({}) do |h, col|
+        h.tap do
+          dtype = (col.ordinal_encoding? && is_processed) ? nil : col.read_attribute(:polars_datatype)
+          next if dtype.nil? || dtype.blank?
+
+          h[col.name] = dtype.constantize
+        end
+      end.compact
+    end
+
     def one_hot?(column)
       one_hots.map(&:name).detect do |one_hot_col|
         column.start_with?(one_hot_col)
       end
     end
 
+    def embedded?(column)
+      column_list.select(&:embedded?).detect do |col|
+        column == col.embedding_column
+      end
+    end
+
     def syncable
       dataset.processed_schema.keys.select do |col|
-        !one_hot?(col)
+        !one_hot?(col) && !embedded?(col)
       end
     end
 

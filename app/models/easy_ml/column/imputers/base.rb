@@ -26,7 +26,7 @@ module EasyML
           end
         end
 
-        attr_accessor :column, :preprocessing_step
+        attr_accessor :column, :preprocessing_step, :encode
 
         def initialize(column, preprocessing_step)
           @column = column

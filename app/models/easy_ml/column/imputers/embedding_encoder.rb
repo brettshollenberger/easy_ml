@@ -9,6 +9,8 @@ module EasyML
         end
 
         def transform(df)
+          return df unless encode
+
           df = column.embed(df)
           df
         end

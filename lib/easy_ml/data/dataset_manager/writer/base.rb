@@ -36,6 +36,19 @@ module EasyML
             clear_unique_id
           end
 
+          def cp(from,to)
+            return if from.nil? || !Dir.exist?(from)
+
+            FileUtils.mkdir_p(to)
+            files_to_cp = Dir.glob(Pathname.new(from).join("**/*")).select { |f| File.file?(f) }
+
+            files_to_cp.each do |file|
+              target_file = file.gsub(from, to)
+              FileUtils.mkdir_p(File.dirname(target_file))
+              FileUtils.cp(file, target_file)
+            end
+          end
+
           def unlock!
             clear_all_keys
           end

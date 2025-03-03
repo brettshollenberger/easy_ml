@@ -153,6 +153,8 @@ module EasyML
 
         def normalize_input(input)
           case input
+          when Polars::LazyFrame
+            normalize_input(input.collect)
           when Array
             if input.first.class == TrueClass || input.first.class == FalseClass
               input = input.map { |value| value ? 1.0 : 0.0 }

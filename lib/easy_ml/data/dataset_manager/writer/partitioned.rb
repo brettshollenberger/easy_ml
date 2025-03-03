@@ -17,8 +17,8 @@ module EasyML
           end
 
           def wipe
-            partitions.each do |partition|
-              FileUtils.rm_rf(File.join(root_dir, partition))
+            folders.each do |folder|
+              FileUtils.rm_rf(File.join(root_dir, folder))
             end
             clear_all_keys
           end
@@ -33,21 +33,36 @@ module EasyML
           end
 
           def compact
-            files = self.files
+            return if compacted?
+
             @df = query(lazy: true)
 
             clear_unique_id(subdir: "compacted")
             compact_each_partition.tap do
-              FileUtils.rm(files)
               clear_unique_id
+            end
+            uncompacted_folders.each do |folder|
+              FileUtils.rm_rf(File.join(root_dir, folder))
             end
           end
 
           private
 
-          def partitions
-            Dir.glob(File.join(root_dir, "**/*")).map { |f| f.split("/").last }
+          def compacted?
+            uncompacted_folders.empty?
           end
+
+          def uncompacted_folders
+            folders - ["compacted"]
+          end
+
+          def folders
+            Dir.glob(File.join(root_dir, "**/*")).select { |f| File.directory?(f) }.map { |f| f.split("/").last }
+          end
+
+          # def partitions
+          #   Dir.glob(File.join(root_dir, "**/*")).map { |f| f.split("/").last }
+          # end
 
           def compact_each_partition
             with_each_partition do |partition_df, _|

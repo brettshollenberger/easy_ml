@@ -476,7 +476,7 @@ module EasyML
 
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_missing_columns(df, inference: inference)
-      df = columns.transform(df, inference: inference)
+      df = columns.transform(df, inference: inference, encode: false)
       df = apply_features(df, features)
       df = apply_cast(df) if inference
       df = columns.transform(df, inference: inference)

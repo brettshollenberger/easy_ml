@@ -78,7 +78,7 @@ module EasyML
 
           track_feature_importance(booster)
           if tuner.nil?
-            track_cumulative_feature_importance(false)
+            track_cumulative_feature_importance
           end
 
           booster

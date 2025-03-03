@@ -23,20 +23,12 @@ module EasyML
       end
     end
 
-    def cp(old_version, new_version)
-      old_dir = feature_dir_for_version(old_version)
-      new_dir = feature_dir_for_version(new_version)
-
-      return if old_dir.nil? || !Dir.exist?(old_dir)
-
-      FileUtils.mkdir_p(new_dir)
-      files_to_cp = Dir.glob(Pathname.new(old_dir).join("**/*")).select { |f| File.file?(f) }
-
-      files_to_cp.each do |file|
-        target_file = file.gsub(old_dir, new_dir)
-        FileUtils.mkdir_p(File.dirname(target_file))
-        FileUtils.cp(file, target_file)
-      end
+    def bump_version(version)
+      compact
+      cp(
+        feature_dir_for_version(version),
+        feature_dir_for_version(version + 1),
+      )
     end
 
     private

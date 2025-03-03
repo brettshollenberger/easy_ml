@@ -435,9 +435,8 @@ module EasyML
     end
 
     def bump_version
-      old_version = version
+      feature_store.bump_version(version)
       write_attribute(:version, version + 1)
-      feature_store.cp(old_version, version)
       self
     end
 

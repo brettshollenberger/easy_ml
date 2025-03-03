@@ -51,6 +51,10 @@ module EasyML
         def num_rows
           Reader.num_rows
         end
+
+        def cp(from, to)
+          Writer.cp(from, to)
+        end
       end
 
       def list_nulls(input = nil, **kwargs, &block)

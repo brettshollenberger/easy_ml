@@ -22,7 +22,7 @@ module EasyML
       end
     end
 
-    def transform(df, inference: false, computed: false)
+    def transform(df, inference: false, computed: false, encode: true)
       return df if df.nil?
 
       if computed
@@ -33,7 +33,7 @@ module EasyML
 
       by_name = cols.index_by(&:name)
       cols.each do |column|
-        df = column.transform(df, inference: inference, computed: computed) if column
+        df = column.transform(df, inference: inference, encode: encode) if column
       end
 
       df

@@ -31,6 +31,10 @@ module EasyML
           adapter_class.new(options).unlock!
         end
 
+        def cp(from, to)
+          adapter_class.new(options).cp(from, to)
+        end
+
         def store(df, *args)
           return df if df.is_a?(Polars::LazyFrame) ? df.schema.empty? : df.empty?
 

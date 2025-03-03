@@ -184,9 +184,10 @@ module EasyML
       end
     end
 
-    def transform(df, inference: false, computed: false)
+    def transform(df, inference: false, encode: true)
       imputer = inference && imputers.inference.anything? ? imputers.inference : imputers.training
 
+      imputer.encode = encode
       df = imputer.transform(df)
       df
     end

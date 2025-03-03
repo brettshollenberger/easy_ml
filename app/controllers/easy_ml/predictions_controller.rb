@@ -22,8 +22,16 @@ module EasyML
         return render json: { error: "Missing required fields: #{fields}" }, status: :not_found
       end
 
-      prediction = EasyML::Predict.predict(slug, input)
+      type = (params[:type] || :predict).to_sym
+      allowed_types = [:predict, :predict_proba]
+      unless allowed_types.include?(type)
+        return render json: { error: "Invalid type: #{type}" }, status: :not_found
+      end
 
+      prediction = EasyML::Predict.send(type, slug, input)
+
+      render json: { prediction: EasyML::PredictionSerializer.new(prediction).serializable_hash.dig(:data, :attributes) }, status: :ok
+    rescue ActiveRecord::RecordNotFound
       render json: { prediction: EasyML::PredictionSerializer.new(prediction).serializable_hash.dig(:data, :attributes) }, status: :ok
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Model not found" }, status: :not_found

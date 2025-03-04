@@ -8,21 +8,27 @@ RSpec.describe "Predictions API", type: :request do
 
   before(:each) do
     EasyML::Predict.reset
+    EasyML::Cleaner.clean
   end
 
   after(:each) do
     EasyML::Predict.reset
+    EasyML::Cleaner.clean
+  end
+
+  def setup(model)
+    mock_s3_upload
+    model.save
+    model.unlock!
+    model.train(async: false)
+    expect(model).to be_deployable
+    model.deploy(async: false)
   end
 
   describe "POST /easy_ml/predictions" do
     it "makes predictions using a trained and deployed model" do
-      mock_s3_upload
-
       # Train and deploy the model
-      model.save
-      model.unlock!
-      model.train(async: false)
-      model.deploy(async: false)
+      setup(model)
 
       # Get test data
       df, = model.dataset.test(split_ys: true)
@@ -39,13 +45,8 @@ RSpec.describe "Predictions API", type: :request do
     end
 
     it "makes predictions using a trained and deployed model" do
-      mock_s3_upload
-
       # Train and deploy the model
-      model.save
-      model.unlock!
-      model.train(async: false)
-      model.deploy(async: false)
+      setup(model)
 
       # Make prediction request
       instance = {
@@ -71,11 +72,6 @@ RSpec.describe "Predictions API", type: :request do
     end
 
     it "returns 422 for invalid input data" do
-      mock_s3_upload
-
-      model.save
-      model.train(async: false)
-      model.deploy(async: false)
 
       post "/easy_ml/predictions", params: { model: model.slug, input: {} }
       expect(response).to have_http_status(:unprocessable_entity)
@@ -84,12 +80,8 @@ RSpec.describe "Predictions API", type: :request do
 
   describe "POST /easy_ml/predictions predict proba" do
     it "makes probability predictions using a trained and deployed model" do
-      mock_s3_upload
-
       # Train and deploy the model
-      model.save
-      model.train(async: false)
-      model.deploy(async: false)
+      setup(model)
 
       # Get test data
       df, = model.dataset.test(split_ys: true)

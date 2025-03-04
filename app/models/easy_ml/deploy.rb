@@ -59,7 +59,7 @@ module EasyML
             if model_file.present?
               model.model_file = model_file
             end
-            model.load_model
+            # model.load_model
             self.model_version = model.actually_deploy
           end
 

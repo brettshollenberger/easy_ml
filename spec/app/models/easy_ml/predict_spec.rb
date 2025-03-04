@@ -57,7 +57,7 @@ RSpec.describe EasyML::Predict do
       model.deploy(async: false)
       df, = model.dataset.test(split_ys: true)
 
-      # Predict already ran model loading her
+      # Predict already ran model loading here
       3.times do
         described_class.predict(model.slug, df)
       end

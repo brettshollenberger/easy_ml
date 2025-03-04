@@ -182,6 +182,7 @@ module EasyML
       lock_model do
         run = pending_run
         run.wrap_training do
+          dataset.refresh if dataset.needs_refresh?
           raise untrainable_error unless trainable?
 
           best_params = nil
@@ -208,6 +209,10 @@ module EasyML
       with_lock do |client|
         yield
       end
+    end
+
+    def locked?
+      Support::Lockable.locked?(lock_key)
     end
 
     def with_lock

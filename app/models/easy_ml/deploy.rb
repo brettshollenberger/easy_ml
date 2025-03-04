@@ -48,28 +48,37 @@ module EasyML
 
     def actually_deploy
       lock_deploy do
-        update(status: "running")
-        EasyML::Event.create_event(self, "started")
+        begin
+          update(status: "running")
+          EasyML::Event.create_event(self, "started")
 
-        if identical_deploy.present?
-          self.model_file = identical_deploy.model_file
-          self.model_version = identical_deploy.model_version
-        else
-          if model_file.present?
-            model.model_file = model_file
+          if identical_deploy.present?
+            self.model_file = identical_deploy.model_file
+            self.model_version = identical_deploy.model_version
+          else
+            if model_file.present?
+              model.model_file = model_file
+            end
+            # model.load_model
+            self.model_version = model.actually_deploy
           end
-          model.load_model
-          self.model_version = model.actually_deploy
-        end
 
-        EasyML::Deploy.transaction do
-          update(model_history_id: self.model_version.id, snapshot_id: self.model_version.snapshot_id, status: :success)
-          model.retraining_runs.where(status: :deployed).update_all(status: :success)
-          retraining_run.update(model_history_id: self.model_version.id, snapshot_id: self.model_version.snapshot_id, deploy_id: id, status: :deployed, is_deploying: false)
-        end
+          EasyML::Deploy.transaction do
+            update(model_history_id: self.model_version.id, snapshot_id: self.model_version.snapshot_id, status: :success)
+            model.retraining_runs.where(status: :deployed).update_all(status: :success)
+            retraining_run.update(model_history_id: self.model_version.id, snapshot_id: self.model_version.snapshot_id, deploy_id: id, status: :deployed,)
+          end
 
-        model_version.tap do
-          EasyML::Event.create_event(self, "success")
+          model_version.tap do
+            EasyML::Event.create_event(self, "success")
+          end
+        rescue => e
+          update(status: "failed")
+          retraining_run.update(is_deploying: false)
+          EasyML::Event.create_event(self, "failed")
+          raise e
+        ensure
+          unlock!
         end
       end
     end

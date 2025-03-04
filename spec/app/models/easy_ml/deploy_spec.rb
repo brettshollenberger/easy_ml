@@ -153,6 +153,7 @@ RSpec.describe EasyML::Deploy do
 
       # Historical features are still queryable
       expect(model.current_version.dataset.features.first.query.shape).to eq([500, 2])
+      expect(model.current_version.dataset.features.first.files).to(all(match(/compacted/)))
 
       live_predictions = model.current_version.predict(x_test)
       expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)

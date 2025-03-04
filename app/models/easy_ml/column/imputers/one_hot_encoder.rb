@@ -9,6 +9,7 @@ module EasyML
         end
 
         def transform(df)
+          return df unless encode
           return df unless allowed_categories.present?
 
           allowed_categories.each do |value|

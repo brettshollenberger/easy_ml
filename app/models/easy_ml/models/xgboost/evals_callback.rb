@@ -49,7 +49,7 @@ module EasyML
             x_valid, y_valid = valid_dataset
             x_valid = x_valid.select(model.dataset.col_order(inference: true))
             @preprocessed ||= model.preprocess(x_valid, y_valid)
-            y_pred = model.predict(@preprocessed)
+            y_pred = model.predict(@preprocessed, normalized: true)
             dataset = model.dataset.processed.valid(all_columns: true)
 
             metrics = model.evaluate(y_pred: y_pred, y_true: y_valid, x_true: x_valid, dataset: dataset)
@@ -78,7 +78,7 @@ module EasyML
 
           track_feature_importance(booster)
           if tuner.nil?
-            track_cumulative_feature_importance(false)
+            track_cumulative_feature_importance
           end
 
           booster

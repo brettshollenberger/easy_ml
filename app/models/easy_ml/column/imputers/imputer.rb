@@ -43,6 +43,10 @@ module EasyML
           @adapters ||= ordered_adapters.map { |klass| klass.new(column, preprocessing_step) }.select { |adapter| allowed?(adapter) && adapter.applies? }
         end
 
+        def encode=(value)
+          adapters.each { |adapter| adapter.encode = value }
+        end
+
         def description
           adapters.map(&:description).compact.join(", ")
         end

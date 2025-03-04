@@ -9,6 +9,7 @@ module EasyML
         end
 
         def transform(df)
+          return df unless encode
           return df unless label_encoder.present?
 
           case column.datatype

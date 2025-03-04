@@ -44,7 +44,16 @@ module EasyML
     scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit) }
     scope :ready_to_apply, -> { where.not(id: needs_fit.map(&:id)) }
 
+    def wipe
+      false
+    end
+
     def download_remote_files
+      return unless snapshot_id # if not finished saving, skip
+      return if feature_store.synced?
+      return if @downloaded
+
+      @downloaded = true
       feature_store&.download
     end
   end

@@ -24,16 +24,29 @@ module EasyML
 
           def compact
             files = self.files
+            rows = query(lazy: true).collect
+            return unless rows.shape[0] > 0
+
+            FileUtils.rm(files)
 
             clear_unique_id
             File.join(root_dir, "compacted.parquet").tap do |target_file|
-              safe_write(
-                query(lazy: true),
-                target_file
-              )
-              FileUtils.rm(files)
+              safe_write(rows, target_file)
             end
             clear_unique_id
+          end
+
+          def cp(from,to)
+            return if from.nil? || !Dir.exist?(from)
+
+            FileUtils.mkdir_p(to)
+            files_to_cp = Dir.glob(Pathname.new(from).join("**/*")).select { |f| File.file?(f) }
+
+            files_to_cp.each do |file|
+              target_file = file.gsub(from, to)
+              FileUtils.mkdir_p(File.dirname(target_file))
+              FileUtils.cp(file, target_file)
+            end
           end
 
           def unlock!
@@ -65,6 +78,8 @@ module EasyML
           end
 
           def safe_write(df, path)
+            raise "df must be a Polars::DataFrame or Polars::LazyFrame" unless df.is_a?(Polars::DataFrame) || df.is_a?(Polars::LazyFrame)
+
             FileUtils.mkdir_p(File.dirname(path))
             if df.is_a?(Polars::LazyFrame)
               # Depending on the query plan, sometimes sink_parquet will throw an error...
@@ -81,6 +96,10 @@ module EasyML
               df.write_parquet(path)
             end
             path
+          ensure
+            if Polars.scan_parquet(path).limit(1).schema.keys.empty?
+              raise "Failed to store to #{path}"
+            end
           end
 
           def clear_all_keys

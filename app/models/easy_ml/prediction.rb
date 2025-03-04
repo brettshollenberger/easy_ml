@@ -17,8 +17,8 @@ module EasyML
   class Prediction < ActiveRecord::Base
     self.table_name = "easy_ml_predictions"
 
-    belongs_to :model
-    belongs_to :model_history, optional: true
+    belongs_to :model, class_name: "EasyML::Model"
+    belongs_to :model_history, class_name: "EasyML::ModelHistory", optional: true
 
     validates :model_id, presence: true
     validates :prediction_type, presence: true, inclusion: { in: %w[regression classification] }

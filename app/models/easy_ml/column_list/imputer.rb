@@ -15,6 +15,10 @@ module EasyML
         @imputers ||= columns.map { |column| inference ? column.imputers(@_imputers).inference : column.imputers(@_imputers).training }
       end
 
+      def encode=(encode)
+        imputers.each { |imputer| imputer.encode = encode }
+      end
+
       def exprs
         imputers.flat_map(&:exprs).compact
       end

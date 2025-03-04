@@ -28,7 +28,6 @@ gem "rdoc"
 gem "langchainrb"
 gem "ruby-openai"
 gem "rumale"
-gem "uri", "1.0.2"
 gem "vite_rails"
 
 group :development, :test do
@@ -41,4 +40,6 @@ group :development, :test do
   gem "spring-commands-rspec"
   gem "sprockets-rails"
   gem "timecop"
+  gem "guard"
+  gem "guard-rspec"
 end

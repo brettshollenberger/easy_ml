@@ -82,7 +82,7 @@ module EasyML
             fittable = fittable.select(&:fittable?)
             where(id: fittable.map(&:id))
           end
-    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit).or(datasource_was_refreshed) }
+    scope :needs_fit, -> { has_changes.or(never_applied).or(never_fit).or(datasource_was_refreshed).or(where(needs_fit: true)) }
     scope :datasource_was_refreshed, -> do
             where(id: all.select(&:datasource_was_refreshed?).map(&:id))
           end
@@ -310,9 +310,9 @@ module EasyML
     end
 
     # Transform a single batch, used for testing the user's feature implementation
-    def transform_batch(df = nil, batch_args = {})
+    def transform_batch(df = nil, batch_args = {}, inference: false)
       if df.is_a?(Polars::DataFrame)
-        actually_transform_batch(df)
+        actually_transform_batch(df, inference: inference)
       else
         actually_transform_batch(build_batch(get_batch_args(**batch_args)))
       end
@@ -374,11 +374,12 @@ module EasyML
       batch_df
     end
 
-    def actually_transform_batch(df)
+    def actually_transform_batch(df, inference: false)
       return nil unless df.is_a?(Polars::DataFrame)
       return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
       df_len_was = df.shape[0]
+      orig_df = df.clone
       begin
         result = adapter.transform(df, self)
       rescue => e
@@ -386,8 +387,10 @@ module EasyML
       end
       raise "Feature '#{name}' must return a Polars::DataFrame, got #{result.class}" unless result.is_a?(Polars::DataFrame)
       df_len_now = result.shape[0]
-      raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if df_len_now != df_len_was
-      update!(applied_at: Time.current)
+      missing_columns = orig_df.columns - result.columns
+      raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if (df_len_now != df_len_was)
+      raise "Feature #{feature_class} removed #{missing_columns} columns" if missing_columns.any?
+      update!(applied_at: Time.current) unless inference
       result
     end
 
@@ -432,9 +435,8 @@ module EasyML
     end
 
     def bump_version
-      old_version = version
+      feature_store.bump_version(version)
       write_attribute(:version, version + 1)
-      feature_store.cp(old_version, version)
       self
     end
 

@@ -3,6 +3,7 @@ require "singleton"
 module EasyML
   class Predict
     include Singleton
+    include EasyML::Timing
 
     attr_reader :models
 
@@ -20,7 +21,7 @@ module EasyML
     def self.predict(model_name, df, serialize: false)
       df = normalize_input(df)
       output = make_predictions(model_name, df) do |model, normalized_df|
-        model.predict(normalized_df)
+        model.predict(normalized_df, normalized: true)
       end
 
       if serialize
@@ -33,7 +34,7 @@ module EasyML
     def self.predict_proba(model_name, df, serialize: false)
       df = normalize_input(df)
       output = make_predictions(model_name, df) do |model, normalized_df|
-        probas = model.predict_proba(normalized_df)
+        probas = model.predict_proba(normalized_df, normalized: true)
         probas.map { |proba_array| proba_array.map { |p| p.round(4) } }
       end
 
@@ -91,8 +92,8 @@ module EasyML
 
       output = predictions.zip(raw_input, normalized_input).map do |pred, raw, norm|
         EasyML::Prediction.create!(
-          model: current_version.model,
-          model_history: current_version,
+          model_id: current_version.model.id,
+          model_history_id: current_version.id,
           prediction_type: current_version.model.task,
           prediction_value: pred,
           raw_input: raw,

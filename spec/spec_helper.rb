@@ -42,7 +42,7 @@ RSpec.configure do |config|
   end
 
   # Only load Rails/Combustion for specs that need it
-  any_rails_files = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
+  any_rails_files = RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") || file.include?("/requests/") }
   if any_rails_files
     require_rails_files
   end

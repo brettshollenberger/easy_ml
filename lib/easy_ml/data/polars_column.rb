@@ -121,8 +121,6 @@ module EasyML
         polars_type ? sym_to_polars(type_name) : type_name
       end
 
-      measure_method_timing :determine_type
-
       # Determines if a string field is a date, text, or categorical
       # @param series [Polars::Series] The string series to analyze
       # @return [Symbol] One of :datetime, :text, or :categorical
@@ -148,8 +146,6 @@ module EasyML
           end
         end
       end
-
-      measure_method_timing :determine_string_type
 
       # Determines if a string field is categorical or free text
       # @param series [Polars::Series] The string series to analyze
@@ -177,8 +173,6 @@ module EasyML
         # If average category represents less than 1% of data, it's likely text
         avg_percentage < 1.0 ? :text : :categorical
       end
-
-      measure_method_timing :categorical_or_text?
 
       # Returns whether the field type is numeric
       # @param field_type [Symbol] The field type to check

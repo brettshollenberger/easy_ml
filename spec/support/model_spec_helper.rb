@@ -321,16 +321,20 @@ module ModelSpecHelper
       make_titanic_dataset("Titanic Extended", { splitter_type: :random, seed: 42 })
     end
 
-    base.let(:titanic_model) do
+    def make_titanic_model
       EasyML::Model.find_or_create_by(name: "Titanic") do |model|
         model.update(
           slug: "Titanic",
-          dataset: titanic_dataset,
+          dataset: make_titanic_dataset("Titanic Extended", { splitter_type: :random, seed: 42 }),
           task: :classification,
           objective: "binary:logistic",
           hyperparameters: { n_estimators: 1 },
         )
       end
+    end
+
+    base.let(:titanic_model) do
+      make_titanic_model
     end
   end
 
@@ -402,6 +406,7 @@ module ModelSpecHelper
       root_dir: path,
     )
     allow_any_instance_of(synced_directory).to receive(:reader).and_return(reader)
+    allow_any_instance_of(Aws::S3::Client).to receive(:get_object).and_return(true)
   end
 
   def randomize_hypers(model)

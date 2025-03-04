@@ -182,6 +182,7 @@ module EasyML
       lock_model do
         run = pending_run
         run.wrap_training do
+          dataset.refresh if dataset.needs_refresh?
           raise untrainable_error unless trainable?
 
           best_params = nil
@@ -208,6 +209,10 @@ module EasyML
       with_lock do |client|
         yield
       end
+    end
+
+    def locked?
+      Support::Lockable.locked?(lock_key)
     end
 
     def with_lock
@@ -273,7 +278,7 @@ module EasyML
     end
 
     def inference_version
-      latest_deploy&.model_version
+      deploys.where(status: :success).order(id: :desc).limit(1).last&.model_version
     end
 
     alias_method :current_version, :inference_version
@@ -296,21 +301,21 @@ module EasyML
       )
     end
 
-    def prepare_predict(xs)
+    def prepare_predict(xs, normalized: false)
       load_model!
-      unless xs.is_a?(XGBoost::DMatrix)
+      if !normalized
         xs = dataset.normalize(xs, inference: true)
       end
       xs
     end
 
-    def predict(xs)
-      xs = prepare_predict(xs)
+    def predict(xs, normalized: false)
+      xs = prepare_predict(xs, normalized: normalized)
       adapter.predict(xs)
     end
 
-    def predict_proba(xs)
-      xs = prepare_predict(xs)
+    def predict_proba(xs, normalized: false)
+      xs = prepare_predict(xs, normalized: normalized)
       adapter.predict_proba(xs)
     end
 

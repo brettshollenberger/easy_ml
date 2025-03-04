@@ -17,9 +17,7 @@ module EasyML
           end
 
           def wipe
-            folders.each do |folder|
-              FileUtils.rm_rf(File.join(root_dir, folder))
-            end
+            super
             clear_all_keys
           end
 

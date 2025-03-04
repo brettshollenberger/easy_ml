@@ -266,6 +266,9 @@ module ModelSpecHelper
     end
 
     def make_titanic_dataset(datasource_location = nil, splitter_attributes)
+      ds = EasyML::Dataset.find_by(name: "Titanic")
+      return ds if ds.present?
+
       dataset = EasyML::Dataset.create(
         name: "Titanic",
         datasource: EasyML::Datasource.new(
@@ -321,11 +324,10 @@ module ModelSpecHelper
       make_titanic_dataset("Titanic Extended", { splitter_type: :random, seed: 42 })
     end
 
-    def make_titanic_model
-      EasyML::Model.find_or_create_by(name: "Titanic") do |model|
-        model.update(
+    def make_titanic_model(dataset)
+      EasyML::Model.find_or_create_by(name: "Titanic") do |model| model.update(
           slug: "Titanic",
-          dataset: make_titanic_dataset("Titanic Extended", { splitter_type: :random, seed: 42 }),
+          dataset: dataset || make_titanic_dataset("Titanic Extended", { splitter_type: :random, seed: 42 }),
           task: :classification,
           objective: "binary:logistic",
           hyperparameters: { n_estimators: 1 },
@@ -334,7 +336,7 @@ module ModelSpecHelper
     end
 
     base.let(:titanic_model) do
-      make_titanic_model
+      make_titanic_model(titanic_dataset)
     end
   end
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_03_03_152007) do
+ActiveRecord::Schema[7.2].define(version: 2025_03_04_204003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -144,7 +144,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_03_03_152007) do
     t.index ["history_user_id"], name: "index_easy_ml_dataset_histories_on_history_user_id"
     t.index ["last_datasource_sha"], name: "index_easy_ml_dataset_histories_on_last_datasource_sha"
     t.index ["name", "status"], name: "index_easy_ml_dataset_histories_on_name_and_status"
-    t.index ["name"], name: "index_easy_ml_dataset_histories_on_name"
+    t.index ["name"], name: "index_easy_ml_dataset_histories_on_name", unique: true
     t.index ["raw_schema"], name: "index_easy_ml_dataset_histories_on_raw_schema"
     t.index ["refreshed_at"], name: "index_easy_ml_dataset_histories_on_refreshed_at"
     t.index ["snapshot_id"], name: "index_easy_ml_dataset_histories_on_snapshot_id"
@@ -175,7 +175,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_03_03_152007) do
     t.index ["datasource_id"], name: "index_easy_ml_datasets_on_datasource_id"
     t.index ["last_datasource_sha"], name: "index_easy_ml_datasets_on_last_datasource_sha"
     t.index ["name", "status"], name: "index_easy_ml_datasets_on_name_and_status"
-    t.index ["name"], name: "index_easy_ml_datasets_on_name"
+    t.index ["name"], name: "index_easy_ml_datasets_on_name", unique: true
     t.index ["raw_schema"], name: "index_easy_ml_datasets_on_raw_schema"
     t.index ["refreshed_at"], name: "index_easy_ml_datasets_on_refreshed_at"
     t.index ["status"], name: "index_easy_ml_datasets_on_status"

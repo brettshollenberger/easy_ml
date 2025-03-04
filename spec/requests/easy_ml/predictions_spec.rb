@@ -36,6 +36,7 @@ RSpec.describe "Predictions API", type: :request do
 
       # Make prediction request
       instance = df[0].to_hashes[0]
+      Thread.current[:predict] = true
       post "/easy_ml/predictions", params: { model: model.slug, input: instance }
       
       expect(response).to have_http_status(:ok)

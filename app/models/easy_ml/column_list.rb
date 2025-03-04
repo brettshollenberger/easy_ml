@@ -104,7 +104,11 @@ module EasyML
         expected_dtype = schema[df_col.to_sym]
         db_col.cast_statement(df, df_col, expected_dtype)
       end
-      df = df.with_columns(cast_statements)
+      begin
+        df = df.with_columns(cast_statements)
+      rescue => e
+        binding.pry
+      end
     end
 
     def cast(processed_or_raw)

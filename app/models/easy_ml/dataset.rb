@@ -900,5 +900,21 @@ module EasyML
     def underscored_name
       name.gsub(/\s{2,}/, " ").gsub(/\s/, "_").downcase
     end
+
+    TIME_METHODS = %w(
+      refresh
+      prepare_features
+      refresh_datasource
+      split_data
+      fit
+      normalize_all
+      learn
+      learn_statistics
+      fit_features
+    )
+    include EasyML::Timing
+    TIME_METHODS.each do |method|
+      measure_method_timing method
+    end
   end
 end

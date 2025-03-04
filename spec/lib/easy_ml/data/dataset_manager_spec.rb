@@ -345,6 +345,7 @@ RSpec.describe EasyML::Data::DatasetManager do
         it "stores each chunk based on partition" do
           files = []
           batch_size = 100
+          feature_manager.wipe
 
           # Essentially randomly sort these so the partitioned writer has to write to multiple files
           manager.query(batch_size: batch_size, batch_key: "Name") do |batch|

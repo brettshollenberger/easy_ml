@@ -59,6 +59,7 @@ module EasyML
             add_pca_model_id_to_easy_ml_columns
             add_workflow_status_to_easy_ml_dataset_histories
             add_metadata_to_easy_ml_predictions
+            add_unique_constraint_to_dataset_names
           ].freeze
 
           # Specify the next migration number

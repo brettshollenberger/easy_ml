@@ -113,7 +113,7 @@ RSpec.describe EasyML::Datasource do
       expect(dataset.features.find_by(name: "Did Convert").version).to eq(1)
 
       dataset.bump_versions(dataset.version)
-      expect(dataset.features.find_by(name: "Did Convert").version).to eq(2)
+      expect(dataset.features.find_by(name: "Did Convert").reload.version).to eq(2)
     end
 
     it "raises appropriate error if any feature doesn't return df" do

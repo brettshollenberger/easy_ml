@@ -217,6 +217,7 @@ module EasyML
       @processed = processed.cp(version)
       save.tap do
         features.each(&:bump_version)
+        EasyML::Feature.import(features.to_a, on_duplicate_key_update: [:version])
       end
     end
 
@@ -633,11 +634,16 @@ module EasyML
     def apply_missing_columns(df, inference: false)
       return df unless inference
 
-      missing_columns = (col_order(inference: inference) - df.columns).compact.uniq
+      required_cols = col_order(inference: inference).compact.uniq
       columns.one_hots.each do |one_hot|
-        missing_columns -= one_hot.virtual_columns
-        missing_columns += [one_hot.name]
+        virtual_columns = one_hot.virtual_columns
+        if virtual_columns.all? { |vc| df.columns.include?(vc) }
+          required_cols -= virtual_columns
+        else
+          required_cols += [one_hot.name]
+        end
       end
+      missing_columns = required_cols - df.columns
       df.with_columns(missing_columns.map { |f| Polars.lit(nil).alias(f) })
     end
 

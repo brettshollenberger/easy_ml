@@ -285,12 +285,10 @@ module EasyML
     end
 
     def after_fit_features
-      puts "After fit features"
       unlock!
       reload
       return if failed?
 
-      puts "Actually refresh..."
       actually_refresh
     end
 

@@ -215,9 +215,9 @@ module EasyML
 
       @raw = raw.cp(version)
       @processed = processed.cp(version)
-      features.each(&:bump_version)
-
-      save
+      save.tap do
+        features.each(&:bump_version)
+      end
     end
 
     def refreshed_datasource?
@@ -257,9 +257,6 @@ module EasyML
       end
     end
 
-    include EasyML::Timing
-    measure_method_timing :actually_refresh
-
     def refresh!(async: false)
       refreshing do
         prepare!
@@ -276,8 +273,6 @@ module EasyML
       end
     end
 
-    measure_method_timing :refresh
-
     def fit_features!(async: false, features: self.features)
       fit_features(async: async, features: features, force: true)
     end
@@ -289,8 +284,6 @@ module EasyML
 
       features.first.fit(features: features_to_compute, async: async)
     end
-
-    measure_method_timing :fit_features
 
     def after_fit_features
       puts "After fit features"
@@ -476,14 +469,18 @@ module EasyML
 
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_missing_columns(df, inference: inference)
-      df = columns.transform(df, inference: inference, encode: false)
-      df = apply_features(df, features)
+      df = transform_columns(df, inference: inference, encode: false)
+      df = apply_features(df, features, inference: inference)
       df = apply_cast(df) if inference
-      df = columns.transform(df, inference: inference)
+      df = transform_columns(df, inference: inference)
       df = apply_column_mask(df, inference: inference) unless all_columns
       df = drop_nulls(df) unless inference
       df, = processed.split_features_targets(df, true, target) if split_ys
       df
+    end
+
+    def transform_columns(df, inference: false, encode: true)
+      columns.transform(df, inference: inference, encode: encode)
     end
 
     def apply_cast(df)
@@ -511,8 +508,6 @@ module EasyML
         one_hot_cats.key?(col) ? one_hot_cats[col] : col
       end.uniq.sort
     end
-
-    measure_method_timing :normalize
 
     def missing_required_fields(df)
       desc_df = df.describe
@@ -641,8 +636,6 @@ module EasyML
     def apply_column_mask(df, inference: false)
       df[column_mask(df, inference: inference)]
     end
-
-    measure_method_timing :apply_column_mask
 
     def apply_missing_columns(df, inference: false, include_one_hots: false)
       return df unless inference
@@ -780,8 +773,6 @@ module EasyML
       after_refresh_datasource
     end
 
-    measure_method_timing :refresh_datasource
-
     def refresh_datasource!
       datasource.reload.refresh!
       after_refresh_datasource
@@ -807,8 +798,6 @@ module EasyML
       @normalized = true
     end
 
-    measure_method_timing :normalize_all
-
     def learn_computed_columns(df)
       return unless features.ready_to_apply.any?
 
@@ -820,8 +809,6 @@ module EasyML
       processed.cleanup
     end
 
-    measure_method_timing :learn_computed_columns
-
     def drop_nulls(df)
       return df if drop_if_null.nil? || drop_if_null.empty?
 
@@ -830,8 +817,6 @@ module EasyML
 
       df.drop_nulls(subset: drop)
     end
-
-    measure_method_timing :drop_nulls
 
     # Pass refresh: false for frontend views so we don't query S3 during web requests
     def load_data(segment, **kwargs, &block)
@@ -885,8 +870,8 @@ module EasyML
       columns.find_by(name: column_name).update(is_date_column: true)
     end
 
-    def apply_features(df, features = self.features)
-      features = features.ready_to_apply
+    def apply_features(df, features = self.features, inference: false)
+      features = inference ? preloaded_features : features.ready_to_apply
       if features.nil? || features.empty?
         df
       else
@@ -906,14 +891,12 @@ module EasyML
           # Set SHA without querying
           feature.instance_variable_set(:@current_sha, shas[feature.feature_class])
 
-          result = feature.transform_batch(acc_df)
+          result = feature.transform_batch(acc_df, inference: inference)
 
           result
         end
       end
     end
-
-    measure_method_timing :apply_features
 
     def standardize_preprocessing_steps(type)
       columns.map(&:name).zip(columns.map do |col|

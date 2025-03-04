@@ -310,9 +310,9 @@ module EasyML
     end
 
     # Transform a single batch, used for testing the user's feature implementation
-    def transform_batch(df = nil, batch_args = {})
+    def transform_batch(df = nil, batch_args = {}, inference: false)
       if df.is_a?(Polars::DataFrame)
-        actually_transform_batch(df)
+        actually_transform_batch(df, inference: inference)
       else
         actually_transform_batch(build_batch(get_batch_args(**batch_args)))
       end
@@ -374,7 +374,7 @@ module EasyML
       batch_df
     end
 
-    def actually_transform_batch(df)
+    def actually_transform_batch(df, inference: false)
       return nil unless df.is_a?(Polars::DataFrame)
       return df if !adapter.respond_to?(:transform) && feature_store.empty?
 
@@ -390,7 +390,7 @@ module EasyML
       missing_columns = orig_df.columns - result.columns
       raise "Feature #{feature_class}#transform: output size must match input size! Input size: #{df_len_now}, output size: #{df_len_was}." if (df_len_now != df_len_was)
       raise "Feature #{feature_class} removed #{missing_columns} columns" if missing_columns.any?
-      update!(applied_at: Time.current)
+      update!(applied_at: Time.current) unless inference
       result
     end
 

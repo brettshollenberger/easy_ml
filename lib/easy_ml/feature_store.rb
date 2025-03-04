@@ -23,6 +23,10 @@ module EasyML
       end
     end
 
+    def synced?
+      files.any?
+    end
+
     def bump_version(version)
       compact
       cp(

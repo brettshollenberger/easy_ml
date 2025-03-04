@@ -49,6 +49,11 @@ module EasyML
     end
 
     def download_remote_files
+      return unless snapshot_id # if not finished saving, skip
+      return if feature_store.synced?
+      return if @downloaded
+
+      @downloaded = true
       feature_store&.download
     end
   end

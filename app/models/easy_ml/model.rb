@@ -273,7 +273,7 @@ module EasyML
     end
 
     def inference_version
-      latest_deploy&.model_version
+      deploys.where(status: :success).order(id: :desc).limit(1).last&.model_version
     end
 
     alias_method :current_version, :inference_version

@@ -10,6 +10,8 @@ module EasyML
         object.prediction_value.symbolize_keys.dig(:value)
       when Numeric
         object.prediction_value
+      when Array
+        object.prediction_value
       end
     end
 

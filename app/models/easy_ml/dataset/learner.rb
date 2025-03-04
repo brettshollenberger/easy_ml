@@ -57,8 +57,6 @@ module EasyML
         dataset.columns.set_feature_lineage(columns)
       end
 
-      measure_method_timing :save_statistics
-
       def learn_statistics
         return @statistics if @statistics
 
@@ -78,8 +76,6 @@ module EasyML
         end
       end
 
-      measure_method_timing :learn_statistics
-
       def prepare
         @schema = EasyML::Data::PolarsSchema.simplify(@dataset.raw_schema).symbolize_keys
         @raw_columns = @schema.keys.sort.map(&:to_s)
@@ -93,19 +89,13 @@ module EasyML
         EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[in_raw_dataset datatype] })
       end
 
-      measure_method_timing :prepare
-
       def lazy_statistics
         Lazy.new(dataset, columns, type: type).learn
       end
 
-      measure_method_timing :lazy_statistics
-
       def eager_statistics
         Eager.new(dataset, columns, type: type).learn
       end
-
-      measure_method_timing :eager_statistics
     end
   end
 end

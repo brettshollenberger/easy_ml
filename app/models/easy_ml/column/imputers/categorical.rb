@@ -12,7 +12,7 @@ module EasyML
         def transform(df)
           return df unless allowed_categories.present?
 
-          case column.datatype
+          case column.datatype.to_sym
           when :categorical
             df = df.with_column(
               Polars.when(Polars.col(column.name).is_in(allowed_categories))

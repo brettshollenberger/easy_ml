@@ -30,7 +30,6 @@ module EasyML
         output
       end
     end
-    measure_method_timing :predict
 
     def self.predict_proba(model_name, df, serialize: false)
       df = normalize_input(df)
@@ -66,7 +65,6 @@ module EasyML
     def normalize(model_name, df)
       get_model(model_name).dataset.normalize(df, inference: true)
     end
-    measure_method_timing :normalize
 
     def get_model(model_name)
       load_model(model_name)
@@ -106,7 +104,6 @@ module EasyML
 
       output.count == 1 ? output.first : output
     end
-    measure_method_timing :make_predictions
 
     def load_model(model_name)
       current_model = EasyML::Model.find_by!(slug: model_name).inference_version

@@ -4,22 +4,27 @@ module EasyML
 
     def create
       slug = params[:model]
-      unless EasyML::Model.find_by(slug: slug).inference_version.present?
+      model = EasyML::Model.find_by(slug: slug)
+      unless model.present?
+        return render json: { error: "Model not found" }, status: :not_found
+      end
+
+      unless model.inference_version.present?
         return render json: { error: "Model not found" }, status: :not_found
       end
 
       unless params.key?(:input)
-        return render json: { error: "Must provide key: input" }, status: :not_found
+        return render json: { error: "Must provide key: input" }, status: :unprocessable_entity
       end
       input = params[:input].permit!.to_h
 
       unless input.is_a?(Hash)
-        return render json: { error: "Input must be a hash" }, status: :not_found
+        return render json: { error: "Input must be a hash" }, status: :unprocessable_entity
       end
 
       valid, fields = EasyML::Predict.validate_input(slug, input)
       unless valid
-        return render json: { error: "Missing required fields: #{fields}" }, status: :not_found
+        return render json: { error: "Missing required fields: #{fields}" }, status: :unprocessable_entity
       end
 
       type = (params[:type] || :predict).to_sym

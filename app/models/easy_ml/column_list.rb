@@ -39,8 +39,6 @@ module EasyML
       df
     end
 
-    measure_method_timing :transform
-
     def apply_clip(df)
       clip_cols = has_clip.raw
       return df unless clip_cols.any?
@@ -59,8 +57,6 @@ module EasyML
       EasyML::Dataset::Learner.new(dataset, type: type).learn
       reload
     end
-
-    measure_method_timing :learn
 
     def statistics
       stats = { raw: {}, processed: {} }
@@ -92,6 +88,23 @@ module EasyML
           [col.id, name]
         end
       end.sort.map { |arr| arr[1] }.uniq
+    end
+
+    def apply_cast(df)
+      schema = dataset.schema
+      column_index = reduce({}) do |h, col|
+        h.tap do
+          col.aliases.each do |alias_name|
+            h[alias_name] = col
+          end
+        end
+      end
+      cast_statements = (df.columns & schema.keys.map(&:to_s)).map do |df_col|
+        db_col = column_index[df_col]
+        expected_dtype = schema[df_col.to_sym]
+        db_col.cast_statement(df, df_col, expected_dtype)
+      end
+      df = df.with_columns(cast_statements)
     end
 
     def cast(processed_or_raw)
@@ -153,8 +166,6 @@ module EasyML
       end.compact
       EasyML::Lineage.import(lineage, on_duplicate_key_update: { columns: %i[ column_id key occurred_at description ] })
     end
-
-    measure_method_timing :set_feature_lineage
 
     private
 

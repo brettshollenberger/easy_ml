@@ -19,7 +19,9 @@ module EasyML
         result = send(method_alias, *args, **kwargs, &block)
         ending = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         elapsed = ending - starting
-        puts "#{method_name} took #{elapsed.round(2)} seconds"
+        10.times do
+          puts "#{method_name} took #{elapsed.round(2)} seconds"
+        end
         # StatsD.measure("#{Rails.env}.#{prefix.present? ? "#{prefix}." : ""}#{method_name}.timing", elapsed)
         result
       end

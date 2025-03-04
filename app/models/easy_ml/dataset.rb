@@ -279,7 +279,6 @@ module EasyML
 
     def fit_features(async: false, features: self.features, force: false)
       features_to_compute = force ? features : features.needs_fit
-      puts "Features to compute.... #{features_to_compute}"
       return after_fit_features if features_to_compute.empty?
 
       features.first.fit(features: features_to_compute, async: async)
@@ -484,11 +483,7 @@ module EasyML
     end
 
     def apply_cast(df)
-      s = schema
-      cast_statements = (df.columns & s.keys.map(&:to_s)).map do |column|
-        Polars.col(column).cast(s[column.to_sym].class)
-      end
-      df = df.with_columns(cast_statements)
+      columns.apply_cast(df)
     end
 
     # Massage out one-hot cats to their canonical name
@@ -637,19 +632,13 @@ module EasyML
       df[column_mask(df, inference: inference)]
     end
 
-    def apply_missing_columns(df, inference: false, include_one_hots: false)
+    def apply_missing_columns(df, inference: false)
       return df unless inference
 
-      missing_columns = (col_order(inference: inference) - df.columns).compact
-      unless include_one_hots
-        columns.one_hots.each do |one_hot|
-          virtual_columns = one_hot.virtual_columns
-          if virtual_columns.all? { |vc| df.columns.include?(vc) }
-            missing_columns -= columns.one_hots.flat_map(&:virtual_columns)
-          else
-            missing_columns += columns.one_hots.map(&:name) - df.columns
-          end
-        end
+      missing_columns = (col_order(inference: inference) - df.columns).compact.uniq
+      columns.one_hots.each do |one_hot|
+        missing_columns -= one_hot.virtual_columns
+        missing_columns += [one_hot.name]
       end
       df.with_columns(missing_columns.map { |f| Polars.lit(nil).alias(f) })
     end

@@ -785,7 +785,6 @@ module EasyML
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
-      learn_statistics(type: :processed)
       features.select { |f| !f.fittable? }.each(&:after_transform)
       @normalized = true
     end

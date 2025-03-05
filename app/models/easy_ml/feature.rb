@@ -251,7 +251,7 @@ module EasyML
         EasyML::ComputeFeatureJob.enqueue_ordered_batches(jobs)
       else
         feature_idx = ordered_features.index_by(&:id)
-        updates = jobs.map do |feature_batch|
+        change_set = jobs.map do |feature_batch|
           feature_batch.each do |batch_args|
             EasyML::ComputeFeatureJob.perform(nil, batch_args)
           end
@@ -259,8 +259,6 @@ module EasyML
           feature.after_fit
           feature
         end
-        EasyML::Feature.import(updates, 
-          on_duplicate_key_update: [:fit_at, :needs_fit, :workflow_status])
         dataset.after_fit_features
       end
     end
@@ -476,7 +474,7 @@ module EasyML
         needs_fit: false,
         workflow_status: :ready,
       }.compact
-      assign_attributes(updates)
+      update!(updates)
     end
 
     def after_transform

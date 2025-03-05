@@ -9,7 +9,7 @@ gemspec
 gem "annotate"
 gem "awesome_print"
 gem "aws-sdk", "~> 3.1"
-gem "historiographer", path: "/Users/brettshollenberger/programming/historiographer" #"~> 4.1.14"
+gem "historiographer", "~> 4.1.14"
 gem "inertia_rails", require: false
 gem "jsonapi-serializer"
 gem "numpy", "~> 0.4.0"

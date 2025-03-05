@@ -31,16 +31,6 @@ PATH
       xgb (~> 0.9.0)
       zhong
 
-PATH
-  remote: /Users/brettshollenberger/programming/historiographer
-  specs:
-    historiographer (4.1.14)
-      activerecord (>= 6)
-      activerecord-import
-      activesupport
-      rails (>= 6)
-      rollbar
-
 GEM
   remote: https://rubygems.org/
   specs:
@@ -1809,6 +1799,12 @@ GEM
       guard (~> 2.1)
       guard-compat (~> 1.1)
       rspec (>= 2.99.0, < 4.0)
+    historiographer (4.1.14)
+      activerecord (>= 6)
+      activerecord-import
+      activesupport
+      rails (>= 6)
+      rollbar
     i18n (1.14.7)
       concurrent-ruby (~> 1.0)
     inertia_rails (3.6.0)
@@ -2218,7 +2214,7 @@ DEPENDENCIES
   easy_ml!
   guard
   guard-rspec
-  historiographer!
+  historiographer (~> 4.1.14)
   inertia_rails
   jsonapi-serializer
   langchainrb

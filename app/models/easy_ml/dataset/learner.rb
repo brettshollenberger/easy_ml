@@ -2,12 +2,13 @@ module EasyML
   class Dataset
     class Learner
       include EasyML::Timing
-      attr_accessor :dataset, :columns, :type, :computed, :raw_columns, :statistics
+      attr_accessor :dataset, :columns, :all_columns, :type, :computed, :raw_columns, :statistics
 
       def initialize(dataset, type: :raw)
         @dataset = dataset
         @columns = dataset.columns.reload.needs_learn.includes(:feature).sort_by(&:name)
         @type = type
+        @all_columns = @columns.dup
         @columns = @columns.select(&:persisted?)
         @columns = @columns.select { |c| available_columns.include?(c.name) }
       end
@@ -46,7 +47,7 @@ module EasyML
 
       def save_statistics
         samples = get_sample_values
-        columns.each do |col|
+        all_columns.each do |col|
           col.merge_statistics(statistics.dig(col.name))
           col.assign_attributes(sample_values: samples[col.name]) if samples[col.name].present?
           col.assign_attributes(
@@ -57,7 +58,7 @@ module EasyML
           )
         end
 
-        EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[
+        EasyML::Column.import(all_columns, on_duplicate_key_update: { columns: %i[
                                          statistics
                                          learned_at
                                          sample_values

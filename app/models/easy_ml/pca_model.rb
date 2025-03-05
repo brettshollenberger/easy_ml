@@ -11,7 +11,10 @@
 module EasyML
   class PCAModel < ActiveRecord::Base
     def model
-      Marshal.load(read_attribute(:model))
+      model = read_attribute(:model)
+      return nil if model.nil?
+
+      Marshal.load(model)
     end
 
     def model=(model)

@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc92)
+    easy_ml (0.2.0.pre.rc93)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -30,6 +30,16 @@ PATH
       wandb (~> 0.1.13)
       xgb (~> 0.9.0)
       zhong
+
+PATH
+  remote: /Users/brettshollenberger/programming/historiographer
+  specs:
+    historiographer (4.1.14)
+      activerecord (>= 6)
+      activerecord-import
+      activesupport
+      rails (>= 6)
+      rollbar
 
 GEM
   remote: https://rubygems.org/
@@ -1799,12 +1809,6 @@ GEM
       guard (~> 2.1)
       guard-compat (~> 1.1)
       rspec (>= 2.99.0, < 4.0)
-    historiographer (4.1.14)
-      activerecord (>= 6)
-      activerecord-import
-      activesupport
-      rails (>= 6)
-      rollbar
     i18n (1.14.7)
       concurrent-ruby (~> 1.0)
     inertia_rails (3.6.0)
@@ -2214,7 +2218,7 @@ DEPENDENCIES
   easy_ml!
   guard
   guard-rspec
-  historiographer (~> 4.1.14)
+  historiographer!
   inertia_rails
   jsonapi-serializer
   langchainrb
@@ -2244,6 +2248,9 @@ DEPENDENCIES
   wandb
   xgb (~> 0.9.0)
   zhong
+
+RUBY VERSION
+   ruby 3.2.2p53
 
 BUNDLED WITH
    2.6.2

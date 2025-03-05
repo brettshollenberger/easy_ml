@@ -556,13 +556,15 @@ module EasyML
       self.sha = model_file.sha
       save
       dataset.upload_remote_files
-      snapshot.tap do
-        # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
-        bump_version(force: true)
-        dataset.bump_versions(version)
-        self.model_file = new_model_file!
-        save
-      end
+      model_snapshot = snapshot
+
+      # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
+      bump_version(force: true)
+      dataset.bump_versions(version)
+      self.model_file = new_model_file!
+      save
+
+      model_snapshot
     end
 
     def cannot_deploy_reasons

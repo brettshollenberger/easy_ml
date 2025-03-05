@@ -299,7 +299,7 @@ RSpec.describe EasyML::Datasource do
           expect(dataset.reload.columns.map(&:name)).to include("POPULATION")
         end
 
-        it "computes the feature in batches based on ID ranges" do
+        it "computes the feature in batches based on ID ranges", :focus do
           # Setup the dataset and feature to need recomputation
           zips_dataset
           feature

@@ -515,7 +515,7 @@ module EasyML
     end
 
     def cast_statement(df, df_col, expected_dtype)
-      expected_dtype = expected_dtype.is_a?(Polars::DataType) ? expected_dtype : expected_dtype.class
+      expected_dtype = expected_dtype.is_a?(Polars::DataType) ? expected_dtype.class : expected_dtype
       actual_type = df[df_col].dtype
 
       cast_statement = case expected_dtype

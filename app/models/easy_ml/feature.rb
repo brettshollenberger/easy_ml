@@ -250,13 +250,17 @@ module EasyML
       if async && job_count > 1
         EasyML::ComputeFeatureJob.enqueue_ordered_batches(jobs)
       else
-        jobs.each do |feature_batch|
+        feature_idx = ordered_features.index_by(&:id)
+        updates = jobs.map do |feature_batch|
           feature_batch.each do |batch_args|
             EasyML::ComputeFeatureJob.perform(nil, batch_args)
           end
-          feature = EasyML::Feature.find(feature_batch.first.dig(:feature_id))
+          feature = feature_idx[feature_batch.first.dig(:feature_id)]
           feature.after_fit
+          feature
         end
+        EasyML::Feature.import(updates, 
+          on_duplicate_key_update: [:fit_at, :needs_fit, :workflow_status])
         dataset.after_fit_features
       end
     end
@@ -380,11 +384,8 @@ module EasyML
 
       df_len_was = df.shape[0]
       orig_df = df.clone
-      begin
-        result = adapter.transform(df, self)
-      rescue => e
-        raise "Feature #{feature_class}#transform failed: #{e.message}"
-      end
+      result = adapter.transform(df, self)
+
       raise "Feature '#{name}' must return a Polars::DataFrame, got #{result.class}" unless result.is_a?(Polars::DataFrame)
       df_len_now = result.shape[0]
       missing_columns = orig_df.columns - result.columns
@@ -475,7 +476,7 @@ module EasyML
         needs_fit: false,
         workflow_status: :ready,
       }.compact
-      update!(updates)
+      assign_attributes(updates)
     end
 
     def after_transform

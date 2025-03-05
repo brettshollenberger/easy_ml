@@ -6,14 +6,10 @@ module EasyML
 
       def initialize(dataset, type: :raw)
         @dataset = dataset
-        @columns = dataset.columns.reload.needs_learn.sort_by(&:name)
-
-        if computed
-          @columns = @columns.computed
-        end
-
-        @columns = @columns.select(&:persisted?).reject(&:empty?)
+        @columns = dataset.columns.reload.needs_learn.includes(:feature).sort_by(&:name)
         @type = type
+        @columns = @columns.select(&:persisted?)
+        @columns = @columns.select { |c| available_columns.include?(c.name) }
       end
 
       def learn
@@ -21,6 +17,10 @@ module EasyML
         fit_models
         learn_statistics
         save_statistics
+      end
+
+      def available_columns
+        @available_columns ||= dataset.send(type).data(lazy: true).schema.keys & columns.map(&:name)
       end
 
       private
@@ -35,10 +35,20 @@ module EasyML
         end
       end
 
+      def get_sample_values
+        needs_sample = EasyML::Column.where(id: columns.map(&:id)).where(sample_values: nil).map(&:name)
+        sampleable_cols = available_columns & needs_sample
+        selects = sampleable_cols.map do |col|
+          Polars.col(col).filter(Polars.col(col).is_not_null).limit(5).alias(col)
+        end
+        df = dataset.send(type).train(all_columns: true, lazy: true).select(selects).collect.to_h.transform_values(&:to_a)
+      end
+
       def save_statistics
+        samples = get_sample_values
         columns.each do |col|
           col.merge_statistics(statistics.dig(col.name))
-          col.set_sample_values
+          col.assign_attributes(sample_values: samples[col.name]) if samples[col.name].present?
           col.assign_attributes(
             learned_at: EasyML::Support::UTC.now,
             last_datasource_sha: col.dataset.last_datasource_sha,

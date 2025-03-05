@@ -362,15 +362,13 @@ module EasyML
           update(workflow_status: "analyzing")
           fully_reload
           yield
-        ensure
-          unlock!
         end
       rescue => e
         update(workflow_status: "failed")
-        e.backtrace.grep(/easy_ml/).each do |line|
-          puts line
-        end
+        EasyML::Event.handle_error(self, e)
         raise e
+      ensure
+        unlock!
       end
     end
 
@@ -787,6 +785,7 @@ module EasyML
         processed_df = normalize(df, all_columns: true)
         processed.save(segment, processed_df)
       end
+      learn_statistics(type: :processed)
       features.select { |f| !f.fittable? }.each(&:after_transform)
       @normalized = true
     end
@@ -797,8 +796,7 @@ module EasyML
       df = df.clone
       df = apply_features(df)
       processed.save(:train, df)
-      learn(delete: false)
-      learn_statistics(type: :processed, computed: true)
+      learn_statistics(type: :processed)
       processed.cleanup
     end
 

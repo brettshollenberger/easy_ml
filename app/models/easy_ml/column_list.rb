@@ -104,11 +104,7 @@ module EasyML
         expected_dtype = schema[df_col.to_sym]
         db_col.cast_statement(df, df_col, expected_dtype)
       end
-      begin
-        df = df.with_columns(cast_statements)
-      rescue => e
-        binding.pry
-      end
+      df = df.with_columns(cast_statements)
     end
 
     def cast(processed_or_raw)
@@ -165,7 +161,8 @@ module EasyML
       end
       EasyML::Column.import(columns, on_duplicate_key_update: { columns: %i[ is_computed computed_by ] })
 
-      lineage = cols_to_learn.flat_map do |col|
+      cols = where(id: cols_to_learn.map(&:id)).includes(:lineages, :feature)
+      lineage = cols.flat_map do |col|
         EasyML::Lineage.learn(col)
       end.compact
       EasyML::Lineage.import(lineage, on_duplicate_key_update: { columns: %i[ column_id key occurred_at description ] })

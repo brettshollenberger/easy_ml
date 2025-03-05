@@ -515,17 +515,17 @@ module EasyML
     end
 
     def cast_statement(df, df_col, expected_dtype)
-      expected_dtype = expected_dtype.is_a?(Polars::DataType) ? expected_dtype : expected_dtype.class
+      expected_dtype = expected_dtype.is_a?(Polars::DataType) ? expected_dtype.class : expected_dtype
       actual_type = df[df_col].dtype
 
-      cast_statement = case expected_dtype
-                       when Polars::Boolean
-                          case actual_type
-                          when Polars::Boolean
+      cast_statement = case expected_dtype.to_s
+                       when "Polars::Boolean"
+                          case actual_type.to_s
+                          when "Polars::Boolean"
                             Polars.col(df_col).cast(expected_dtype)
-                          when Polars::String, Polars::Categorical
+                          when "Polars::Utf8", "Polars::Categorical", "Polars::String"
                             Polars.col(df_col).eq("true").cast(expected_dtype)
-                          when Polars::Null
+                          when "Polars::Null"
                             Polars.col(df_col)
                           else
                             raise "Unexpected dtype: #{actual_type} for column: #{df_col}"

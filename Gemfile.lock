@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    easy_ml (0.2.0.pre.rc92)
+    easy_ml (0.2.0.pre.rc93)
       activerecord
       activerecord-import (~> 1.8.1)
       activesupport
@@ -2244,6 +2244,9 @@ DEPENDENCIES
   wandb
   xgb (~> 0.9.0)
   zhong
+
+RUBY VERSION
+   ruby 3.2.2p53
 
 BUNDLED WITH
    2.6.2

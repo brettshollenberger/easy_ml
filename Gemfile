@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+ruby "3.2.2"
 source "https://rubygems.org"
 
 # Specify your gem's dependencies in easy_ml.gemspec

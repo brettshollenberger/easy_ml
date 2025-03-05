@@ -18,8 +18,8 @@ module EasyML
       def learn(column)
         @lineage = EasyML::Column::Lineage.new(column).lineage
 
-        existing_lineage = where(column_id: column.id)
-        missing_lineage = @lineage.select { |l| !existing_lineage.exists?(key: l[:key]) }
+        existing_lineage = column.lineages.index_by(&:key)
+        missing_lineage = @lineage.select { |l| !existing_lineage.key?(l[:key].to_s) }
 
         missing_lineage = missing_lineage.map { |l|
           EasyML::Lineage.new(
@@ -29,7 +29,7 @@ module EasyML
             description: l[:description],
           )
         }
-        existing_lineage = existing_lineage.map do |lineage|
+        existing_lineage = existing_lineage.map do |key, lineage|
           matching_lineage = @lineage.detect { |ll| ll[:key].to_sym == lineage.key.to_sym }
 
           lineage&.assign_attributes(

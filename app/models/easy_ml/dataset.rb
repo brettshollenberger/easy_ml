@@ -362,15 +362,13 @@ module EasyML
           update(workflow_status: "analyzing")
           fully_reload
           yield
-        ensure
-          unlock!
         end
       rescue => e
         update(workflow_status: "failed")
-        e.backtrace.grep(/easy_ml/).each do |line|
-          puts line
-        end
+        EasyML::Event.handle_error(self, e)
         raise e
+      ensure
+        unlock!
       end
     end
 
@@ -797,8 +795,7 @@ module EasyML
       df = df.clone
       df = apply_features(df)
       processed.save(:train, df)
-      learn(delete: false)
-      learn_statistics(type: :processed, computed: true)
+      learn_statistics(type: :processed)
       processed.cleanup
     end
 

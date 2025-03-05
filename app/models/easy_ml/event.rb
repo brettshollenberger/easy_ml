@@ -57,11 +57,26 @@ module EasyML
     end
 
     def self.easy_ml_context(stacktrace)
-      stacktrace.select { |loc| loc.match?(/easy_ml/) }
+      stacktrace.select(&MATCH_EASY_ML_CONTEXT)
+    end
+
+    MATCH_USER_CONTEXT = proc { |loc| !loc.match?(/features|evaluators/) && !loc.match?(/easy_ml/) }
+    MATCH_EASY_ML_CONTEXT = proc { |loc| loc.match?(/easy_ml/) }
+
+    def self.user_context?(stacktrace)
+      stacktrace.any?(&MATCH_USER_CONTEXT)
+    end
+
+    def self.get_context(stacktrace)
+      if user_context?(stacktrace)
+        stacktrace
+      else
+        easy_ml_context(stacktrace)
+      end
     end
 
     def self.called_by?(matcher)
-      easy_ml_context(caller).any? { |line| line.match?(matcher) }
+      get_context(caller).any? { |line| line.match?(matcher) }
     end
 
     def self.format_stacktrace(error)
@@ -69,7 +84,7 @@ module EasyML
 
       topline = error.inspect
 
-      stacktrace = easy_ml_context(error.backtrace)
+      stacktrace = get_context(error.backtrace)
 
       %(#{topline}
 

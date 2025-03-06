@@ -15,6 +15,8 @@ module EasyML
       if Rails.root.join('.git').exist?
         sha = `cd #{Rails.root} && git rev-parse HEAD`.strip
         sha.presence || "Git SHA unavailable"
+      elsif ENV["GIT_REVISION"]
+        ENV["GIT_REVISION"]
       else
         "Not a git repository"
       end

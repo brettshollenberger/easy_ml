@@ -434,7 +434,6 @@ module EasyML
     end
 
     def bump_version(original_version, version)
-      binding.pry if original_version == version
       feature_store.bump_version(original_version, version)
       write_attribute(:version, self.version + 1)
       self

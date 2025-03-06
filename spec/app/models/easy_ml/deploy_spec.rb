@@ -212,16 +212,17 @@ RSpec.describe EasyML::Deploy do
       file_pattern_v3 = %r{easy_ml/datasets/titanic_dataset/2025_01_03_00_00_\d{2}/features/family_size/compacted/feature.\d.parquet}
       expect(Polars).to receive(:scan_parquet).with(file_pattern_v3).at_least(:once)
       feature_v3.query(limit: 1)
+
+      Timecop.return
     end
 
     it "uses deployed version for prediction" do
       mock_s3_upload
-      model.unlock!
-
       @time = EasyML::Support::EST.now
       Timecop.freeze(@time)
 
-      model.save
+      model.save!
+      model.unlock!
       model.train(async: false)
       model.deploy(async: false)
       model_v1 = model.current_version
@@ -232,12 +233,12 @@ RSpec.describe EasyML::Deploy do
       y_valid["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
-      live_predictions = model.current_version.predict(x_test)
-      expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
-
       # Historical features are still queryable
       expect(model.current_version.dataset.features.first.query.shape).to eq([500, 2])
       expect(model.current_version.dataset.features.first.files).to(all(match(/compacted/)))
+
+      live_predictions = model.current_version.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
 
       # Change dataset configuration
       model.dataset.columns.where(name: "Age").update_all(hidden: true)
@@ -374,7 +375,7 @@ RSpec.describe EasyML::Deploy do
 
       mock_s3_upload
 
-      @time = EasyML::Support::EST.parse("2024-01-01")
+      @time = EasyML::Support::EST.parse("2024-01-01").beginning_of_day
       Timecop.freeze(@time)
 
       model.save
@@ -386,7 +387,7 @@ RSpec.describe EasyML::Deploy do
       model_v1 = model.current_version
 
       def extract_timestamp(dir)
-        EasyML::Support::UTC.parse(dir.gsub(/\D/, "")).in_time_zone(EST)
+        EasyML::Support::EST.parse(dir.gsub(/\D/, ""))
       end
 
       expect(extract_timestamp(model_v1.dataset.raw.dir)).to eq(EasyML::Support::EST.parse("2024-01-01"))

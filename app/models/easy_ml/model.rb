@@ -203,7 +203,7 @@ module EasyML
 
     def unlock!
       Support::Lockable.unlock!(lock_key)
-      deploys.new.unlock!
+      EasyML::Deploy.new(model: self).unlock!
     end
 
     def lock_model

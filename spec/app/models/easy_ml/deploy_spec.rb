@@ -205,12 +205,18 @@ RSpec.describe EasyML::Deploy do
       expect(preds_v1).not_to eq(preds_v2) # Different versions should give different predictions
 
       # Test S3 download when files are missing
+      FileUtils.mkdir_p(SPEC_ROOT.join("backups/datasets"))
+      FileUtils.cp_r(model_v1.dataset.root_dir, SPEC_ROOT.join("backups/datasets"))
       FileUtils.rm_rf(model_v1.dataset.root_dir)
       expect(Dir.exist?(model_v1.dataset.raw.dir)).to be false
 
       # Mock S3 download expectation
-      expect(model_v1.dataset.raw).to receive(:download).and_call_original
-      expect(model_v1.dataset.processed).to receive(:download).and_call_original
+      expect(model_v1.dataset.processed).to receive(:download) do
+        FileUtils.mv(
+          SPEC_ROOT.join("backups/datasets/#{model_v1.dataset.version}"),
+          model_v1.dataset.root_dir
+        )
+      end
 
       # Predict should trigger download and work
       new_preds_v1 = model_v1.predict(x_test)
@@ -236,12 +242,12 @@ RSpec.describe EasyML::Deploy do
       y_valid["Survived"]
       preds_v1 = Polars::Series.new(model.predict(x_test))
 
+      live_predictions = model.current_version.predict(x_test)
+      expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
+
       # Historical features are still queryable
       expect(model.current_version.dataset.features.first.query.shape).to eq([500, 2])
       expect(model.current_version.dataset.features.first.files).to(all(match(/compacted/)))
-
-      live_predictions = model.current_version.predict(x_test)
-      expect(live_predictions.sum).to be_within(0.01).of(preds_v1.sum)
 
       # Change dataset configuration
       model.dataset.columns.where(name: "Age").update_all(hidden: true)

@@ -28,11 +28,11 @@ module EasyML
       files.any?
     end
 
-    def bump_version(version)
+    def bump_version(original_version, version)
       compact
       cp(
-        feature_dir_for_version(version),
-        feature_dir_for_version(version + 1),
+        feature_dir.gsub(version, original_version),
+        feature_dir,
       )
     end
 
@@ -42,16 +42,12 @@ module EasyML
       @batch_size ||= feature.batch_size || 10_000
     end
 
-    def feature_dir_for_version(version)
+    def feature_dir
       File.join(
         dataset.dir,
         "features",
         feature&.name&.parameterize&.gsub("-", "_")
       )
-    end
-
-    def feature_dir
-      feature_dir_for_version(feature.version)
     end
 
     def s3_prefix

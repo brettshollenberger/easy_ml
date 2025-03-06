@@ -215,12 +215,13 @@ module EasyML
     end
 
     def bump_versions(version)
+      original_version = self.version
       self.version = version
 
-      @raw = raw.cp(version)
-      @processed = processed.cp(version)
+      @raw = raw.cp(dir.gsub(original_version, version))
+      @processed = processed.cp(dir.gsub(original_version, version))
       save.tap do
-        features.each(&:bump_version)
+        features.each { |feature| feature.bump_version(original_version, version) }
         EasyML::Feature.import(features.to_a, on_duplicate_key_update: [:version])
       end
     end

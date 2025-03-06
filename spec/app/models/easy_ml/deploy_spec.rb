@@ -165,14 +165,14 @@ RSpec.describe EasyML::Deploy do
       end
 
       # New dataset version has been shipped, so it doesn't conflict with the deployed version
-      binding.pry
       expect(relative_dir(model.dataset.raw.dir)).to match(%r{/easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/files/splits/raw})
-
-      # Verify feature directory is under dataset version
-      feature = model_v1.dataset.features.first
-      feature_dir = feature.feature_store.feature_dir
-      expect(feature_dir).to include(model_v1.dataset.version.to_s)
-      expect(feature_dir).to include("features")
+      feature_files = model.dataset.features.find_by(name: "Family Size").files
+      binding.pry
+      expect(feature_files.count).to be > 0
+      feature_files.each do |feature_file|
+        dir = File.dirname(feature_file)
+        expect(relative_dir(dir)).to match(%r{/easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/features/family_size/compacted})
+      end
 
       # Make changes that require a new version
       model.dataset.columns.where(name: "Age").update_all(hidden: true)

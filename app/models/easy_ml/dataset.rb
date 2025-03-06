@@ -114,6 +114,10 @@ module EasyML
       write_attribute(:root_dir, value)
     end
 
+    def dir
+      root_dir
+    end
+    
     def set_root_dir
       bump_version
       write_attribute(:root_dir, default_root_dir)
@@ -750,7 +754,7 @@ module EasyML
         split_type.new(**args)
       when EasyML::Data::Splits::FileSplit.to_s
         split_type.new(**args.merge(
-                         dir: Pathname.new(root_dir).append("files/splits/#{type}").to_s,
+                         dir: Pathname.new(root_dir).join("files/splits/#{type}").to_s,
                        ))
       end
     end

@@ -151,11 +151,17 @@ RSpec.describe EasyML::Deploy do
       expect(Dir.exist?(model_v1.dataset.raw.dir)).to be true
       expect(relative_dir(model_v1.dataset.raw.dir)).to eq("/easy_ml/datasets/titanic_dataset/2025_01_01_00_00_00/files/splits/raw")
 
-      binding.pry
-      expect(Dir.exist?(File.join(model_v1.dataset.raw.dir, "features"))).to be true
-      expect(Dir.exist?(File.join(model_v1.dataset.processed.dir, "features"))).to be true
+      expect(Dir.exist?(File.join(model_v1.dataset.dir, "features"))).to be true
+
+      feature_files = model_v1.dataset.features.find_by(name: "Family Size").files
+      expect(feature_files.count).to be > 0
+      feature_files.each do |feature_file|
+        dir = File.dirname(feature_file)
+        expect(relative_dir(dir)).to eq("/easy_ml/datasets/titanic_dataset/2025_01_01_00_00_00/features/family_size/compacted")
+      end
 
       # Verify feature directory is under dataset version
+      binding.pry
       feature = model_v1.dataset.features.first
       feature_dir = feature.feature_store.feature_dir
       expect(feature_dir).to include(model_v1.dataset.version.to_s)

@@ -1,9 +1,10 @@
 module EasyML
   class FeatureStore < EasyML::Data::DatasetManager
-    attr_reader :feature
+    attr_reader :feature, :dataset
 
     def initialize(feature)
       @feature = feature
+      @dataset = feature&.dataset
 
       datasource_config = feature&.dataset&.datasource&.configuration
       if datasource_config
@@ -43,12 +44,9 @@ module EasyML
 
     def feature_dir_for_version(version)
       File.join(
-        Rails.root,
-        "easy_ml/datasets",
-        feature&.dataset&.name&.parameterize&.gsub("-", "_"),
+        dataset.dir,
         "features",
-        feature&.name&.parameterize&.gsub("-", "_"),
-        version.to_s
+        feature&.name&.parameterize&.gsub("-", "_")
       )
     end
 

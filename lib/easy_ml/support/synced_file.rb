@@ -52,6 +52,10 @@ module EasyML
         full_path
       end
 
+      def s3_key
+        s3_prefix.present? ? File.join(s3_prefix, filename) : filename
+      end
+
       def path
         File.join(root_dir, s3_prefix)
       end

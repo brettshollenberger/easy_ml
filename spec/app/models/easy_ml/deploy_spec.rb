@@ -136,7 +136,7 @@ RSpec.describe EasyML::Deploy do
   end
 
   describe "#deploy" do
-    it "maintains dataset directory structure and versioning", :focus do
+    it "maintains dataset directory structure and versioning" do
       @t1 = EasyML::Support::UTC.parse("2025-01-01").beginning_of_day
       Timecop.freeze(@t1)
 
@@ -202,6 +202,18 @@ RSpec.describe EasyML::Deploy do
       new_files = Dir.glob(File.join(model_v2.dataset.raw.dir, "**/*")).select { |f| File.file?(f) }
       expect(old_files.count).to be > 0
       expect(new_files.count).to be >= old_files.count
+
+      # Verify S3 upload locations
+      s3_model_file = model.model_file.synced_file
+      expect(s3_model_file.s3_prefix).to eq("easy_ml/models/my_model")
+      expect(s3_model_file.s3_key).to match(%r{easy_ml/models/my_model/2025_01_03_00_00_\d{2}\.json})
+
+      # Verify feature files S3 locations
+      v2_feature = model_v2.dataset.features.find_by(name: "Family Size")
+      v2_feature_store = v2_feature.feature_store
+
+      # Check that S3 paths are correct
+      expect(v2_feature_store.s3_prefix).to match(%r{easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/features/family_size/compacted})
 
       # Test which files are queried
       #

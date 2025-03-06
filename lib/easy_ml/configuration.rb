@@ -60,5 +60,17 @@ module EasyML
     def db_settings
       @db_settings ||= EasyML::Settings.first_or_create
     end
+
+    def self.s3_path_for(type, name)
+      File.join(instance.s3_prefix, type.to_s, name.to_s)
+    end
+
+    def self.model_s3_path(model_name)
+      s3_path_for("models", model_name.parameterize.gsub("-", "_"))
+    end
+
+    def self.dataset_s3_path(relative_path)
+      s3_path_for("datasets", relative_path)
+    end
   end
 end

@@ -384,11 +384,18 @@ module ModelSpecHelper
   end
 
   def mock_s3_upload
-    allow_any_instance_of(EasyML::Data::SyncedDirectory).to receive(:upload).and_return(true)
-    allow_any_instance_of(EasyML::Data::SyncedDirectory).to receive(:remote_files).and_return([])
+    allow_any_instance_of(EasyML::Data::SyncedDirectory).to receive(:should_upload?).and_return(true)
+    allow_any_instance_of(EasyML::Data::SyncedDirectory).to receive(:remote_files).and_return(OpenStruct.new(contents: []))
+
+    @s3_uploads = []
     allow_any_instance_of(Aws::S3::Client).to receive(:put_object) do |_s3_client, args|
-      expect(args[:bucket]).to eq "my-bucket"
-    end.and_return(true)
+      @s3_uploads << args[:key]
+      true
+    end
+  end
+
+  def s3_uploads
+    @s3_uploads || []
   end
 
   def mock_s3_download(path)

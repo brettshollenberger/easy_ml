@@ -30,6 +30,7 @@ gem "langchainrb"
 gem "ruby-openai"
 gem "rumale"
 gem "vite_rails"
+gem "uri", "~> 1.0.3"
 
 group :development, :test do
   gem "combustion"

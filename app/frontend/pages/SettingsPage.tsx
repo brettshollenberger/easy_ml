@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { usePage } from '@inertiajs/react'
 import { useInertiaForm } from 'use-inertia-form';
-import { Settings2, Save, AlertCircle, Key, Globe2, Database } from 'lucide-react';
+import { Settings2, Save, AlertCircle, Key, Globe2, Database, GitBranch } from 'lucide-react';
 import { PluginSettings } from '../components/settings/PluginSettings';
 
 interface Settings {
@@ -9,6 +9,8 @@ interface Settings {
     timezone: string;
     s3_bucket: string;
     s3_region: string;
+    git_sha: string;
+    version: string;
   }
 }
 
@@ -152,6 +154,31 @@ export default function SettingsPage({ settings: initialSettings }: { settings: 
                   <option value="us-west-1">US West (N. California)</option>
                   <option value="us-west-2">US West (Oregon)</option>
                 </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Deployment Information */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <GitBranch className="w-5 h-5 text-gray-500" />
+              <h3 className="text-lg font-medium text-gray-900">Deployment Information</h3>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">Git SHA</span>
+                  <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">
+                    {initialSettings?.settings?.git_sha || 'Not available'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">EasyML Version</span>
+                  <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded text-gray-600">
+                    {initialSettings?.settings?.version || 'Not available'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

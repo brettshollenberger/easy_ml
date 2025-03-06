@@ -136,7 +136,7 @@ RSpec.describe EasyML::Deploy do
   end
 
   describe "#deploy" do
-    it "maintains dataset directory structure and versioning" do
+    it "maintains dataset directory structure and versioning", :focus do
       @t1 = EasyML::Support::UTC.parse("2025-01-01").beginning_of_day
       Timecop.freeze(@t1)
 
@@ -164,6 +164,10 @@ RSpec.describe EasyML::Deploy do
         expect(relative_dir(dir)).to eq("/easy_ml/datasets/titanic_dataset/2025_01_01_00_00_00/features/family_size/compacted")
       end
 
+      # Verify model file structure
+      expect(model.model_file).to be_present
+      expect(relative_dir(File.dirname(model.model_file.full_path))).to eq("/easy_ml/models/my_model")
+
       # New dataset version has been shipped, so it doesn't conflict with the deployed version
       expect(relative_dir(model.dataset.raw.dir)).to match(%r{/easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/files/splits/raw})
       feature_files = model.dataset.features.find_by(name: "Family Size").files
@@ -188,6 +192,10 @@ RSpec.describe EasyML::Deploy do
       expect(Dir.exist?(model_v2.dataset.raw.dir)).to be true
       expect(Dir.exist?(File.join(model_v2.dataset.dir, "features"))).to be true
       expect(Dir.exist?(File.join(model_v2.dataset.dir, "features"))).to be true
+
+      # Verify model file structure for v2
+      expect(model.model_file).to be_present
+      expect(relative_dir(File.dirname(model.model_file.full_path))).to eq("/easy_ml/models/my_model")
 
       # Verify old version files were copied to new version
       old_files = Dir.glob(File.join(model_v1.dataset.raw.dir, "**/*")).select { |f| File.file?(f) }

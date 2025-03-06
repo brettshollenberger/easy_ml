@@ -167,7 +167,6 @@ RSpec.describe EasyML::Deploy do
       # New dataset version has been shipped, so it doesn't conflict with the deployed version
       expect(relative_dir(model.dataset.raw.dir)).to match(%r{/easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/files/splits/raw})
       feature_files = model.dataset.features.find_by(name: "Family Size").files
-      binding.pry
       expect(feature_files.count).to be > 0
       feature_files.each do |feature_file|
         dir = File.dirname(feature_file)
@@ -177,20 +176,27 @@ RSpec.describe EasyML::Deploy do
       # Make changes that require a new version
       model.dataset.columns.where(name: "Age").update_all(hidden: true)
       model.dataset.refresh
+
+      @t3 = EasyML::Support::EST.parse("2025-01-03").beginning_of_day
+      Timecop.freeze(@t3)
+
       model.train(async: false)
       model.deploy(async: false)
       model_v2 = model.current_version
 
       # Verify new version structure
       expect(Dir.exist?(model_v2.dataset.raw.dir)).to be true
-      expect(Dir.exist?(File.join(model_v2.dataset.raw.dir, "features"))).to be true
-      expect(Dir.exist?(File.join(model_v2.dataset.processed.dir, "features"))).to be true
+      expect(Dir.exist?(File.join(model_v2.dataset.dir, "features"))).to be true
+      expect(Dir.exist?(File.join(model_v2.dataset.dir, "features"))).to be true
 
       # Verify old version files were copied to new version
       old_files = Dir.glob(File.join(model_v1.dataset.raw.dir, "**/*")).select { |f| File.file?(f) }
       new_files = Dir.glob(File.join(model_v2.dataset.raw.dir, "**/*")).select { |f| File.file?(f) }
       expect(old_files.count).to be > 0
       expect(new_files.count).to be >= old_files.count
+
+      # Test which files are queried
+
 
       # Test prediction using deployed version
       x_test = model_v1.dataset.processed.test

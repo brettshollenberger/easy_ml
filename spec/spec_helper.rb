@@ -104,6 +104,17 @@ RSpec.configure do |config|
     end
   end
 
+  config.before(:each) do
+    mock_run = instance_double(Wandb::Run)
+    allow(Wandb).to receive(:login).and_return(true)
+    allow(Wandb).to receive(:init).and_return(true)
+    allow(Wandb).to receive(:current_run).and_return(mock_run)
+    allow(Wandb).to receive(:define_metric).and_return(true)
+    allow(mock_run).to receive(:config=)
+    allow(mock_run).to receive(:url).and_return("https://wandb.ai")
+    allow(Wandb).to receive(:log)
+  end
+
   if ENV["RAILS_SPECS"] || RSpec.configuration.files_to_run.any? { |file| file.include?("/app/") }
     config.before(:suite) do
       DatabaseCleaner.strategy = :truncation

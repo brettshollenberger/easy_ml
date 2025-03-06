@@ -15,6 +15,7 @@ module EasyML
   class Error < StandardError; end
 
   require_relative "easy_ml/configuration"
+  require_relative "easy_ml/error_logger"
   require_relative "easy_ml/reasons"
   require_relative "easy_ml/deep_compact"
   require_relative "easy_ml/timing"

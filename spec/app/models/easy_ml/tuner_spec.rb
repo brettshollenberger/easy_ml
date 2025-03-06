@@ -20,7 +20,6 @@ RSpec.describe EasyML::Core::Tuner do
     5
   end
 
-  let(:mock_run) { instance_double(Wandb::Run) }
   let(:mock_model) { instance_double(XGBoost::Booster) }
   let(:callback_params) do
     {
@@ -56,16 +55,6 @@ RSpec.describe EasyML::Core::Tuner do
         max_depth: { min: 1, max: 5 },
       },
     }
-  end
-
-  before do
-    allow(Wandb).to receive(:login).and_return(true)
-    allow(Wandb).to receive(:init).and_return(true)
-    allow(Wandb).to receive(:current_run).and_return(mock_run)
-    allow(Wandb).to receive(:define_metric).and_return(true)
-    allow(mock_run).to receive(:config=)
-    allow(mock_run).to receive(:url).and_return("https://wandb.ai")
-    allow(Wandb).to receive(:log)
   end
 
   describe "Model Tuner" do

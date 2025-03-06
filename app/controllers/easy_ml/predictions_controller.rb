@@ -41,7 +41,8 @@ module EasyML
     rescue ActiveRecord::RecordNotFound
       render json: { error: "Model not found" }, status: :not_found
     rescue => e
-      render json: { error: e.message }, status: :unprocessable_entity
+      EasyML::ErrorLogger.error(e)
+      render json: { error: "Internal server error" }, status: 500
     end
   end
 end

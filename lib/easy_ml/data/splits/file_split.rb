@@ -46,7 +46,9 @@ module EasyML
         end
 
         def s3_prefix
-          File.join("datasets", dir.split("datasets").last)
+          EasyML::Configuration.dataset_s3_path(
+            dir.split("datasets").last
+          )
         end
 
         def synced_directory

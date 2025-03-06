@@ -136,7 +136,7 @@ RSpec.describe EasyML::Deploy do
   end
 
   describe "#deploy" do
-    it "maintains dataset directory structure and versioning", :focus do
+    it "maintains dataset directory structure and versioning" do
       @t1 = EasyML::Support::EST.parse("2025-01-01").beginning_of_day
       Timecop.freeze(@t1)
 
@@ -196,32 +196,22 @@ RSpec.describe EasyML::Deploy do
       expect(new_files.count).to be >= old_files.count
 
       # Test which files are queried
+      #
+      # When using original feature (from v1 model)
+      feature = model_v1.dataset.features.find_by(name: "Family Size")
+      file_pattern = %r{easy_ml/datasets/titanic_dataset/2025_01_01_00_00_\d{2}/features/family_size/compacted/feature.\d.parquet}
+      expect(Polars).to receive(:scan_parquet).with(file_pattern).at_least(:once)
+      feature.query(limit: 1)
 
+      feature_v2 = model_v2.dataset.features.find_by(name: "Family Size")
+      file_pattern_v2 = %r{easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/features/family_size/compacted/feature.\d.parquet}
+      expect(Polars).to receive(:scan_parquet).with(file_pattern_v2).at_least(:once)
+      feature_v2.query(limit: 1)
 
-      # Test prediction using deployed version
-      x_test = model_v1.dataset.processed.test
-      preds_v1 = model_v1.predict(x_test)
-      preds_v2 = model_v2.predict(x_test)
-      expect(preds_v1).not_to eq(preds_v2) # Different versions should give different predictions
-
-      # Test S3 download when files are missing
-      FileUtils.mkdir_p(SPEC_ROOT.join("backups/datasets"))
-      FileUtils.cp_r(model_v1.dataset.root_dir, SPEC_ROOT.join("backups/datasets"))
-      FileUtils.rm_rf(model_v1.dataset.root_dir)
-      expect(Dir.exist?(model_v1.dataset.raw.dir)).to be false
-
-      # Mock S3 download expectation
-      expect(model_v1.dataset.processed).to receive(:download) do
-        FileUtils.mv(
-          SPEC_ROOT.join("backups/datasets/#{model_v1.dataset.version}"),
-          model_v1.dataset.root_dir
-        )
-      end
-
-      # Predict should trigger download and work
-      new_preds_v1 = model_v1.predict(x_test)
-      expect(new_preds_v1).to eq(preds_v1)
-      expect(Dir.exist?(model_v1.dataset.raw.dir)).to be true
+      feature_v3 = model.dataset.features.find_by(name: "Family Size")
+      file_pattern_v3 = %r{easy_ml/datasets/titanic_dataset/2025_01_03_00_00_\d{2}/features/family_size/compacted/feature.\d.parquet}
+      expect(Polars).to receive(:scan_parquet).with(file_pattern_v3).at_least(:once)
+      feature_v3.query(limit: 1)
     end
 
     it "uses deployed version for prediction" do

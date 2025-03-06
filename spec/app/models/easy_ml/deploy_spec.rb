@@ -137,14 +137,14 @@ RSpec.describe EasyML::Deploy do
 
   describe "#deploy" do
     it "maintains dataset directory structure and versioning" do
-      @t1 = EasyML::Support::EST.parse("2025-01-01").beginning_of_day
+      @t1 = EasyML::Support::UTC.parse("2025-01-01").beginning_of_day
       Timecop.freeze(@t1)
 
       mock_s3_upload
       model.save
       model.unlock!
 
-      @t2 = EasyML::Support::EST.parse("2025-01-02").beginning_of_day
+      @t2 = EasyML::Support::UTC.parse("2025-01-02").beginning_of_day
       Timecop.freeze(@t2)
 
       model.train(async: false)
@@ -177,7 +177,7 @@ RSpec.describe EasyML::Deploy do
       model.dataset.columns.where(name: "Age").update_all(hidden: true)
       model.dataset.refresh
 
-      @t3 = EasyML::Support::EST.parse("2025-01-03").beginning_of_day
+      @t3 = EasyML::Support::UTC.parse("2025-01-03").beginning_of_day
       Timecop.freeze(@t3)
 
       model.train(async: false)
@@ -218,7 +218,7 @@ RSpec.describe EasyML::Deploy do
 
     it "uses deployed version for prediction" do
       mock_s3_upload
-      @time = EasyML::Support::EST.now
+      @time = EasyML::Support::UTC.now
       Timecop.freeze(@time)
 
       model.save!
@@ -297,7 +297,7 @@ RSpec.describe EasyML::Deploy do
     it "uses historical dataset when running predictions" do
       mock_s3_upload
 
-      @time = EasyML::Support::EST.now
+      @time = EasyML::Support::UTC.now
       Timecop.freeze(@time)
 
       model.save
@@ -375,22 +375,22 @@ RSpec.describe EasyML::Deploy do
 
       mock_s3_upload
 
-      @time = EasyML::Support::EST.parse("2024-01-01").beginning_of_day
+      @time = EasyML::Support::UTC.parse("2024-01-01").beginning_of_day
       Timecop.freeze(@time)
 
       model.save
       model.train(async: false)
 
-      Timecop.freeze(EasyML::Support::EST.parse("2024-02-02"))
+      Timecop.freeze(EasyML::Support::UTC.parse("2024-02-02"))
 
       model.deploy(async: false)
       model_v1 = model.current_version
 
       def extract_timestamp(dir)
-        EasyML::Support::EST.parse(dir.gsub(/\D/, ""))
+        EasyML::Support::UTC.parse(dir.gsub(/\D/, ""))
       end
 
-      expect(extract_timestamp(model_v1.dataset.raw.dir)).to eq(EasyML::Support::EST.parse("2024-01-01"))
+      expect(extract_timestamp(model_v1.dataset.raw.dir)).to eq(EasyML::Support::UTC.parse("2024-01-01"))
       # Creates a new folder for the next dataset version
       expect(extract_timestamp(model_v1.dataset.raw.dir)).to be < extract_timestamp(model.dataset.raw.dir)
       expect(extract_timestamp(model_v1.dataset.processed.dir)).to be < extract_timestamp(model.dataset.processed.dir)
@@ -479,7 +479,7 @@ RSpec.describe EasyML::Deploy do
 
       mock_s3_upload
 
-      @time = EasyML::Support::EST.now
+      @time = EasyML::Support::UTC.now
       Timecop.freeze(@time)
 
       model.save

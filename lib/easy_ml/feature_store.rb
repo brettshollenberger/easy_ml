@@ -1,9 +1,10 @@
 module EasyML
   class FeatureStore < EasyML::Data::DatasetManager
-    attr_reader :feature
+    attr_reader :feature, :dataset
 
     def initialize(feature)
       @feature = feature
+      @dataset = feature&.dataset
 
       datasource_config = feature&.dataset&.datasource&.configuration
       if datasource_config
@@ -27,11 +28,11 @@ module EasyML
       files.any?
     end
 
-    def bump_version(version)
+    def bump_version(original_version, version)
       compact
       cp(
-        feature_dir_for_version(version),
-        feature_dir_for_version(version + 1),
+        feature_dir.gsub(version, original_version),
+        feature_dir,
       )
     end
 
@@ -41,19 +42,12 @@ module EasyML
       @batch_size ||= feature.batch_size || 10_000
     end
 
-    def feature_dir_for_version(version)
-      File.join(
-        Rails.root,
-        "easy_ml/datasets",
-        feature&.dataset&.name&.parameterize&.gsub("-", "_"),
-        "features",
-        feature&.name&.parameterize&.gsub("-", "_"),
-        version.to_s
-      )
-    end
-
     def feature_dir
-      feature_dir_for_version(feature.version)
+      File.join(
+        dataset.dir,
+        "features",
+        feature&.name&.parameterize&.gsub("-", "_")
+      )
     end
 
     def s3_prefix

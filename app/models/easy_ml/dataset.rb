@@ -114,6 +114,10 @@ module EasyML
       write_attribute(:root_dir, value)
     end
 
+    def dir
+      root_dir
+    end
+    
     def set_root_dir
       bump_version
       write_attribute(:root_dir, default_root_dir)
@@ -211,12 +215,13 @@ module EasyML
     end
 
     def bump_versions(version)
+      original_version = self.version
       self.version = version
 
-      @raw = raw.cp(version)
-      @processed = processed.cp(version)
+      @raw = raw.cp(dir.gsub(original_version, version))
+      @processed = processed.cp(dir.gsub(original_version, version))
       save.tap do
-        features.each(&:bump_version)
+        features.each { |feature| feature.bump_version(original_version, version) }
         EasyML::Feature.import(features.to_a, on_duplicate_key_update: [:version])
       end
     end
@@ -750,7 +755,7 @@ module EasyML
         split_type.new(**args)
       when EasyML::Data::Splits::FileSplit.to_s
         split_type.new(**args.merge(
-                         dir: Pathname.new(root_dir).append("files/splits/#{type}").to_s,
+                         dir: Pathname.new(root_dir).join("files/splits/#{type}").to_s,
                        ))
       end
     end

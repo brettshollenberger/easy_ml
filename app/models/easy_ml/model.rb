@@ -203,6 +203,7 @@ module EasyML
 
     def unlock!
       Support::Lockable.unlock!(lock_key)
+      EasyML::Deploy.new(model: self).unlock!
     end
 
     def lock_model
@@ -558,6 +559,7 @@ module EasyML
       dataset.upload_remote_files
       model_snapshot = snapshot
 
+      Thread.current[:deploying] = true
       # Prepare the model to be retrained (reset values so they don't conflict with our snapshotted version)
       bump_version(force: true)
       dataset.bump_versions(version)

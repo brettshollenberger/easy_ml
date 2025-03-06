@@ -433,9 +433,9 @@ module EasyML
       end
     end
 
-    def bump_version
-      feature_store.bump_version(version)
-      write_attribute(:version, version + 1)
+    def bump_version(original_version, version)
+      feature_store.bump_version(original_version, version)
+      write_attribute(:version, self.version + 1)
       self
     end
 

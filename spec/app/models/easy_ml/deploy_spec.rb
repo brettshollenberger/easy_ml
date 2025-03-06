@@ -51,34 +51,34 @@ RSpec.describe EasyML::Deploy do
       dataset.columns.find_by(name: target).update(is_target: true)
       dataset.columns.where(name: hidden_cols).update_all(hidden: true)
       dataset.columns.find_by(name: "SibSp").update(preprocessing_steps: {
-                                                      training: { method: :median },
-                                                    })
+                                                     training: { method: :median },
+                                                   })
       dataset.columns.find_by(name: "Parch").update(preprocessing_steps: {
-                                                      training: { method: :median },
-                                                    })
+                                                     training: { method: :median },
+                                                   })
       dataset.columns.find_by(name: "Sex").update(preprocessing_steps: {
-                                                    training: {
-                                                      method: :most_frequent,
-                                                      encoding: :one_hot,
-                                                      params: {
-                                                        categorical_min: 2,
-                                                      },
-                                                    },
-                                                  })
+                                                   training: {
+                                                     method: :most_frequent,
+                                                     encoding: :one_hot,
+                                                     params: {
+                                                       categorical_min: 2,
+                                                     },
+                                                   },
+                                                 })
       dataset.columns.find_by(name: "Embarked").update(preprocessing_steps: {
-                                                         training: {
-                                                           method: :most_frequent,
-                                                           encoding: :one_hot,
-                                                           params: {
-                                                             categorical_min: 2,
-                                                           },
-                                                         },
-                                                       })
+                                                        training: {
+                                                          method: :most_frequent,
+                                                          encoding: :one_hot,
+                                                          params: {
+                                                            categorical_min: 2,
+                                                          },
+                                                        },
+                                                      })
       dataset.columns.find_by(name: "Age").update(preprocessing_steps: {
-                                                    training: {
-                                                      method: :median,
-                                                    },
-                                                  })
+                                                   training: {
+                                                     method: :median,
+                                                   },
+                                                 })
       dataset.refresh
     end
   end
@@ -131,15 +131,97 @@ RSpec.describe EasyML::Deploy do
     @time += 1.second
   end
 
+  def relative_dir(dir)
+    dir.split(Rails.root.to_s).last
+  end
+
   describe "#deploy" do
-    it "uses deployed version for prediction" do
+    it "maintains dataset directory structure and versioning" do
+      @t1 = EasyML::Support::EST.parse("2025-01-01").beginning_of_day
+      Timecop.freeze(@t1)
+
       mock_s3_upload
+      model.save
       model.unlock!
 
+      @t2 = EasyML::Support::EST.parse("2025-01-02").beginning_of_day
+      Timecop.freeze(@t2)
+
+      model.train(async: false)
+      model.deploy(async: false)
+      model_v1 = model.current_version
+
+      # Verify initial dataset structure
+      expect(Dir.exist?(model_v1.dataset.raw.dir)).to be true
+      expect(relative_dir(model_v1.dataset.raw.dir)).to eq("/easy_ml/datasets/titanic_dataset/2025_01_01_00_00_00/files/splits/raw")
+
+      expect(Dir.exist?(File.join(model_v1.dataset.dir, "features"))).to be true
+
+      feature_files = model_v1.dataset.features.find_by(name: "Family Size").files
+      expect(feature_files.count).to be > 0
+      feature_files.each do |feature_file|
+        dir = File.dirname(feature_file)
+        expect(relative_dir(dir)).to eq("/easy_ml/datasets/titanic_dataset/2025_01_01_00_00_00/features/family_size/compacted")
+      end
+
+      # New dataset version has been shipped, so it doesn't conflict with the deployed version
+      expect(relative_dir(model.dataset.raw.dir)).to match(%r{/easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/files/splits/raw})
+      feature_files = model.dataset.features.find_by(name: "Family Size").files
+      expect(feature_files.count).to be > 0
+      feature_files.each do |feature_file|
+        dir = File.dirname(feature_file)
+        expect(relative_dir(dir)).to match(%r{/easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/features/family_size/compacted})
+      end
+
+      # Make changes that require a new version
+      model.dataset.columns.where(name: "Age").update_all(hidden: true)
+      model.dataset.refresh
+
+      @t3 = EasyML::Support::EST.parse("2025-01-03").beginning_of_day
+      Timecop.freeze(@t3)
+
+      model.train(async: false)
+      model.deploy(async: false)
+      model_v2 = model.current_version
+
+      # Verify new version structure
+      expect(Dir.exist?(model_v2.dataset.raw.dir)).to be true
+      expect(Dir.exist?(File.join(model_v2.dataset.dir, "features"))).to be true
+      expect(Dir.exist?(File.join(model_v2.dataset.dir, "features"))).to be true
+
+      # Verify old version files were copied to new version
+      old_files = Dir.glob(File.join(model_v1.dataset.raw.dir, "**/*")).select { |f| File.file?(f) }
+      new_files = Dir.glob(File.join(model_v2.dataset.raw.dir, "**/*")).select { |f| File.file?(f) }
+      expect(old_files.count).to be > 0
+      expect(new_files.count).to be >= old_files.count
+
+      # Test which files are queried
+      #
+      # When using original feature (from v1 model)
+      feature = model_v1.dataset.features.find_by(name: "Family Size")
+      file_pattern = %r{easy_ml/datasets/titanic_dataset/2025_01_01_00_00_\d{2}/features/family_size/compacted/feature.\d.parquet}
+      expect(Polars).to receive(:scan_parquet).with(file_pattern).at_least(:once)
+      feature.query(limit: 1)
+
+      feature_v2 = model_v2.dataset.features.find_by(name: "Family Size")
+      file_pattern_v2 = %r{easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/features/family_size/compacted/feature.\d.parquet}
+      expect(Polars).to receive(:scan_parquet).with(file_pattern_v2).at_least(:once)
+      feature_v2.query(limit: 1)
+
+      feature_v3 = model.dataset.features.find_by(name: "Family Size")
+      file_pattern_v3 = %r{easy_ml/datasets/titanic_dataset/2025_01_03_00_00_\d{2}/features/family_size/compacted/feature.\d.parquet}
+      expect(Polars).to receive(:scan_parquet).with(file_pattern_v3).at_least(:once)
+      feature_v3.query(limit: 1)
+
+      Timecop.return
+    end
+
+    it "uses deployed version for prediction" do
+      mock_s3_upload
       @time = EasyML::Support::EST.now
       Timecop.freeze(@time)
 
-      model.save
+      model.save!
       model.unlock!
       model.train(async: false)
       model.deploy(async: false)
@@ -293,7 +375,7 @@ RSpec.describe EasyML::Deploy do
 
       mock_s3_upload
 
-      @time = EasyML::Support::EST.parse("2024-01-01")
+      @time = EasyML::Support::EST.parse("2024-01-01").beginning_of_day
       Timecop.freeze(@time)
 
       model.save
@@ -305,7 +387,7 @@ RSpec.describe EasyML::Deploy do
       model_v1 = model.current_version
 
       def extract_timestamp(dir)
-        EasyML::Support::UTC.parse(dir.gsub(/\D/, "")).in_time_zone(EST)
+        EasyML::Support::EST.parse(dir.gsub(/\D/, ""))
       end
 
       expect(extract_timestamp(model_v1.dataset.raw.dir)).to eq(EasyML::Support::EST.parse("2024-01-01"))

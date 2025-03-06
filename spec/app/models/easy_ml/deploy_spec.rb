@@ -137,12 +137,16 @@ RSpec.describe EasyML::Deploy do
 
   describe "#deploy" do
     it "maintains dataset directory structure and versioning", :focus do
-      @time = EasyML::Support::EST.parse("2025-01-01").beginning_of_day
-      Timecop.freeze(@time)
+      @t1 = EasyML::Support::EST.parse("2025-01-01").beginning_of_day
+      Timecop.freeze(@t1)
 
       mock_s3_upload
       model.save
       model.unlock!
+
+      @t2 = EasyML::Support::EST.parse("2025-01-02").beginning_of_day
+      Timecop.freeze(@t2)
+
       model.train(async: false)
       model.deploy(async: false)
       model_v1 = model.current_version
@@ -160,8 +164,11 @@ RSpec.describe EasyML::Deploy do
         expect(relative_dir(dir)).to eq("/easy_ml/datasets/titanic_dataset/2025_01_01_00_00_00/features/family_size/compacted")
       end
 
-      # Verify feature directory is under dataset version
+      # New dataset version has been shipped, so it doesn't conflict with the deployed version
       binding.pry
+      expect(relative_dir(model.dataset.raw.dir)).to match(%r{/easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/files/splits/raw})
+
+      # Verify feature directory is under dataset version
       feature = model_v1.dataset.features.first
       feature_dir = feature.feature_store.feature_dir
       expect(feature_dir).to include(model_v1.dataset.version.to_s)
@@ -213,7 +220,6 @@ RSpec.describe EasyML::Deploy do
       Timecop.freeze(@time)
 
       model.save
-      model.unlock!
       model.train(async: false)
       model.deploy(async: false)
       model_v1 = model.current_version

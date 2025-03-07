@@ -18,6 +18,7 @@ module EasyML
     attributes :id,
                :prediction_type,
                :raw_input,
-               :normalized_input
+               :normalized_input,
+               :model_history_id
   end
 end

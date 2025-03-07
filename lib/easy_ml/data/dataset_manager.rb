@@ -125,6 +125,10 @@ module EasyML
         synced_directory.download
       end
 
+      def remote_files
+        synced_directory.remote_files
+      end
+
       private
 
       def root

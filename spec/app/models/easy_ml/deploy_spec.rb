@@ -164,6 +164,10 @@ RSpec.describe EasyML::Deploy do
         expect(relative_dir(dir)).to eq("/easy_ml/datasets/titanic_dataset/2025_01_01_00_00_00/features/family_size/compacted")
       end
 
+      # Verify model file structure
+      expect(model.model_file).to be_present
+      expect(relative_dir(File.dirname(model.model_file.full_path))).to eq("/easy_ml/models/my_model")
+
       # New dataset version has been shipped, so it doesn't conflict with the deployed version
       expect(relative_dir(model.dataset.raw.dir)).to match(%r{/easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/files/splits/raw})
       feature_files = model.dataset.features.find_by(name: "Family Size").files
@@ -189,11 +193,27 @@ RSpec.describe EasyML::Deploy do
       expect(Dir.exist?(File.join(model_v2.dataset.dir, "features"))).to be true
       expect(Dir.exist?(File.join(model_v2.dataset.dir, "features"))).to be true
 
+      # Verify model file structure for v2
+      expect(model.model_file).to be_present
+      expect(relative_dir(File.dirname(model.model_file.full_path))).to eq("/easy_ml/models/my_model")
+
       # Verify old version files were copied to new version
       old_files = Dir.glob(File.join(model_v1.dataset.raw.dir, "**/*")).select { |f| File.file?(f) }
       new_files = Dir.glob(File.join(model_v2.dataset.raw.dir, "**/*")).select { |f| File.file?(f) }
       expect(old_files.count).to be > 0
       expect(new_files.count).to be >= old_files.count
+
+      # Verify S3 upload locations
+      s3_model_file = model.model_file.synced_file
+      expect(s3_model_file.s3_prefix).to eq("easy_ml/models/my_model")
+      expect(s3_model_file.s3_key).to match(%r{easy_ml/models/my_model/2025_01_03_00_00_\d{2}\.json})
+
+      # Verify feature files S3 locations
+      v2_feature = model_v2.dataset.features.find_by(name: "Family Size")
+      v2_feature_store = v2_feature.feature_store
+
+      # Check that S3 paths are correct
+      expect(v2_feature_store.s3_prefix).to match(%r{easy_ml/datasets/titanic_dataset/2025_01_02_00_00_\d{2}/features/family_size/compacted})
 
       # Test which files are queried
       #

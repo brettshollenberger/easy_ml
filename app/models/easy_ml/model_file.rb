@@ -36,6 +36,10 @@ module EasyML
       )
     end
 
+    def s3_prefix
+      EasyML::Configuration.model_s3_path(model.name)
+    end
+
     def root_dir
       Pathname.new(model.root_dir)
     end

@@ -21,6 +21,16 @@ module EasyML
 
     validates :storage, inclusion: { in: %w[file s3] }, if: -> { storage.present? }
 
+    after_initialize :set_defaults, if: -> { new_record? }
+
+    def set_defaults
+      self.s3_prefix ||= "easy_ml"
+    end
+
+    def s3_prefix
+      read_attribute(:s3_prefix) || "easy_ml"
+    end
+
     TIMEZONES = [
       { value: "America/New_York", label: "Eastern Time" },
       { value: "America/Chicago", label: "Central Time" },

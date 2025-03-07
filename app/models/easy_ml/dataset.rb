@@ -667,8 +667,6 @@ module EasyML
     end
 
     def upload_remote_files
-      return if !needs_refresh?
-
       processed.upload.tap do
         features.each(&:upload_remote_files)
         features.each(&:save)

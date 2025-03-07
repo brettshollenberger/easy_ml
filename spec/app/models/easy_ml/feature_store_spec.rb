@@ -5,12 +5,6 @@ require "support/file_spec_helper"
 RSpec.describe EasyML::FeatureStore do
   include ModelSpecHelper
 
-  before(:all) do
-    unless Rails.application.initialized?
-      require_rails_files
-    end
-  end
-
   let(:datasource) do
     EasyML::Datasource.create!(
       name: "Test Source",
@@ -75,23 +69,17 @@ RSpec.describe EasyML::FeatureStore do
       let(:expected_paths) do
         [
           File.join(
-            Rails.root,
-            "easy_ml/datasets",
-            dataset.name.parameterize.gsub(/-/, "_"),
+            dataset.dir,
             "features",
             feature.name.parameterize.gsub(/-/, "_"),
-            feature.version.to_s,
-            1.to_s,
+            "1",
             "feature.1.parquet"
           ),
           File.join(
-            Rails.root,
-            "easy_ml/datasets",
-            dataset.name.parameterize.gsub(/-/, "_"),
+            dataset.dir,
             "features",
             feature.name.parameterize.gsub(/-/, "_"),
-            feature.version.to_s,
-            2.to_s,
+            "2",
             "feature.1.parquet"
           ),
         ]
@@ -135,12 +123,9 @@ RSpec.describe EasyML::FeatureStore do
 
       let(:expected_path) do
         File.join(
-          Rails.root,
-          "easy_ml/datasets",
-          dataset.name.parameterize.gsub(/-/, "_"),
+          dataset.dir,
           "features",
           simple_feature.name.parameterize.gsub(/-/, "_"),
-          simple_feature.version.to_s,
           "compacted.parquet"
         )
       end

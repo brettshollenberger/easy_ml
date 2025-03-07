@@ -36,6 +36,19 @@ module EasyML
       )
     end
 
+    # Expose S3 information for testing and verification
+    def s3_prefix
+      EasyML::Configuration.dataset_s3_path(
+        File.join(feature_dir.split("datasets").last, "compacted")
+      )
+    end
+
+    def s3_key(filename = nil)
+      filename ||= File.basename(files.first) if files.any?
+      return nil unless filename
+      File.join(s3_prefix, filename)
+    end
+
     private
 
     def batch_size
@@ -48,10 +61,6 @@ module EasyML
         "features",
         feature&.name&.parameterize&.gsub("-", "_")
       )
-    end
-
-    def s3_prefix
-      File.join("datasets", feature_dir.split("datasets").last)
     end
   end
 end

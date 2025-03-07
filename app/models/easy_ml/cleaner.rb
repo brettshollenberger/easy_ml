@@ -29,8 +29,6 @@ module EasyML
       end
     end
 
-    private
-
     def files_to_keep_for_dir(dir)
       files_to_keep.map(&:to_s).select { |f| f.start_with?(dir.to_s) }
     end
@@ -55,8 +53,12 @@ module EasyML
         end
     end
 
+    def test_mode?
+      Rails.env.test?
+    end
+
     def model_files_to_keep
-      if Rails.env.test?
+      if test_mode?
         []
       else
         active_models.map(&:model_file).compact.map(&:full_path).uniq
@@ -64,15 +66,15 @@ module EasyML
     end
 
     def dataset_files_to_keep
-      if Rails.env.test?
+      if test_mode?
         []
       else
-        EasyML::Dataset.all.flat_map(&:files).uniq
+        EasyML::Dataset.all.flat_map(&:files).uniq + active_models.map(&:dataset).flat_map(&:files).uniq
       end
     end
 
     def datasource_files_to_keep
-      if Rails.env.test?
+      if test_mode?
         Dir.glob(EasyML::Engine.root_dir.glob("datasources/**/*.{csv,parquet}")).uniq
       else
         EasyML::Datasource.all.flat_map(&:files).uniq

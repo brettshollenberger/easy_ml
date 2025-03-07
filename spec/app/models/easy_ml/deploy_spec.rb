@@ -236,6 +236,55 @@ RSpec.describe EasyML::Deploy do
       Timecop.return
     end
 
+    it "does not clean up active datasets/models after deploy" do
+      @t1 = EasyML::Support::UTC.parse("2025-01-01").beginning_of_day
+      Timecop.freeze(@t1)
+
+      mock_s3_upload
+      model.save
+      model.unlock!
+
+      @t2 = EasyML::Support::UTC.parse("2025-01-02").beginning_of_day
+      Timecop.freeze(@t2)
+
+      model.train(async: false)
+      model.deploy(async: false)
+      model_v1 = model.current_version
+      dataset_v1 = model_v1.dataset
+
+      model.dataset.columns.where(name: "Age").update_all(hidden: true)
+      model.dataset.refresh
+
+      @t3 = EasyML::Support::UTC.parse("2025-01-03").beginning_of_day
+      Timecop.freeze(@t3)
+
+      model.train(async: false)
+      model.deploy(async: false)
+      model_v2 = model.current_version
+      dataset_v2 = model_v2.dataset
+
+      cleaner = EasyML::Cleaner.new
+      allow(cleaner).to receive(:test_mode?).and_return(false)
+
+      expect(cleaner.active_models).to include(model_v2)
+      expect(cleaner.active_models).to include(model)
+      expect(cleaner.active_models).to_not include(model_v1)
+
+      expect(cleaner.model_files_to_keep).to include(model_v2.model_file.full_path)
+      expect(cleaner.model_files_to_keep).to include(model.model_file.full_path)
+      expect(cleaner.model_files_to_keep).to_not include(model_v1.model_file.full_path)
+
+      dataset_v2.files.each do |file|
+        expect(cleaner.dataset_files_to_keep).to include(file)
+      end
+      dataset.files.each do |file|
+        expect(cleaner.dataset_files_to_keep).to include(file)
+      end
+      dataset_v1.files.each do |file|
+        expect(cleaner.dataset_files_to_keep).to_not include(file)
+      end
+    end
+
     it "uses deployed version for prediction" do
       mock_s3_upload
       @time = EasyML::Support::UTC.now

@@ -7,7 +7,7 @@ module EasyML
       attr_accessor :root_dir, :partition, :append_only, :filenames, :primary_key,
                     :partition_size, :s3_bucket, :s3_prefix, :s3_access_key_id,
                     :s3_secret_access_key, :polars_args, :source_of_truth,
-                    :options
+                    :options, :use_delta
 
       def initialize(options = {})
         @root_dir = options.dig(:root_dir)
@@ -20,6 +20,7 @@ module EasyML
         @s3_prefix = options.dig(:s3_prefix) || nil
         @s3_access_key_id = options.dig(:s3_access_key_id) || EasyML::Configuration.s3_access_key_id
         @s3_secret_access_key = options.dig(:s3_secret_access_key) || EasyML::Configuration.s3_secret_access_key
+        @use_delta = options.dig(:use_delta) || false
         @polars_args = options.dig(:polars_args) || {}
         @source_of_truth = options.dig(:source_of_truth) || :local
         @options = options

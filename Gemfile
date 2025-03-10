@@ -31,6 +31,7 @@ gem "ruby-openai"
 gem "rumale"
 gem "vite_rails"
 gem "uri", "~> 1.0.3"
+gem "deltalake-rb"
 
 group :development, :test do
   gem "combustion"

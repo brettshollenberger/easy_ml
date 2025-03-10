@@ -16,6 +16,7 @@ module EasyML
         array: Polars::List,
       }
       POLARS_MAP = {
+        Polars::Decimal => :float,
         Polars::Float64 => :float,
         Polars::Int64 => :integer,
         Polars::Float32 => :float,

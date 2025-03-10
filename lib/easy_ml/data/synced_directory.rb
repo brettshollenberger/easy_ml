@@ -126,7 +126,7 @@ module EasyML
         )
 
         Rails.logger.info("Downloaded #{object.key} to #{local_file_path}")
-        if object.key.end_with?(".gz")
+        if object.key.end_with?(".gz") && !object.key.end_with?(".parquet.gz")
           ungzipped_file_path = ungzip_file(local_file_path)
           Rails.logger.info("Ungzipped to #{ungzipped_file_path}")
         end
@@ -284,48 +284,61 @@ module EasyML
         relative_path = Pathname.new(file_path).relative_path_from(Pathname.new(root_dir)).to_s
         s3_key = s3_prefix.present? ? File.join(s3_prefix, File.basename(relative_path)) : relative_path
 
-        # Create a temporary gzipped version of the file
-        gzipped_file_path = "#{file_path}.gz"
-
         begin
-          Rails.logger.info("Compressing and uploading #{file_path} to s3://#{s3_bucket}/#{s3_key}")
+          Rails.logger.info("Uploading #{file_path} to s3://#{s3_bucket}/#{s3_key}")
 
-          # Compress the file
-          Zlib::GzipWriter.open(gzipped_file_path) do |gz|
+          if file_path.end_with?(".parquet")
+            # Upload parquet files directly without compression
             File.open(file_path, "rb") do |file|
-              gz.write(file.read)
+              s3.put_object(
+                bucket: s3_bucket,
+                key: s3_key,
+                body: file
+              )
             end
-          end
+            Rails.logger.info("Successfully uploaded #{file_path} to s3://#{s3_bucket}/#{s3_key}")
+          else
+            # Create a temporary gzipped version of the file
+            gzipped_file_path = "#{file_path}.gz"
 
-          # Upload the gzipped file
-          File.open(gzipped_file_path, "rb") do |file|
-            s3.put_object(
-              bucket: s3_bucket,
-              key: "#{s3_key}.gz",
-              body: file,
-              content_encoding: "gzip",
-            )
-          end
+            # Compress the file
+            Zlib::GzipWriter.open(gzipped_file_path) do |gz|
+              File.open(file_path, "rb") do |file|
+                gz.write(file.read)
+              end
+            end
 
-          Rails.logger.info("Successfully uploaded #{file_path} to s3://#{s3_bucket}/#{s3_key}.gz")
+            # Upload the gzipped file
+            File.open(gzipped_file_path, "rb") do |file|
+              s3.put_object(
+                bucket: s3_bucket,
+                key: "#{s3_key}.gz",
+                body: file,
+                content_encoding: "gzip",
+              )
+            end
+
+            Rails.logger.info("Successfully uploaded #{file_path} to s3://#{s3_bucket}/#{s3_key}.gz")
+
+            # Clean up temporary gzipped file
+            File.delete(gzipped_file_path) if File.exist?(gzipped_file_path)
+          end
         rescue Aws::S3::Errors::ServiceError, StandardError => e
           Rails.logger.error("Failed to upload #{file_path}: #{e.message}")
           raise e
-        ensure
-          # Clean up temporary gzipped file
-          File.delete(gzipped_file_path) if File.exist?(gzipped_file_path)
         end
       end
 
       def should_upload?(file_path)
         relative_path = Pathname.new(file_path).relative_path_from(Pathname.new(root_dir)).to_s
         s3_key = s3_prefix.present? ? File.join(s3_prefix, relative_path) : relative_path
+        s3_key = "#{s3_key}.gz" unless file_path.end_with?(".parquet")
 
         begin
           # Check if file exists in S3
           response = s3.head_object(
             bucket: s3_bucket,
-            key: "#{s3_key}.gz",
+            key: s3_key,
           )
 
           # Compare modification times

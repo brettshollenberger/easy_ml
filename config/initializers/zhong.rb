@@ -8,6 +8,12 @@ if %w[zhong:start].include?(ARGV.first)
       EasyML::CleanJob.perform_later
     end
 
+    every 1.day, "refresh datasets" do
+      EasyML::Dataset.all.each do |dataset|
+        dataset.refresh_async
+      end
+    end
+
     every 1.hour, "schedule retraining" do
       EasyML::ScheduleRetrainingJob.perform_later
     end

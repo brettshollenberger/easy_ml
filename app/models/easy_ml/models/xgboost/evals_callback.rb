@@ -40,6 +40,7 @@ module EasyML
           end
         end
 
+        # STOP CHECKING S3 IN BETWEEN ITERATIONS... FIND WHERE REFRESH IS GETTING CALLED
         def after_iteration(booster, epoch, history)
           return false unless wandb_enabled?
 

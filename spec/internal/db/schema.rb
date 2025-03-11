@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2025_03_06_235554) do
+ActiveRecord::Schema[7.2].define(version: 2025_03_11_201825) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -135,6 +135,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_03_06_235554) do
     t.string "snapshot_id"
     t.string "last_datasource_sha"
     t.jsonb "raw_schema"
+    t.string "view_class"
     t.index ["created_at"], name: "index_easy_ml_dataset_histories_on_created_at"
     t.index ["dataset_id"], name: "index_easy_ml_dataset_histories_on_dataset_id"
     t.index ["dataset_type"], name: "index_easy_ml_dataset_histories_on_dataset_type"
@@ -149,6 +150,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_03_06_235554) do
     t.index ["refreshed_at"], name: "index_easy_ml_dataset_histories_on_refreshed_at"
     t.index ["snapshot_id"], name: "index_easy_ml_dataset_histories_on_snapshot_id"
     t.index ["status"], name: "index_easy_ml_dataset_histories_on_status"
+    t.index ["view_class"], name: "index_easy_ml_dataset_histories_on_view_class"
     t.index ["workflow_status"], name: "index_easy_ml_dataset_histories_on_workflow_status"
   end
 
@@ -170,6 +172,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_03_06_235554) do
     t.datetime "updated_at", null: false
     t.string "last_datasource_sha"
     t.jsonb "raw_schema"
+    t.string "view_class"
     t.index ["created_at"], name: "index_easy_ml_datasets_on_created_at"
     t.index ["dataset_type"], name: "index_easy_ml_datasets_on_dataset_type"
     t.index ["datasource_id"], name: "index_easy_ml_datasets_on_datasource_id"
@@ -179,6 +182,7 @@ ActiveRecord::Schema[7.2].define(version: 2025_03_06_235554) do
     t.index ["raw_schema"], name: "index_easy_ml_datasets_on_raw_schema"
     t.index ["refreshed_at"], name: "index_easy_ml_datasets_on_refreshed_at"
     t.index ["status"], name: "index_easy_ml_datasets_on_status"
+    t.index ["view_class"], name: "index_easy_ml_datasets_on_view_class"
     t.index ["workflow_status"], name: "index_easy_ml_datasets_on_workflow_status"
   end
 

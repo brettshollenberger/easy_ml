@@ -20,6 +20,7 @@
 #  updated_at          :datetime         not null
 #  last_datasource_sha :string
 #  raw_schema          :jsonb
+#  view_class          :string
 #
 module EasyML
   class Dataset < ActiveRecord::Base
@@ -64,6 +65,7 @@ module EasyML
                                   reject_if: :all_blank
 
     validates :datasource, presence: true
+    validate :view_class_exists, if: -> { view_class.present? }
 
     add_configuration_attributes :remote_files
 
@@ -148,7 +150,7 @@ module EasyML
       return @schema if @schema
       return read_attribute(:schema) if @serializing
 
-      schema = read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
+      schema = read_attribute(:schema) || materialized_view&.schema || datasource.schema || datasource.after_sync.schema
       schema = set_schema(schema)
       @schema = EasyML::Data::PolarsSchema.deserialize(schema)
     end
@@ -157,7 +159,7 @@ module EasyML
       return @raw_schema if @raw_schema
       return read_attribute(:raw_schema) if @serializing
 
-      raw_schema = read_attribute(:raw_schema) || datasource.schema || datasource.after_sync.schema
+      raw_schema = read_attribute(:raw_schema) || materialized_view&.schema || datasource.schema || datasource.after_sync.schema
       raw_schema = set_raw_schema(raw_schema)
       @raw_schema = EasyML::Data::PolarsSchema.deserialize(raw_schema)
     end
@@ -178,7 +180,12 @@ module EasyML
       if datasource&.num_rows.nil?
         datasource.after_sync
       end
-      datasource&.num_rows
+
+      if materialized_view.present?
+        materialized_view.shape[0]
+      else
+        datasource&.num_rows
+      end
     end
 
     def abort!
@@ -234,10 +241,42 @@ module EasyML
       features.update_all(workflow_status: "ready")
     end
 
+    def view_class_exists
+      begin
+        view_class.constantize
+      rescue NameError
+        errors.add(:view_class, "must be a valid class name")
+      end
+    end
+
+    def materialized_view
+      materialize_view
+    end
+
+    def materialize_view
+      return @materialized_view if @materialized_view
+
+      original_df = datasource.data
+      if view_class.nil?
+        @materialized_view = original_df
+        return @materialized_view
+      end
+
+      view_instance = view_class.constantize.new
+      begin
+        filtered_df = view_instance.view(original_df)
+        @materialized_view = filtered_df
+      rescue => e
+        errors.add(:view_class, "view method raised an error: #{e.message}")
+        raise e
+      end
+    end
+
     def prepare!
       prepare_features
       cleanup
       refresh_datasource!
+      materialize_view
       split_data
       fit
     end
@@ -245,6 +284,7 @@ module EasyML
     def prepare
       prepare_features
       refresh_datasource
+      materialize_view
       split_data
       fit
     end
@@ -764,11 +804,13 @@ module EasyML
 
     def refresh_datasource
       datasource.reload.refresh
+      materialize_view if view_class.present?
       after_refresh_datasource
     end
 
     def refresh_datasource!
       datasource.reload.refresh!
+      materialize_view if view_class.present?
       after_refresh_datasource
     end
 
@@ -798,7 +840,8 @@ module EasyML
       df = df.clone
       df = apply_features(df)
       processed.save(:train, df)
-      learn_statistics(type: :processed)
+      learn(delete: false)
+      learn_statistics(type: :processed, computed: true)
       processed.cleanup
     end
 
@@ -836,7 +879,7 @@ module EasyML
       return unless force || needs_refresh?
 
       cleanup
-      splitter.split(datasource) do |train_df, valid_df, test_df|
+      splitter.split(materialized_view) do |train_df, valid_df, test_df|
         [:train, :valid, :test].zip([train_df, valid_df, test_df]).each do |segment, df|
           raw.save(segment, df)
         end

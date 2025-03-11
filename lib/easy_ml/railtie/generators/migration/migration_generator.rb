@@ -60,6 +60,7 @@ module EasyML
             add_workflow_status_to_easy_ml_dataset_histories
             add_metadata_to_easy_ml_predictions
             add_unique_constraint_to_dataset_names
+            add_view_class_to_easy_ml_datasets
           ].freeze
 
           # Specify the next migration number

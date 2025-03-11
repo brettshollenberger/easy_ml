@@ -6,11 +6,9 @@ module EasyML
 
       attr_reader :splitter
 
-      def split(datasource, &block)
-        datasource.in_batches do |df|
-          split_df(df).tap do |splits|
-            yield splits if block_given?
-          end
+      def split(df, &block)
+        split_df(df).tap do |splits|
+          yield splits if block_given?
         end
       end
 

@@ -1,12 +1,11 @@
-import type { ColumnType } from '../../../types/datasource';
+import type { Constants } from '../../../types/datasource';
 import type { Datasource } from '../types/datasource';
 
 export type NewDatasetFormProps = {
     datasources: Datasource[];
-    constants: {
-        columns: ColumnType[];
-    };
+    constants: Constants;
 }
+
 export type SplitterType = 
   | 'date'
   | 'random'

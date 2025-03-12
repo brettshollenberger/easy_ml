@@ -87,6 +87,10 @@ module EasyML
         feature_options: EasyML::Features::Registry.list_flat,
         splitter_constants: EasyML::Splitter.constants,
         embedding_constants: EasyML::Data::Embeddings::Embedder.constants,
+        available_views: Rails.root.join("app/datasets").glob("*.rb").map { |f| 
+          name = f.basename(".rb").to_s.camelize
+          { value: name, label: name.titleize }
+        }
       }
     end
 

@@ -190,6 +190,7 @@ module EasyML
         :description,
         :datasource_id,
         :target,
+        :view_class,
         drop_cols: [],
         splitter_attributes: %i[
           splitter_type

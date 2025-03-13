@@ -253,26 +253,18 @@ module EasyML
       end
     end
 
-    def materialized_view
-      materialize_view
+    def materialize_view(df)
+      df
     end
 
-    def materialize_view
+    def materialized_view
       return @materialized_view if @materialized_view
 
       original_df = datasource.data
-      if view_class.nil?
-        @materialized_view = original_df
-        return @materialized_view
-      end
-
-      view_instance = view_class.constantize.new
-      begin
-        filtered_df = view_instance.view(original_df)
-        @materialized_view = filtered_df
-      rescue => e
-        errors.add(:view_class, "view method raised an error: #{e.message}")
-        raise e
+      if view_class.present?
+        @materialized_view = view_class.constantize.new.materialize_view(original_df)
+      else
+        @materialized_view = materialize_view(original_df)
       end
     end
 
@@ -280,7 +272,6 @@ module EasyML
       prepare_features
       cleanup
       refresh_datasource!
-      materialize_view
       split_data
       fit
     end
@@ -288,7 +279,6 @@ module EasyML
     def prepare
       prepare_features
       refresh_datasource
-      materialize_view
       split_data
       fit
     end
@@ -467,6 +457,7 @@ module EasyML
     end
 
     def needs_learn?
+      return true if view_class.present?
       return true if columns_need_refresh?
 
       never_learned = columns.none?
@@ -515,6 +506,7 @@ module EasyML
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_missing_columns(df, inference: inference)
       df = transform_columns(df, inference: inference, encode: false)
+      df = apply_cast(df)
       df = apply_features(df, features, inference: inference)
       df = apply_cast(df) if inference
       df = transform_columns(df, inference: inference)
@@ -808,13 +800,11 @@ module EasyML
 
     def refresh_datasource
       datasource.reload.refresh
-      materialize_view if view_class.present?
       after_refresh_datasource
     end
 
     def refresh_datasource!
       datasource.reload.refresh!
-      materialize_view if view_class.present?
       after_refresh_datasource
     end
 

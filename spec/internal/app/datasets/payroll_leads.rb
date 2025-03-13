@@ -1,5 +1,5 @@
 class PayrollLeads < EasyML::Dataset
-  def view(df)
+  def materialize_view(df)
     df.filter(
       Polars.col("loan_purpose").eq("payroll")
     )

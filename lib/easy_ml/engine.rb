@@ -123,6 +123,10 @@ module EasyML
       end
     end
 
+    config.after_initialize do
+      Dir.glob(Rails.root.join("app/datasets/**/*.rb")).each { |f| require f }
+    end
+
     if ENV["EASY_ML_DEV"]
       require "vite_ruby"
       require "vite_rails"

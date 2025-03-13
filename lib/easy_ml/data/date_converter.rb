@@ -20,6 +20,11 @@ module EasyML
       ].freeze
 
       def self.maybe_convert_date(df, column = nil)
+        column = column.to_s if column.present?
+        if df.is_a?(Polars::Series)
+          column = "temp" if column.nil?
+          df = Polars::DataFrame.new({ column.to_s => df })
+        end
         return df unless df.columns.include?(column)
         return df if df[column].dtype.is_a?(Polars::Datetime)
 
@@ -45,7 +50,7 @@ module EasyML
 
       def self.conversion(key)
         key, ruby_type = key.split("convert_").last.split("_to_")
-        Polars.col(key).cast(Polars::String).str.strptime(Polars::Datetime, ruby_type, strict: false).alias(key)
+        Polars.col(key).cast(Polars::String).str.strptime(Polars::Datetime, ruby_type, strict: false).cast(Polars::Datetime).alias(key)
       end
     end
   end

@@ -28,7 +28,7 @@ module EasyML
 
     def prediction
       prediction_value["value"]
-    end
+e   end
 
     def probabilities
       metadata["probabilities"]

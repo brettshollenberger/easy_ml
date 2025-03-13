@@ -71,6 +71,7 @@ module EasyML
     scope :has_clip, -> { where("preprocessing_steps->'training'->>'params' IS NOT NULL AND preprocessing_steps->'training'->'params' @> jsonb_build_object('clip', jsonb_build_object())") }
     scope :needs_learn, -> {
             datasource_changed
+              .or(is_view)
               .or(feature_applied)
               .or(feature_changed)
               .or(column_changed)
@@ -88,6 +89,13 @@ module EasyML
               )
           }
 
+    scope :is_view, -> { 
+      left_joins(dataset: :datasource)
+          .left_joins(:feature)
+          .where(
+            Dataset.arel_table[:view_class].not_eq(nil)
+          )
+    }
     scope :feature_changed, -> {
             where(feature_id: Feature.has_changes.map(&:id))
           }

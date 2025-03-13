@@ -320,7 +320,10 @@ module EasyML
         raise "Cannot predict on nil — XGBoost" if xs.nil?
 
         begin
+          @predicting = true
           y_pred = yield(preprocess(xs))
+          @predicting = false
+          y_pred
         rescue StandardError => e
           raise e unless e.message.match?(/Number of columns does not match/)
 
@@ -499,8 +502,10 @@ module EasyML
         feature_cols = exploded.columns
         features = lazy ? exploded.collect.to_numo : exploded.to_numo
 
-        weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
-        weights = weights.flatten if weights
+        unless @predicting
+          weights = weights_col ? (lazy ? xs.select(weights_col).collect.to_numo : xs.select(weights_col).to_numo) : nil
+          weights = weights.flatten if weights
+        end
         if ys.present?
           ys = ys.is_a?(Array) ? Polars::Series.new(ys) : ys
           labels = lazy ? ys.collect.to_numo.flatten : ys.to_numo.flatten

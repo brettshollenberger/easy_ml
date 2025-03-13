@@ -262,7 +262,7 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
                 onChange={(value) => setData('dataset.view_class', value)}
                 options={constants.available_views}
                 className="mt-1"
-                placeholder="Select a view class..."
+                placeholder="Select a view class (optional)..."
               />
             </div>
 

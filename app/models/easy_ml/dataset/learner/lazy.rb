@@ -22,9 +22,22 @@ module EasyML
         def run_queries(split, type)
           queries = build_queries(split, type)
 
-          dataset.columns.apply_clip(
-            @dataset.send(type).send(split, all_columns: true, lazy: true)
-          ).select(queries).collect
+          begin
+            dataset.columns.apply_clip(
+              @dataset.send(type).send(split, all_columns: true, lazy: true)
+            )
+            .select(queries).collect
+          rescue => e
+            problematic_query = queries.detect { 
+              begin
+                dataset.send(type).send(split, all_columns: true, lazy: true).select(queries).collect
+                false
+              rescue => e
+                true
+              end
+            }
+            raise "Query failed for column #{problematic_query}, likely wrong datatype"
+          end
         end
 
         def get_column_statistics(query_results)

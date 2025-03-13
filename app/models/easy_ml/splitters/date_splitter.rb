@@ -41,9 +41,10 @@ module EasyML
 
         validation_date_start, test_date_start = splits
 
+        dtype = df[date_col].dtype
         test_df = Polars.concat(
           [
-            df.filter(Polars.col(date_col) >= test_date_start),
+            df.filter(Polars.col(date_col).ge(Polars.lit(test_date_start).cast(dtype))),
             df.filter(Polars.col(date_col).is_null),
           ]
         )

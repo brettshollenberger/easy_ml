@@ -6,14 +6,12 @@ module EasyML
 
       attr_reader :splitter
 
-      def split(df, &block)
-        split_df(df).tap do |splits|
-          yield splits if block_given?
-        end
-      end
-
       def split_df(df)
         df
+      end
+
+      def split(dataset)
+        split_df(dataset.materialized_view)
       end
 
       def initialize(splitter)

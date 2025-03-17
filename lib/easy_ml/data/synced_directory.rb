@@ -50,6 +50,7 @@ module EasyML
       def sync(force: false, parallel: false)
         return false unless should_sync?(force)
 
+        clean
         files = files_to_sync
 
         if parallel

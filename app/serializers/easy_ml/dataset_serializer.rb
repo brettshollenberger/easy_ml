@@ -69,7 +69,7 @@ module EasyML
       if dataset.workflow_status.to_sym == :analyzing
         nil
       else
-        dataset.data(limit: 10, all_columns: true, refresh: false)&.to_hashes || dataset.raw.data(limit: 10, all_columns: true).to_hashes
+        dataset.data(limit: 10, all_columns: true, refresh: false)&.to_hashes || dataset.raw.data(limit: 10, all_columns: true)&.to_hashes
       end
     end
 

@@ -40,7 +40,7 @@ module EasyML
       end
 
       def clean
-        FileUtils.rm(parquet_files) unless Rails.env.test?
+        FileUtils.rm(all_files) unless Rails.env.test?
       end
 
       def in_batches

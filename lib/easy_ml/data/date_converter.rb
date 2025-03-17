@@ -44,7 +44,14 @@ module EasyML
 
       def self.queries(column)
         COMMON_DATE_FORMATS.map do |format|
-          Polars.col(column).cast(Polars::String).str.strptime(Polars::Datetime, format, strict: false).is_not_null().all().alias("convert_#{column}_to_#{format}")
+          Polars.col(column)
+                .cast(Polars::String)
+                .str.strptime(Polars::Datetime, format, strict: false)
+                .is_not_null()
+                .sum()
+                .eq(
+                  Polars.col(column).is_not_null().sum()
+                ).alias("convert_#{column}_to_#{format}")
         end
       end
 

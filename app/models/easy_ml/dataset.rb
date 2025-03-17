@@ -873,11 +873,12 @@ module EasyML
       return unless force || needs_refresh?
 
       cleanup
-      splitter.split(self) do |train_df, valid_df, test_df|
-        [:train, :valid, :test].zip([train_df, valid_df, test_df]).each do |segment, df|
-          raw.save(segment, df)
-        end
-      end
+
+      train_df, valid_df, test_df = splitter.split(self)
+      raw.save(:train, train_df)
+      raw.save(:valid, valid_df)
+      raw.save(:test, test_df)
+
       raw_schema # Set if not already set
     end
 

@@ -30,8 +30,7 @@ module EasyML
         }
       end
 
-      def split_df(dataset)
-        df = dataset.materialized_view
+      def split_df(df)
         raise "Split by date requires argument: date_col" unless date_col.present?
 
         df = EasyML::Data::DateConverter.maybe_convert_date(df, date_col)

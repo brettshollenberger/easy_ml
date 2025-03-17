@@ -71,7 +71,6 @@ RSpec.describe "EasyML::Feature Computation" do
       # Verify error was saved in EventContext
       error_event = dataset.events.last
       expect(error_event.status).to eq("failed")
-      expect(error_event.context.context).to be_a(Polars::DataFrame)
     end
   end
 

@@ -12,53 +12,56 @@ RSpec.describe EasyML::Datasource do
 
   describe "S3 Datasource" do
     it "saves and loads the s3 datasource" do
-      file_spec do |_, csv_file, _|
-        EasyML::Configuration.configure do |config|
-          config.s3_access_key_id = "12345"
-        end
-
-        mock_s3_download(single_file_dir)
-        s3_datasource = EasyML::Datasource.create!(
-          name: "s3 Datasource",
-          datasource_type: "s3",
-          s3_bucket: "bucket",
-          s3_prefix: "raw",
-        )
-
-        datasource = EasyML::Datasource.find(s3_datasource.id)
-        expect(datasource.s3_bucket).to eq "bucket"
-
-        correct_file = Polars.read_csv(csv_file)
-        correct_file = EasyML::Data::DateConverter.maybe_convert_date(correct_file, "created_date")
-        correct_file = correct_file.with_columns(
-          Polars.col("loan_purpose").cast(Polars::Categorical),
-          Polars.col("state").cast(Polars::Categorical)
-        )
-        datasource.clean
-        datasource.refresh!
-
-        expect(datasource.data).to eq(correct_file)
-        expect(datasource.s3_access_key_id).to eq "12345"
-        expect(datasource.configuration.keys).to include "s3_bucket"
-        expect(datasource.configuration.keys).to_not include "s3_access_key_id"
-        expect(datasource.configuration.keys).to_not include "s3_secret_access_key"
+      EasyML::Configuration.configure do |config|
+        config.s3_access_key_id = "12345"
       end
+
+      mock_s3_download(s3_dir(single_file_dir, ".csv"))
+      s3_datasource = EasyML::Datasource.create!(
+        name: "s3 Datasource",
+        datasource_type: "s3",
+        s3_bucket: "bucket",
+        s3_prefix: "raw",
+      )
+
+      datasource = EasyML::Datasource.find(s3_datasource.id)
+      expect(datasource.s3_bucket).to eq "bucket"
+
+      file = Dir.glob(File.join(s3_dir(single_file_dir, ".csv"), "**/*.csv")).first
+      correct_file = Polars.read_csv(file)
+      correct_file = EasyML::Data::DateConverter.maybe_convert_date(correct_file, "created_date")
+      correct_file = correct_file.with_columns(
+        Polars.col("loan_purpose").cast(Polars::Categorical),
+        Polars.col("state").cast(Polars::Categorical)
+      )
+      datasource.clean
+      datasource.refresh!
+
+      expect(datasource.data).to eq(correct_file)
+      expect(datasource.s3_access_key_id).to eq "12345"
+      expect(datasource.configuration.keys).to include "s3_bucket"
+      expect(datasource.configuration.keys).to_not include "s3_access_key_id"
+      expect(datasource.configuration.keys).to_not include "s3_secret_access_key"
     end
 
     it "refreshes synchronously" do
-      mock_s3_download(multi_file_dir)
+      mock_s3_download(s3_dir(multi_file_dir, ".csv"))
+
       s3_datasource = EasyML::Datasource.create!(
         name: "Multi File",
         datasource_type: "s3",
         s3_bucket: "bucket",
       )
+
+      # Actually allow cleaning
       allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
-      expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 2
+      expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 0
       expect(Dir.glob(multi_file_dir.join("*.parquet")).count).to eq 0
-      expect(s3_datasource.data.count).to eq 16
+      expect(s3_datasource.data.count).to eq 0
       allow(Rails.env).to receive(:test?).and_return(true)
 
+      # Then re-download from "remote"
       s3_datasource.refresh
       expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 2
       expect(Dir.glob(multi_file_dir.join("*.parquet")).count).to eq 2
@@ -66,7 +69,7 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "automatically sets schema, raw schema, and column dtypes" do
-      mock_s3_download(multi_file_dir)
+      mock_s3_download(s3_dir(multi_file_dir, ".csv"))
 
       s3_datasource = EasyML::Datasource.create!(
         name: "Multi File",
@@ -116,7 +119,7 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "refreshes asynchronously" do
-      mock_s3_download(multi_file_dir)
+      mock_s3_download(s3_dir(multi_file_dir, ".csv"))
       s3_datasource = EasyML::Datasource.create!(
         name: "Multi File",
         datasource_type: "s3",
@@ -124,7 +127,7 @@ RSpec.describe EasyML::Datasource do
       )
       allow(Rails.env).to receive(:test?).and_return(false)
       s3_datasource.clean
-      expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 2
+      expect(Dir.glob(multi_file_dir.join("*.csv")).count).to eq 0
       expect(Dir.glob(multi_file_dir.join("*.parquet")).count).to eq 0
       allow(Rails.env).to receive(:test?).and_return(true)
 

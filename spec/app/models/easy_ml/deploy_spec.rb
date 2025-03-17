@@ -265,6 +265,9 @@ RSpec.describe EasyML::Deploy do
 
       cleaner = EasyML::Cleaner.new
       allow(cleaner).to receive(:test_mode?).and_return(false)
+      allow(cleaner).to receive(:datasource_files_to_keep).and_return(
+        Dir.glob(EasyML::Engine.root_dir.glob("datasources/**/*.{csv,parquet}")).uniq
+      )
 
       expect(cleaner.active_models).to include(model_v2)
       expect(cleaner.active_models).to include(model)
@@ -283,6 +286,7 @@ RSpec.describe EasyML::Deploy do
       dataset_v1.files.each do |file|
         expect(cleaner.dataset_files_to_keep).to_not include(file)
       end
+      allow(cleaner).to receive(:test_mode?).and_call_original
     end
 
     it "uses deployed version for prediction" do

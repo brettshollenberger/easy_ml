@@ -46,6 +46,8 @@ module EasyML
         end
 
         def param_applies?
+          return false unless params.present?
+
           params.keys.any? { |p| imputers_own_params.include?(p.to_sym) && params[p] != false }
         end
 
@@ -60,7 +62,7 @@ module EasyML
         end
 
         def imputers_own_params
-          Imputers.params_by_class[self.class] || []
+          Imputers.params_by_class[self.class] || {}
         end
 
         def imputers_own_encodings

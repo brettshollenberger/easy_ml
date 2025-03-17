@@ -15,13 +15,18 @@ module EasyML
         }
       end
 
-      def split(datasource, &block)
+      def split(dataset, &block)
         validate!
 
-        files = datasource.all_files
+        files = dataset.datasource.all_files
         train, valid, test = match_files(files)
 
-        yield [reader.query(train), reader.query(valid), reader.query(test)]
+        values = [reader.query(train), reader.query(valid), reader.query(test)]
+        if block_given?
+          yield values
+        else
+          values
+        end
       end
 
       def match_files(files)

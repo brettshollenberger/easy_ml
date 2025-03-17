@@ -319,7 +319,10 @@ module EasyML
       def learn_dataset
         return schema if schema.present?
 
-        existing_schema = existing_parquet_schema
+        if parquet_files.present?
+          EasyML::Data::DatasetManager.normalize_schema(parquet_files)
+          existing_schema = existing_parquet_schema
+        end
         schema = existing_schema || normalize_dataset
 
         self.schema = schema

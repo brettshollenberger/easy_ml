@@ -3,6 +3,7 @@ module EasyML
     class DatasetManager
       require_relative "dataset_manager/writer"
       require_relative "dataset_manager/reader"
+      require_relative "dataset_manager/schema"
 
       attr_accessor :root_dir, :partition, :append_only, :filenames, :primary_key,
                     :partition_size, :s3_bucket, :s3_prefix, :s3_access_key_id,
@@ -54,6 +55,10 @@ module EasyML
 
         def cp(from, to)
           Writer.cp(from, to)
+        end
+
+        def normalize_schema(files)
+          Schema::Normalizer.new(files).normalize
         end
       end
 

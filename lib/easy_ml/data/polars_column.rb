@@ -19,8 +19,9 @@ module EasyML
         Polars::Decimal => :float,
         Polars::Float64 => :float,
         Polars::Int64 => :integer,
-        Polars::Float32 => :float,
         Polars::Int32 => :integer,
+        Polars::Int8 => :integer,
+        Polars::Float32 => :float,
         Polars::Boolean => :boolean,
         Polars::Datetime => :datetime,
         Polars::Date => :date,
@@ -138,8 +139,9 @@ module EasyML
             return :numeric
           rescue StandardError
             # If not numeric, check for datetime or categorical
-            if EasyML::Data::DateConverter.maybe_convert_date(Polars::DataFrame.new({ temp: series }),
+            is_datetime = EasyML::Data::DateConverter.maybe_convert_date(Polars::DataFrame.new({ temp: series }),
                                                               :temp)[:temp].dtype.is_a?(Polars::Datetime)
+            if is_datetime
               :datetime
             else
               categorical_or_text?(series)

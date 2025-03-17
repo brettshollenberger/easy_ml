@@ -688,6 +688,38 @@ RSpec.describe EasyML::Dataset do
     end
   end
 
+  describe "View datasets" do
+    let(:datasource) { file_datasource }
+    
+    
+    it "materializes a view dataset during refresh" do
+      mock_s3_download(single_file_dir)
+      mock_s3_upload
+      
+      view_dataset = EasyML::Dataset.create(
+        name: "CPL Leads",
+        view_class: "PayrollLeads",
+        datasource: datasource,
+        splitter_attributes: {
+          splitter_type: "date",
+          today: today,
+          date_col: "created_date",
+          months_test: 2,
+          months_valid: 2,
+        }
+      )
+      
+      view_dataset.refresh!
+      
+      # Verify that the dataset only contains records with loan_purpose = 'payroll'
+      expect(view_dataset).to be_processed
+      expect(view_dataset.data["loan_purpose"].unique.to_a).to eq(["payroll"])
+      
+      # Verify that the original datasource is unchanged
+      expect(view_dataset.datasource.data["loan_purpose"].unique.to_a).to include("payroll", "expansion")
+    end
+  end
+
   describe "hidden columns" do
     let(:dataset) do
       titanic_dataset

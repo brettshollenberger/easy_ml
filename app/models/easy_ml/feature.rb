@@ -277,22 +277,14 @@ module EasyML
         feature.fit_batch(batch_args.merge!(batch_id: batch_id))
       rescue => e
         EasyML::Feature.transaction do
-          return if dataset.reload.workflow_status == :failed
-
-          feature.update(workflow_status: :failed)
-          dataset.update(workflow_status: :failed)
-          build_error_with_context(dataset, e, batch_id, feature)
+          if dataset.reload.workflow_status != :failed
+            feature.update(workflow_status: :failed)
+            dataset.update(workflow_status: :failed)
+            EasyML::Event.handle_error(dataset, e)
+          end
         end
         raise e
       end
-    end
-
-    def self.build_error_with_context(dataset, error, batch_id, feature)
-      error = EasyML::Event.handle_error(dataset, error)
-      batch = feature.build_batch(batch_id: batch_id)
-
-      # Convert any dataframes in the context to serialized form
-      error.create_context(context: batch)
     end
 
     def self.fit_feature_failed(dataset, e)

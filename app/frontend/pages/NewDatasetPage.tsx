@@ -78,6 +78,7 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
     dataset: {
       name: '',
       datasource_id: '',
+      view_class: '',
       splitter_attributes: {
         splitter_type: selectedSplitterType,
         ...getDefaultConfig(selectedSplitterType)
@@ -246,6 +247,22 @@ export default function NewDatasetPage({ constants, datasources }: NewDatasetFor
                   label: datasource.name
                 }))}
                 placeholder="Select a datasource..."
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="view_class"
+                className="block text-sm font-medium text-gray-700"
+              >
+                View Class
+              </label>
+              <SearchableSelect
+                value={formData.dataset.view_class}
+                onChange={(value) => setData('dataset.view_class', value)}
+                options={constants.available_views}
+                className="mt-1"
+                placeholder="Select a view class (optional)..."
               />
             </div>
 

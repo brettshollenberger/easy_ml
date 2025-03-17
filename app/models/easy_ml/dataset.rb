@@ -20,6 +20,7 @@
 #  updated_at          :datetime         not null
 #  last_datasource_sha :string
 #  raw_schema          :jsonb
+#  view_class          :string
 #
 module EasyML
   class Dataset < ActiveRecord::Base
@@ -64,6 +65,7 @@ module EasyML
                                   reject_if: :all_blank
 
     validates :datasource, presence: true
+    validate :view_class_exists, if: -> { view_class.present? }
 
     add_configuration_attributes :remote_files
 
@@ -85,6 +87,10 @@ module EasyML
         feature_options: EasyML::Features::Registry.list_flat,
         splitter_constants: EasyML::Splitter.constants,
         embedding_constants: EasyML::Data::Embeddings::Embedder.constants,
+        available_views: Rails.root.join("app/datasets").glob("*.rb").map { |f| 
+          name = f.basename(".rb").to_s.camelize
+          { value: name, label: name.titleize }
+        }
       }
     end
 
@@ -148,7 +154,7 @@ module EasyML
       return @schema if @schema
       return read_attribute(:schema) if @serializing
 
-      schema = read_attribute(:schema) || datasource.schema || datasource.after_sync.schema
+      schema = read_attribute(:schema) || materialized_view&.schema || datasource.schema || datasource.after_sync.schema
       schema = set_schema(schema)
       @schema = EasyML::Data::PolarsSchema.deserialize(schema)
     end
@@ -157,7 +163,7 @@ module EasyML
       return @raw_schema if @raw_schema
       return read_attribute(:raw_schema) if @serializing
 
-      raw_schema = read_attribute(:raw_schema) || datasource.schema || datasource.after_sync.schema
+      raw_schema = read_attribute(:raw_schema) || materialized_view&.schema || datasource.schema || datasource.after_sync.schema
       raw_schema = set_raw_schema(raw_schema)
       @raw_schema = EasyML::Data::PolarsSchema.deserialize(raw_schema)
     end
@@ -178,7 +184,12 @@ module EasyML
       if datasource&.num_rows.nil?
         datasource.after_sync
       end
-      datasource&.num_rows
+
+      if materialized_view.present?
+        materialized_view.shape[0]
+      else
+        datasource&.num_rows
+      end
     end
 
     def abort!
@@ -232,6 +243,29 @@ module EasyML
 
     def prepare_features
       features.update_all(workflow_status: "ready")
+    end
+
+    def view_class_exists
+      begin
+        view_class.constantize
+      rescue NameError
+        errors.add(:view_class, "must be a valid class name")
+      end
+    end
+
+    def materialize_view(df)
+      df
+    end
+
+    def materialized_view
+      return @materialized_view if @materialized_view
+
+      original_df = datasource.data
+      if view_class.present?
+        @materialized_view = view_class.constantize.new.materialize_view(original_df)
+      else
+        @materialized_view = materialize_view(original_df)
+      end
     end
 
     def prepare!
@@ -423,6 +457,7 @@ module EasyML
     end
 
     def needs_learn?
+      return true if view_class.present?
       return true if columns_need_refresh?
 
       never_learned = columns.none?
@@ -471,6 +506,7 @@ module EasyML
     def normalize(df = nil, split_ys: false, inference: false, all_columns: false, features: self.features)
       df = apply_missing_columns(df, inference: inference)
       df = transform_columns(df, inference: inference, encode: false)
+      df = apply_cast(df)
       df = apply_features(df, features, inference: inference)
       df = apply_cast(df) if inference
       df = transform_columns(df, inference: inference)
@@ -798,7 +834,8 @@ module EasyML
       df = df.clone
       df = apply_features(df)
       processed.save(:train, df)
-      learn_statistics(type: :processed)
+      learn(delete: false)
+      learn_statistics(type: :processed, computed: true)
       processed.cleanup
     end
 
@@ -836,11 +873,12 @@ module EasyML
       return unless force || needs_refresh?
 
       cleanup
-      splitter.split(datasource) do |train_df, valid_df, test_df|
-        [:train, :valid, :test].zip([train_df, valid_df, test_df]).each do |segment, df|
-          raw.save(segment, df)
-        end
-      end
+
+      train_df, valid_df, test_df = splitter.split(self)
+      raw.save(:train, train_df)
+      raw.save(:valid, valid_df)
+      raw.save(:test, test_df)
+
       raw_schema # Set if not already set
     end
 

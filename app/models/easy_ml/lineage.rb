@@ -31,12 +31,13 @@ module EasyML
         }
         existing_lineage = existing_lineage.map do |key, lineage|
           matching_lineage = @lineage.detect { |ll| ll[:key].to_sym == lineage.key.to_sym }
+          next unless matching_lineage.present?
 
           lineage&.assign_attributes(
             occurred_at: matching_lineage[:occurred_at],
             description: matching_lineage[:description],
           )
-        end
+        end.compact
         missing_lineage.concat(existing_lineage)
       end
     end

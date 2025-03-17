@@ -16,7 +16,7 @@ RSpec.describe EasyML::Datasource do
         config.s3_access_key_id = "12345"
       end
 
-      mock_s3_download(s3_dir(single_file_dir, ".csv"))
+      mock_s3_download(single_file_dir)
       s3_datasource = EasyML::Datasource.create!(
         name: "s3 Datasource",
         datasource_type: "s3",
@@ -45,7 +45,7 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "refreshes synchronously" do
-      mock_s3_download(s3_dir(multi_file_dir, ".csv"))
+      mock_s3_download(multi_file_dir)
 
       s3_datasource = EasyML::Datasource.create!(
         name: "Multi File",
@@ -69,7 +69,7 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "automatically sets schema, raw schema, and column dtypes" do
-      mock_s3_download(s3_dir(multi_file_dir, ".csv"))
+      mock_s3_download(multi_file_dir)
 
       s3_datasource = EasyML::Datasource.create!(
         name: "Multi File",
@@ -119,7 +119,7 @@ RSpec.describe EasyML::Datasource do
     end
 
     it "refreshes asynchronously" do
-      mock_s3_download(s3_dir(multi_file_dir, ".csv"))
+      mock_s3_download(multi_file_dir)
       s3_datasource = EasyML::Datasource.create!(
         name: "Multi File",
         datasource_type: "s3",

@@ -6,28 +6,6 @@ RSpec.describe EasyML::Datasource do
   include ModelSpecHelper
   include FileSpecHelper
 
-  before(:each) do
-    # Backup any existing files
-    @file_backup = {}
-    Dir.glob(SPEC_ROOT.join("internal/easy_ml/datasources/**/*")).each do |file|
-      next unless File.file?(file)
-      @file_backup[file] = FileUtils.cp(file, "#{file}.bak")
-    end
-  end
-
-  after(:each) do
-    # Clean up any created files
-    FileUtils.rm_rf(Dir.glob(SPEC_ROOT.join("internal/easy_ml/datasources/**/*")))
-  end
-
-  after(:each) do
-    # Restore backed up files
-    @file_backup&.each do |original, backup|
-      FileUtils.cp(backup, original) if File.exist?(backup)
-      FileUtils.rm(backup)
-    end
-  end
-
   after(:each) do
     EasyML::Cleaner.clean
   end

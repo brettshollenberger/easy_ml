@@ -528,6 +528,18 @@ module EasyML
 
       return Polars.col(name).cast(expected_dtype).alias(name) if expected_dtype == actual_type
 
+      if encoding.present?
+        encoding_cast = case encoding.to_sym
+        when :one_hot
+          Polars.col(series.name).cast(Polars::Boolean).alias(series.name)
+        when :ordinal
+          Polars.col(series.name).cast(Polars::Int64).alias(series.name)
+        when :embedding
+          Polars.col(series.name).alias(series.name)
+        end
+        return encoding_cast
+      end
+
       cast_statement = case expected_dtype.to_s
                         when /Polars::List/
                           # we should start tracking polars args so we can know what type of list it is

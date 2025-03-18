@@ -101,10 +101,10 @@ module EasyML
       end
       cast_statements = (df.columns & schema.keys.map(&:to_s)).map do |df_col|
         db_col = column_index[df_col]
-        expected_dtype = schema[df_col.to_sym]
-        db_col.cast_statement(df, df_col, expected_dtype)
+        db_col.cast_statement(df[df_col])
       end
       df = df.with_columns(cast_statements)
+      df
     end
 
     def cast(processed_or_raw)

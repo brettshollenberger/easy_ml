@@ -44,25 +44,37 @@ module EasyML
           end
 
           def null_count
-            Polars.col(column.name).null_count.alias("#{column.name}__null_count")
+            Polars.col(column.name)
+                  .cast(column.polars_datatype)
+                  .null_count
+                  .alias("#{column.name}__null_count")
           end
 
           def num_rows
-            Polars.col(column.name).len.alias("#{column.name}__num_rows")
+            Polars.col(column.name)
+                  .cast(column.polars_datatype)
+                  .len
+                  .alias("#{column.name}__num_rows")
           end
 
           def most_frequent_value
-            Polars.col(column.name).filter(Polars.col(column.name).is_not_null).mode.first.alias("#{column.name}__most_frequent_value")
+            Polars.col(column.name)
+                  .cast(column.polars_datatype)
+                  .filter(Polars.col(column.name).is_not_null)
+                  .mode
+                  .first
+                  .alias("#{column.name}__most_frequent_value")
           end
 
           def last_value
             return unless dataset.date_column.present?
 
             Polars.col(column.name)
-              .sort_by(dataset.date_column.name, reverse: true, nulls_last: true)
-              .filter(Polars.col(column.name).is_not_null)
-              .first
-              .alias("#{column.name}__last_value")
+                  .cast(column.polars_datatype)
+                  .sort_by(dataset.date_column.name, reverse: true, nulls_last: true)
+                  .filter(Polars.col(column.name).is_not_null)
+                  .first
+                  .alias("#{column.name}__last_value")
           end
         end
       end

@@ -28,15 +28,15 @@ module EasyML
             )
             .select(queries).collect
           rescue => e
-            problematic_query = queries.detect { 
+            problematic_queries = queries.select { |query| 
               begin
-                dataset.send(type).send(split, all_columns: true, lazy: true).select(queries).collect
+                dataset.send(type).send(split, all_columns: true, lazy: true).select([query]).collect
                 false
               rescue => e
                 true
               end
             }
-            raise "Query failed for column #{problematic_query}, likely wrong datatype"
+            raise "Query failed for queries... likely due to wrong column datatype: #{problematic_queries.join("\n")}"
           end
         end
 

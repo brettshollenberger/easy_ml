@@ -522,27 +522,32 @@ module EasyML
       EasyML::Import::Column.from_config(config, dataset, action: action)
     end
 
-    def cast_statement(df, df_col, expected_dtype)
-      expected_dtype = expected_dtype.is_a?(Polars::DataType) ? expected_dtype.class : expected_dtype
-      actual_type = df[df_col].dtype
+    def cast_statement(series = nil)
+      expected_dtype = polars_datatype
+      actual_type = series&.dtype || expected_dtype
+
+      return Polars.col(name).cast(expected_dtype).alias(name) if expected_dtype == actual_type
 
       cast_statement = case expected_dtype.to_s
-                       when "Polars::Boolean"
+                        when /Polars::List/
+                          # we should start tracking polars args so we can know what type of list it is
+                          Polars.col(name)
+                        when /Polars::Boolean/
                           case actual_type.to_s
-                          when "Polars::Boolean"
-                            Polars.col(df_col).cast(expected_dtype)
-                          when "Polars::Utf8", "Polars::Categorical", "Polars::String"
-                            Polars.col(df_col).eq("true").cast(expected_dtype)
-                          when "Polars::Null"
-                            Polars.col(df_col)
+                          when /Polars::Boolean/, /Polars::Int/
+                            Polars.col(name).cast(expected_dtype)
+                          when /Polars::Utf/, /Polars::Categorical/, /Polars::String/
+                            Polars.col(name).eq("true").cast(expected_dtype)
+                          when /Polars::Null/
+                            Polars.col(name)
                           else
-                            raise "Unexpected dtype: #{actual_type} for column: #{df_col}"
+                            raise "Unexpected dtype: #{actual_type} for column: #{name}"
                           end
                         else
-                          Polars.col(df_col).cast(expected_dtype)
+                          Polars.col(name).cast(expected_dtype, strict: false)
                         end
 
-      cast_statement.alias(df_col)
+      cast_statement.alias(name)
     end
 
     def cast(value)

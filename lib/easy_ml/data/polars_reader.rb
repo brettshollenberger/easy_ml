@@ -175,7 +175,7 @@ module EasyML
           end
           combined_lazy_df = combined_lazy_df.with_columns(
             cast.map do |col, dtype|
-              Polars.col(col).cast(dtype).alias(col)
+              Polars.col(col).cast(dtype, strict: false).alias(col)
             end
           )
         end

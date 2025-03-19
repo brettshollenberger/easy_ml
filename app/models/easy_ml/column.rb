@@ -672,11 +672,13 @@ module EasyML
 
       needs_embed = self.needs_embed(df, compressed: true)
       return df if needs_embed.empty?
-      if needs_embed.columns.exclude?(embedding_column) || ((needs_embed.shape[0] == 1) && needs_embed.filter(Polars.col(embedding_column).is_null).count == 1)
+      if !embedding_store.empty? && (needs_embed.columns.exclude?(embedding_column) || ((needs_embed.shape[0] == 1) && needs_embed.filter(Polars.col(embedding_column).is_null).count == 1))
         needs_embed = decorate_embeddings(needs_embed, compressed: false)
       end
 
-      if (n_dimensions.present? && needs_embed.shape[1] > 0 && n_dimensions < needs_embed[embedding_column][0].count)
+      if needs_embed.columns.include?(embedding_column) &&
+        (n_dimensions.present? && needs_embed.shape[1] > 0 &&
+         n_dimensions < needs_embed[embedding_column][0].count)
         compressed = generator.compress(needs_embed, fit: fit)
         store_embeddings(compressed, compressed: true)
       else

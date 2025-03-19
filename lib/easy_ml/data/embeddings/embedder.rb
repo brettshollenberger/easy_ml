@@ -6,11 +6,19 @@ module EasyML
 
         # Provider-specific batch size recommendations
         BATCH_SIZES = {
-          openai: 500,    # OpenAI allows up to 2048 items per batch, but 500 is recommended
-          anthropic: 100, # Conservative default for Anthropic
+          openai: 100,     # Conservative default for OpenAI
+          anthropic: 100,  # Conservative default for Anthropic
           gemini: 100,    # Conservative default for Google's Gemini
           ollama: 50,     # Local models typically have more limited batch sizes
           default: 100,    # Default for any other provider
+        }
+
+        TOKEN_LIMITS = {
+          openai: 8191,    # text-embedding-3-small token limit
+          anthropic: 8000, # Conservative estimate for Claude
+          gemini: 8000,   # Conservative estimate for Gemini
+          ollama: 4096,   # Conservative estimate for local models
+          default: 8000,  # Conservative default
         }
 
         ADAPTERS = {
@@ -44,33 +52,37 @@ module EasyML
             .unique
 
           unique_texts = unique_df[col].to_a
+          return df if unique_texts.empty?
+
           unique_embeddings = batch_embed(unique_texts)
+          return df if unique_embeddings.empty?
 
-          # Create a new dataframe with text-embedding pairs
-          embeddings_df = Polars::DataFrame.new(
-            { col => unique_texts, output_column => unique_embeddings }
-          )
-          embeddings_df = embeddings_df.with_columns(
-            Polars.col(col).cast(df.schema[col]).alias(col)
-          )
+          # Create a new dataframe with text-embedding pairs and ensure types match
+          embeddings_df = Polars::DataFrame.new({ col => unique_texts, output_column => unique_embeddings })
+            .with_columns(Polars.col(col).cast(df.schema[col]).alias(col))
 
-          # Join the original dataframe with the embeddings
-          df = df.join(embeddings_df, on: col, how: "left")
+          # Join with error handling
+          begin
+            result = df.join(embeddings_df, on: col, how: "left")
 
-          if df.columns.include?("#{output_column}_right")
-            df = df.with_columns(
-              Polars.when(
-                Polars.col(output_column).is_null.not_
-              ).then(
-                Polars.col(output_column)
-              ).otherwise(
-                Polars.col("#{output_column}_right")
-              )
-            )
-            df = df.drop("#{output_column}_right")
+            if result.columns.include?("#{output_column}_right")
+              result = result.with_columns(
+                Polars.when(Polars.col("#{output_column}_right").is_not_null)
+                  .then(Polars.col("#{output_column}_right"))
+                  .otherwise(Polars.col(output_column))
+                  .alias(output_column)
+              ).drop("#{output_column}_right")
+            end
+
+            result
+          rescue => e
+            puts "Join failed: #{e.message}"
+            puts "Original df columns: #{df.columns.inspect}"
+            puts "Embeddings df columns: #{embeddings_df.columns.inspect}"
+            puts "Original df schema: #{df.schema.inspect}"
+            puts "Embeddings df schema: #{embeddings_df.schema.inspect}"
+            raise
           end
-
-          df
         end
 
         private
@@ -83,43 +95,45 @@ module EasyML
           texts = texts.compact.reject(&:empty?)
           return [] if texts.empty?
 
-          # Get batch size based on provider
+          # Get limits based on provider
           batch_size = config[:batch_size] || BATCH_SIZES[@llm] || BATCH_SIZES[:default]
+          token_limit = config[:token_limit] || TOKEN_LIMITS[@llm] || TOKEN_LIMITS[:default]
+
+          # Split texts into smaller batches if they might exceed token limit
+          # Rough estimate: 4 chars ≈ 1 token
+          texts = texts.chunk_while do |text1, text2|
+            current_batch_chars = text1.length
+            next_batch_chars = current_batch_chars + text2.length
+            (next_batch_chars / 4) < token_limit
+          end.to_a
 
           # Get parallel processing settings
           parallel_processes = config[:parallel_processes] || 4
           parallelism_mode = (config[:parallelism_mode] || :threads).to_sym
 
-          # Calculate optimal number of batches based on input size and processes
-          total_batches = (texts.size.to_f / batch_size).ceil
-          num_batches = [total_batches, parallel_processes].min
-          optimal_batch_size = (texts.size.to_f / num_batches).ceil
-
-          # Create batches based on the optimal batch size
-          batches = texts.each_slice(optimal_batch_size).to_a
-
-          parallel_processes = [parallel_processes, num_batches].min
-
           # Process in parallel with appropriate error handling
           all_embeddings = []
 
-          if parallel_processes > 1 && num_batches > 1
-            case parallelism_mode
-            when :threads
-              all_embeddings = Parallel.map(batches, in_threads: parallel_processes) do |batch|
-                with_retries { process_batch(batch) }
+          texts.each do |batch|
+            if parallel_processes > 1
+              case parallelism_mode
+              when :threads
+                embeddings = Parallel.map(batch.each_slice(batch_size), in_threads: parallel_processes) do |sub_batch|
+                  with_retries { process_batch(sub_batch) }
+                end
+              when :processes
+                embeddings = Parallel.map(batch.each_slice(batch_size), in_processes: parallel_processes) do |sub_batch|
+                  with_retries { process_batch(sub_batch) }
+                end
+              else
+                raise ArgumentError, "parallelism_mode must be :threads or :processes"
               end
-            when :processes
-              all_embeddings = Parallel.map(batches, in_processes: parallel_processes) do |batch|
-                with_retries { process_batch(batch) }
-              end
+              all_embeddings.concat(embeddings)
             else
-              raise ArgumentError, "parallelism_mode must be :threads or :processes"
-            end
-          else
-            # Sequential processing
-            batches.each do |batch|
-              all_embeddings << with_retries { process_batch(batch) }
+              # Sequential processing
+              batch.each_slice(batch_size) do |sub_batch|
+                all_embeddings << with_retries { process_batch(sub_batch) }
+              end
             end
           end
 
@@ -133,13 +147,20 @@ module EasyML
         end
 
         def unpack(embeddings)
-          raw_response = embeddings.raw_response.deep_symbolize_keys
+          return [] if embeddings.nil?
+          
+          raw_response = embeddings.respond_to?(:raw_response) ? embeddings.raw_response : embeddings
+          raw_response = raw_response.is_a?(String) ? JSON.parse(raw_response, symbolize_names: true) : raw_response.deep_symbolize_keys
+          
           case llm.to_sym
           when :openai
-            raw_response.dig(:data).map { |e| e[:embedding] }
+            raw_response.dig(:data)&.map { |e| e[:embedding] } || []
           else
             embeddings
           end
+        rescue JSON::ParserError => e
+          Rails.logger.error("Failed to parse embeddings response: #{e.message}")
+          []
         end
 
         def with_retries(max_retries: 3, base_delay: 1, max_delay: 60)

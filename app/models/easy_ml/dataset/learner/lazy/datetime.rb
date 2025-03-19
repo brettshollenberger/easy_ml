@@ -11,7 +11,7 @@ module EasyML
 
           def unique_count
             Polars.col(column.name)
-                  .cast(column.polars_datatype)
+                  .cast(datatype)
                   .n_unique.alias("#{column.name}__unique_count")
           end
         end

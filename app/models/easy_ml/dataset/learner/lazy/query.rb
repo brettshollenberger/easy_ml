@@ -33,6 +33,14 @@ module EasyML
             end
           end
 
+          def datatype
+            case column.polars_datatype.to_s
+            when /Polars::Categorical/ then Polars::String
+            else
+              column.polars_datatype
+            end
+          end
+
           private
 
           def full_dataset_query
@@ -45,21 +53,21 @@ module EasyML
 
           def null_count
             Polars.col(column.name)
-                  .cast(column.polars_datatype)
+                  .cast(datatype)
                   .null_count
                   .alias("#{column.name}__null_count")
           end
 
           def num_rows
             Polars.col(column.name)
-                  .cast(column.polars_datatype)
+                  .cast(datatype)
                   .len
                   .alias("#{column.name}__num_rows")
           end
 
           def most_frequent_value
             Polars.col(column.name)
-                  .cast(column.polars_datatype)
+                  .cast(datatype)
                   .filter(Polars.col(column.name).is_not_null)
                   .mode
                   .first
@@ -70,7 +78,7 @@ module EasyML
             return unless dataset.date_column.present?
 
             Polars.col(column.name)
-                  .cast(column.polars_datatype)
+                  .cast(datatype)
                   .sort_by(dataset.date_column.name, reverse: true, nulls_last: true)
                   .filter(Polars.col(column.name).is_not_null)
                   .first

@@ -400,7 +400,7 @@ RSpec.describe EasyML::Column do
                                                                          ])
 
         column.update(datatype: "null")
-        expect(column.errors.map(&:message)).to include("Can't cast from float to null")
+        expect(column.raw.data["Age"].dtype).to eq(Polars::Null)
       end
     end
   end

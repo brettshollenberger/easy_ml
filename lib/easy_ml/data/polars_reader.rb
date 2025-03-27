@@ -151,6 +151,8 @@ module EasyML
       end
 
       def self.query_files(files, drop_cols: [], filter: nil, limit: nil, select: nil, unique: nil, sort: nil, descending: false, cast: nil)
+        return Polars::LazyFrame.new if files.empty?
+
         lazy_frames = to_lazy_frames(files)
         combined_lazy_df = Polars.concat(lazy_frames)
 
@@ -354,6 +356,7 @@ module EasyML
                 Polars::Int64
               else
                 type = EasyML::Data::PolarsColumn.determine_type(first_file[k], true)
+                binding.pry if type.nil?
                 raise "Cannot determine polars type for field #{k}" if type.nil?
 
                 type

@@ -92,8 +92,9 @@ module EasyML
       # @return [Symbol] One of :numeric, :datetime, :categorical, or :text
       def determine_type(series, polars_type = false)
         dtype = series.dtype
+        return dtype if series.is_null.all?
 
-        if dtype.is_a?(Polars::Utf8)
+        if dtype.is_a?(Polars::Utf8) || dtype.is_a?(Polars::String)
           string_type = determine_string_type(series)
           if string_type == :datetime
             date = EasyML::Data::DateConverter.maybe_convert_date(series)
@@ -112,7 +113,7 @@ module EasyML
             :date
           when Polars::Boolean
             :boolean
-          when Polars::Utf8
+          when Polars::Utf8, Polars::String
             determine_string_type(series)
           when Polars::Null
             :null

@@ -40,7 +40,11 @@ module EasyML
         needs_sample = EasyML::Column.where(id: columns.map(&:id)).where(sample_values: nil).map(&:name)
         sampleable_cols = available_columns & needs_sample
         selects = sampleable_cols.map do |col|
-          Polars.col(col).filter(Polars.col(col).is_not_null).limit(5).alias(col)
+          non_null_values = Polars.col(col).filter(Polars.col(col).is_not_null)
+          Polars.concat([
+            non_null_values.limit(5),
+            Polars::Series.new(Array.new(5))
+          ]).limit(5).alias(col)
         end
         df = dataset.send(type).train(all_columns: true, lazy: true).select(selects).collect.to_h.transform_values(&:to_a)
       end

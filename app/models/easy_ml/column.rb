@@ -125,6 +125,7 @@ module EasyML
               .where(Datasource.arel_table[:sha].not_eq(nil))
           }
     scope :is_learning, -> { where(is_learning: true) }
+    scope :embedded, -> { where("preprocessing_steps->'training'->>'encoding' = ?", 'embedding') }
 
     def ensure_feature_exists
       if feature && !feature.has_code?
@@ -363,7 +364,6 @@ module EasyML
 
       EasyML::Data::PolarsColumn::TYPE_MAP[dtype.to_sym]
     end
-
     def polars_type
       return nil if polars_datatype.blank?
 
@@ -677,8 +677,12 @@ module EasyML
       end
 
       if needs_embed.columns.include?(embedding_column) &&
-        (n_dimensions.present? && needs_embed.shape[1] > 0 &&
-         n_dimensions < needs_embed[embedding_column][0].count)
+         n_dimensions.present? && 
+         needs_embed.shape[1] > 0 &&
+         !needs_embed[embedding_column].nil? &&
+         !needs_embed[embedding_column][0].nil? &&
+         needs_embed[embedding_column][0].respond_to?(:count) &&
+         n_dimensions < needs_embed[embedding_column][0].count
         compressed = generator.compress(needs_embed, fit: fit)
         store_embeddings(compressed, compressed: true)
       else
